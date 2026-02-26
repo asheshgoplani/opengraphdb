@@ -31,7 +31,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `CREATE INDEX ON :Label(property)` and `CREATE INDEX FOR (n:Label) ON (n.prop)` both complete without error and the index appears in `CALL db.indexes()`
   4. `CALL db.algo.shortestPath(src, dst)` and `CALL db.index.fulltext.queryNodes(...)` dispatch correctly without routing errors
   5. `ORDER BY n.score` on numeric values sorts by numeric value, not string order; `REMOVE n.prop` executes without error; `serve --port 9000 --protocol http` starts and prints the bound endpoint
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
 - [ ] 01-01: Audit and write regression tests for BUG-01 through BUG-09 (query engine and parser bugs)
