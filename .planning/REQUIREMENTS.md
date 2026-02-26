@@ -99,42 +99,42 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| DATA-04 | — | Pending |
-| DATA-05 | — | Pending |
-| QOPT-01 | — | Pending |
-| QOPT-02 | — | Pending |
-| INDX-01 | — | Pending |
-| IMEX-01 | — | Pending |
-| CLI-01 | — | Pending |
-| TEMP-01 | — | Pending |
-| RDF-01 | — | Pending |
-| EAPI-01 | — | Pending |
-| QUAL-01 | — | Pending |
-| QUAL-02 | — | Pending |
-| BUG-01 | — | Pending |
-| BUG-02 | — | Pending |
-| BUG-03 | — | Pending |
-| BUG-04 | — | Pending |
-| BUG-05 | — | Pending |
-| BUG-06 | — | Pending |
-| BUG-07 | — | Pending |
-| BUG-08 | — | Pending |
-| BUG-09 | — | Pending |
-| BUG-10 | — | Pending |
-| BUG-11 | — | Pending |
-| BUG-12 | — | Pending |
-| BUG-13 | — | Pending |
-| BUG-14 | — | Pending |
-| BUG-15 | — | Pending |
+| DATA-01 | Phase 2 | Pending |
+| DATA-02 | Phase 2 | Pending |
+| DATA-03 | Phase 2 | Pending |
+| DATA-04 | Phase 2 | Pending |
+| DATA-05 | Phase 2 | Pending |
+| QOPT-01 | Phase 4 | Pending |
+| QOPT-02 | Phase 4 | Pending |
+| INDX-01 | Phase 3 | Pending |
+| IMEX-01 | Phase 3 | Pending |
+| CLI-01 | Phase 3 | Pending |
+| TEMP-01 | Phase 5 | Pending |
+| RDF-01 | Phase 5 | Pending |
+| EAPI-01 | Phase 3 | Pending |
+| QUAL-01 | Phase 6 | Pending |
+| QUAL-02 | Phase 6 | Pending |
+| BUG-01 | Phase 1 | Pending |
+| BUG-02 | Phase 1 | Pending |
+| BUG-03 | Phase 1 | Pending |
+| BUG-04 | Phase 1 | Pending |
+| BUG-05 | Phase 1 | Pending |
+| BUG-06 | Phase 1 | Pending |
+| BUG-07 | Phase 1 | Pending |
+| BUG-08 | Phase 1 | Pending |
+| BUG-09 | Phase 1 | Pending |
+| BUG-10 | Phase 1 | Pending |
+| BUG-11 | Phase 1 | Pending |
+| BUG-12 | Phase 1 | Pending |
+| BUG-13 | Phase 1 | Pending |
+| BUG-14 | Phase 1 | Pending |
+| BUG-15 | Phase 1 | Pending |
 
 **Coverage:**
 - v1 requirements: 30 total
-- Mapped to phases: 0
-- Unmapped: 30 ⚠️
+- Mapped to phases: 30
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after initial definition*
+*Last updated: 2026-02-27 after roadmap creation*
