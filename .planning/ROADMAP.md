@@ -94,11 +94,11 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. After inserting 1000 versioned updates to the same node, running compaction reduces on-disk version count and does not change any AT TIME query result
   2. A graph loaded with a SHACL shapes file reports a violation when a node is missing a required property, and reports no violation when the graph is conformant
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: Implement append-only temporal versioning with background compaction
-- [ ] 05-02: Implement SHACL shape validation and violation reporting
+- [ ] 05-01-PLAN.md — Temporal versioning: TemporalNodeVersion data model, add/query/compact APIs, persistence, background compaction, 1000-version compaction test
+- [ ] 05-02-PLAN.md — SHACL validation: shapes parser via oxrdfio, validate-against-shacl engine, validate-shacl CLI command, conformance and violation tests
 
 ### Phase 6: Quality Validation
 **Goal**: The complete system fits within the published memory and disk budgets for the canonical 1M-node 5M-edge benchmark
