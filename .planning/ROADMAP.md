@@ -48,13 +48,13 @@ Plans:
   3. `CREATE (e:Event {dur: duration('P1Y2M')}) RETURN e.dur + duration('P3D')` performs duration arithmetic and returns a duration value
   4. `CREATE (n {tags: ['a','b','c']}) RETURN n.tags[1], n.tags[0..2]` returns indexed and sliced list elements correctly
   5. `CREATE (n {meta: {key: 'val'}}) RETURN n.meta.key, n.meta{key}` returns map values via dot-access and projection
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 02-01: Implement date and datetime property types (storage, Cypher literals, comparison operators)
-- [ ] 02-02: Implement duration property type (storage, Cypher literals, arithmetic operations)
-- [ ] 02-03: Implement list property type (storage, indexing, slicing, comprehensions)
-- [ ] 02-04: Implement map property type (storage, key access, projection operators)
+- [ ] 02-01-PLAN.md: Add Date and DateTime property types (PropertyValue variants, custom serde, ISO 8601 parsing, comparison, evaluator wiring)
+- [ ] 02-02-PLAN.md: Add Duration property type (PropertyValue variant, ISO 8601 duration parsing, duration arithmetic in BinaryOp)
+- [ ] 02-03-PLAN.md: Add List property type (PropertyValue variant, Subscript AST node, parser postfix [i]/[i..j], ListLiteral rewrite, ListComprehension evaluator)
+- [ ] 02-04-PLAN.md: Add Map property type (PropertyValue variant, MapProjection AST node, PropertyAccess on maps, MapLiteral rewrite, map projection)
 
 ### Phase 3: Operational Capabilities
 **Goal**: Developers can evolve schemas, perform reliable bulk imports, rely on automatic indexing, and call any Cypher query from the Rust embedded API
