@@ -17,6 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Schema Browser** - Schema exploration showing node labels, relationship types, and property keys from the backend
 - [x] **Phase 4: Landing Page and Playground** - Hero landing page with feature highlights and an interactive playground with pre-loaded sample graph and guided queries
 - [x] **Phase 5: Frontend Polish & Knowledge Graph Showcase** - Polish all pages to production quality with Linear/Vercel aesthetic, real-world knowledge graph showcase, redesigned playground with split-pane layout, and Playwright visual verification
+- [ ] **Phase 6: Production Demo Datasets & Live Backend Integration** - Create rich, realistic demo datasets loaded into the actual OpenGraphDB database, wire frontend to showcase live backend queries, and provide a seed script for reproducible demo data
 
 ## Phase Details
 
@@ -88,10 +89,22 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 05-05-PLAN.md — App page polish (header glass effect, connection status, results banner, property panel)
   - [x] 05-06-PLAN.md — Playwright E2E visual tests for all pages in light/dark mode
 
+### Phase 6: Production Demo Datasets & Live Backend Integration
+**Goal**: Visitors can see OpenGraphDB working with rich, realistic data served from the actual backend, with recognizable demo datasets that build trust and showcase capabilities
+**Depends on**: Phase 5
+**Requirements**: Demo dataset creation, backend data seeding, frontend live-backend integration, demo query showcase, reproducible seed script
+**Success Criteria** (what must be TRUE):
+  1. At least two rich demo datasets (recognizable domains like movies, knowledge graphs) are loaded into the actual OpenGraphDB database via Cypher CREATE statements or ogdb import
+  2. The frontend landing page and playground showcase these datasets with data served from the live backend, not static JSON
+  3. Demo queries demonstrate OpenGraphDB's capabilities including graph traversal, pattern matching, and relationship exploration
+  4. A seed script can recreate all demo data from scratch at any time
+  5. The /app route connects to the backend and lets users query the demo data interactively with meaningful results
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -100,3 +113,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Schema Browser | 1/1 | Complete | 2026-03-01 |
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
+| 6. Production Demo Datasets & Live Backend Integration | 0/0 | Not Started | - |
