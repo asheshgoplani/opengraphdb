@@ -1,140 +1,143 @@
-# Requirements: OpenGraphDB
+# Requirements: OpenGraphDB Frontend
 
-**Defined:** 2026-02-27
-**Core Value:** Extremely fast interactive graph traversal from CLI and embedded API with zero operational overhead
+**Defined:** 2026-03-01
+**Core Value:** Developers can visually explore and query their graph data through an interactive Cypher query interface with force-directed graph visualization
 
 ## v1 Requirements
 
-Requirements to close all remaining gaps from the implementation checklist and reach architecture-complete status.
+Requirements for initial release. Each maps to roadmap phases.
 
-### Data Model
+### Foundation
 
-- [ ] **DATA-01**: Engine supports `date` property type with Cypher literal parsing, storage serialization, and query comparison
-- [ ] **DATA-02**: Engine supports `datetime` property type with timezone handling, Cypher literal parsing, storage serialization, and query comparison
-- [ ] **DATA-03**: Engine supports `duration` property type with Cypher literal parsing, storage serialization, and arithmetic operations
-- [ ] **DATA-04**: Engine supports `list<T>` property type with heterogeneous element storage, Cypher list operations (indexing, slicing, comprehensions), and serialization
-- [ ] **DATA-05**: Engine supports `map<string, T>` property type with nested access, Cypher map operations (projection, key access), and serialization
+- [ ] **FOUND-01**: Application scaffolded with React + TypeScript + Vite + Tailwind + shadcn/ui
+- [ ] **FOUND-02**: Route-based code splitting delivers initial bundle under 500KB
+- [ ] **FOUND-03**: Dark mode works across all surfaces including graph canvas
+- [ ] **FOUND-04**: Responsive layout works on desktop and tablet viewports
+- [ ] **FOUND-05**: Configurable server URL for backend connection (default localhost:8080)
+- [ ] **FOUND-06**: Typed API client layer isolates all HTTP calls to backend REST endpoints
 
-### Query Optimization
+### Graph Visualization
 
-- [ ] **QOPT-01**: Query planner selects worst-case optimal join (WCOJ) strategy for multi-way pattern queries when estimated cardinality favors it over binary joins
-- [ ] **QOPT-02**: Execution engine supports factorized intermediate result representation to avoid Cartesian explosion on multi-pattern queries
+- [ ] **GRAPH-01**: User can view query results as a force-directed graph with nodes as labeled circles colored by label
+- [ ] **GRAPH-02**: User can view edges as directional lines labeled by relationship type
+- [ ] **GRAPH-03**: User can click a node to inspect its properties in a side panel
+- [ ] **GRAPH-04**: User can click an edge to inspect its properties in a side panel
+- [ ] **GRAPH-05**: User can drag nodes to reposition them in the graph canvas
+- [ ] **GRAPH-06**: User can scroll to zoom in and out of the graph
+- [ ] **GRAPH-07**: User can toggle between graph view and table view of query results
+- [ ] **GRAPH-08**: Result set is capped with a configurable LIMIT to prevent browser crashes on large queries
 
-### Indexes
+### Query Editor
 
-- [ ] **INDX-01**: Engine auto-creates property indexes on columns that exceed a configurable query frequency threshold
+- [ ] **QUERY-01**: User can write Cypher queries in an editor with syntax highlighting
+- [ ] **QUERY-02**: User can get schema-aware autocomplete suggestions for labels, relationship types, and property keys
+- [ ] **QUERY-03**: User can execute queries with Ctrl+Enter keyboard shortcut
+- [ ] **QUERY-04**: User can browse query history persisted across browser sessions
+- [ ] **QUERY-05**: User can navigate history with Ctrl+Up/Down keyboard shortcuts
+- [ ] **QUERY-06**: User can save/bookmark frequently used queries
+- [ ] **QUERY-07**: User can re-run any query from history or saved queries
+- [ ] **QUERY-08**: User can export query results as JSON
+- [ ] **QUERY-09**: User can export query results as CSV
 
-### Import/Export
+### Schema and Health
 
-- [ ] **IMEX-01**: Import supports all-or-nothing bulk mode that rolls back entire import on any record failure
+- [ ] **SCHEMA-01**: User can browse database schema showing node labels, relationship types, and property keys
+- [ ] **SCHEMA-02**: User can see database connection health status indicator (connected/disconnected)
 
-### CLI
+### Demo and Showcase
 
-- [ ] **CLI-01**: `migrate` command applies schema evolution scripts (add/drop labels, edge types, property keys, indexes) with dry-run support
-
-### Temporal
-
-- [ ] **TEMP-01**: Temporal graph supports append-only versioning with background compaction of superseded versions
-
-### RDF
-
-- [ ] **RDF-01**: Engine validates graph data against SHACL shape constraints and reports violations
-
-### Embedded API
-
-- [ ] **EAPI-01**: Rust embedded library exposes full Cypher query execution surface (`db.query()`, `db.query_profiled()`) as stable public API with documented types
-
-### Quality Gates
-
-- [ ] **QUAL-01**: Memory budget validated: 1M nodes + 5M edges uses less than 500MB resident memory
-- [ ] **QUAL-02**: Disk budget validated: 1M nodes + 5M edges uses less than 1GB on-disk storage
-
-### Bugfixes (CHANGELOG Unreleased)
-
-- [ ] **BUG-01**: MATCH planning correctly applies inline node-property filters (e.g., `(p:Person {name: 'Alice'})`)
-- [ ] **BUG-02**: Projection output names are disambiguated deterministically when duplicates occur (e.g., `a.name`, `c.name` yields `name`, `name_2`)
-- [ ] **BUG-03**: `CREATE INDEX ON :Label(property)` works end-to-end through parser, semantic analysis, planning, and execution
-- [ ] **BUG-04**: `CALL db.indexes()` and `CALL db.algo.shortestPath(src, dst)` dispatch correctly as built-in procedures
-- [ ] **BUG-05**: `CALL db.index.fulltext.queryNodes(...)` supports 1-3 argument forms with default k=10 and fallback property-scan
-- [ ] **BUG-06**: Relationship property projection returns null for missing properties instead of inconsistent-type error
-- [ ] **BUG-07**: Numeric `ORDER BY` sorts by value, not lexical insertion order
-- [ ] **BUG-08**: `REMOVE n.prop` property removal works through parser/planner/executor
-- [ ] **BUG-09**: `CREATE INDEX FOR (n:Label) ON (n.prop)` alternate syntax wired to existing index creation APIs
-- [ ] **BUG-10**: CLI path-bearing commands consistently accept `--db <path>` fallback
-- [ ] **BUG-11**: `query` parsing treats query text as single optional argument so `--format` flags work correctly
-- [ ] **BUG-12**: `CALL ...` statements route through core query engine, not legacy handler
-- [ ] **BUG-13**: `import` returns actionable error when database file does not exist
-- [ ] **BUG-14**: `serve` startup output includes protocol + bind endpoint
-- [ ] **BUG-15**: `serve` accepts `--port` with protocol-aware defaults (Bolt: 7687, HTTP: 8080, gRPC: 7689, MCP: 7687)
+- [ ] **DEMO-01**: User sees a landing page with hero section explaining OpenGraphDB's key differentiators
+- [ ] **DEMO-02**: User sees feature highlights and getting started guide on the landing page
+- [ ] **DEMO-03**: User can access an interactive playground with a pre-loaded sample graph
+- [ ] **DEMO-04**: User can run guided example queries in the playground that demonstrate graph visualization
 
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
 
-### Query Language
+### Admin Dashboard
 
-- **QLNG-01**: Full GQL (ISO 39075) conformance beyond current keyword aliases
-- **QLNG-02**: SPARQL endpoint (only if community demand is overwhelming)
+- **ADMIN-01**: User can view node count, edge count, and storage size metrics
+- **ADMIN-02**: User can view query latency and throughput charts
+- **ADMIN-03**: User can view active connections count
 
-### Deployment
+### Data Management
 
-- **DEPL-01**: Distributed sharding for horizontal scaling
-- **DEPL-02**: Real-time streaming / CDC
+- **DATA-01**: User can import data by uploading CSV files through drag-and-drop UI
+- **DATA-02**: User can import data by uploading JSON files through drag-and-drop UI
+- **DATA-03**: User can trigger data export from the UI
+- **DATA-04**: User can view and create indexes through an index management UI
 
-### Advanced
+### Advanced Exploration
 
-- **ADVN-01**: Adaptive query re-optimization during execution
-- **ADVN-02**: Graph schema evolution with online migration (zero-downtime)
+- **EXPLORE-01**: User can double-click a node to expand its neighborhood relationships
+- **EXPLORE-02**: User can double-click an expanded node to collapse it
+- **EXPLORE-03**: User can view query execution plans for EXPLAIN/PROFILE queries
+- **EXPLORE-04**: User can view schema as a clickable graph diagram
+- **EXPLORE-05**: User can set query parameters via a key-value editor panel
+- **EXPLORE-06**: User can apply rule-based conditional styling to nodes by property values
+
+### AI Integration
+
+- **AI-01**: User can generate Cypher queries from natural language input
+- **AI-02**: User can view MCP tool call activity from AI agents
 
 ## Out of Scope
 
+Explicitly excluded. Documented to prevent scope creep.
+
 | Feature | Reason |
 |---------|--------|
-| SPARQL query engine | One query language (Cypher) done well; RDF import/export handles interop |
-| Distributed sharding | Embedded-first architecture; not a distributed database |
-| Real-time streaming/CDC | Adds significant complexity; replication covers multi-node needs |
-| mmap I/O path | Architecture locks pread/pwrite only; predictable behavior and robust recovery |
+| User authentication/authorization | Not needed for v1 local-first developer tool |
+| Multi-database support | Single database connection sufficient for v1 |
+| Real-time streaming/subscriptions | Standard request-response sufficient; adds WebSocket complexity |
+| Mobile-optimized layout | Desktop and tablet focus per spec |
+| Bolt protocol from browser | Would need WebSocket bridge; HTTP REST is sufficient |
+| SPARQL query editor | OpenGraphDB does not support SPARQL; Cypher-first |
+| Full no-code graph builder | Target user writes Cypher; defer visual query building |
+| Render entire graph by default | Hairball problem; use LIMIT-bounded defaults instead |
 
 ## Traceability
 
+Which phases cover which requirements. Updated during roadmap creation.
+
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DATA-01 | Phase 2 | Pending |
-| DATA-02 | Phase 2 | Pending |
-| DATA-03 | Phase 2 | Pending |
-| DATA-04 | Phase 2 | Pending |
-| DATA-05 | Phase 2 | Pending |
-| QOPT-01 | Phase 4 | Pending |
-| QOPT-02 | Phase 4 | Pending |
-| INDX-01 | Phase 3 | Pending |
-| IMEX-01 | Phase 3 | Pending |
-| CLI-01 | Phase 3 | Pending |
-| TEMP-01 | Phase 5 | Pending |
-| RDF-01 | Phase 5 | Pending |
-| EAPI-01 | Phase 3 | Pending |
-| QUAL-01 | Phase 6 | Pending |
-| QUAL-02 | Phase 6 | Pending |
-| BUG-01 | Phase 1 | Pending |
-| BUG-02 | Phase 1 | Pending |
-| BUG-03 | Phase 1 | Pending |
-| BUG-04 | Phase 1 | Pending |
-| BUG-05 | Phase 1 | Pending |
-| BUG-06 | Phase 1 | Pending |
-| BUG-07 | Phase 1 | Pending |
-| BUG-08 | Phase 1 | Pending |
-| BUG-09 | Phase 1 | Pending |
-| BUG-10 | Phase 1 | Pending |
-| BUG-11 | Phase 1 | Pending |
-| BUG-12 | Phase 1 | Pending |
-| BUG-13 | Phase 1 | Pending |
-| BUG-14 | Phase 1 | Pending |
-| BUG-15 | Phase 1 | Pending |
+| FOUND-01 | Phase 1 | Pending |
+| FOUND-02 | Phase 1 | Pending |
+| FOUND-03 | Phase 1 | Pending |
+| FOUND-04 | Phase 1 | Pending |
+| FOUND-05 | Phase 1 | Pending |
+| FOUND-06 | Phase 1 | Pending |
+| GRAPH-01 | Phase 1 | Pending |
+| GRAPH-02 | Phase 1 | Pending |
+| GRAPH-03 | Phase 1 | Pending |
+| GRAPH-04 | Phase 1 | Pending |
+| GRAPH-05 | Phase 1 | Pending |
+| GRAPH-06 | Phase 1 | Pending |
+| GRAPH-07 | Phase 1 | Pending |
+| GRAPH-08 | Phase 1 | Pending |
+| QUERY-01 | Phase 2 | Pending |
+| QUERY-02 | Phase 2 | Pending |
+| QUERY-03 | Phase 2 | Pending |
+| QUERY-04 | Phase 2 | Pending |
+| QUERY-05 | Phase 2 | Pending |
+| QUERY-06 | Phase 2 | Pending |
+| QUERY-07 | Phase 2 | Pending |
+| QUERY-08 | Phase 2 | Pending |
+| QUERY-09 | Phase 2 | Pending |
+| SCHEMA-01 | Phase 3 | Pending |
+| SCHEMA-02 | Phase 1 | Pending |
+| DEMO-01 | Phase 4 | Pending |
+| DEMO-02 | Phase 4 | Pending |
+| DEMO-03 | Phase 4 | Pending |
+| DEMO-04 | Phase 4 | Pending |
 
 **Coverage:**
-- v1 requirements: 30 total
-- Mapped to phases: 30
-- Unmapped: 0
+- v1 requirements: 29 total
+- Mapped to phases: 29
+- Unmapped: 0 ✓
 
 ---
-*Requirements defined: 2026-02-27*
-*Last updated: 2026-02-27 after roadmap creation*
+*Requirements defined: 2026-03-01*
+*Last updated: 2026-03-01 after initial definition*
