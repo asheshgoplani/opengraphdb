@@ -1,4 +1,4 @@
-import { ApiError, type BackendSchemaResponse, type HealthStatus, type QueryResponse, type SchemaResponse } from '@/types/api'
+import { ApiError, type BackendQueryResponse, type BackendSchemaResponse, type HealthStatus, type QueryResponse, type SchemaResponse, type TraceStepEvent } from '@/types/api'
 
 export class ApiClient {
   constructor(private baseUrl: string) {}
@@ -44,5 +44,61 @@ export class ApiClient {
       relationshipTypes: raw.edge_types ?? [],
       propertyKeys: raw.property_keys ?? [],
     }
+  }
+
+  async queryWithTrace(
+    cypher: string,
+    onTraceStep: (step: TraceStepEvent) => void,
+  ): Promise<BackendQueryResponse> {
+    const response = await fetch(`${this.baseUrl}/query/trace`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: cypher }),
+    })
+
+    if (!response.ok) {
+      throw new Error(`Trace query failed: ${response.status}`)
+    }
+
+    const reader = response.body!.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let resultData: BackendQueryResponse | null = null
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      // Parse SSE events from buffer (events are separated by double newlines)
+      const events = buffer.split('\n\n')
+      buffer = events.pop() ?? '' // keep incomplete last chunk
+
+      for (const eventBlock of events) {
+        if (!eventBlock.trim()) continue
+        const lines = eventBlock.split('\n')
+        let eventType = ''
+        let data = ''
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            eventType = line.slice(7).trim()
+          } else if (line.startsWith('data: ')) {
+            data = line.slice(6)
+          }
+        }
+
+        if (eventType === 'trace' && data) {
+          const step = JSON.parse(data) as TraceStepEvent
+          onTraceStep(step)
+        } else if (eventType === 'result' && data) {
+          resultData = JSON.parse(data) as BackendQueryResponse
+        }
+      }
+    }
+
+    if (!resultData) {
+      throw new Error('Trace query completed without result event')
+    }
+    return resultData
   }
 }

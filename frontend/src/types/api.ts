@@ -39,6 +39,12 @@ export interface BackendSchemaResponse {
   property_keys: string[]
 }
 
+// Individual trace step delivered via SSE from POST /query/trace
+export interface TraceStepEvent {
+  nodeId: string | number
+  stepIndex: number
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

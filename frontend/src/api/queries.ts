@@ -42,3 +42,20 @@ export function useSchemaQuery() {
     enabled: true,
   })
 }
+
+export function useTraceQuery() {
+  const client = useApiClient()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({
+      cypher,
+      onTraceStep,
+    }: {
+      cypher: string
+      onTraceStep: (step: { nodeId: string | number; stepIndex: number }) => void
+    }) => client.queryWithTrace(cypher, onTraceStep),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['health'] })
+    },
+  })
+}
