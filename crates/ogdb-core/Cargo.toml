@@ -1,0 +1,29 @@
+[package]
+name = "ogdb-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["vector-search", "fulltext-search"]
+vector-search = ["dep:instant-distance"]
+fulltext-search = ["dep:tantivy"]
+tracing = ["dep:tracing"]
+wasm-bindings = ["dep:wasm-bindgen"]
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
+
+[dependencies]
+lz4_flex = "0.11"
+instant-distance = { version = "0.6.1", optional = true }
+roaring = "0.10"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tantivy = { version = "0.25", optional = true }
+tracing = { version = "0.1", optional = true }
+wasm-bindgen = { version = "0.2", optional = true }
+winnow = "0.6"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+zstd = "0.13"

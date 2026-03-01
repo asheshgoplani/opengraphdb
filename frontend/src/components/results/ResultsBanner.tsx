@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button'
-import { useQueryStore } from '@/stores/query'
+import { Badge } from '@/components/ui/badge'
 import type { QueryResponse } from '@/types/api'
-import { Download, LayoutGrid, Network } from 'lucide-react'
+import { FileJson, FileSpreadsheet } from 'lucide-react'
 import { exportAsCsv, exportAsJson } from '@/components/query/export-utils'
 
 interface ResultsBannerProps {
@@ -12,6 +12,26 @@ interface ResultsBannerProps {
   queryResponse?: QueryResponse
 }
 
+interface ResultsSummaryInput {
+  nodeCount: number
+  edgeCount: number
+  isLimited: boolean
+  resultLimit: number
+}
+
+export function getResultsSummaryText({
+  nodeCount,
+  edgeCount,
+  isLimited,
+  resultLimit,
+}: ResultsSummaryInput): string {
+  if (isLimited) {
+    return `Showing first ${resultLimit} records`
+  }
+
+  return `${nodeCount} nodes · ${edgeCount} edges`
+}
+
 export function ResultsBanner({
   nodeCount,
   edgeCount,
@@ -19,61 +39,45 @@ export function ResultsBanner({
   resultLimit,
   queryResponse,
 }: ResultsBannerProps) {
-  const viewMode = useQueryStore((s) => s.viewMode)
-  const setViewMode = useQueryStore((s) => s.setViewMode)
+  const summaryText = getResultsSummaryText({ nodeCount, edgeCount, isLimited, resultLimit })
 
   return (
-    <div className="flex items-center justify-between border-b px-3 py-1.5">
-      <div className="text-xs text-muted-foreground">
+    <div className="flex items-center justify-between gap-3 border-b bg-muted/30 px-4 py-2">
+      <div className="flex items-center gap-2">
+        <Badge variant="secondary" className="rounded-full text-xs font-medium">
+          {nodeCount} nodes
+        </Badge>
+        <Badge variant="secondary" className="rounded-full text-xs font-medium">
+          {edgeCount} edges
+        </Badge>
         {isLimited ? (
-          <span>
-            Showing {resultLimit} results (query returned more)
-          </span>
-        ) : (
-          <span>
-            Nodes: {nodeCount} | Edges: {edgeCount}
-          </span>
-        )}
+          <Badge className="rounded-full border-amber-500/40 bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300">
+            {summaryText}
+          </Badge>
+        ) : null}
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
         <Button
           variant="ghost"
-          size="icon"
-          className="h-7 w-7"
+          size="sm"
+          className="h-8 gap-1.5 px-2.5 hover:bg-accent"
           title="Export JSON"
           disabled={!queryResponse}
           onClick={() => queryResponse && exportAsJson(queryResponse)}
         >
-          <Download className="h-3.5 w-3.5" />
+          <FileJson className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">JSON</span>
         </Button>
         <Button
           variant="ghost"
-          size="icon"
-          className="h-7 w-7"
+          size="sm"
+          className="h-8 gap-1.5 px-2.5 hover:bg-accent"
           title="Export CSV"
           disabled={!queryResponse}
           onClick={() => queryResponse && exportAsCsv(queryResponse)}
         >
-          <Download className="h-3.5 w-3.5" />
-        </Button>
-        <div className="mx-1 h-5 w-px bg-border" />
-        <Button
-          variant={viewMode === 'graph' ? 'default' : 'ghost'}
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => setViewMode('graph')}
-          title="Graph view"
-        >
-          <Network className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          variant={viewMode === 'table' ? 'default' : 'ghost'}
-          size="icon"
-          className="h-7 w-7"
-          onClick={() => setViewMode('table')}
-          title="Table view"
-        >
-          <LayoutGrid className="h-3.5 w-3.5" />
+          <FileSpreadsheet className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">CSV</span>
         </Button>
       </div>
     </div>

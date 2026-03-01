@@ -1,91 +1,130 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { GraphCanvas } from '@/components/graph/GraphCanvas'
+import { ConnectionBadge } from '@/components/playground/ConnectionBadge'
+import { DatasetSwitcher } from '@/components/playground/DatasetSwitcher'
+import { QueryCard } from '@/components/playground/QueryCard'
+import { StatsPanel } from '@/components/playground/StatsPanel'
 import { Button } from '@/components/ui/button'
-import {
-  MOVIES_SAMPLE,
-  runPlaygroundQuery,
-  type PlaygroundQueryKey,
-} from '@/data/sampleGraph'
+import { getDatasetQueries, runDatasetQuery, type DatasetKey } from '@/data/datasets'
 import type { GraphData } from '@/types/graph'
 
-const GUIDED_QUERIES: Array<{ key: PlaygroundQueryKey; label: string; cypher: string }> = [
-  {
-    key: 'all',
-    label: 'All nodes',
-    cypher: 'MATCH (n) RETURN n LIMIT 50',
-  },
-  {
-    key: 'acted-in',
-    label: 'Actors & movies',
-    cypher: 'MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN p, m',
-  },
-  {
-    key: 'directed',
-    label: 'Directors',
-    cypher: 'MATCH (p:Person)-[:DIRECTED]->(m:Movie) RETURN p, m',
-  },
-  {
-    key: 'movies-only',
-    label: 'Movies only',
-    cypher: 'MATCH (m:Movie) RETURN m',
-  },
-]
+const DATASET_KEYS: DatasetKey[] = ['movies', 'social', 'fraud']
+
+function toDatasetKey(value: string | null): DatasetKey {
+  if (value && DATASET_KEYS.includes(value as DatasetKey)) {
+    return value as DatasetKey
+  }
+  return 'movies'
+}
 
 export default function PlaygroundPage() {
-  const [activeKey, setActiveKey] = useState<PlaygroundQueryKey>('all')
-  const [graphData, setGraphData] = useState<GraphData>(() => runPlaygroundQuery('all'))
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialDataset = toDatasetKey(searchParams.get('dataset'))
+  const [activeDataset, setActiveDataset] = useState<DatasetKey>(initialDataset)
+  const [activeQueryKey, setActiveQueryKey] = useState<string>('all')
+  const [graphData, setGraphData] = useState<GraphData>(() => runDatasetQuery(initialDataset, 'all'))
+  const [queryTimeMs, setQueryTimeMs] = useState<number>(0)
 
-  const activeQuery = GUIDED_QUERIES.find((query) => query.key === activeKey) ?? GUIDED_QUERIES[0]
+  const queries = useMemo(() => getDatasetQueries(activeDataset), [activeDataset])
 
-  const runGuidedQuery = (key: PlaygroundQueryKey) => {
-    setActiveKey(key)
-    setGraphData(runPlaygroundQuery(key))
+  const handleDatasetSwitch = (key: DatasetKey) => {
+    setActiveDataset(key)
+    setActiveQueryKey('all')
+    const start = performance.now()
+    setGraphData(runDatasetQuery(key, 'all'))
+    setQueryTimeMs(Math.round(performance.now() - start))
+    setSearchParams({ dataset: key })
   }
+
+  const handleQueryRun = (queryKey: string) => {
+    setActiveQueryKey(queryKey)
+    const start = performance.now()
+    setGraphData(runDatasetQuery(activeDataset, queryKey))
+    setQueryTimeMs(Math.round(performance.now() - start))
+  }
+
+  const labelCount = useMemo(() => {
+    return new Set(graphData.nodes.flatMap((node) => node.labels)).size
+  }, [graphData.nodes])
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="border-b bg-card">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between gap-3 px-3 py-2 sm:px-4">
-          <div className="flex items-center gap-2">
+      <header className="border-b bg-card/80 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-4 py-2">
+          <div className="flex items-center gap-3">
             <Button asChild variant="ghost" size="sm">
               <Link to="/" className="inline-flex items-center gap-1">
                 <ArrowLeft className="h-4 w-4" />
                 Back
               </Link>
             </Button>
-            <h1 className="text-base font-semibold sm:text-lg">Playground</h1>
+            <h1 className="text-base font-semibold">Playground</h1>
           </div>
-          <p className="hidden text-xs text-muted-foreground md:block">
-            Sample dataset: {MOVIES_SAMPLE.nodes.length} nodes, {MOVIES_SAMPLE.links.length} links
-          </p>
+          <ConnectionBadge queryTimeMs={queryTimeMs} />
         </div>
       </header>
 
-      <div className="border-b bg-muted/40">
-        <div className="mx-auto flex w-full max-w-7xl flex-col gap-2 px-3 py-3 sm:px-4">
-          <div className="flex flex-wrap gap-2">
-            {GUIDED_QUERIES.map((query) => (
-              <Button
-                key={query.key}
-                variant={activeKey === query.key ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => runGuidedQuery(query.key)}
-              >
-                {query.label}
-              </Button>
-            ))}
+      <div className="flex flex-1 overflow-hidden">
+        <aside className="hidden w-[320px] shrink-0 space-y-4 overflow-y-auto border-r bg-muted/20 p-4 md:block">
+          <DatasetSwitcher activeDataset={activeDataset} onSwitch={handleDatasetSwitch} />
+          <div>
+            <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Guided Queries
+            </p>
+            <div className="space-y-2">
+              {queries.map((query) => (
+                <QueryCard
+                  key={query.key}
+                  query={query}
+                  isActive={activeQueryKey === query.key}
+                  resultCount={
+                    activeQueryKey === query.key ? graphData.nodes.length : query.expectedResultCount
+                  }
+                  onClick={() => handleQueryRun(query.key)}
+                />
+              ))}
+            </div>
           </div>
-          <p className="hidden font-mono text-xs text-muted-foreground md:block">
-            {activeQuery.cypher}
-          </p>
+          <StatsPanel
+            nodeCount={graphData.nodes.length}
+            edgeCount={graphData.links.length}
+            labelCount={labelCount}
+          />
+        </aside>
+
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <div className="space-y-3 border-b bg-muted/15 p-3 md:hidden">
+            <DatasetSwitcher activeDataset={activeDataset} onSwitch={handleDatasetSwitch} />
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Guided Queries
+            </p>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {queries.map((query) => (
+                <Button
+                  key={query.key}
+                  variant={activeQueryKey === query.key ? 'default' : 'outline'}
+                  size="sm"
+                  className="shrink-0"
+                  onClick={() => handleQueryRun(query.key)}
+                >
+                  {query.label}
+                </Button>
+              ))}
+            </div>
+            <StatsPanel
+              nodeCount={graphData.nodes.length}
+              edgeCount={graphData.links.length}
+              labelCount={labelCount}
+            />
+          </div>
+
+          <main className="min-h-0 flex-1 overflow-hidden">
+            <GraphCanvas graphData={graphData} />
+          </main>
         </div>
       </div>
-
-      <main className="flex-1 overflow-hidden">
-        <GraphCanvas graphData={graphData} />
-      </main>
     </div>
   )
 }

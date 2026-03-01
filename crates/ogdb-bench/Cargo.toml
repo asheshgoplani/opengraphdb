@@ -1,0 +1,10 @@
+[package]
+name = "ogdb-bench"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dev-dependencies]
+libc = "0.2"
+ogdb-core = { path = "../ogdb-core" }
+tempfile = "3"

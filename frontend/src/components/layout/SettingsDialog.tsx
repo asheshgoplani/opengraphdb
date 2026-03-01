@@ -44,26 +44,28 @@ export function SettingsDialog() {
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" title="Settings">
+        <Button variant="ghost" size="icon" className="h-9 w-9" title="Settings">
           <Settings className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-md border bg-card/95 backdrop-blur-sm">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>
             Configure backend connectivity and query result limits.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div className="rounded-md border bg-muted/40 p-2">
-            <p className="mb-1 text-xs text-muted-foreground">Connection</p>
+        <div className="space-y-5 py-2">
+          <div className="rounded-lg border bg-muted/25 p-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Connection
+            </p>
             <ConnectionStatus />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <label
               htmlFor="server-url"
-              className="text-sm font-medium leading-none"
+              className="text-sm font-medium"
             >
               Server URL
             </label>
@@ -72,12 +74,16 @@ export function SettingsDialog() {
               value={localUrl}
               onChange={(e) => setLocalUrl(e.target.value)}
               placeholder="http://localhost:8080"
+              className="focus-visible:ring-2"
             />
+            <p className="text-xs text-muted-foreground">
+              Used for health checks and Cypher query execution.
+            </p>
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             <label
               htmlFor="result-limit"
-              className="text-sm font-medium leading-none"
+              className="text-sm font-medium"
             >
               Result Limit
             </label>
@@ -88,10 +94,14 @@ export function SettingsDialog() {
               onChange={(e) => setLocalLimit(e.target.value)}
               placeholder="500"
               min="1"
+              className="focus-visible:ring-2"
             />
+            <p className="text-xs text-muted-foreground">
+              Caps returned records for graph and table rendering.
+            </p>
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>

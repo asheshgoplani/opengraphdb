@@ -1,0 +1,8 @@
+[package]
+name = "ogdb-bolt"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ogdb-core = { path = "../ogdb-core" }

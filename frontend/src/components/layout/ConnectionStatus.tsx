@@ -1,30 +1,82 @@
 import { useHealthCheck } from '@/api/queries'
-import { cn } from '@/lib/utils'
+import { useSettingsStore } from '@/stores/settings'
+
+type ConnectionStatusVariant = 'connecting' | 'connected' | 'disconnected'
+
+interface ConnectionStatusModelInput {
+  isConnecting: boolean
+  isConnected: boolean
+  serverUrl: string
+}
+
+interface ConnectionStatusModel {
+  variant: ConnectionStatusVariant
+  statusText: string
+  serverLabel: string | null
+}
+
+function toServerLabel(serverUrl: string): string {
+  try {
+    return new URL(serverUrl).host
+  } catch {
+    return serverUrl.replace(/^https?:\/\//, '')
+  }
+}
+
+export function getConnectionStatusModel({
+  isConnecting,
+  isConnected,
+  serverUrl,
+}: ConnectionStatusModelInput): ConnectionStatusModel {
+  if (isConnecting) {
+    return {
+      variant: 'connecting',
+      statusText: 'Connecting...',
+      serverLabel: null,
+    }
+  }
+
+  if (isConnected) {
+    return {
+      variant: 'connected',
+      statusText: 'Connected',
+      serverLabel: toServerLabel(serverUrl),
+    }
+  }
+
+  return {
+    variant: 'disconnected',
+    statusText: 'Disconnected',
+    serverLabel: null,
+  }
+}
 
 export function ConnectionStatus() {
   const { data, isLoading, isFetching } = useHealthCheck()
+  const serverUrl = useSettingsStore((s) => s.serverUrl)
 
-  const isConnecting = isLoading || isFetching
-  const isConnected = data?.connected ?? false
-
-  const dotColor = isConnecting
-    ? 'bg-amber-500 animate-pulse'
-    : isConnected
-      ? 'bg-green-500'
-      : 'bg-red-500'
-
-  const statusText = isConnecting
-    ? 'Connecting...'
-    : isConnected
-      ? 'Connected'
-      : 'Disconnected'
+  const model = getConnectionStatusModel({
+    isConnecting: isLoading || isFetching,
+    isConnected: data?.connected ?? false,
+    serverUrl,
+  })
 
   return (
-    <div className="flex items-center gap-1.5">
-      <div className={cn('w-2.5 h-2.5 rounded-full', dotColor)} />
-      <span className="text-xs text-muted-foreground hidden sm:inline">
-        {statusText}
-      </span>
+    <div className="flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs">
+      {model.variant === 'connected' ? (
+        <span className="relative flex h-2 w-2">
+          <span className="absolute h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative h-2 w-2 rounded-full bg-emerald-500" />
+        </span>
+      ) : model.variant === 'disconnected' ? (
+        <span className="h-2 w-2 rounded-full bg-red-500" />
+      ) : (
+        <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+      )}
+      <span className="font-medium text-foreground">{model.statusText}</span>
+      {model.serverLabel ? (
+        <span className="hidden text-muted-foreground sm:inline">· {model.serverLabel}</span>
+      ) : null}
     </div>
   )
 }

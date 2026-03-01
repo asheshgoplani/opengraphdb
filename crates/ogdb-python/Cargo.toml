@@ -1,0 +1,20 @@
+[package]
+name = "ogdb-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+name = "ogdb_python"
+crate-type = ["cdylib", "rlib"]
+
+[features]
+default = []
+python = ["dep:pyo3"]
+extension-module = ["python", "pyo3/extension-module"]
+
+[dependencies]
+ogdb-core = { path = "../ogdb-core" }
+ogdb-cli = { path = "../ogdb-cli" }
+pyo3 = { version = "0.21", optional = true, features = ["abi3-py39"] }
+serde_json = "1"

@@ -1,10 +1,42 @@
 import type { GraphNode } from '@/types/graph'
-import type { CanvasColors } from './useGraphColors'
+import type { CanvasColors } from './canvasColors.js'
 
 export const LABEL_COLORS = [
-  '#6366f1', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6',
-  '#ef4444', '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#a855f7',
+  '#818cf8',
+  '#f472b6',
+  '#fbbf24',
+  '#34d399',
+  '#60a5fa',
+  '#a78bfa',
+  '#fb923c',
+  '#2dd4bf',
+  '#e879f9',
+  '#38bdf8',
+  '#a3e635',
+  '#fb7185',
 ]
+
+function lightenColor(hex: string, percent: number): string {
+  const num = parseInt(hex.replace('#', ''), 16)
+  const r = Math.min(255, (num >> 16) + Math.round(2.55 * percent))
+  const g = Math.min(255, ((num >> 8) & 0x00ff) + Math.round(2.55 * percent))
+  const b = Math.min(255, (num & 0x0000ff) + Math.round(2.55 * percent))
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
+}
+
+function darkenColor(hex: string, percent: number): string {
+  const num = parseInt(hex.replace('#', ''), 16)
+  const r = Math.max(0, (num >> 16) - Math.round(2.55 * percent))
+  const g = Math.max(0, ((num >> 8) & 0x00ff) - Math.round(2.55 * percent))
+  const b = Math.max(0, (num & 0x0000ff) - Math.round(2.55 * percent))
+  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`
+}
+
+function toDisplayText(value: unknown, fallback: string): string {
+  if (typeof value === 'string' && value.trim().length > 0) return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return fallback
+}
 
 export function getLabelColor(
   label: string,
@@ -21,27 +53,57 @@ export function paintNode(
   ctx: CanvasRenderingContext2D,
   globalScale: number,
   colors: CanvasColors,
-  labelIndex: Map<string, number>
+  labelIndex: Map<string, number>,
+  connectionCounts?: Map<string | number, number>
 ) {
   const label = node.label || node.labels?.[0] || String(node.id)
+  const displayName = toDisplayText(node.properties?.name ?? node.properties?.title, label)
   const nodeColor = getLabelColor(node.labels?.[0] || 'default', labelIndex)
-  const radius = 6
-  const fontSize = Math.max(10 / globalScale, 2)
+  const connections = connectionCounts?.get(node.id) ?? 0
+  const radius = 5 + Math.min(connections * 0.5, 7)
+  const fontSize = Math.max(11 / globalScale, 2.5)
+  const x = node.x ?? 0
+  const y = node.y ?? 0
 
-  // Draw circle
+  // Draw a subtle outer glow for depth.
+  ctx.save()
+  ctx.shadowColor = nodeColor
+  ctx.shadowBlur = Math.max(8 / globalScale, 4)
+  ctx.globalAlpha = 0.2
   ctx.beginPath()
-  ctx.arc(node.x!, node.y!, radius, 0, 2 * Math.PI)
+  ctx.arc(x, y, radius, 0, 2 * Math.PI)
   ctx.fillStyle = nodeColor
   ctx.fill()
-  ctx.strokeStyle = colors.border
+  ctx.restore()
+
+  const gradient = ctx.createRadialGradient(
+    x - radius * 0.3,
+    y - radius * 0.3,
+    radius * 0.1,
+    x,
+    y,
+    radius
+  )
+  gradient.addColorStop(0, lightenColor(nodeColor, 30))
+  gradient.addColorStop(0.7, nodeColor)
+  gradient.addColorStop(1, darkenColor(nodeColor, 20))
+
+  ctx.beginPath()
+  ctx.arc(x, y, radius, 0, 2 * Math.PI)
+  ctx.fillStyle = gradient
+  ctx.fill()
+  ctx.strokeStyle = darkenColor(nodeColor, 30)
   ctx.lineWidth = 0.5
   ctx.stroke()
 
-  // Draw label text below node
-  ctx.font = `${fontSize}px Inter, system-ui, sans-serif`
+  // Draw label text below node with background-aware shadow for contrast.
+  ctx.font = `500 ${fontSize}px Inter, system-ui, -apple-system, sans-serif`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'top'
+  const text = displayName.length > 18 ? `${displayName.slice(0, 15)}...` : displayName
+  ctx.shadowColor = colors.bg
+  ctx.shadowBlur = 3
   ctx.fillStyle = colors.nodeText
-  const truncated = label.length > 15 ? label.slice(0, 12) + '...' : label
-  ctx.fillText(truncated, node.x!, node.y! + radius + 2)
+  ctx.fillText(text, x, y + radius + 3)
+  ctx.shadowBlur = 0
 }

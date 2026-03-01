@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSettingsStore } from '@/stores/settings'
 import { resolveTheme } from '@/components/layout/theme-utils'
-
-export interface CanvasColors {
-  bg: string
-  text: string
-  edge: string
-  border: string
-  nodeText: string
-}
+import type { CanvasColors } from './canvasColors'
+export type { CanvasColors } from './canvasColors'
 
 function useResolvedTheme(): 'light' | 'dark' {
   const theme = useSettingsStore((s) => s.theme)
@@ -40,19 +34,27 @@ export function useGraphColors(): CanvasColors {
   return useMemo(() => {
     if (resolved === 'dark') {
       return {
-        bg: '#1a1a2e',
-        text: '#e0e0e0',
-        edge: '#4a4a6a',
-        border: '#2a2a4e',
-        nodeText: '#e0e0e0',
+        bg: '#0f0f1a',
+        text: '#e2e8f0',
+        edge: '#334155',
+        border: '#1e293b',
+        nodeText: '#f1f5f9',
+        gridDot: '#1e293b',
+        nodeShadow: 'rgba(99, 102, 241, 0.3)',
+        edgeLabel: '#94a3b8',
+        edgeLabelBg: 'rgba(15, 15, 26, 0.85)',
       }
     }
     return {
-      bg: '#ffffff',
-      text: '#1a1a1a',
-      edge: '#cccccc',
-      border: '#e0e0e0',
-      nodeText: '#1a1a1a',
+      bg: '#fafbfc',
+      text: '#0f172a',
+      edge: '#cbd5e1',
+      border: '#e2e8f0',
+      nodeText: '#1e293b',
+      gridDot: '#e2e8f0',
+      nodeShadow: 'rgba(99, 102, 241, 0.15)',
+      edgeLabel: '#64748b',
+      edgeLabelBg: 'rgba(250, 251, 252, 0.85)',
     }
   }, [resolved])
 }

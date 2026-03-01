@@ -1,40 +1,28 @@
-import { Link } from 'react-router-dom'
+import { LandingNav } from '@/components/landing/LandingNav'
 import { HeroSection } from '@/components/landing/HeroSection'
+import { ShowcaseSection } from '@/components/landing/ShowcaseSection'
 import { FeaturesSection } from '@/components/landing/FeaturesSection'
 import { GettingStartedSection } from '@/components/landing/GettingStartedSection'
-import { Button } from '@/components/ui/button'
 
 export default function LandingPage() {
   const year = new Date().getFullYear()
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
-          <Link to="/" className="text-base font-semibold sm:text-lg">
-            OpenGraphDB
-          </Link>
-          <nav className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/playground">Playground</Link>
-            </Button>
-            <Button asChild size="sm">
-              <Link to="/app">Open App</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
+    <div className="min-h-screen scroll-smooth bg-background text-foreground">
+      <LandingNav />
 
       <main>
         <HeroSection />
+        <ShowcaseSection />
         <FeaturesSection />
         <GettingStartedSection />
       </main>
 
-      <footer className="border-t py-8">
-        <p className="mx-auto max-w-6xl px-4 text-center text-sm text-muted-foreground sm:px-6">
-          &copy; {year} OpenGraphDB. Built for graph-native workloads.
-        </p>
+      <footer className="border-t border-border/80 py-10">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 sm:flex-row sm:px-6">
+          <p className="text-sm text-muted-foreground">&copy; {year} OpenGraphDB</p>
+          <p className="text-sm text-muted-foreground">Built for graph-native workloads.</p>
+        </div>
       </footer>
     </div>
   )

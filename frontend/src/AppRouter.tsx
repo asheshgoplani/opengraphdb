@@ -7,7 +7,13 @@ const PlaygroundPage = lazy(() => import('./pages/PlaygroundPage'))
 
 export function AppRouter() {
   return (
-    <Suspense fallback={null}>
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center bg-background">
+          <p className="animate-pulse text-muted-foreground">Loading...</p>
+        </div>
+      }
+    >
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/playground" element={<PlaygroundPage />} />

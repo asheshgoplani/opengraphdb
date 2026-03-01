@@ -1,0 +1,81 @@
+syntax = "proto3";
+
+package opengraphdb.v1;
+
+service OpenGraphDb {
+  rpc Query(QueryRequest) returns (QueryResponse);
+  rpc CreateNode(CreateNodeRequest) returns (CreateNodeResponse);
+  rpc AddEdge(AddEdgeRequest) returns (AddEdgeResponse);
+  rpc Import(ImportRequest) returns (ImportResponse);
+  rpc Export(ExportRequest) returns (ExportResponse);
+  rpc Backup(BackupRequest) returns (BackupResponse);
+  rpc Metrics(MetricsRequest) returns (MetricsResponse);
+}
+
+message QueryRequest {
+  string query = 1;
+  string auth_token = 2;
+}
+
+message QueryResponse {
+  string json_result = 1;
+}
+
+message CreateNodeRequest {
+  repeated string labels = 1;
+  map<string, string> properties = 2;
+  string auth_token = 3;
+}
+
+message CreateNodeResponse {
+  uint64 node_id = 1;
+}
+
+message AddEdgeRequest {
+  uint64 src = 1;
+  uint64 dst = 2;
+  string edge_type = 3;
+  map<string, string> properties = 4;
+  string auth_token = 5;
+}
+
+message AddEdgeResponse {
+  uint64 edge_id = 1;
+}
+
+message ImportRequest {
+  bytes payload = 1;
+  string format = 2;
+  string auth_token = 3;
+}
+
+message ImportResponse {
+  uint64 imported_nodes = 1;
+  uint64 imported_edges = 2;
+}
+
+message ExportRequest {
+  string format = 1;
+  string auth_token = 2;
+}
+
+message ExportResponse {
+  bytes payload = 1;
+}
+
+message BackupRequest {
+  string destination_path = 1;
+  bool online = 2;
+  bool compact = 3;
+  string auth_token = 4;
+}
+
+message BackupResponse {
+  string status = 1;
+}
+
+message MetricsRequest {}
+
+message MetricsResponse {
+  string json_metrics = 1;
+}

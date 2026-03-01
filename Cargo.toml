@@ -1,0 +1,18 @@
+[workspace]
+members = [
+  "crates/ogdb-core",
+  "crates/ogdb-bolt",
+  "crates/ogdb-cli",
+  "crates/ogdb-e2e",
+  "crates/ogdb-bench",
+  "crates/ogdb-tck",
+  "crates/ogdb-ffi",
+  "crates/ogdb-python",
+  "crates/ogdb-node",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.2.0"
+edition = "2021"
+license = "Apache-2.0"

@@ -1,0 +1,11 @@
+[package]
+name = "ogdb-e2e"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ogdb-core = { path = "../ogdb-core" }
+ogdb-cli = { path = "../ogdb-cli" }
+ogdb-bolt = { path = "../ogdb-bolt" }
+serde_json = "1"

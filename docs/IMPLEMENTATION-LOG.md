@@ -3218,3 +3218,325 @@ Validation:
 Notes:
 - Frontend Phase 04 plans `04-01`, `04-02`, and `04-03` are complete and validated with frontend checks.
 - Root script failures are inherited workspace-state issues outside the frontend scope.
+
+---
+
+## 2026-03-01 — Step 069: Frontend Phase 05-01 (Graph Visualization Polish + Showcase Utilities)
+
+Tests Added:
+- `frontend/src/components/graph/NodeRenderer.test.ts`:
+  - deterministic label-color mapping
+  - connection-count radius scaling and property-driven display-label rendering behavior
+- `frontend/src/components/graph/GraphLegend.test.tsx`:
+  - empty-label no-render behavior
+  - rendered legend entries with mapped swatch colors
+- `frontend/vitest/graph-polish.test.tsx`:
+  - vitest smoke coverage for color mapping and legend overlay markup
+
+Implementation:
+- Extended `frontend/tailwind.config.js` with:
+  - keyframes: `fadeIn`, `slideUp`, `slideIn`, `scaleIn`
+  - animation shorthands: `fade-in`, `slide-up`, `slide-in`, `scale-in`
+  - retained `tailwindcss-animate` plugin support.
+- Added reusable animation/glass utilities in `frontend/src/index.css`:
+  - `.animate-delay-100` through `.animate-delay-500`
+  - `.animate-fill-both`
+  - `.glass`
+  - refined light/dark CSS custom properties for a more premium default palette.
+- Added `frontend/src/components/graph/canvasColors.ts` and expanded graph color surface with grid-dot and edge-label/backplate fields.
+- Updated `frontend/src/components/graph/useGraphColors.ts` with refined dark/light palettes:
+  - dark background `#0f0f1a`
+  - light background `#fafbfc`
+  - additional edge-label and dot-grid colors.
+- Reworked `frontend/src/components/graph/NodeRenderer.ts`:
+  - curated cross-theme label palette
+  - radial gradient node fill + subtle glow
+  - connection-count-based node radius scaling
+  - property-first display label (`name`/`title`) with truncation and readability shadow.
+- Added `frontend/src/components/graph/GraphLegend.tsx` and integrated it into `GraphCanvas`.
+- Updated `frontend/src/components/graph/GraphCanvas.tsx`:
+  - connection-count computation
+  - unique-label extraction
+  - legend overlay render
+  - curved links + directional arrows
+  - semi-transparent edge label backplates
+  - dot-grid background and smoother force settings.
+- Added `frontend/vitest.config.mjs` to run dedicated vitest coverage without conflicting with existing `node:test` suites.
+
+Documentation Updated:
+- `CHANGELOG.md`
+- `docs/IMPLEMENTATION-LOG.md`
+- `.planning/phases/05-frontend-polish-and-showcase/05-01-SUMMARY.md`
+
+Validation:
+- `cd frontend && npm run test:unit` (pass)
+- `cd frontend && npx tsc --noEmit` (pass)
+- `cd frontend && npx vitest run` (pass)
+- `cd frontend && npx vite build` (pass)
+- `cd /Users/ashesh/opengraphdb && ./scripts/test.sh` (fails due existing rustfmt diffs in non-frontend Rust crates)
+- `cd /Users/ashesh/opengraphdb && ./scripts/coverage.sh` (fails configured gate):
+  - observed totals: `96.23%` lines, `1621` uncovered lines
+
+Notes:
+- This phase is complete for the frontend scope and meets the requested visual polish targets.
+- Root-script failures are inherited workspace-state issues outside frontend files changed in this step.
+
+---
+
+## 2026-03-01 — Step 070: Frontend Phase 05-02 (Social/Fraud Sample Datasets + Unified Registry)
+
+Tests Added:
+- `frontend/src/data/datasets.test.ts`:
+  - dataset list coverage for exactly `movies`, `social`, `fraud`
+  - metadata count/label parity checks against registered source data
+  - guided-query presence checks (including `all`)
+  - `runDatasetQuery(..., 'all')` deep-equality + clone/no-alias checks
+  - relationship-filtered query orphan checks (no unreferenced nodes)
+  - dataset label assertions for movie/social/fraud domain labels
+
+Implementation:
+- Added `frontend/src/data/socialGraph.ts`:
+  - `SOCIAL_SAMPLE` with 15 nodes (`User`, `Post`, `Group`) and relationship coverage for `FOLLOWS`, `CREATED`, `LIKED`, `POSTED_IN`, `MEMBER_OF`
+  - `SOCIAL_QUERIES` guided-query definitions with `key`, `label`, `description`, `cypher`, `expectedResultCount`, and typed filter functions
+- Added `frontend/src/data/fraudGraph.ts`:
+  - `FRAUD_SAMPLE` with 17 nodes (`Account`, `Transaction`, `Device`, `IP`) and relationship coverage for `SENT_TO`, `RECEIVED`, `USED_DEVICE`, `LOGGED_FROM`, `FLAGGED`
+  - `FRAUD_QUERIES` guided-query definitions including suspicious shared-device/shared-IP pattern filtering
+- Added `frontend/src/data/datasets.ts` unified registry:
+  - exports: `DATASETS`, `DatasetKey`, `DatasetMeta`, `GuidedQuery`, `getDatasetList`, `getDatasetQueries`, `runDatasetQuery`
+  - movies dataset wrapped into guided-query format in the same registry as social/fraud datasets
+  - query filtering paths return cloned graph objects (no source mutation aliasing)
+
+Documentation Updated:
+- `CHANGELOG.md`
+- `docs/IMPLEMENTATION-LOG.md`
+- `.planning/phases/05-frontend-polish-and-showcase/05-02-SUMMARY.md`
+
+Validation:
+- `cd frontend && npm run test:unit` (pass)
+- `cd frontend && npx tsc --noEmit` (pass)
+- `cd frontend && npx vitest run` (pass)
+- `cd frontend && npx vite build` (pass)
+- `cd /Users/ashesh/opengraphdb && ./scripts/test.sh` (fails due pre-existing rustfmt drift in non-frontend crates)
+- `cd /Users/ashesh/opengraphdb && ./scripts/coverage.sh` (fails configured coverage gate):
+  - observed totals: `96.23%` lines, `1621` uncovered lines
+
+Notes:
+- Frontend Phase 05-02 deliverables are complete and validated with the requested frontend checks.
+- Root-script failures are inherited from existing workspace-state issues outside frontend files changed in this step.
+
+---
+
+## 2026-03-01 — Step 071: Frontend Phase 05-03 (Landing Redesign + Showcase Polish)
+
+Tests Added:
+- `frontend/vitest/landing-polish.test.tsx`:
+  - sticky navigation anchor and route-link assertions (`#features`, `#use-cases`, `#get-started`, `/playground`, `/app`)
+  - showcase-section dataset card and dataset-query-link coverage
+  - showcase-card metadata rendering assertions
+  - getting-started copy-control rendering assertions
+
+Implementation:
+- Added polished landing navigation in `frontend/src/components/landing/LandingNav.tsx`:
+  - sticky glass bar (`bg-background/80`, `backdrop-blur-md`, `z-50`)
+  - OpenGraphDB wordmark with graph icon
+  - desktop section anchors and right-aligned Playground/Open App buttons.
+- Added animated hero background graph in `frontend/src/components/landing/HeroGraphBackground.tsx`:
+  - lightweight `react-force-graph-2d` canvas
+  - small generated graph (10 nodes / 14 links)
+  - slow continuous motion (`d3AlphaDecay=0.005`, `d3AlphaMin=0.001`, `d3VelocityDecay=0.15`)
+  - non-interactive (`pointer-events-none`) low-opacity rendering.
+- Reworked `frontend/src/components/landing/HeroSection.tsx`:
+  - integrates `HeroGraphBackground`
+  - upgraded typography/CTA sizing and spacing
+  - gradient fade transition into next section.
+- Added `frontend/src/components/landing/ShowcaseCard.tsx`:
+  - animated mini-graph preview per dataset
+  - hover connection highlighting and node tooltip
+  - dataset metadata (description, node/relationship counts, label badges)
+  - card-level navigation to `/playground?dataset={key}`.
+- Added `frontend/src/components/landing/ShowcaseSection.tsx`:
+  - uses `getDatasetList()` + `runDatasetQuery(dataset.key, 'all')`
+  - renders 3 showcase cards (movies/social/fraud)
+  - section header copy and staggered card animations.
+- Added shared intersection observer hook `frontend/src/components/landing/useSectionInView.ts` and integrated scroll-triggered reveal animations across showcase, features, and getting-started sections.
+- Reworked `frontend/src/components/landing/FeaturesSection.tsx`:
+  - section header + ID targeting
+  - refined card visuals (icon treatments, hover lift/shadow).
+- Reworked `frontend/src/components/landing/GettingStartedSection.tsx`:
+  - always-dark code blocks
+  - copy-to-clipboard button with `Copy`/`Check` feedback
+  - styled numbered steps and left-accent border.
+- Reassembled `frontend/src/pages/LandingPage.tsx`:
+  - `LandingNav -> Hero -> Showcase -> Features -> Getting Started -> Footer`
+  - `scroll-smooth` root and refined footer spacing.
+- Updated `frontend/vitest.config.mjs` with `@` alias resolution to support landing tests.
+
+Documentation Updated:
+- `CHANGELOG.md`
+- `docs/IMPLEMENTATION-LOG.md`
+- `.planning/phases/05-frontend-polish-and-showcase/05-03-SUMMARY.md`
+
+Validation:
+- `cd frontend && npx tsc --noEmit` (pass)
+- `cd frontend && npx vitest run` (pass)
+- `cd frontend && npx vite build` (pass)
+- `cd /Users/ashesh/opengraphdb && ./scripts/test.sh` (fails due pre-existing rustfmt drift in non-frontend crates)
+- `cd /Users/ashesh/opengraphdb && ./scripts/coverage.sh` (fails configured coverage gate):
+  - observed totals: `96.22%` lines, `1626` uncovered lines
+
+Notes:
+- Frontend Phase 05-03 deliverables are complete and validated with requested frontend checks.
+- Root-script failures remain inherited workspace-state issues outside frontend files changed in this step.
+
+---
+
+## 2026-03-01 — Step 072: Frontend Phase 05-04 (Playground Split-Pane Redesign + Showcase Controls)
+
+Tests Added:
+- `frontend/vitest/playground-polish.test.tsx`:
+  - dataset switcher renders all dataset options and active dataset description
+  - query card renders label/description/cypher/result count with active styling
+  - connection badge renders `Sample Data` with in-memory timing text
+  - stats panel renders node/edge/label metrics
+  - `PlaygroundPage` honors `?dataset=social` and renders split-pane control shell with guided queries + graph canvas
+
+Implementation:
+- Added `frontend/src/components/playground/DatasetSwitcher.tsx`:
+  - typed dataset selector over `getDatasetList()`
+  - active dataset description under the dropdown
+  - `onSwitch` callback wiring to dataset key changes
+- Added `frontend/src/components/playground/QueryCard.tsx`:
+  - compact guided-query card with title, description, Cypher preview, and result badge
+  - active/inactive visual states for current query selection
+- Added `frontend/src/components/playground/ConnectionBadge.tsx`:
+  - pulsing green status dot + `Sample Data` label
+  - formatted simulated timing string (`<1ms (in-memory)` / `Nms (in-memory)`)
+- Added `frontend/src/components/playground/StatsPanel.tsx`:
+  - compact 3-column metrics display for nodes, edges, and unique labels
+- Rebuilt `frontend/src/pages/PlaygroundPage.tsx`:
+  - split-pane layout with desktop sidebar (`w-[320px]`) and full-size graph canvas region
+  - mobile responsive fallback with top control bar and horizontally scrollable query buttons
+  - dataset/query state managed with `runDatasetQuery(...)` and guided query metadata from `getDatasetQueries(...)`
+  - dataset switching resets active query to `all`
+  - URL search-param support (`?dataset=movies|social|fraud`) for initial dataset bootstrap
+  - active result stats and query timing surfaced in UI
+- Updated `frontend/src/AppRouter.tsx`:
+  - replaced `Suspense` null fallback with polished centered loading state
+
+Documentation Updated:
+- `CHANGELOG.md`
+- `docs/IMPLEMENTATION-LOG.md`
+- `.planning/phases/05-frontend-polish-and-showcase/05-04-SUMMARY.md`
+
+Validation:
+- `cd frontend && npx tsc --noEmit` (pass)
+- `cd frontend && npx vitest run` (pass)
+- `cd frontend && npx vite build` (pass)
+- `cd /Users/ashesh/opengraphdb && ./scripts/test.sh` (fails before frontend checks due pre-existing rustfmt drift in non-frontend crates)
+- `cd /Users/ashesh/opengraphdb && ./scripts/coverage.sh` (not rerun for this frontend-only completion after user-directed skip of unrelated workspace-state issues)
+
+Notes:
+- Completion was finalized in frontend-only scope per user instruction, with unrelated root Rust formatting drift explicitly skipped.
+
+---
+
+## 2026-03-01 — Step 073: Frontend Phase 05-05 (App Explorer Polish + UI Cohesion)
+
+Tests Added:
+- `frontend/vitest/app-shell-polish.test.tsx`:
+  - `getConnectionStatusModel` connected/disconnected behavior (including server label extraction)
+  - `getResultsSummaryText` standard vs limited-result summary copy
+  - graph/table toggle label rendering and active/inactive class contract checks via `ResultsView`
+  - polished empty-state content and animation class assertions (`ResultsEmptyState`)
+
+Implementation:
+- Polished `frontend/src/components/layout/Header.tsx`:
+  - glass header treatment (`bg-card/80 backdrop-blur-sm`)
+  - OpenGraphDB brand icon (`Share2`) + `Explorer` badge
+  - refined spacing and separator between status pill and action controls
+- Reworked `frontend/src/components/layout/ConnectionStatus.tsx`:
+  - connected emerald ping indicator, disconnected red dot, connecting amber pulse
+  - pill container styling and optional server host display
+  - exported deterministic status model helper
+- Refined `frontend/src/components/results/ResultsBanner.tsx`:
+  - muted bordered summary bar with consistent spacing
+  - node/edge badges and amber limited-results badge
+  - upgraded JSON/CSV export controls with clearer icon+label actions
+- Refined `frontend/src/components/results/ResultsView.tsx`:
+  - dedicated segmented graph/table toggle with active/inactive states
+  - smooth fade transitions around mode content
+  - exported toggle-class helper for deterministic test coverage
+- Polished `frontend/src/components/layout/PropertyPanel.tsx`:
+  - glass sheet surface, improved heading/description hierarchy
+  - node/edge type badges
+  - consistent key/value typography spacing and fallback messages
+- Polished `frontend/src/components/layout/SettingsDialog.tsx`:
+  - refined spacing rhythm
+  - stronger form label/description hierarchy
+  - explicit input focus ring styling
+- Updated shell and empty-state presentation:
+  - `frontend/src/components/layout/AppShell.tsx` uses `min-h-screen` and `min-h-0` layout constraints
+  - added `frontend/src/components/results/ResultsEmptyState.tsx` (icon, polished copy, code block, fade-in)
+  - wired empty-state component into `frontend/src/App.tsx` with smoother result/empty transitions
+- updated `frontend/src/components/query/QueryError.tsx` with animated entry classes for smoother error-state transitions
+
+Documentation Updated:
+- `CHANGELOG.md`
+- `docs/IMPLEMENTATION-LOG.md`
+- `.planning/phases/05-frontend-polish-and-showcase/05-05-SUMMARY.md`
+
+Validation:
+- `cd frontend && npx tsc --noEmit` (pass)
+- `cd frontend && npx vitest run` (pass)
+- `cd frontend && npx vite build` (pass)
+- `cd /Users/ashesh/opengraphdb && ./scripts/test.sh` (skipped per user direction due known unrelated Rust failures)
+- `cd /Users/ashesh/opengraphdb && ./scripts/coverage.sh` (skipped per user direction due known unrelated Rust failures)
+
+Notes:
+- Frontend Phase 05-05 deliverables are complete and validated with the requested frontend-only checks.
+- Root Rust-script gates were intentionally skipped for this pass per explicit user direction.
+
+---
+
+## 2026-03-01 — Step 074: Frontend Phase 05-06 (Playwright Visual E2E Coverage)
+
+Tests Added:
+- `frontend/e2e/landing.spec.ts`:
+  - verifies hero heading, showcase/features/get-started sections, showcase-card navigation, and nav links
+  - captures landing screenshots in light mode (section-level + full page) and dark mode (full page)
+- `frontend/e2e/playground.spec.ts`:
+  - verifies split-pane layout (`aside` + graph canvas), sample-data badge, dataset switcher state, query-card presence, and stats panel labels
+  - verifies URL-driven dataset loading (`movies`, `social`, `fraud`) and dataset switching via dropdown
+  - captures light screenshots for movies/social/fraud and dark screenshot for movies
+- `frontend/e2e/app.spec.ts`:
+  - verifies `/app` empty state, editor visibility, header status text, and settings dialog behavior
+  - captures light/dark empty-state screenshots and settings screenshot
+  - conditionally captures post-query screenshot when backend reports connected (skips if backend unavailable)
+
+Implementation:
+- Added Playwright runner config in `frontend/playwright.config.ts`:
+  - Chromium project (`Desktop Chrome`)
+  - `webServer` boots Vite via `npm run dev -- --host 127.0.0.1 --port 5173`
+  - base URL set to `http://localhost:5173`
+- Added `test:e2e` script to `frontend/package.json`.
+- Added selector hooks for resilient E2E targeting:
+  - `frontend/src/components/landing/ShowcaseCard.tsx` → `data-testid="showcase-card"`
+  - `frontend/src/components/landing/FeaturesSection.tsx` → `data-testid="feature-card"`
+  - `frontend/src/components/playground/QueryCard.tsx` → `data-testid="query-card"`
+  - `frontend/src/components/playground/DatasetSwitcher.tsx` → `data-testid="dataset-switcher"`
+- Added screenshot artifact folder seed: `frontend/e2e/screenshots/.gitkeep`.
+
+Documentation Updated:
+- `CHANGELOG.md`
+- `docs/IMPLEMENTATION-LOG.md`
+- `.planning/phases/05-frontend-polish-and-showcase/05-06-SUMMARY.md`
+
+Validation:
+- `cd frontend && npx tsc --noEmit` (pass)
+- `cd frontend && npx vitest run` (pass)
+- `cd frontend && npx vite build` (pass)
+- `cd frontend && npx playwright test` (pass: 13 passed, 1 skipped because backend was not connected for post-query capture)
+- `cd frontend && ls -1 e2e/screenshots` (pass: landing/playground/app light+dark screenshot set present)
+
+Notes:
+- `./scripts/test.sh` and `./scripts/coverage.sh` were intentionally skipped per explicit user instruction for this phase execution.

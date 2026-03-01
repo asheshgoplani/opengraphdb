@@ -1,0 +1,10 @@
+{
+  "name": "opengraphdb",
+  "version": "0.1.0",
+  "type": "commonjs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "scripts": {
+    "test": "node --test tests/basic.test.js"
+  }
+}
