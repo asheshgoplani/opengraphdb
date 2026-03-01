@@ -92,14 +92,17 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Phase 6: Production Demo Datasets & Live Backend Integration
 **Goal**: Visitors can see OpenGraphDB working with rich, realistic data served from the actual backend, with recognizable demo datasets that build trust and showcase capabilities
 **Depends on**: Phase 5
-**Requirements**: Demo dataset creation, backend data seeding, frontend live-backend integration, demo query showcase, reproducible seed script
+**Requirements**: DEMO-03, DEMO-04
 **Success Criteria** (what must be TRUE):
   1. At least two rich demo datasets (recognizable domains like movies, knowledge graphs) are loaded into the actual OpenGraphDB database via Cypher CREATE statements or ogdb import
   2. The frontend landing page and playground showcase these datasets with data served from the live backend, not static JSON
   3. Demo queries demonstrate OpenGraphDB's capabilities including graph traversal, pattern matching, and relationship exploration
   4. A seed script can recreate all demo data from scratch at any time
   5. The /app route connects to the backend and lets users query the demo data interactively with meaningful results
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 06-01-PLAN.md — Three JSON import datasets (movies flagship, social, fraud) + idempotent seed shell script
+  - [ ] 06-02-PLAN.md — API layer fixes (schema normalization, row-based transform), extended GuidedQuery interface, expanded offline datasets
+  - [ ] 06-03-PLAN.md — Playground live mode toggle, category-grouped query cards, loading skeleton, updated ConnectionBadge
 
 ## Progress
 
@@ -113,4 +116,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Schema Browser | 1/1 | Complete | 2026-03-01 |
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
-| 6. Production Demo Datasets & Live Backend Integration | 0/0 | Not Started | - |
+| 6. Production Demo Datasets & Live Backend Integration | 0/3 | Planning Complete | - |
