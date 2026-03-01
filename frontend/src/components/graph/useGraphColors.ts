@@ -43,6 +43,8 @@ export function useGraphColors(): CanvasColors {
         nodeShadow: 'rgba(99, 102, 241, 0.3)',
         edgeLabel: '#94a3b8',
         edgeLabelBg: 'rgba(15, 15, 26, 0.85)',
+        traceGlow: '#00d4ff',
+        dimmedAlpha: 0.15,
       }
     }
     return {
@@ -55,6 +57,8 @@ export function useGraphColors(): CanvasColors {
       nodeShadow: 'rgba(99, 102, 241, 0.15)',
       edgeLabel: '#64748b',
       edgeLabelBg: 'rgba(250, 251, 252, 0.85)',
+      traceGlow: '#0088cc',
+      dimmedAlpha: 0.25,
     }
   }, [resolved])
 }

@@ -1,4 +1,15 @@
 import { create } from 'zustand'
+import type { TraceStep } from '@/types/graph'
+
+interface TraceState {
+  isPlaying: boolean
+  activeNodeId: string | number | null
+  traversedNodeIds: Set<string | number>
+  traversedEdgeIds: Set<string | number>
+  steps: TraceStep[]
+  currentStepIndex: number
+  speedMultiplier: number
+}
 
 interface GraphState {
   selectedNodeId: string | number | null
@@ -6,6 +17,11 @@ interface GraphState {
   selectNode: (id: string | number) => void
   selectEdge: (id: string | number) => void
   clearSelection: () => void
+  trace: TraceState | null
+  setTrace: (steps: TraceStep[], speed?: number) => void
+  advanceTrace: (nodeId: string | number, stepIndex: number) => void
+  clearTrace: () => void
+  setTraceSpeed: (speed: number) => void
 }
 
 export const useGraphStore = create<GraphState>()((set) => ({
@@ -14,4 +30,37 @@ export const useGraphStore = create<GraphState>()((set) => ({
   selectNode: (id) => set({ selectedNodeId: id, selectedEdgeId: null }),
   selectEdge: (id) => set({ selectedEdgeId: id, selectedNodeId: null }),
   clearSelection: () => set({ selectedNodeId: null, selectedEdgeId: null }),
+  trace: null,
+  setTrace: (steps, speed = 1) =>
+    set({
+      trace: {
+        isPlaying: true,
+        activeNodeId: null,
+        traversedNodeIds: new Set(),
+        traversedEdgeIds: new Set(),
+        steps,
+        currentStepIndex: 0,
+        speedMultiplier: speed,
+      },
+    }),
+  advanceTrace: (nodeId, stepIndex) =>
+    set((state) => {
+      if (!state.trace) return state
+      const traversedNodeIds = new Set(state.trace.traversedNodeIds)
+      traversedNodeIds.add(nodeId)
+      return {
+        trace: {
+          ...state.trace,
+          activeNodeId: nodeId,
+          traversedNodeIds,
+          currentStepIndex: stepIndex,
+        },
+      }
+    }),
+  clearTrace: () => set({ trace: null }),
+  setTraceSpeed: (speed) =>
+    set((state) => {
+      if (!state.trace) return state
+      return { trace: { ...state.trace, speedMultiplier: speed } }
+    }),
 }))

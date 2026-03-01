@@ -8,4 +8,6 @@ export interface CanvasColors {
   nodeShadow: string
   edgeLabel: string
   edgeLabelBg: string
+  traceGlow: string
+  dimmedAlpha: number
 }

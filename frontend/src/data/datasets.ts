@@ -27,6 +27,7 @@ export interface DatasetMeta {
   nodeCount: number
   linkCount: number
   labels: string[]
+  isGeographic?: boolean
 }
 
 interface DatasetEntry {
@@ -63,7 +64,7 @@ function cloneGraphData(data: GraphData): GraphData {
   }
 }
 
-function buildDatasetMeta(key: DatasetKey, name: string, description: string, data: GraphData): DatasetMeta {
+function buildDatasetMeta(key: DatasetKey, name: string, description: string, data: GraphData, isGeographic?: boolean): DatasetMeta {
   return {
     key,
     name,
@@ -71,6 +72,7 @@ function buildDatasetMeta(key: DatasetKey, name: string, description: string, da
     nodeCount: data.nodes.length,
     linkCount: data.links.length,
     labels: [...new Set(data.nodes.flatMap((node) => node.labels))].sort(),
+    ...(isGeographic !== undefined ? { isGeographic } : {}),
   }
 }
 
@@ -92,7 +94,8 @@ export const DATASETS: Record<DatasetKey, DatasetEntry> = {
       'airroutes',
       'Air Routes Network',
       'Global airport network with 3,500 airports and 50,000 routes from Kelvin Lawrence\'s Practical Gremlin dataset',
-      AIR_ROUTES_SAMPLE
+      AIR_ROUTES_SAMPLE,
+      true
     ),
   },
   got: {

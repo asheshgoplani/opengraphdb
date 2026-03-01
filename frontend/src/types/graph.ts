@@ -24,3 +24,19 @@ export interface GraphData {
 }
 
 export type ViewMode = 'graph' | 'table'
+
+export interface TraceStep {
+  nodeId: string | number
+  stepIndex: number
+}
+
+export interface TraceData {
+  steps: TraceStep[]
+}
+
+export interface TraceQueryResponse {
+  columns: string[]
+  rows: Record<string, unknown>[]
+  row_count: number
+  trace: TraceData
+}
