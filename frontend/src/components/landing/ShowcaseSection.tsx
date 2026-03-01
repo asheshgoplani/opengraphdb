@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { ShowcaseCard } from './ShowcaseCard'
 import { useSectionInView } from './useSectionInView'
 
-const CARD_DELAY_CLASSES = ['animate-delay-100', 'animate-delay-200', 'animate-delay-300']
+const CARD_DELAY_CLASSES = ['animate-delay-100', 'animate-delay-200', 'animate-delay-300', 'animate-delay-[400ms]']
 
 export function ShowcaseSection() {
   const { ref, isInView } = useSectionInView<HTMLElement>()
@@ -26,22 +26,21 @@ export function ShowcaseSection() {
           )}
         >
           <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">
-            Real-World Knowledge Graphs
+            Famous Graph Datasets
           </h2>
           <p className="text-pretty text-base text-muted-foreground sm:text-lg">
-            OpenGraphDB powers graph workloads across industries. From movie recommendations to fraud detection,
-            explore how graph databases model complex relationships.
+            Explore the same industry-standard datasets used by Neo4j, TigerGraph, and Amazon Neptune. From movie recommendations to airport networks, these benchmarks demonstrate real graph database capabilities.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
           {showcaseItems.map((dataset, index) => (
             <div
               key={dataset.key}
               className={cn(
                 'transition-all duration-700',
                 isInView
-                  ? `animate-slide-up animate-fill-both ${CARD_DELAY_CLASSES[index] ?? 'animate-delay-300'}`
+                  ? `animate-slide-up animate-fill-both ${CARD_DELAY_CLASSES[index] ?? 'animate-delay-[400ms]'}`
                   : 'translate-y-6 opacity-0'
               )}
             >

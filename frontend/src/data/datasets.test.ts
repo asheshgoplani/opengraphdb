@@ -15,13 +15,13 @@ function getReferencedNodeIds(result: { links: Array<{ source: string | number |
   return ids
 }
 
-test('getDatasetList returns exactly movies, social, and fraud with valid metadata', () => {
+test('getDatasetList returns exactly movielens, airroutes, got, and wikidata with valid metadata', () => {
   const list = getDatasetList()
 
-  assert.equal(list.length, 3)
+  assert.equal(list.length, 4)
   assert.deepEqual(
     new Set(list.map((dataset) => dataset.key)),
-    new Set<DatasetKey>(['movies', 'social', 'fraud'])
+    new Set<DatasetKey>(['movielens', 'airroutes', 'got', 'wikidata'])
   )
 
   for (const meta of list) {
@@ -48,7 +48,7 @@ test('getDatasetList node and link counts match the underlying dataset data', ()
 })
 
 test('every dataset has guided queries including all', () => {
-  const keys: DatasetKey[] = ['movies', 'social', 'fraud']
+  const keys: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata']
 
   for (const key of keys) {
     const queries = getDatasetQueries(key)
@@ -58,7 +58,7 @@ test('every dataset has guided queries including all', () => {
 })
 
 test("runDatasetQuery('all') returns complete data with new references for all datasets", () => {
-  const keys: DatasetKey[] = ['movies', 'social', 'fraud']
+  const keys: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata']
 
   for (const key of keys) {
     const source = DATASETS[key].data
@@ -78,7 +78,7 @@ test("runDatasetQuery('all') returns complete data with new references for all d
 })
 
 test('relationship-filtered queries return orphan-free connected subgraphs', () => {
-  const keys: DatasetKey[] = ['movies', 'social', 'fraud']
+  const keys: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata']
 
   for (const key of keys) {
     const queries = getDatasetQueries(key).filter((query) => query.key !== 'all')
@@ -107,15 +107,17 @@ test('dataset labels include expected domain entities', () => {
   const list = getDatasetList()
   const labelsByDataset = new Map(list.map((dataset) => [dataset.key, new Set(dataset.labels)]))
 
-  assert.ok(labelsByDataset.get('movies')?.has('Movie'))
-  assert.ok(labelsByDataset.get('movies')?.has('Person'))
+  assert.ok(labelsByDataset.get('movielens')?.has('Movie'))
+  assert.ok(labelsByDataset.get('movielens')?.has('Genre'))
 
-  assert.ok(labelsByDataset.get('social')?.has('User'))
-  assert.ok(labelsByDataset.get('social')?.has('Post'))
-  assert.ok(labelsByDataset.get('social')?.has('Group'))
+  assert.ok(labelsByDataset.get('airroutes')?.has('Airport'))
+  assert.ok(labelsByDataset.get('airroutes')?.has('Country'))
+  assert.ok(labelsByDataset.get('airroutes')?.has('Continent'))
 
-  assert.ok(labelsByDataset.get('fraud')?.has('Account'))
-  assert.ok(labelsByDataset.get('fraud')?.has('Transaction'))
-  assert.ok(labelsByDataset.get('fraud')?.has('Device'))
-  assert.ok(labelsByDataset.get('fraud')?.has('IP'))
+  assert.ok(labelsByDataset.get('got')?.has('Character'))
+  assert.ok(labelsByDataset.get('got')?.has('Season'))
+
+  assert.ok(labelsByDataset.get('wikidata')?.has('Laureate'))
+  assert.ok(labelsByDataset.get('wikidata')?.has('Category'))
+  assert.ok(labelsByDataset.get('wikidata')?.has('Country'))
 })
