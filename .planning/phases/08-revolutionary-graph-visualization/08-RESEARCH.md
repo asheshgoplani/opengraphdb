@@ -99,7 +99,7 @@ Phase 8 combines five technically distinct problems: geographic map rendering, l
 
 The geographic map view is the highest-dependency item: it requires installing `deck.gl` and `maplibre-gl` with `react-map-gl`, and switching the Air Routes rendering to a `DeckGL + ArcLayer + ScatterplotLayer` component that replaces `GraphCanvas` when the active dataset is `airroutes`. For large datasets in force-directed mode, the existing canvas renderer with tuned `autoPauseRedraw`, `enablePointerInteraction: false` at high node counts, and a simplified `nodeCanvasObject` that skips labels below a threshold globalScale will hit 60fps for 1000-node graphs. For the query trace animation, the pattern is: a new `POST /query/trace` HTTP endpoint on the backend that returns JSON (not true streaming, since SSE requires chunked HTTP which is complex to add to the raw TCP server), and a frontend `useTraceAnimation` hook that replays the returned step sequence using `requestAnimationFrame` timed intervals, painting highlighted nodes via `ctx.shadowBlur` in `nodeCanvasObject`.
 
-**Primary recommendation:** Keep `react-force-graph-2d` for force-directed mode (it handles 1000 nodes fine with LOD optimizations). Use `deck.gl` + `react-map-gl/maplibre` for the Air Routes geographic mode. Implement trace animation as a JSON response (not live streaming) for the first iteration, using `requestAnimationFrame` playback on the frontend. This avoids SSE complexity in the raw TCP server while still delivering the "nodes light up" experience.
+**Primary recommendation:** Keep `react-force-graph-2d` for force-directed mode (it handles 1000 nodes fine with LOD optimizations). Use `deck.gl` + `react-map-gl/maplibre` for the Air Routes geographic mode. Implement trace animation with REAL traversal data via a `TraceCollector` that instruments the Cypher executor, exposed through an SSE endpoint that streams trace steps in real time. The raw TCP server can write SSE-formatted text directly to the socket (no chunked transfer encoding needed; `Connection: close` suffices). The frontend parses the SSE stream via `fetch` + `ReadableStream` and calls `advanceTrace()` for each step as it arrives. Replay uses `requestAnimationFrame` playback of the stored steps.
 
 ---
 
@@ -124,7 +124,8 @@ The geographic map view is the highest-dependency item: it requires installing `
 | deck.gl geographic mode | Mapbox GL JS | Mapbox requires paid API token; deck.gl + MapLibre is fully free |
 | deck.gl geographic mode | Leaflet.js | Leaflet is simpler but lacks WebGL arc animation and GPU acceleration |
 | react-force-graph-2d (keep) | reagraph | reagraph is WebGL-based and handles larger datasets but is a larger rewrite; react-force-graph-2d handles 1000 nodes fine with canvas optimization |
-| JSON batch trace response | True SSE streaming | SSE requires chunked HTTP encoding in the raw TCP server, which is significant plumbing; JSON batch is simpler and equally effective for replay animation |
+| Result-order trace extraction | Real TraceCollector instrumentation | Result scanning with heuristics (integers, dash-strings) is fake data; locked decision requires REAL traversal. TraceCollector instruments Scan/Expand in the physical plan executor |
+| JSON batch trace response | SSE streaming | SSE is required by locked decision ("real-time delivery as query executes"). The raw TCP server can write SSE text directly with Connection: close; no chunked encoding needed |
 | requestAnimationFrame playback | CSS animations | CSS can't control canvas drawing; rAF is the only option for canvas-based animation |
 
 **Installation:**
@@ -315,45 +316,53 @@ export function paintNode(
 }
 ```
 
-### Pattern 5: Backend Trace Endpoint
-**What:** The HTTP server's `dispatch_http_request` function gets a new `("POST", "/query/trace")` arm. It runs the query and returns the result along with a `trace` object. Since the backend is a hand-rolled raw TCP server (not axum), true SSE streaming is complex to add. The simpler and sufficient approach is to return a complete JSON response that includes the traversal step sequence. The frontend then replays these steps using `requestAnimationFrame`.
+### Pattern 5: Backend Trace Endpoint (SSE with TraceCollector)
+**What:** A `TraceCollector` struct in `ogdb-core` records visited node IDs during physical plan execution (Scan and Expand nodes). The HTTP server intercepts `POST /query/trace` before `dispatch_http_request`, writes SSE headers to the TCP stream, executes the query with trace instrumentation, streams each trace step as an SSE `event: trace` event, then sends the query result as a final `event: result` event. Since the server uses `Connection: close`, no chunked transfer encoding is needed.
 **When to use:** When the frontend POSTs to `/query/trace`.
 **Example (Rust):**
 ```rust
-("POST", "/query/trace") => {
-    let payload: Value = serde_json::from_slice(&request.body)
-        .map_err(|e| CliError::Runtime(format!("invalid json: {e}")))?;
-    let query = payload
-        .as_object()
-        .and_then(|o| o.get("query"))
-        .and_then(Value::as_str)
-        .ok_or_else(|| CliError::Runtime("query field required".to_string()))?;
+// In ogdb-core: TraceCollector records real traversal data
+pub struct TraceCollector {
+    pub visited_node_ids: Vec<u64>,
+    pub visited_edge_ids: Vec<(u64, u64, u64)>,
+}
 
-    // Run the query and collect visited node IDs in order
-    let (result, trace_steps) = shared_db
-        .query_cypher_with_trace(query)
-        .map_err(|e| CliError::Runtime(e.to_string()))?;
+// Database::query_with_trace instruments execute_physical_plan_batches
+pub fn query_with_trace(&mut self, query: &str) -> Result<(QueryResult, TraceCollector), QueryError> {
+    let mut trace = TraceCollector::new();
+    // ... parse, plan, execute with trace instrumentation ...
+    Ok((result, trace))
+}
 
-    // Return results + trace together
-    Ok(http_json_response(200, "OK", serde_json::json!({
-        "rows": result_to_rows(&result),
-        "trace": {
-            "steps": trace_steps.iter().enumerate().map(|(i, node_id)| {
-                serde_json::json!({ "nodeId": node_id, "stepIndex": i })
-            }).collect::<Vec<_>>()
-        }
-    })))
+// In ogdb-cli: SSE handler writes directly to TcpStream
+fn handle_trace_sse(shared_db: &SharedDatabase, request: &HttpRequestMessage, stream: &mut TcpStream) -> Result<(), CliError> {
+    // Write SSE headers
+    stream.write_all(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nConnection: close\r\n\r\n")?;
+    // Execute query with real trace
+    let (result, trace) = shared_db.query_cypher_as_user_with_trace(&user, query, retries)?;
+    // Stream each step as SSE event
+    for (i, node_id) in trace.unique_node_ids().iter().enumerate() {
+        write!(stream, "event: trace\ndata: {{\"nodeId\":{node_id},\"stepIndex\":{i}}}\n\n")?;
+    }
+    // Send result as final event
+    write!(stream, "event: result\ndata: {}\n\n", result.to_json())?;
+    Ok(())
 }
 ```
 
-**Frontend API client addition:**
+**Frontend API client (SSE via fetch + ReadableStream):**
 ```typescript
-// Source: api/client.ts existing pattern
-async queryWithTrace(cypher: string): Promise<TraceQueryResponse> {
-  return this.request<TraceQueryResponse>('/query/trace', {
+async queryWithTrace(
+  cypher: string,
+  onTraceStep: (step: { nodeId: string | number; stepIndex: number }) => void,
+): Promise<BackendQueryResponse> {
+  const response = await fetch(`${this.baseUrl}/query/trace`, {
     method: 'POST',
     body: JSON.stringify({ query: cypher }),
   })
+  // Parse SSE events from ReadableStream
+  const reader = response.body!.getReader()
+  // ... parse event: trace / event: result events ...
 }
 ```
 
@@ -362,7 +371,7 @@ async queryWithTrace(cypher: string): Promise<TraceQueryResponse> {
 - **CSS transitions for canvas animation:** Canvas elements cannot be animated with CSS transitions. Always use `requestAnimationFrame` for canvas-based glow animation.
 - **Rendering edge labels at all zoom levels:** Edge labels are expensive. Skip `linkCanvasObject` rendering below a globalScale threshold.
 - **Using Mapbox GL JS instead of MapLibre:** Mapbox requires a paid token. MapLibre with CARTO Dark Matter tiles is free with no API key.
-- **True SSE streaming from the raw TCP server:** Adding chunked transfer encoding and Server-Sent Events to the hand-rolled HTTP server requires significant plumbing. The JSON batch response pattern delivers the same end-user experience.
+- **Fake/simulated trace from result scanning:** Extracting node IDs by scanning query result rows with heuristics (checking for integers or dash-containing strings) is NOT real traversal data. The locked decision requires real instrumentation of the Cypher executor via TraceCollector. SSE streaming from the raw TCP server is straightforward since it only requires writing SSE-formatted text to the socket without chunked transfer encoding (Connection: close is sufficient).
 - **Animating all edges as particles simultaneously:** `linkDirectionalParticles` on every edge at 1000+ nodes tanks performance. Use it only on the trace path edges.
 
 ---
@@ -407,10 +416,10 @@ async queryWithTrace(cypher: string): Promise<TraceQueryResponse> {
 **How to avoid:** Use `useMemo` on `graphData` (already done in the existing `stableData` pattern in `GraphCanvas.tsx`). Do not create new node/link arrays unless the data actually changed.
 **Warning signs:** Graph "explodes" and re-settles on every query.
 
-### Pitfall 5: Backend trace endpoint not plumbed through the existing query path
+### Pitfall 5: Backend trace endpoint not plumbed through the execution path
 **What goes wrong:** The trace endpoint compiles but always returns empty trace steps.
-**Why it happens:** The `query_cypher_with_trace` function needs to instrument the Cypher executor to record visited node IDs. If it just calls `query_cypher_as_user_with_retry` unchanged, no traversal data is collected.
-**How to avoid:** The backend trace implementation must actually instrument the query executor. For Phase 8, a pragmatic first approach is to return the node IDs from the result set in order (i.e., the nodes returned by the query, in the order returned). This is not deep traversal tracing but is sufficient for the animation effect on simple path queries. Document this limitation clearly.
+**Why it happens:** The `query_with_trace` function needs to call `execute_physical_plan_batches_traced` (not the regular `execute_physical_plan_batches`). If the traced variant does not recursively propagate through all plan node types that have `input` children (Filter, Project, Sort, Limit, etc.), the trace collection at Scan/Expand leaf nodes will not be reached.
+**How to avoid:** Ensure `execute_physical_plan_batches_traced` handles ALL PhysicalPlan variants that have an `input` child by recursively calling `_traced` on the input. Only terminal/leaf nodes (Scan) and expansion nodes (Expand) need trace.record_node() calls, but the recursive plumbing must reach them.
 **Warning signs:** Trace animation plays but all nodes light up simultaneously rather than sequentially.
 
 ### Pitfall 6: Performance regression at 1000+ nodes with labels
@@ -551,10 +560,10 @@ const DARK_MAP_STYLE = 'https://basemaps.cartocdn.com/gl/dark-matter-gl-style/st
 
 ## Open Questions
 
-1. **Backend Cypher traversal instrumentation**
-   - What we know: The backend has `query_cypher_as_user_with_retry` but no traversal recording. The HTTP server is hand-rolled raw TCP.
-   - What's unclear: Whether `ogdb-core` exposes traversal hooks, or whether the query result order can serve as a proxy for traversal order.
-   - Recommendation: For Phase 8, treat the node IDs returned from the query result (in result order) as the trace sequence. Document this as "result-order trace" not "deep traversal trace." This delivers the animation without requiring Cypher executor instrumentation.
+1. **Backend Cypher traversal instrumentation** (RESOLVED)
+   - The `execute_physical_plan_batches` method in `Database` is the traversal engine. It has clear instrumentation points: `PhysicalScan` discovers node IDs, `PhysicalExpand` traverses edges to neighbors.
+   - Solution: Add `TraceCollector` struct that records visited node IDs. Add `execute_physical_plan_batches_traced` that mirrors the regular execution but calls `trace.record_node()` at Scan and Expand points. Add `Database::query_with_trace` and `SharedDatabase::query_cypher_as_user_with_trace`.
+   - The locked decision requires REAL traversal data, not result-order extraction. This approach satisfies it.
 
 2. **react-force-graph-2d 1000-node 60fps guarantee**
    - What we know: The library uses Canvas 2D (not WebGL). Issues report performance problems at 5,000-12,000 nodes. At 1,000 nodes with the LOD optimization (skip labels at low zoom), performance should be acceptable.
