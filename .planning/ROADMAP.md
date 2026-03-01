@@ -19,6 +19,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Frontend Polish & Knowledge Graph Showcase** - Polish all pages to production quality with Linear/Vercel aesthetic, real-world knowledge graph showcase, redesigned playground with split-pane layout, and Playwright visual verification
 - [x] **Phase 6: Production Demo Datasets & Live Backend Integration** - Create rich, realistic demo datasets loaded into the actual OpenGraphDB database, wire frontend to showcase live backend queries, and provide a seed script for reproducible demo data
 
+- [ ] **Phase 7: Real-World Famous Dataset Showcase** - Import 4 industry-standard datasets (MovieLens, Air Routes, Game of Thrones, Wikidata subset) as pre-built showcases with download scripts, format conversion, guided queries, and landing page updates
+- [ ] **Phase 8: Revolutionary Graph Visualization** - Modern production-grade graph rendering with geographic maps, large dataset support, and real-time query trace animation showing traversal paths
+- [ ] **Phase 9: AI Knowledge Graph Assistant** - Provider-agnostic chatbot converting natural language to Cypher with configurable API keys, free default model, and integration with query trace animation
+
 ## Phase Details
 
 ### Phase 1: Foundation and Graph Visualization
@@ -104,10 +108,46 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 06-02-PLAN.md — API layer fixes (schema normalization, row-based transform), extended GuidedQuery interface, expanded offline datasets
   - [x] 06-03-PLAN.md — Playground live mode toggle, category-grouped query cards, loading skeleton, updated ConnectionBadge
 
+### Phase 7: Real-World Famous Dataset Showcase
+**Goal**: Import 4 industry-standard, well-known datasets (MovieLens, Air Routes, Game of Thrones, Wikidata subset) as pre-built showcases with download scripts, format conversion, guided queries, and landing page updates
+**Depends on**: Phase 6
+**Requirements**: SHOWCASE-01, SHOWCASE-02, SHOWCASE-03, SHOWCASE-04
+**Success Criteria** (what must be TRUE):
+  1. Four famous datasets (MovieLens subset, Air Routes full, GoT full, Wikidata slice) are importable via download + convert + seed pipeline
+  2. Each dataset has 5-7 guided queries in the playground categorized as Explore/Traverse/Analyze
+  3. Landing page showcase section features all 4 datasets with real stats and recognizable branding
+  4. Seed script downloads from original sources, converts to import format, and loads into OpenGraphDB
+  5. Air Routes dataset preserves lat/long coordinates on airport nodes for Phase 8 geographic rendering
+**Plans**: TBD
+
+### Phase 8: Revolutionary Graph Visualization
+**Goal**: Modern production-grade graph rendering with geographic map rendering for Air Routes, large dataset support (1000s of nodes), and real-time query trace animation showing node traversal paths
+**Depends on**: Phase 7
+**Requirements**: VIZ-01, VIZ-02, VIZ-03, VIZ-04
+**Success Criteria** (what must be TRUE):
+  1. Air Routes dataset renders airports on a geographic map with routes as arcs
+  2. Graph rendering handles 1000+ nodes without performance degradation
+  3. Query execution returns trace data (visited node IDs) via an EXPLAIN-like endpoint
+  4. Frontend displays real-time traversal animation (nodes light up as query traverses them) via WebSocket/SSE
+  5. Graph rendering is aesthetically modern and production-grade
+**Plans**: TBD
+
+### Phase 9: AI Knowledge Graph Assistant
+**Goal**: Provider-agnostic AI chatbot that converts natural language to Cypher queries with configurable API keys, free default model, and integration with query trace animation
+**Depends on**: Phase 8
+**Requirements**: AI-01, AI-02, AI-03, AI-04
+**Success Criteria** (what must be TRUE):
+  1. Users can type natural language questions and receive Cypher queries that execute against the knowledge graph
+  2. Users can configure their own API keys (OpenAI, Anthropic, Google Gemini) via a settings UI, stored in localStorage only
+  3. A free default model works out of the box without any API key
+  4. When AI generates and runs a query, the graph trace animation shows the data path
+  5. All API calls happen client-side; keys are never sent to the backend
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -117,3 +157,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
 | 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |
+| 7. Real-World Famous Dataset Showcase | 0/? | Discussing | — |
+| 8. Revolutionary Graph Visualization | 0/? | Pending | — |
+| 9. AI Knowledge Graph Assistant | 0/? | Pending | — |
