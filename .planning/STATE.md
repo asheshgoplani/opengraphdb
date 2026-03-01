@@ -1,14 +1,14 @@
 ---
 gsd_state_version: 1.0
-milestone: v2.0
-milestone_name: milestone-2
-status: in_progress
-last_updated: "2026-03-02T00:00:00.000Z"
+milestone: v1.0
+milestone_name: milestone
+status: unknown
+last_updated: "2026-03-01T18:36:01.879Z"
 progress:
-  total_phases: 9
+  total_phases: 7
   completed_phases: 6
-  total_plans: 21
-  completed_plans: 21
+  total_plans: 24
+  completed_plans: 23
 ---
 
 # Project State
@@ -76,6 +76,8 @@ Recent decisions affecting current work:
 - [Phase 7]: Replace existing 3 synthetic datasets with 4 real-world famous datasets
 - [Phase 7]: Download scripts fetch from original sources, convert, import via seed pipeline
 - [Phase 7]: Air Routes must preserve lat/long for Phase 8 geographic rendering
+- [Phase 07-real-world-famous-dataset-showcase]: Node IDs use short dataset prefixes (ml-, ar-, got-, wd-) to prevent collision with live backend numeric IDs
+- [Phase 07-real-world-famous-dataset-showcase]: Air Routes airports use accurate real-world float lat/lon coordinates for Phase 8 geographic rendering
 
 ### Pending Todos
 
