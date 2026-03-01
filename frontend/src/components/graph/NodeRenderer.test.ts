@@ -110,3 +110,51 @@ test('paintNode scales radius by connection count and uses display name from pro
   assert.equal(ctx.font.includes('500'), true)
   assert.equal(ctx.texts[0]?.text, `${title.slice(0, 15)}...`)
 })
+
+test('paintNode with traceState renders traversed node without error and records glow color', () => {
+  const labelIndex = new Map<string, number>()
+  const assignedShadowColors: string[] = []
+  const ctx = new MockCanvasContext()
+
+  // Track shadow color assignments to verify traceGlow was used
+  Object.defineProperty(ctx, 'shadowColor', {
+    get() { return this._shadowColor ?? '' },
+    set(v: string) {
+      this._shadowColor = v
+      assignedShadowColors.push(v)
+    },
+  })
+
+  const node: GraphNode = {
+    id: 'n1',
+    labels: ['Person'],
+    properties: { name: 'Alice' },
+    x: 100,
+    y: 100,
+  }
+  const traceState = {
+    activeNodeId: null,
+    traversedNodeIds: new Set<string | number>(['n1']),
+    isPlaying: true,
+  }
+
+  // Should complete without throwing even with traceState active
+  assert.doesNotThrow(() => {
+    paintNode(
+      node,
+      ctx as unknown as CanvasRenderingContext2D,
+      1,
+      mockColors,
+      labelIndex,
+      undefined,
+      traceState
+    )
+  })
+
+  // Traversed node should render (gradients drawn) and at some point use traceGlow
+  assert.ok(ctx.gradients.length >= 1)
+  assert.ok(
+    assignedShadowColors.includes(mockColors.traceGlow),
+    `Expected traceGlow color '${mockColors.traceGlow}' in shadow assignments: ${JSON.stringify(assignedShadowColors)}`
+  )
+})
