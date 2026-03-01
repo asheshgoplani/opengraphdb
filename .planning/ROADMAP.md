@@ -119,7 +119,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Seed script downloads from original sources, converts to import format, and loads into OpenGraphDB
   5. Air Routes dataset preserves lat/long coordinates on airport nodes for Phase 8 geographic rendering
 **Plans**: 3 plans
-  - [ ] 07-01-PLAN.md — Download scripts, Python conversion scripts, and extended seed pipeline for all 4 datasets
+  - [x] 07-01-PLAN.md — Download scripts, Python conversion scripts, and extended seed pipeline for all 4 datasets
   - [ ] 07-02-PLAN.md — TypeScript offline fallback modules with hand-curated data and guided queries for all 4 datasets
   - [ ] 07-03-PLAN.md — Wire new datasets into registry, update tests, and adjust showcase grid layout
 

@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 ## Current Position
 
-Phase: 7 of 9 (Discussing)
-Plan: 21 of 21 (Phase 7 plans TBD)
-Status: Phase 7 context gathered, ready for planning
-Last activity: 2026-03-02 — Phase 7 context captured
+Phase: 7 of 9 (In Progress)
+Plan: 1 of 3 (Plan 07-01 complete)
+Status: Phase 7 Plan 01 complete — data download and conversion pipeline ready
+Last activity: 2026-03-02 — Phase 7 Plan 01 executed
 
-Progress: [██████████░░░░░] 67%
+Progress: [██████████░░░░░] 70%
 
 ## Performance Metrics
 
@@ -46,7 +46,7 @@ Progress: [██████████░░░░░] 67%
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
 | 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |
-| 7. Real-World Famous Dataset Showcase | 0/? | Discussing | — |
+| 7. Real-World Famous Dataset Showcase | 1/3 | In Progress | — |
 | 8. Revolutionary Graph Visualization | 0/? | Pending | — |
 | 9. AI Knowledge Graph Assistant | 0/? | Pending | — |
 
@@ -78,6 +78,9 @@ Recent decisions affecting current work:
 - [Phase 7]: Air Routes must preserve lat/long for Phase 8 geographic rendering
 - [Phase 07-real-world-famous-dataset-showcase]: Node IDs use short dataset prefixes (ml-, ar-, got-, wd-) to prevent collision with live backend numeric IDs
 - [Phase 07-real-world-famous-dataset-showcase]: Air Routes airports use accurate real-world float lat/lon coordinates for Phase 8 geographic rendering
+- [Phase 07-01]: ID ranges: MovieLens 0-99999, Air Routes 1M+, GoT 2M+, Wikidata 3M+ for zero-collision coexistence
+- [Phase 07-01]: Air Routes CSV uses typed column suffixes (lat:double, code:string) - must use exact names in conversion
+- [Phase 07-01]: Nobel Prize API returns multilingual dicts not strings - use get_en() helper to extract English values
 
 ### Pending Todos
 
@@ -90,5 +93,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Phase 7 context gathered
-Resume file: .planning/phases/07-real-world-famous-dataset-showcase/07-CONTEXT.md
+Stopped at: Completed Phase 7 Plan 01 (data download and conversion pipeline)
+Resume file: .planning/phases/07-real-world-famous-dataset-showcase/07-02-PLAN.md
