@@ -134,8 +134,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. Frontend displays real-time traversal animation (nodes light up as query traverses them) via WebSocket/SSE
   5. Graph rendering is aesthetically modern and production-grade
 **Plans**: 3 plans
-  - [ ] 08-01-PLAN.md — Geographic map rendering (deck.gl + MapLibre) with type/state foundation
-  - [ ] 08-02-PLAN.md — Backend trace endpoint (TraceCollector + SSE streaming) and frontend API client
+  - [x] 08-01-PLAN.md — Geographic map rendering (deck.gl + MapLibre) with type/state foundation
+  - [x] 08-02-PLAN.md — Backend trace endpoint (TraceCollector + SSE streaming) and frontend API client
   - [ ] 08-03-PLAN.md — LOD performance optimization, viewport culling, and trace animation with controls
 
 ### Phase 9: AI Knowledge Graph Assistant
@@ -164,5 +164,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
 | 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |
 | 7. Real-World Famous Dataset Showcase | 3/3 | Complete | 2026-03-02 |
-| 8. Revolutionary Graph Visualization | 0/? | Pending | — |
+| 8. Revolutionary Graph Visualization | 2/3 | In Progress | — |
 | 9. AI Knowledge Graph Assistant | 0/? | Pending | — |

@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 ## Current Position
 
-Phase: 7 of 9 (Complete)
-Plan: 3 of 3 (All plans complete)
-Status: Phase 7 complete — 4 famous datasets wired into registry, tests passing, showcase grid updated
-Last activity: 2026-03-02 — Phase 7 Plan 03 executed
+Phase: 8 of 9 (In Progress)
+Plan: 2 of 3 complete
+Status: Phase 8 Plan 02 complete — TraceCollector, POST /query/trace SSE endpoint, and frontend queryWithTrace() delivered
+Last activity: 2026-03-02 — Phase 8 Plan 02 executed
 
-Progress: [████████████░░░] 77%
+Progress: [█████████████░░] 83%
 
 ## Performance Metrics
 
@@ -47,7 +47,7 @@ Progress: [████████████░░░] 77%
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
 | 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |
 | 7. Real-World Famous Dataset Showcase | 3/3 | Complete | 2026-03-02 |
-| 8. Revolutionary Graph Visualization | 0/? | Pending | — |
+| 8. Revolutionary Graph Visualization | 2/3 | In Progress | — |
 | 9. AI Knowledge Graph Assistant | 0/? | Pending | — |
 
 ## Accumulated Context
@@ -83,6 +83,9 @@ Recent decisions affecting current work:
 - [Phase 07-01]: Nobel Prize API returns multilingual dicts not strings - use get_en() helper to extract English values
 - [Phase 07-03]: ShowcaseSection grid uses md:grid-cols-2 lg:grid-cols-4 for responsive 2x2 on medium, 1x4 on large screens
 - [Phase 07-03]: Landing heading updated to 'Famous Graph Datasets' reflecting real-world benchmark nature
+- [Phase 08-02]: TraceCollector instruments real traversal at PhysicalScan/PhysicalExpand, propagated through Filter/Project/Sort/Limit recursively
+- [Phase 08-02]: POST /query/trace SSE endpoint intercepts before dispatch_http_request in serve_http loop — existing /query unchanged
+- [Phase 08-02]: Frontend SSE parsing uses fetch + ReadableStream (not EventSource which lacks POST support)
 
 ### Pending Todos
 
@@ -95,5 +98,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-02
-Stopped at: Completed Phase 7 Plan 03 (datasets registry integration and showcase grid update) — Phase 7 complete
-Resume file: .planning/phases/08-revolutionary-graph-visualization/ (Phase 8 next)
+Stopped at: Completed Phase 8 Plan 02 (TraceCollector, POST /query/trace SSE endpoint, frontend queryWithTrace)
+Resume file: .planning/phases/08-revolutionary-graph-visualization/08-03-PLAN.md (Plan 03 next)
