@@ -118,7 +118,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Landing page showcase section features all 4 datasets with real stats and recognizable branding
   4. Seed script downloads from original sources, converts to import format, and loads into OpenGraphDB
   5. Air Routes dataset preserves lat/long coordinates on airport nodes for Phase 8 geographic rendering
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 07-01-PLAN.md — Download scripts, Python conversion scripts, and extended seed pipeline for all 4 datasets
+  - [ ] 07-02-PLAN.md — TypeScript offline fallback modules with hand-curated data and guided queries for all 4 datasets
+  - [ ] 07-03-PLAN.md — Wire new datasets into registry, update tests, and adjust showcase grid layout
 
 ### Phase 8: Revolutionary Graph Visualization
 **Goal**: Modern production-grade graph rendering with geographic map rendering for Air Routes, large dataset support (1000s of nodes), and real-time query trace animation showing node traversal paths
@@ -157,6 +160,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
 | 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |
-| 7. Real-World Famous Dataset Showcase | 0/? | Discussing | — |
+| 7. Real-World Famous Dataset Showcase | 0/3 | Planning | — |
 | 8. Revolutionary Graph Visualization | 0/? | Pending | — |
 | 9. AI Knowledge Graph Assistant | 0/? | Pending | — |
