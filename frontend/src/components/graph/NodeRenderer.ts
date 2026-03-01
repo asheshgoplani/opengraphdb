@@ -54,7 +54,12 @@ export function paintNode(
   globalScale: number,
   colors: CanvasColors,
   labelIndex: Map<string, number>,
-  connectionCounts?: Map<string | number, number>
+  connectionCounts?: Map<string | number, number>,
+  traceState?: {
+    activeNodeId: string | number | null
+    traversedNodeIds: Set<string | number>
+    isPlaying: boolean
+  } | null
 ) {
   const label = node.label || node.labels?.[0] || String(node.id)
   const displayName = toDisplayText(node.properties?.name ?? node.properties?.title, label)
@@ -65,16 +70,57 @@ export function paintNode(
   const x = node.x ?? 0
   const y = node.y ?? 0
 
-  // Draw a subtle outer glow for depth.
+  const canvasWidth = ctx.canvas.width
+  const canvasHeight = ctx.canvas.height
+  const transform = ctx.getTransform()
+  const margin = radius * 2
+  const graphLeft = -transform.e / transform.a - margin
+  const graphTop = -transform.f / transform.d - margin
+  const graphRight = (canvasWidth - transform.e) / transform.a + margin
+  const graphBottom = (canvasHeight - transform.f) / transform.d + margin
+
+  if (x < graphLeft || x > graphRight || y < graphTop || y > graphBottom) {
+    return
+  }
+
+  const isZoomedOut = globalScale < 0.4
+  const isTraced = traceState?.traversedNodeIds.has(node.id) ?? false
+  const isActiveTrace = traceState?.activeNodeId === node.id
+  const isDimmed = traceState?.isPlaying && !isTraced && !isActiveTrace
+
+  if (isZoomedOut && !isActiveTrace) {
+    ctx.save()
+    if (isDimmed) ctx.globalAlpha = colors.dimmedAlpha
+    ctx.beginPath()
+    ctx.arc(x, y, Math.max(radius * 0.6, 2), 0, 2 * Math.PI)
+    ctx.fillStyle = isTraced ? colors.traceGlow : nodeColor
+    ctx.fill()
+    ctx.restore()
+    return
+  }
+
   ctx.save()
-  ctx.shadowColor = nodeColor
-  ctx.shadowBlur = Math.max(8 / globalScale, 4)
-  ctx.globalAlpha = 0.2
+  if (isDimmed) ctx.globalAlpha = colors.dimmedAlpha
+  const baseAlpha = ctx.globalAlpha
+
+  if (isActiveTrace) {
+    ctx.shadowColor = colors.traceGlow
+    ctx.shadowBlur = 30 / globalScale
+  } else if (isTraced) {
+    ctx.shadowColor = colors.traceGlow
+    ctx.shadowBlur = 15 / globalScale
+  } else {
+    ctx.shadowColor = nodeColor
+    ctx.shadowBlur = Math.max(8 / globalScale, 4)
+  }
+
+  ctx.globalAlpha = baseAlpha * 0.2
   ctx.beginPath()
   ctx.arc(x, y, radius, 0, 2 * Math.PI)
   ctx.fillStyle = nodeColor
   ctx.fill()
-  ctx.restore()
+  ctx.globalAlpha = baseAlpha
+  ctx.shadowBlur = 0
 
   const gradient = ctx.createRadialGradient(
     x - radius * 0.3,
@@ -96,6 +142,14 @@ export function paintNode(
   ctx.lineWidth = 0.5
   ctx.stroke()
 
+  if (isActiveTrace) {
+    ctx.beginPath()
+    ctx.arc(x, y, radius + 4, 0, 2 * Math.PI)
+    ctx.strokeStyle = colors.traceGlow
+    ctx.lineWidth = 2 / globalScale
+    ctx.stroke()
+  }
+
   // Draw label text below node with background-aware shadow for contrast.
   ctx.font = `500 ${fontSize}px Inter, system-ui, -apple-system, sans-serif`
   ctx.textAlign = 'center'
@@ -106,4 +160,5 @@ export function paintNode(
   ctx.fillStyle = colors.nodeText
   ctx.fillText(text, x, y + radius + 3)
   ctx.shadowBlur = 0
+  ctx.restore()
 }

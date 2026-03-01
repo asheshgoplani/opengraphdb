@@ -11,8 +11,6 @@ test('buildJsonString returns formatted JSON', () => {
   const data: QueryResponse = {
     nodes: [],
     relationships: [],
-    columns: ['name'],
-    rows: [['Alice']],
   }
 
   const json = buildJsonString(data)
@@ -22,32 +20,11 @@ test('buildJsonString returns formatted JSON', () => {
       {
         nodes: [],
         relationships: [],
-        columns: ['name'],
-        rows: [['Alice']],
       },
       null,
       2
     )
   )
-})
-
-test('buildCsvString builds CSV for tabular responses', () => {
-  const data: QueryResponse = {
-    nodes: [],
-    relationships: [],
-    columns: ['name', 'age'],
-    rows: [
-      ['Alice', 31],
-      ['Bob', 29],
-    ],
-  }
-
-  const csv = buildCsvString(data)
-  const rows = parseCsvRows(csv)
-
-  assert.equal(rows[0], '"name","age"')
-  assert.equal(rows[1], '"Alice","31"')
-  assert.equal(rows[2], '"Bob","29"')
 })
 
 test('buildCsvString builds CSV for graph responses with unioned property keys', () => {

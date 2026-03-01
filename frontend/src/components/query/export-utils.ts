@@ -1,4 +1,6 @@
-import type { QueryResponse } from '../../types/api.js'
+import type { BackendQueryResponse, QueryResponse } from '../../types/api.js'
+
+type ExportableData = QueryResponse | BackendQueryResponse
 
 function triggerDownload(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob)
@@ -13,17 +15,21 @@ function escapeCsvCell(value: string): string {
   return `"${value.replaceAll('"', '""')}"`
 }
 
-export function buildJsonString(data: QueryResponse): string {
+function isBackendResponse(data: ExportableData): data is BackendQueryResponse {
+  return 'columns' in data && 'row_count' in data
+}
+
+export function buildJsonString(data: ExportableData): string {
   return JSON.stringify(data, null, 2)
 }
 
-export function buildCsvString(data: QueryResponse): string {
+export function buildCsvString(data: ExportableData): string {
   const rows: string[][] = []
 
-  if (data.columns && data.rows) {
+  if (isBackendResponse(data)) {
     rows.push(data.columns)
     rows.push(
-      ...data.rows.map((row) => row.map((cell) => String(cell ?? '')))
+      ...data.rows.map((row) => Object.values(row).map((cell) => String(cell ?? '')))
     )
   } else {
     const allPropertyKeys = Array.from(
@@ -47,12 +53,12 @@ export function buildCsvString(data: QueryResponse): string {
   return `\ufeff${csvBody}`
 }
 
-export function exportAsJson(data: QueryResponse, filename = 'query-results.json') {
+export function exportAsJson(data: ExportableData, filename = 'query-results.json') {
   const blob = new Blob([buildJsonString(data)], { type: 'application/json' })
   triggerDownload(blob, filename)
 }
 
-export function exportAsCsv(data: QueryResponse, filename = 'query-results.csv') {
+export function exportAsCsv(data: ExportableData, filename = 'query-results.csv') {
   const blob = new Blob([buildCsvString(data)], { type: 'text/csv;charset=utf-8' })
   triggerDownload(blob, filename)
 }

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { AlertCircle, ArrowLeft } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Zap } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiClient } from '@/api/client'
 import { transformLiveResponse } from '@/api/transform'
@@ -18,6 +18,7 @@ import {
   type DatasetKey,
   type GuidedQuery,
 } from '@/data/datasets'
+import { useGraphStore } from '@/stores/graph'
 import { useSettingsStore } from '@/stores/settings'
 import type { BackendQueryResponse } from '@/types/api'
 import type { GraphData } from '@/types/graph'
@@ -61,6 +62,9 @@ export default function PlaygroundPage() {
   const [isLiveMode, setIsLiveMode] = useState(false)
   const [liveError, setLiveError] = useState<string | null>(null)
   const [isLiveLoading, setIsLiveLoading] = useState(false)
+  const setTrace = useGraphStore((s) => s.setTrace)
+  const advanceTrace = useGraphStore((s) => s.advanceTrace)
+  const [isTraceMode, setIsTraceMode] = useState(false)
 
   const liveQueryMutation = useMutation({
     mutationFn: (cypher: string) => apiClient.query(cypher),
@@ -91,6 +95,50 @@ export default function PlaygroundPage() {
     }
   }
 
+  const handleTraceQuery = async (queryKey: string) => {
+    const query = queries.find((q) => q.key === queryKey)
+    if (!query || !query.liveDescriptor) return
+
+    setIsLiveLoading(true)
+    setLiveError(null)
+    const start = performance.now()
+
+    try {
+      const collectedSteps: Array<{ nodeId: string | number; stepIndex: number }> = []
+
+      const response = await apiClient.queryWithTrace(
+        query.cypher,
+        (step) => {
+          collectedSteps.push(step)
+          if (collectedSteps.length === 1) {
+            setTrace([], 1)
+          }
+          advanceTrace(step.nodeId, step.stepIndex)
+        }
+      )
+
+      const nextGraphData = transformLiveResponse(
+        response as unknown as BackendQueryResponse,
+        query.liveDescriptor
+      )
+      setGraphData(nextGraphData)
+      setQueryTimeMs(Math.round(performance.now() - start))
+
+      if (collectedSteps.length > 0) {
+        setTrace(collectedSteps.map(s => ({
+          nodeId: s.nodeId,
+          stepIndex: s.stepIndex,
+        })))
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Trace query failed'
+      setLiveError(message)
+      setQueryTimeMs(0)
+    } finally {
+      setIsLiveLoading(false)
+    }
+  }
+
   const handleQueryRun = async (queryKey: string) => {
     if (isLiveLoading) {
       return
@@ -103,6 +151,11 @@ export default function PlaygroundPage() {
 
     setActiveQueryKey(queryKey)
     setLiveError(null)
+
+    if (isLiveMode && isTraceMode && query.liveDescriptor) {
+      await handleTraceQuery(queryKey)
+      return
+    }
 
     if (isLiveMode && query.liveDescriptor) {
       setIsLiveLoading(true)
@@ -148,6 +201,17 @@ export default function PlaygroundPage() {
           </div>
           <div className="flex items-center gap-2">
             <LiveModeToggle isLive={isLiveMode} onChange={handleModeChange} disabled={isLiveLoading} />
+            {isLiveMode && (
+              <Button
+                variant={isTraceMode ? 'default' : 'outline'}
+                size="sm"
+                className={isTraceMode ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 hover:bg-cyan-500/30' : ''}
+                onClick={() => setIsTraceMode(!isTraceMode)}
+              >
+                <Zap className="h-3.5 w-3.5 mr-1" />
+                Trace
+              </Button>
+            )}
             <ConnectionBadge queryTimeMs={queryTimeMs} isLive={isLiveMode} liveError={liveError} />
           </div>
         </div>

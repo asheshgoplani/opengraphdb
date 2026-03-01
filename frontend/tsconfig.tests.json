@@ -12,6 +12,8 @@
     "baseUrl": ".",
     "paths": {
       "@/types/graph": ["./src/types/graph.ts"],
+      "@/api/transform": ["./src/api/transform.ts"],
+      "@/types/api": ["./src/types/api.ts"],
       "@/*": ["./src/*"]
     },
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.tests.tsbuildinfo"

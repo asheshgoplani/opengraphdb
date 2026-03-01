@@ -7,6 +7,8 @@ import { useGraphColors } from './useGraphColors'
 import { paintNode } from './NodeRenderer'
 import { GraphLegend } from './GraphLegend'
 import { GeoCanvas } from './GeoCanvas'
+import { useTraceAnimation } from './useTraceAnimation'
+import { TraceControls } from './TraceControls'
 
 interface GraphCanvasProps {
   graphData: GraphData
@@ -30,14 +32,19 @@ function getNodeCoordinate(node: GraphEdge['source']): { x: number; y: number } 
   return null
 }
 
+const getLinkNodeId = (n: GraphNode | string | number): string | number =>
+  typeof n === 'object' && n !== null ? n.id : n
+
 export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
   const colors = useGraphColors()
   const selectNode = useGraphStore((s) => s.selectNode)
   const selectEdge = useGraphStore((s) => s.selectEdge)
   const clearSelection = useGraphStore((s) => s.clearSelection)
+  const trace = useGraphStore((s) => s.trace)
   const containerRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphEdge> | undefined>(undefined)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+  useTraceAnimation()
 
   const uniqueLabels = useMemo(() => {
     const labels = new Set<string>()
@@ -66,6 +73,28 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
     }
     return counts
   }, [graphData.links])
+
+  const traceRenderState = useMemo(() => {
+    if (!trace) return null
+    return {
+      activeNodeId: trace.activeNodeId,
+      traversedNodeIds: trace.traversedNodeIds,
+      isPlaying: trace.isPlaying,
+    }
+  }, [trace?.activeNodeId, trace?.traversedNodeIds, trace?.isPlaying])
+
+  const traceEdgeIds = useMemo(() => {
+    if (!trace || trace.traversedNodeIds.size < 2) return new Set<string | number>()
+    const ids = new Set<string | number>()
+    for (const link of graphData.links) {
+      const srcId = getLinkNodeId(link.source as GraphNode | string | number)
+      const tgtId = getLinkNodeId(link.target as GraphNode | string | number)
+      if (trace.traversedNodeIds.has(srcId) && trace.traversedNodeIds.has(tgtId)) {
+        ids.add(link.id)
+      }
+    }
+    return ids
+  }, [trace?.traversedNodeIds, graphData.links])
 
   // Handle container resize
   useEffect(() => {
@@ -96,13 +125,15 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
 
   const nodeCanvasObject = useCallback(
     (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      paintNode(node, ctx, globalScale, colors, labelIndex, connectionCounts)
+      paintNode(node, ctx, globalScale, colors, labelIndex, connectionCounts, traceRenderState)
     },
-    [colors, labelIndex, connectionCounts]
+    [colors, labelIndex, connectionCounts, traceRenderState]
   )
 
   const linkCanvasObject = useCallback(
     (link: GraphEdge, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      if (globalScale < 0.5) return
+
       const source = getNodeCoordinate(link.source)
       const target = getNodeCoordinate(link.target)
       if (!source || !target || !link.type) return
@@ -181,6 +212,10 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
         linkDirectionalArrowLength={5}
         linkDirectionalArrowColor={() => colors.edge}
         linkDirectionalArrowRelPos={1}
+        linkDirectionalParticles={(link: GraphEdge) => traceEdgeIds.has(link.id) ? 3 : 0}
+        linkDirectionalParticleColor={() => colors.traceGlow}
+        linkDirectionalParticleSpeed={0.008}
+        linkDirectionalParticleWidth={2}
         linkLabel={(link: GraphEdge) => link.type}
         linkCanvasObject={linkCanvasObject}
         linkCanvasObjectMode={() => 'after'}
@@ -193,8 +228,10 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
         d3AlphaDecay={0.015}
         d3VelocityDecay={0.25}
         cooldownTicks={150}
+        autoPauseRedraw={true}
       />
       <GraphLegend labels={uniqueLabels} labelIndex={labelIndex} />
+      <TraceControls />
     </div>
   )
 }
