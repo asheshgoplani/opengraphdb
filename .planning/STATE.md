@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-02T00:00:00.000Z"
+last_updated: "2026-03-01T20:15:02.374Z"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 7
-  total_plans: 24
-  completed_plans: 24
+  total_plans: 27
+  completed_plans: 26
 ---
 
 # Project State
@@ -49,6 +49,7 @@ Progress: [█████████████░░] 83%
 | 7. Real-World Famous Dataset Showcase | 3/3 | Complete | 2026-03-02 |
 | 8. Revolutionary Graph Visualization | 2/3 | In Progress | — |
 | 9. AI Knowledge Graph Assistant | 0/? | Pending | — |
+| Phase 08 P01 | 35 | 2 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,9 @@ Recent decisions affecting current work:
 - [Phase 08-02]: TraceCollector instruments real traversal at PhysicalScan/PhysicalExpand, propagated through Filter/Project/Sort/Limit recursively
 - [Phase 08-02]: POST /query/trace SSE endpoint intercepts before dispatch_http_request in serve_http loop — existing /query unchanged
 - [Phase 08-02]: Frontend SSE parsing uses fetch + ReadableStream (not EventSource which lacks POST support)
+- [Phase 08-revolutionary-graph-visualization]: MapLibre Map component imported as MapLibreMap alias to prevent shadowing JS global Map constructor causing TS7009 errors
+- [Phase 08-01]: GeoCanvas uses CARTO Dark Matter tiles (no API key) with deck.gl ScatterplotLayer for airports and ArcLayer for great-circle routes with pulse animation
+- [Phase 08-01]: isGeographic flag on DatasetMeta auto-activates geographic mode when Air Routes dataset is selected — no user toggle needed
 
 ### Pending Todos
 
