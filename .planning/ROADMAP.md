@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 5: Frontend Polish & Knowledge Graph Showcase** - Polish all pages to production quality with Linear/Vercel aesthetic, real-world knowledge graph showcase, redesigned playground with split-pane layout, and Playwright visual verification
 - [x] **Phase 6: Production Demo Datasets & Live Backend Integration** - Create rich, realistic demo datasets loaded into the actual OpenGraphDB database, wire frontend to showcase live backend queries, and provide a seed script for reproducible demo data
 
-- [ ] **Phase 7: Real-World Famous Dataset Showcase** - Import 4 industry-standard datasets (MovieLens, Air Routes, Game of Thrones, Wikidata subset) as pre-built showcases with download scripts, format conversion, guided queries, and landing page updates
+- [x] **Phase 7: Real-World Famous Dataset Showcase** - Import 4 industry-standard datasets (MovieLens, Air Routes, Game of Thrones, Wikidata subset) as pre-built showcases with download scripts, format conversion, guided queries, and landing page updates
 - [ ] **Phase 8: Revolutionary Graph Visualization** - Modern production-grade graph rendering with geographic maps, large dataset support, and real-time query trace animation showing traversal paths
 - [ ] **Phase 9: AI Knowledge Graph Assistant** - Provider-agnostic chatbot converting natural language to Cypher with configurable API keys, free default model, and integration with query trace animation
 
@@ -120,8 +120,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Air Routes dataset preserves lat/long coordinates on airport nodes for Phase 8 geographic rendering
 **Plans**: 3 plans
   - [x] 07-01-PLAN.md — Download scripts, Python conversion scripts, and extended seed pipeline for all 4 datasets
-  - [ ] 07-02-PLAN.md — TypeScript offline fallback modules with hand-curated data and guided queries for all 4 datasets
-  - [ ] 07-03-PLAN.md — Wire new datasets into registry, update tests, and adjust showcase grid layout
+  - [x] 07-02-PLAN.md — TypeScript offline fallback modules with hand-curated data and guided queries for all 4 datasets
+  - [x] 07-03-PLAN.md — Wire new datasets into registry, update tests, and adjust showcase grid layout
 
 ### Phase 8: Revolutionary Graph Visualization
 **Goal**: Modern production-grade graph rendering with geographic map rendering for Air Routes, large dataset support (1000s of nodes), and real-time query trace animation showing node traversal paths
@@ -160,6 +160,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
 | 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |
-| 7. Real-World Famous Dataset Showcase | 2/3 | In Progress|  |
+| 7. Real-World Famous Dataset Showcase | 3/3 | Complete | 2026-03-02 |
 | 8. Revolutionary Graph Visualization | 0/? | Pending | — |
 | 9. AI Knowledge Graph Assistant | 0/? | Pending | — |
