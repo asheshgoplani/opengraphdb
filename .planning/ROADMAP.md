@@ -16,6 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Cypher Editor and Query Workflow** - Full Cypher editor with syntax highlighting, autocomplete, history, saved queries, keyboard shortcuts, and export
 - [x] **Phase 3: Schema Browser** - Schema exploration showing node labels, relationship types, and property keys from the backend
 - [x] **Phase 4: Landing Page and Playground** - Hero landing page with feature highlights and an interactive playground with pre-loaded sample graph and guided queries
+- [ ] **Phase 5: Frontend Polish & Knowledge Graph Showcase** - Polish all pages to production quality with Linear/Vercel aesthetic, real-world knowledge graph showcase, redesigned playground with split-pane layout, and Playwright visual verification
 
 ## Phase Details
 
@@ -69,10 +70,22 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 04-02-PLAN.md — Landing page with hero section, feature highlights, and getting started guide
   - [x] 04-03-PLAN.md — Playground page with GraphCanvas, guided query buttons, and Header wordmark link
 
+### Phase 5: Frontend Polish & Knowledge Graph Showcase
+**Goal**: Polish all frontend pages to production quality with showcase knowledge graph examples, improved playground UX, and full visual verification
+**Depends on**: Phase 4
+**Requirements**: Visual polish, knowledge graph showcase, playground redesign, Playwright visual testing
+**Success Criteria** (what must be TRUE):
+  1. Landing page has a live animated graph hero background and a knowledge graph showcase section referencing real-world datasets (Wikidata, IMDB, PubMed) with interactive mini-graph previews
+  2. Playground uses a split-pane layout (editor + graph), shows live database connection status with query timing, and supports multiple switchable sample datasets
+  3. Graph visualization rendering is professionally polished with gradient colors, glow effects, proper legend, and clear labels
+  4. Every page achieves a Linear/Vercel-level aesthetic with subtle purposeful animations, polished dark mode, and refined typography
+  5. Playwright screenshot tests verify every page looks correct with real data in both light and dark mode
+**Plans**: TBD
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -80,3 +93,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 2. Cypher Editor and Query Workflow | 3/3 | Complete | 2026-03-01 |
 | 3. Schema Browser | 1/1 | Complete | 2026-03-01 |
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
+| 5. Frontend Polish & Knowledge Graph Showcase | 0/? | Not started | - |
