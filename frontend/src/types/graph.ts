@@ -5,8 +5,8 @@ export interface GraphNode {
   label?: string
   x?: number
   y?: number
-  fx?: number | null
-  fy?: number | null
+  fx?: number | undefined
+  fy?: number | undefined
   __bckgDimensions?: [number, number]
 }
 
