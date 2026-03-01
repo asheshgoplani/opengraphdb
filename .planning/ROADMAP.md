@@ -133,7 +133,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Query execution returns trace data (visited node IDs) via an EXPLAIN-like endpoint
   4. Frontend displays real-time traversal animation (nodes light up as query traverses them) via WebSocket/SSE
   5. Graph rendering is aesthetically modern and production-grade
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 08-01-PLAN.md — Geographic map rendering (deck.gl + MapLibre) with type/state foundation
+  - [ ] 08-02-PLAN.md — Backend trace endpoint (TraceCollector + SSE streaming) and frontend API client
+  - [ ] 08-03-PLAN.md — LOD performance optimization, viewport culling, and trace animation with controls
 
 ### Phase 9: AI Knowledge Graph Assistant
 **Goal**: Provider-agnostic AI chatbot that converts natural language to Cypher queries with configurable API keys, free default model, and integration with query trace animation
