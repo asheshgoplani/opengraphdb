@@ -12,6 +12,7 @@ import { QueryCard } from '@/components/playground/QueryCard'
 import { StatsPanel } from '@/components/playground/StatsPanel'
 import { Button } from '@/components/ui/button'
 import {
+  DATASETS,
   getDatasetQueries,
   runDatasetQuery,
   type DatasetKey,
@@ -21,7 +22,7 @@ import { useSettingsStore } from '@/stores/settings'
 import type { BackendQueryResponse } from '@/types/api'
 import type { GraphData } from '@/types/graph'
 
-const DATASET_KEYS: DatasetKey[] = ['movies', 'social', 'fraud']
+const DATASET_KEYS: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata']
 export const QUERY_CATEGORIES = ['Explore', 'Traverse', 'Analyze'] as const
 type QueryCategory = (typeof QUERY_CATEGORIES)[number]
 
@@ -29,7 +30,7 @@ function toDatasetKey(value: string | null): DatasetKey {
   if (value && DATASET_KEYS.includes(value as DatasetKey)) {
     return value as DatasetKey
   }
-  return 'movies'
+  return 'movielens'
 }
 
 export function groupQueriesByCategory(
@@ -129,6 +130,8 @@ export default function PlaygroundPage() {
   const labelCount = useMemo(() => {
     return new Set(graphData.nodes.flatMap((node) => node.labels)).size
   }, [graphData.nodes])
+
+  const isGeographic = DATASETS[activeDataset]?.meta.isGeographic ?? false
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
@@ -241,7 +244,7 @@ export default function PlaygroundPage() {
           </div>
 
           <main className="relative min-h-0 flex-1 overflow-hidden">
-            <GraphCanvas graphData={graphData} />
+            <GraphCanvas graphData={graphData} isGeographic={isGeographic} />
             {isLiveLoading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">

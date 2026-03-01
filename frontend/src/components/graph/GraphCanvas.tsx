@@ -6,9 +6,11 @@ import { useGraphStore } from '@/stores/graph'
 import { useGraphColors } from './useGraphColors'
 import { paintNode } from './NodeRenderer'
 import { GraphLegend } from './GraphLegend'
+import { GeoCanvas } from './GeoCanvas'
 
 interface GraphCanvasProps {
   graphData: GraphData
+  isGeographic?: boolean
 }
 
 function getNodeId(node: GraphEdge['source']): string | number | null {
@@ -28,13 +30,13 @@ function getNodeCoordinate(node: GraphEdge['source']): { x: number; y: number } 
   return null
 }
 
-export function GraphCanvas({ graphData }: GraphCanvasProps) {
+export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
   const colors = useGraphColors()
   const selectNode = useGraphStore((s) => s.selectNode)
   const selectEdge = useGraphStore((s) => s.selectEdge)
   const clearSelection = useGraphStore((s) => s.clearSelection)
   const containerRef = useRef<HTMLDivElement>(null)
-  const graphRef = useRef<ForceGraphMethods<GraphNode, GraphEdge>>()
+  const graphRef = useRef<ForceGraphMethods<GraphNode, GraphEdge> | undefined>(undefined)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
 
   const uniqueLabels = useMemo(() => {
@@ -151,6 +153,10 @@ export function GraphCanvas({ graphData }: GraphCanvasProps) {
 
   // Memoize graph data to prevent simulation restarts
   const stableData = useMemo(() => graphData, [graphData])
+
+  if (isGeographic) {
+    return <GeoCanvas graphData={graphData} />
+  }
 
   return (
     <div ref={containerRef} className="relative h-full w-full">
