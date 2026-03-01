@@ -80,7 +80,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Graph visualization rendering is professionally polished with gradient colors, glow effects, proper legend, and clear labels
   4. Every page achieves a Linear/Vercel-level aesthetic with subtle purposeful animations, polished dark mode, and refined typography
   5. Playwright screenshot tests verify every page looks correct with real data in both light and dark mode
-**Plans**: TBD
+**Plans**: 6 plans
+  - [ ] 05-01-PLAN.md — Graph visualization polish (gradients, glow, legend) + Tailwind animation utilities
+  - [ ] 05-02-PLAN.md — Sample datasets (social network, fraud detection) + unified dataset registry with tests
+  - [ ] 05-03-PLAN.md — Landing page redesign (animated hero, showcase cards, nav, polished sections)
+  - [ ] 05-04-PLAN.md — Playground redesign (split-pane, dataset switcher, query cards, connection badge)
+  - [ ] 05-05-PLAN.md — App page polish (header glass effect, connection status, results banner, property panel)
+  - [ ] 05-06-PLAN.md — Playwright E2E visual tests for all pages in light/dark mode
 
 ## Progress
 
@@ -93,4 +99,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Cypher Editor and Query Workflow | 3/3 | Complete | 2026-03-01 |
 | 3. Schema Browser | 1/1 | Complete | 2026-03-01 |
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
-| 5. Frontend Polish & Knowledge Graph Showcase | 0/? | Not started | - |
+| 5. Frontend Polish & Knowledge Graph Showcase | 0/6 | Planned | - |
