@@ -1,105 +1,67 @@
-# OpenGraphDB
+# OpenGraphDB Frontend
 
 ## What This Is
 
-OpenGraphDB is an embeddable, AI-native graph database written in Rust. It combines property graph storage with native vector search, full-text search, and first-class AI agent support (MCP) in a single binary. It targets the vacuum left by KuzuDB's abandonment while going further with Cypher/openCypher query language, multi-modal storage, and modern developer experience.
+A web-based frontend for OpenGraphDB that combines interactive graph exploration, database administration, and a showcase/demo experience into a single application. It targets developers exploring graph data, operators monitoring database health, and evaluators trying OpenGraphDB for the first time.
 
 ## Core Value
 
-Extremely fast interactive graph traversal from CLI and embedded API with zero operational overhead: single binary, embeddable by default, AI-agent-ready out of the box.
+Developers can visually explore and query their graph data through an interactive Cypher query interface with force-directed graph visualization.
 
 ## Requirements
 
 ### Validated
 
-- ✓ Page-based storage engine with WAL, crash recovery, checkpoints, backups — existing
-- ✓ Double CSR (forward + reverse) per edge type with async background compaction — existing
-- ✓ Canonical node property store with Roaring bitmap label index — existing
-- ✓ Buffer pool with LRU eviction over pread/pwrite — existing
-- ✓ Free list and page allocator — existing
-- ✓ LZ4/ZSTD transparent page compression — existing
-- ✓ MVCC snapshot isolation with single-writer + optimistic multi-writer — existing
-- ✓ Per-transaction undo ownership and version GC — existing
-- ✓ Transaction timeout controls — existing
-- ✓ Winnow-based Cypher lexer/parser/AST — existing
-- ✓ Semantic analysis, logical/physical plan generation — existing
-- ✓ Vectorized push-based query execution — existing
-- ✓ B-tree property indexes and composite indexes — existing
-- ✓ HNSW vector index with pure-Rust backend (cosine, euclidean, dot product) — existing
-- ✓ Tantivy full-text index with BM25 ranking — existing
-- ✓ Hybrid retrieval with bitmap pre-filter propagation — existing
-- ✓ CSV/JSON/JSONL import/export with full property-graph support — existing
-- ✓ RDF import/export via oxrdfio with URI round-trip fidelity — existing
-- ✓ OWL/RDFS ontology import — existing
-- ✓ CLI with clap parsing, rustyline REPL, machine-readable output formats — existing
-- ✓ MCP server with full AI tool surface — existing
-- ✓ Bolt protocol, HTTP/REST, gRPC server modes — existing
-- ✓ Python bindings (PyO3), Node.js (napi-rs), Go (CGo), C/C++ FFI — existing
-- ✓ Bi-temporal graph model with AT TIME queries — existing
-- ✓ Graph algorithms (shortest path, Louvain, label propagation, subgraph extraction) — existing
-- ✓ Agent memory patterns and GraphRAG primitives — existing
-- ✓ RBAC, audit logs, SSO token validation — existing
-- ✓ Replication and online backup — existing
-- ✓ WASM builds — existing
-- ✓ openCypher TCK harness with Tier-1 coverage — existing
-- ✓ Crash/durability acceptance suite — existing
-- ✓ Traversal latency and import throughput benchmark gates — existing
-- ✓ tracing instrumentation with OTel-convention naming — existing
-- ✓ Prometheus metrics endpoint — existing
+(None yet — ship to validate)
 
 ### Active
 
-- [ ] Temporal property types (date, datetime, duration) for property values
-- [ ] Collection property types (list<T>, map<string, T>) for property values
-- [ ] Auto-created indexes on frequently queried properties
-- [ ] Worst-case optimal joins (WCOJ) for pattern queries
-- [ ] Factorized intermediate result processing
-- [ ] Schema migration command (`migrate`)
-- [ ] All-or-nothing bulk import mode
-- [ ] SHACL shape validation (optional extension)
-- [ ] Append-only temporal versioning with compaction
-- [ ] Memory and disk size budget validation (1M nodes + 5M edges < 500MB RAM, < 1GB disk)
-- [ ] Rust embedded library Cypher query surface completion
-- [ ] Recent CHANGELOG bugfixes (inline property filters, projection disambiguation, CREATE INDEX, ORDER BY numeric sort, REMOVE, CALL procedure routing)
+- [ ] Cypher query editor with syntax highlighting, autocomplete, and history
+- [ ] Force-directed graph visualization of query results (nodes as labeled circles, edges as directional lines)
+- [ ] Interactive graph manipulation (click to expand, double-click to collapse, drag to reposition, scroll to zoom)
+- [ ] Node/edge property inspection via side panel
+- [ ] Tabular results view (toggle between graph and table)
+- [ ] Query history with re-run capability
+- [ ] Saved/bookmarked queries
+- [ ] Export results as JSON and CSV
+- [ ] Admin dashboard with health status, metrics, schema browser
+- [ ] Import/export UI for CSV/JSON files
+- [ ] Index management (view and create)
+- [ ] Landing/demo page with hero section, feature highlights, getting started guide
+- [ ] Interactive playground with pre-loaded sample graph and guided queries
+- [ ] Dark mode support
+- [ ] Responsive layout (desktop and tablet)
+- [ ] Code-split by route for fast initial load
+- [ ] Configurable server URL for backend connection
 
 ### Out of Scope
 
-- SPARQL query engine — One query language (Cypher) done well beats two done poorly. RDF import/export handles interop.
-- Real-time streaming/CDC — Adds significant complexity; replication covers multi-node needs.
-- Distributed sharding — Embedded-first architecture; not a distributed database.
+- User authentication/authorization — not needed for v1 local-first tool
+- Multi-database support — single database connection for v1
+- Real-time streaming/subscriptions — standard request-response sufficient
+- Mobile-optimized layout — desktop and tablet focus
+- Bolt protocol from browser — would need WebSocket bridge, HTTP REST is sufficient
 
 ## Context
 
-This is a Rust workspace with 9 active crates totaling ~50K lines of code. Phases 1-15 of the implementation checklist (docs/FULL-IMPLEMENTATION-CHECKLIST.md) are essentially complete with production-quality test coverage (>=98% lines on core crates). The CHANGELOG shows recent unreleased bugfixes that need to be included in the gap-closing work.
-
-Key files:
-- `ARCHITECTURE.md` — Canonical architecture decisions (wins all conflicts)
-- `DESIGN.md` — Byte-level engineering design (40 sections)
-- `SPEC.md` — Product specification
-- `IMPLEMENTATION-READY.md` — Execution baseline checklist
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` — Granular status tracking
-- `CHANGELOG.md` — All changes with unreleased section
-
-The codebase builds and all tests pass. Coverage gates are enforced in CI.
+OpenGraphDB is a graph database with an HTTP REST API (default localhost:8080). The frontend connects to endpoints: POST /query, GET /health, GET /metrics, GET /schema, POST /import, POST /export. The backend is a Rust-based system with Cypher query support. This frontend will be served as a standalone SPA by any static file server, with future capability to be served directly by OpenGraphDB's HTTP server.
 
 ## Constraints
 
-- **Architecture**: All decisions locked in ARCHITECTURE.md unless benchmark evidence proves otherwise
-- **I/O model**: pread/pwrite only in core execution path (no mmap)
-- **File model**: .ogdb + .ogdb-wal are authoritative; vector/FTS artifacts are rebuildable
-- **Quality**: Production quality bar: each feature fully tested, documented, benchmarked (>=98% line coverage on active crates)
-- **Compatibility**: Must not regress existing Cypher, CLI, or API contracts
-- **Dependencies**: Locked choices (winnow, oxrdfio, tantivy, usearch, tracing, clap, rustyline)
+- **Tech Stack**: React + TypeScript, Tailwind CSS + Shadcn/ui, Vite for build tooling
+- **Graph Rendering**: Must use a graph visualization library (react-force-graph, cytoscape.js, or d3-force)
+- **Code Editor**: Monaco Editor or CodeMirror for Cypher editor
+- **Deployment**: Must work as standalone SPA served by any static file server
+- **Backend API**: HTTP REST only (no WebSocket/Bolt protocol from browser)
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Cypher-first, no SPARQL | One query language done well; AI agents generate Cypher better | ✓ Good |
-| CSR + delta storage | Benchmark-gated; current workloads don't cross hybrid thresholds | ✓ Good |
-| pread/pwrite only | Predictable I/O behavior; robust recovery semantics | ✓ Good |
-| Pure-Rust vector backend | Platform portability over usearch C++ dependency | — Pending |
-| All PENDING items in scope | Close every gap from the implementation checklist | — Pending |
+| React + TypeScript + Vite | Specified in frontend spec, modern standard stack | — Pending |
+| Tailwind CSS + Shadcn/ui | Specified in spec, rapid UI development with consistent design | — Pending |
+| SPA architecture | Must work as standalone static files, code-split by route | — Pending |
+| HTTP REST API connection | Bolt protocol requires WebSocket bridge, HTTP is simpler | — Pending |
 
 ---
-*Last updated: 2026-02-27 after initialization*
+*Last updated: 2026-03-01 after initialization*
