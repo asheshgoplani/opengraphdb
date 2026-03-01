@@ -25,12 +25,18 @@ class MockCanvasContext {
   public font = ''
   public textAlign: CanvasTextAlign = 'start'
   public textBaseline: CanvasTextBaseline = 'alphabetic'
+  public globalAlpha = 1
+  public canvas = { width: 1920, height: 1080 }
 
   beginPath() {}
   save() {}
   restore() {}
   fill() {}
   stroke() {}
+
+  getTransform() {
+    return { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }
+  }
 
   arc(x: number, y: number, radius: number) {
     this.arcs.push({ x, y, radius })
@@ -51,7 +57,7 @@ class MockCanvasContext {
   }
 }
 
-const mockColors = {
+const mockColors: CanvasColors = {
   bg: '#0f0f1a',
   text: '#e2e8f0',
   edge: '#334155',
@@ -61,7 +67,9 @@ const mockColors = {
   nodeShadow: 'rgba(99, 102, 241, 0.3)',
   edgeLabel: '#94a3b8',
   edgeLabelBg: 'rgba(15, 15, 26, 0.85)',
-} as CanvasColors
+  traceGlow: '#00d4ff',
+  dimmedAlpha: 0.15,
+}
 
 test('getLabelColor assigns deterministic colors by first-seen label', () => {
   const labelIndex = new Map<string, number>()
