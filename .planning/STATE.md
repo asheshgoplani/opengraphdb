@@ -2,10 +2,10 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-last_updated: "2026-03-01T20:41:00.000Z"
+status: in_progress
+last_updated: "2026-03-01T22:00:00.000Z"
 progress:
-  total_phases: 5
+  total_phases: 6
   completed_phases: 5
   total_plans: 18
   completed_plans: 18
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-01)
 
 ## Current Position
 
-Phase: 5 of 5 (Complete)
-Plan: 18 of 18 (All complete)
-Status: Milestone complete
-Last activity: 2026-03-01 — Phase 5 execution completed
+Phase: 6 of 6 (Context gathered, planning next)
+Plan: 18 of 18 (Phase 6 plans TBD)
+Status: Phase 6 context captured
+Last activity: 2026-03-01 — Phase 6 context gathered
 
-Progress: [██████████] 100%
+Progress: [████████░░] 83%
 
 ## Performance Metrics
 
@@ -45,6 +45,7 @@ Progress: [██████████] 100%
 | 3. Schema Browser | 1/1 | Complete | 2026-03-01 |
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
+| 6. Production Demo Datasets & Live Backend Integration | 0/0 | Context gathered | - |
 
 ## Accumulated Context
 
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - [Phase 5]: Real-world graph showcase (Wikidata, IMDB, PubMed references)
 - [Phase 5]: Split-pane playground with multiple datasets, query cards, connection status
 - [Phase 5]: Playwright screenshot tests for visual verification
+- [Phase 6]: Movies flagship (real data, ~200-500 nodes), expand social & fraud secondaries
+- [Phase 6]: Dual mode playground (offline fallback + live backend toggle)
+- [Phase 6]: JSON import files + shell seed script, idempotent reset & reload
 
 ### Pending Todos
 
@@ -77,5 +81,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-01
-Stopped at: All phases complete
-Resume file: N/A
+Stopped at: Phase 6 context gathered
+Resume file: .planning/phases/06-demo-datasets-and-live-backend/06-CONTEXT.md
