@@ -63,22 +63,6 @@ function cloneGraphData(data: GraphData): GraphData {
   }
 }
 
-function buildRelationshipSubgraph(data: GraphData, relationshipTypes: string[]): GraphData {
-  const typeSet = new Set(relationshipTypes)
-  const links = data.links.filter((link) => typeSet.has(link.type))
-  const referencedNodeIds = new Set<string | number>()
-
-  for (const link of links) {
-    referencedNodeIds.add(toNodeId(link.source))
-    referencedNodeIds.add(toNodeId(link.target))
-  }
-
-  return {
-    nodes: data.nodes.filter((node) => referencedNodeIds.has(node.id)).map(cloneNode),
-    links: links.map(cloneLink),
-  }
-}
-
 function buildDatasetMeta(key: DatasetKey, name: string, description: string, data: GraphData): DatasetMeta {
   return {
     key,
