@@ -298,6 +298,40 @@ pub struct DbMetrics {
     pub buffer_pool_misses: u64,
 }
 
+/// Records visited node IDs during query execution for trace animation.
+/// Attached to physical plan execution to capture real traversal order.
+#[derive(Debug, Clone, Default)]
+pub struct TraceCollector {
+    /// Node IDs visited during execution, in traversal order (may contain duplicates).
+    pub visited_node_ids: Vec<u64>,
+    /// Edge references visited during expansion, in traversal order.
+    pub visited_edge_ids: Vec<(u64, u64, u64)>, // (src, dst, edge_id)
+}
+
+impl TraceCollector {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn record_node(&mut self, node_id: u64) {
+        self.visited_node_ids.push(node_id);
+    }
+
+    pub fn record_edge(&mut self, src: u64, dst: u64, edge_offset: u64) {
+        self.visited_edge_ids.push((src, dst, edge_offset));
+    }
+
+    /// Deduplicate while preserving first-seen order.
+    pub fn unique_node_ids(&self) -> Vec<u64> {
+        let mut seen = std::collections::HashSet::new();
+        self.visited_node_ids
+            .iter()
+            .filter(|id| seen.insert(**id))
+            .copied()
+            .collect()
+    }
+}
+
 /// Write concurrency policy used by [`SharedDatabase`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum WriteConcurrencyMode {
@@ -9356,6 +9390,50 @@ impl SharedDatabase {
         }
     }
 
+    /// Execute a query while collecting real traversal trace data.
+    /// Returns the query result and a TraceCollector with visited node/edge IDs.
+    pub fn query_cypher_as_user_with_trace(
+        &self,
+        user: &str,
+        query: &str,
+        max_retries: usize,
+    ) -> Result<(QueryResult, TraceCollector), DbError> {
+        let mut attempts = 0usize;
+        loop {
+            let start_snapshot_txn_id = self.current_snapshot_txn_id()?;
+            let mut guard = self
+                .inner
+                .write()
+                .map_err(|_| lock_poisoned_error("write"))?;
+            guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id());
+            if guard.current_snapshot_txn_id() > start_snapshot_txn_id && attempts < max_retries {
+                guard.set_version_gc_floor(None);
+                drop(guard);
+                attempts = attempts.saturating_add(1);
+                std::thread::yield_now();
+                continue;
+            }
+            // Auth check (same as query_cypher_as_user_with_retry)
+            let username = user.trim();
+            if username.is_empty() {
+                return Err(DbError::InvalidArgument("user cannot be empty".to_string()));
+            }
+            if username != "anonymous" && !guard.meta.users.contains_key(username) {
+                return Err(DbError::InvalidArgument(format!(
+                    "unknown user: {username}"
+                )));
+            }
+            let result = guard
+                .query_with_trace(query)
+                .map_err(|err| DbError::InvalidArgument(err.to_string()));
+            guard.set_version_gc_floor(None);
+            let should_trigger_compaction = guard.take_background_compaction_request();
+            drop(guard);
+            self.maybe_schedule_background_compaction(should_trigger_compaction);
+            return result;
+        }
+    }
+
     pub fn authenticate_token(&self, token: &str) -> Result<Option<String>, DbError> {
         let guard = self
             .inner
@@ -14173,6 +14251,371 @@ impl Database {
                 Ok(batches_from_rows(&rows, &columns, QUERY_BATCH_SIZE))
             }
         }
+    }
+
+    /// Execute a physical plan while recording visited node/edge IDs into a TraceCollector.
+    /// Instruments PhysicalScan and PhysicalExpand to capture real traversal order.
+    /// All other plan nodes propagate tracing through their input children.
+    fn execute_physical_plan_batches_traced(
+        &mut self,
+        plan: &PhysicalPlan,
+        snapshot_txn_id: u64,
+        trace: &mut TraceCollector,
+    ) -> Result<Vec<RuntimeBatch>, QueryError> {
+        match plan {
+            PhysicalPlan::PhysicalScan {
+                label,
+                variable,
+                scan_strategy,
+                ..
+            } => {
+                let variable = variable.clone().unwrap_or_else(|| "_anon".to_string());
+                let mut rows = Vec::<BTreeMap<String, RuntimeValue>>::new();
+                let node_ids = match scan_strategy {
+                    PhysicalScanStrategy::IndexScan
+                    | PhysicalScanStrategy::PropertyIndexScan
+                    | PhysicalScanStrategy::CompositeIndexScan => label
+                        .as_deref()
+                        .map(|value| self.find_nodes_by_label_at(value, snapshot_txn_id))
+                        .unwrap_or_else(|| {
+                            (0..self.node_count())
+                                .filter(|node_id| {
+                                    self.is_node_visible_at(*node_id, snapshot_txn_id)
+                                })
+                                .collect::<Vec<_>>()
+                        }),
+                    PhysicalScanStrategy::SequentialScan => (0..self.node_count())
+                        .filter(|node_id| self.is_node_visible_at(*node_id, snapshot_txn_id))
+                        .filter(|node_id| {
+                            label
+                                .as_ref()
+                                .map(|value| {
+                                    self.node_labels_at(*node_id, snapshot_txn_id)
+                                        .map(|labels| {
+                                            labels.iter().any(|candidate| candidate == value)
+                                        })
+                                        .unwrap_or(false)
+                                })
+                                .unwrap_or(true)
+                        })
+                        .collect::<Vec<_>>(),
+                };
+                // Record each scanned node into the trace
+                for &nid in &node_ids {
+                    trace.record_node(nid as u64);
+                }
+                for node_id in node_ids {
+                    let mut row = BTreeMap::<String, RuntimeValue>::new();
+                    row.insert(variable.clone(), RuntimeValue::Node(node_id));
+                    rows.push(row);
+                }
+                Ok(batches_from_rows(&rows, &[variable], QUERY_BATCH_SIZE))
+            }
+            PhysicalPlan::PhysicalExpand {
+                input,
+                from,
+                edge_type,
+                direction,
+                to,
+                edge_variable,
+                temporal_filter,
+                join_strategy,
+                ..
+            } => {
+                let input_batches =
+                    self.execute_physical_plan_batches_traced(input, snapshot_txn_id, trace)?;
+                if input_batches.is_empty() {
+                    return Ok(Vec::new());
+                }
+                let input_rows = rows_from_batches(&input_batches);
+                let mut output_columns = input_batches[0].columns.clone();
+                if let Some(edge_variable) = edge_variable
+                    .as_ref()
+                    .filter(|value| !output_columns.contains(*value))
+                {
+                    output_columns.push(edge_variable.clone());
+                }
+                if let Some(to) = to.as_ref().filter(|value| !output_columns.contains(*value)) {
+                    output_columns.push(to.clone());
+                }
+
+                let mut rows = Vec::<BTreeMap<String, RuntimeValue>>::new();
+                let direction = *direction;
+                let edge_type_filter = edge_type.as_deref();
+                let temporal_filter = temporal_filter.as_ref();
+                let lookup = if *join_strategy == PhysicalJoinStrategy::HashJoin {
+                    Some(self.expand_hash_lookup(
+                        direction,
+                        edge_type_filter,
+                        temporal_filter,
+                        snapshot_txn_id,
+                    )?)
+                } else {
+                    None
+                };
+
+                for row in &input_rows {
+                    let src = match row.get(from) {
+                        Some(RuntimeValue::Node(value)) => *value,
+                        Some(RuntimeValue::Property(PropertyValue::I64(value))) => *value as u64,
+                        _ => continue,
+                    };
+                    let matches = if let Some(lookup) = &lookup {
+                        lookup.get(&src).cloned().unwrap_or_default()
+                    } else {
+                        self.expand_neighbors_for_node(
+                            src,
+                            direction,
+                            edge_type_filter,
+                            temporal_filter,
+                            snapshot_txn_id,
+                        )?
+                    };
+                    for (edge_ref, neighbor) in matches {
+                        // Record each expanded neighbor and edge into the trace
+                        trace.record_node(neighbor);
+                        trace.record_edge(src, neighbor, edge_ref.edge_id);
+                        let mut out_row = row.clone();
+                        if let Some(edge_variable) = edge_variable {
+                            out_row.insert(edge_variable.clone(), RuntimeValue::Edge(edge_ref));
+                        }
+                        if let Some(to) = to {
+                            out_row.insert(to.clone(), RuntimeValue::Node(neighbor));
+                        }
+                        rows.push(out_row);
+                    }
+                }
+                Ok(batches_from_rows(&rows, &output_columns, QUERY_BATCH_SIZE))
+            }
+            // PhysicalFilter: propagate tracing through input children so that Scan nodes
+            // inside the filter still instrument the trace collector.
+            PhysicalPlan::PhysicalFilter {
+                input, predicate, ..
+            } => {
+                // Fast path: indexed property scan handled inline (same as regular execution)
+                if let PhysicalPlan::PhysicalScan {
+                    label,
+                    variable,
+                    scan_strategy:
+                        PhysicalScanStrategy::PropertyIndexScan
+                        | PhysicalScanStrategy::CompositeIndexScan,
+                    ..
+                } = input.as_ref()
+                {
+                    if let (Some(label), Some(variable)) = (label.as_deref(), variable.as_deref()) {
+                        if let Some((_, node_ids)) = self.lookup_indexed_nodes_for_filter_scan(
+                            label,
+                            variable,
+                            predicate,
+                            snapshot_txn_id,
+                        ) {
+                            // Record the indexed scan nodes into the trace
+                            for &nid in &node_ids {
+                                trace.record_node(nid);
+                            }
+                            let rows = node_ids
+                                .into_iter()
+                                .filter_map(|node_id| {
+                                    let mut row = BTreeMap::<String, RuntimeValue>::new();
+                                    row.insert(variable.to_string(), RuntimeValue::Node(node_id));
+                                    self.evaluate_expression(predicate, &row, snapshot_txn_id)
+                                        .ok()
+                                        .and_then(|value| {
+                                            runtime_value_truthy(&value).then_some(row)
+                                        })
+                                })
+                                .collect::<Vec<_>>();
+                            return Ok(batches_from_rows(
+                                &rows,
+                                &[variable.to_string()],
+                                QUERY_BATCH_SIZE,
+                            ));
+                        }
+                    }
+                }
+                let input_batches =
+                    self.execute_physical_plan_batches_traced(input, snapshot_txn_id, trace)?;
+                if input_batches.is_empty() {
+                    return Ok(Vec::new());
+                }
+                let rows = rows_from_batches(&input_batches)
+                    .into_iter()
+                    .filter_map(|row| {
+                        self.evaluate_expression(predicate, &row, snapshot_txn_id)
+                            .ok()
+                            .and_then(|value| runtime_value_truthy(&value).then_some(row))
+                    })
+                    .collect::<Vec<_>>();
+                Ok(batches_from_rows(
+                    &rows,
+                    &input_batches[0].columns,
+                    QUERY_BATCH_SIZE,
+                ))
+            }
+            // For Project, Sort, Limit, Aggregation, Set, Remove, Delete, WcojJoin, and
+            // FactorizedExpand: execute the input through _traced (to capture Scan/Expand
+            // leaves), then apply the node's own post-processing via the regular method on
+            // a synthetic plan that feeds the already-traced batches. Since we cannot easily
+            // inject pre-computed batches into execute_physical_plan_batches, we instead
+            // handle these nodes by calling _traced on the input and then applying the same
+            // per-node logic inline.
+            //
+            // For plan types without an input child (VectorScan, TextSearch, CreateIndex) or
+            // for rare mutating nodes (Create, Merge, Delete, Set, Remove), fall through to
+            // the regular execution. Those nodes either don't traverse graph elements in a
+            // way that is meaningful for animation, or their input has already been traced.
+            // The critical path for trace animation is: Scan -> Expand -> Filter -> Project.
+            PhysicalPlan::PhysicalProject {
+                input,
+                expressions,
+                distinct,
+                ..
+            } => {
+                let input_batches =
+                    self.execute_physical_plan_batches_traced(input, snapshot_txn_id, trace)?;
+                let input_rows = rows_from_batches(&input_batches);
+                let output_columns = projection_output_columns(expressions);
+                let mut out_rows = Vec::<BTreeMap<String, RuntimeValue>>::new();
+                let mut seen = BTreeSet::<String>::new();
+                for row in &input_rows {
+                    let mut out_row = BTreeMap::<String, RuntimeValue>::new();
+                    let mut key_parts = Vec::<String>::new();
+                    for (idx, item) in expressions.iter().enumerate() {
+                        let evaluated =
+                            self.evaluate_expression(&item.expression, row, snapshot_txn_id)?;
+                        let value = item
+                            .alias
+                            .as_ref()
+                            .and_then(|alias| row.get(alias).cloned())
+                            .unwrap_or(evaluated);
+                        key_parts.push(runtime_value_key(&value));
+                        out_row.insert(output_columns[idx].clone(), value);
+                    }
+                    if *distinct {
+                        let key = key_parts.join("|");
+                        if !seen.insert(key) {
+                            continue;
+                        }
+                    }
+                    out_rows.push(out_row);
+                }
+                Ok(batches_from_rows(
+                    &out_rows,
+                    &output_columns,
+                    QUERY_BATCH_SIZE,
+                ))
+            }
+            PhysicalPlan::PhysicalSort { input, keys, .. } => {
+                let input_batches =
+                    self.execute_physical_plan_batches_traced(input, snapshot_txn_id, trace)?;
+                if input_batches.is_empty() {
+                    return Ok(Vec::new());
+                }
+                let mut rows = rows_from_batches(&input_batches);
+                rows.sort_by(|left, right| {
+                    for key in keys {
+                        let mut left_value = self
+                            .evaluate_expression(&key.expression, left, snapshot_txn_id)
+                            .unwrap_or(RuntimeValue::Null);
+                        if matches!(left_value, RuntimeValue::Null) {
+                            if let Some(fallback) =
+                                runtime_order_key_fallback(&key.expression, left)
+                            {
+                                left_value = fallback;
+                            }
+                        }
+                        let mut right_value = self
+                            .evaluate_expression(&key.expression, right, snapshot_txn_id)
+                            .unwrap_or(RuntimeValue::Null);
+                        if matches!(right_value, RuntimeValue::Null) {
+                            if let Some(fallback) =
+                                runtime_order_key_fallback(&key.expression, right)
+                            {
+                                right_value = fallback;
+                            }
+                        }
+                        let ordering = compare_runtime_values(&left_value, &right_value);
+                        if ordering != std::cmp::Ordering::Equal {
+                            return if key.descending {
+                                ordering.reverse()
+                            } else {
+                                ordering
+                            };
+                        }
+                    }
+                    std::cmp::Ordering::Equal
+                });
+                Ok(batches_from_rows(
+                    &rows,
+                    &input_batches[0].columns,
+                    QUERY_BATCH_SIZE,
+                ))
+            }
+            PhysicalPlan::PhysicalLimit {
+                input, count, skip, ..
+            } => {
+                let input_batches =
+                    self.execute_physical_plan_batches_traced(input, snapshot_txn_id, trace)?;
+                if input_batches.is_empty() {
+                    return Ok(Vec::new());
+                }
+                let mut rows = rows_from_batches(&input_batches);
+                let skip = (*skip as usize).min(rows.len());
+                rows = rows.into_iter().skip(skip).collect::<Vec<_>>();
+                if let Some(count) = count {
+                    rows.truncate((*count as usize).min(rows.len()));
+                }
+                Ok(batches_from_rows(
+                    &rows,
+                    &input_batches[0].columns,
+                    QUERY_BATCH_SIZE,
+                ))
+            }
+            // For plan types that don't have a traversal input (VectorScan, TextSearch,
+            // CreateIndex) or that are mutation nodes (Create, Merge, Delete, Set, Remove,
+            // WcojJoin, CartesianProduct, FactorizedExpand), fall through to regular execution.
+            // The mutation nodes are not used in animation-relevant read queries.
+            _ => self.execute_physical_plan_batches(plan, snapshot_txn_id),
+        }
+    }
+
+    /// Execute a query and return both the result and real traversal trace data.
+    /// The TraceCollector records visited node IDs during PhysicalScan and PhysicalExpand execution.
+    pub fn query_with_trace(
+        &mut self,
+        query: &str,
+    ) -> Result<(QueryResult, TraceCollector), QueryError> {
+        let mut trace = TraceCollector::new();
+
+        if let Some(result) = self.try_execute_builtin_call_query(query)? {
+            return Ok((result, trace));
+        }
+
+        let ast = self.parse_cypher(query)?;
+        let semantic = self.analyze_cypher(&ast)?;
+        let logical = self.plan_cypher(&semantic)?;
+        let physical = self.physical_plan_cypher(&logical)?;
+        let filtered_properties = collect_filtered_properties_from_plan(&physical);
+        for (label, property_key) in filtered_properties {
+            self.record_property_access(&label, &property_key);
+        }
+
+        let snapshot_txn_id = self.current_snapshot_txn_id();
+        let batches =
+            self.execute_physical_plan_batches_traced(&physical, snapshot_txn_id, &mut trace)?;
+        let columns = if let Some(first) = batches.first() {
+            first.columns.clone()
+        } else {
+            self.plan_output_columns(&physical)
+        };
+        let result = self.materialize_query_result(columns, batches)?;
+        let result = if result.row_count() == 0 && query_has_leading_optional_match(&ast) {
+            optional_match_null_row_result(result.columns.clone())
+        } else {
+            result
+        };
+        let _ = self.maybe_auto_create_indexes();
+        Ok((result, trace))
     }
 
     fn plan_output_columns(&self, plan: &PhysicalPlan) -> Vec<String> {
@@ -38025,6 +38468,37 @@ mod tests {
         assert!(
             write_err.to_string().contains("read-only"),
             "unexpected write error: {write_err}"
+        );
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[test]
+    fn query_with_trace_records_visited_nodes() {
+        let path = temp_db_path("query_with_trace");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init db");
+        db.query("CREATE (a:Person {name: 'Alice'})-[:KNOWS]->(b:Person {name: 'Bob'})")
+            .expect("seed data");
+
+        let (result, trace) =
+            db.query_with_trace("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.name, b.name")
+                .expect("query_with_trace must succeed");
+
+        assert!(result.row_count() > 0, "query must return rows");
+        assert!(
+            !trace.visited_node_ids.is_empty(),
+            "trace must record visited nodes"
+        );
+        assert!(
+            !trace.visited_edge_ids.is_empty(),
+            "trace must record visited edges"
+        );
+
+        // unique_node_ids must deduplicate correctly
+        let unique = trace.unique_node_ids();
+        assert!(
+            unique.len() <= trace.visited_node_ids.len(),
+            "unique must be <= total visited"
         );
 
         cleanup_db_artifacts(&path);

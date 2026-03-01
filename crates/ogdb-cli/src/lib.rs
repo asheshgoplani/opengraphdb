@@ -4072,6 +4072,75 @@ fn dispatch_http_request(
     }
 }
 
+/// SSE handler for POST /query/trace.
+/// Executes the query with real traversal tracing and streams each visited node as an SSE event,
+/// followed by a final "result" event containing the complete query result JSON.
+fn handle_trace_sse(
+    shared_db: &SharedDatabase,
+    request: &HttpRequestMessage,
+    stream: &mut TcpStream,
+) -> Result<(), CliError> {
+    // Parse query from JSON body
+    let payload: Value = serde_json::from_slice(&request.body)
+        .map_err(|e| CliError::Runtime(format!("invalid json query payload: {e}")))?;
+    let query = payload
+        .as_object()
+        .and_then(|object| object.get("query"))
+        .and_then(Value::as_str)
+        .ok_or_else(|| CliError::Runtime("query payload must include string query".to_string()))?;
+
+    // Authenticate (same pattern as /query)
+    let user = if let Some(auth_value) = http_header_value(&request.headers, "authorization") {
+        let token = parse_bearer_token(auth_value)
+            .ok_or_else(|| CliError::Runtime("authorization header must be Bearer <token>".to_string()))?;
+        shared_db
+            .authenticate_token(token)?
+            .ok_or_else(|| CliError::Runtime("invalid bearer token".to_string()))?
+    } else {
+        "anonymous".to_string()
+    };
+
+    // Write SSE response headers immediately
+    let header = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n";
+    io_runtime(stream.write_all(header.as_bytes()), "failed to write SSE header")?;
+    io_runtime(stream.flush(), "failed to flush SSE header")?;
+
+    // Execute query with real traversal tracing
+    let started = Instant::now();
+    let retries = match shared_db.write_mode() {
+        WriteConcurrencyMode::SingleWriter => 0,
+        WriteConcurrencyMode::MultiWriter { max_retries } => max_retries,
+    };
+    let (result, trace) = shared_db
+        .query_cypher_as_user_with_trace(&user, query, retries)
+        .map_err(|e| CliError::Runtime(e.to_string()))?;
+
+    HTTP_QUERY_COUNT.fetch_add(1, Ordering::Relaxed);
+    let elapsed_micros = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
+    HTTP_QUERY_DURATION_MICROS.fetch_add(elapsed_micros, Ordering::Relaxed);
+
+    // Stream each unique trace step as an SSE event (best-effort: ignore client disconnects)
+    let unique_nodes = trace.unique_node_ids();
+    for (i, node_id) in unique_nodes.iter().enumerate() {
+        let event = format!(
+            "event: trace\ndata: {}\n\n",
+            serde_json::json!({ "nodeId": node_id, "stepIndex": i })
+        );
+        if io_runtime(stream.write_all(event.as_bytes()), "sse trace write").is_err() {
+            return Ok(());
+        }
+        let _ = stream.flush();
+    }
+
+    // Send the complete query result as the final SSE event
+    let result_json = result.to_json();
+    let done_event = format!("event: result\ndata: {result_json}\n\n");
+    let _ = io_runtime(stream.write_all(done_event.as_bytes()), "sse result write");
+    let _ = stream.flush();
+
+    Ok(())
+}
+
 fn handle_serve_http(
     db_path: &str,
     bind_addr: &str,
@@ -4096,6 +4165,25 @@ fn handle_serve_http(
     loop {
         let (mut stream, _) = io_runtime(listener.accept(), "http accept failed")?;
         if let Some(request) = read_http_request(&mut stream)? {
+            // Intercept POST /query/trace before normal dispatch — SSE writes directly to stream
+            if request.method == "POST" && request.path == "/query/trace" {
+                match handle_trace_sse(&shared_db, &request, &mut stream) {
+                    Ok(()) => {}
+                    Err(err) => {
+                        let response = http_error(500, "Internal Server Error", err.to_string());
+                        let _ = write_http_response(&mut stream, response);
+                    }
+                }
+                requests_processed = requests_processed.saturating_add(1);
+                if requests_processed >= max_requests {
+                    return Ok(format!(
+                        "{listening}\nserve_stopped protocol=http bind={} requests_processed={requests_processed}",
+                        local_addr,
+                    ));
+                }
+                continue;
+            }
+
             let response = match dispatch_http_request(&shared_db, request) {
                 Ok(response) => response,
                 Err(err) => http_error(500, "Internal Server Error", err.to_string()),
