@@ -1,29 +1,35 @@
-import { useEffect } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useSettingsStore } from '@/stores/settings'
+import { resolveTheme } from '@/components/layout/theme-utils'
 
 interface ThemeProviderProps {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const theme = useSettingsStore((s) => s.theme)
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+
     const root = document.documentElement
-    root.classList.remove('light', 'dark')
+    const applyTheme = (isSystemDark: boolean) => {
+      const resolvedTheme = resolveTheme(theme, isSystemDark)
+      root.classList.remove('light', 'dark')
+      root.classList.add(resolvedTheme)
+    }
 
     if (theme === 'system') {
       const mq = window.matchMedia('(prefers-color-scheme: dark)')
-      root.classList.add(mq.matches ? 'dark' : 'light')
+      applyTheme(mq.matches)
 
       const handler = (e: MediaQueryListEvent) => {
-        root.classList.remove('light', 'dark')
-        root.classList.add(e.matches ? 'dark' : 'light')
+        applyTheme(e.matches)
       }
       mq.addEventListener('change', handler)
       return () => mq.removeEventListener('change', handler)
     } else {
-      root.classList.add(theme)
+      applyTheme(false)
     }
   }, [theme])
 

@@ -1,28 +1,28 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, type KeyboardEvent } from 'react'
 import { Button } from '@/components/ui/button'
 import { useQueryStore } from '@/stores/query'
 import { useSettingsStore } from '@/stores/settings'
-import { useCypherQuery } from '@/api/queries'
 import { Loader2, Play } from 'lucide-react'
+import { prepareCypherQuery } from './query-utils'
 
-export function QueryInput() {
+interface QueryInputProps {
+  onRunQuery: (query: string) => void
+  isRunning?: boolean
+}
+
+export function QueryInput({ onRunQuery, isRunning = false }: QueryInputProps) {
   const currentQuery = useQueryStore((s) => s.currentQuery)
   const setCurrentQuery = useQueryStore((s) => s.setCurrentQuery)
   const resultLimit = useSettingsStore((s) => s.resultLimit)
-  const mutation = useCypherQuery()
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
 
   const executeQuery = useCallback(() => {
-    const query = currentQuery.trim()
-    if (!query) return
-
-    const hasLimit = /\bLIMIT\b/i.test(query)
-    const finalQuery = hasLimit ? query : `${query} LIMIT ${resultLimit}`
-    mutation.mutate(finalQuery)
-  }, [currentQuery, resultLimit, mutation])
+    const finalQuery = prepareCypherQuery(currentQuery, resultLimit)
+    if (!finalQuery) return
+    onRunQuery(finalQuery)
+  }, [currentQuery, onRunQuery, resultLimit])
 
   const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
+    (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
         e.preventDefault()
         executeQuery()
@@ -33,9 +33,8 @@ export function QueryInput() {
 
   return (
     <div className="border-b bg-card p-3">
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <textarea
-          ref={textareaRef}
           value={currentQuery}
           onChange={(e) => setCurrentQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -45,10 +44,10 @@ export function QueryInput() {
         />
         <Button
           onClick={executeQuery}
-          disabled={mutation.isPending || !currentQuery.trim()}
-          className="self-end"
+          disabled={isRunning || !currentQuery.trim()}
+          className="w-full sm:w-auto sm:self-end"
         >
-          {mutation.isPending ? (
+          {isRunning ? (
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <Play className="h-4 w-4" />

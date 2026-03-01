@@ -9,6 +9,13 @@ interface GraphCanvasProps {
   graphData: GraphData
 }
 
+function getNodeCoordinate(node: GraphEdge['source']): { x: number; y: number } | null {
+  if (typeof node === 'object' && node !== null && typeof node.x === 'number' && typeof node.y === 'number') {
+    return { x: node.x, y: node.y }
+  }
+  return null
+}
+
 export function GraphCanvas({ graphData }: GraphCanvasProps) {
   const colors = useGraphColors()
   const selectNode = useGraphStore((s) => s.selectNode)
@@ -40,6 +47,38 @@ export function GraphCanvas({ graphData }: GraphCanvasProps) {
       paintNode(node, ctx, globalScale, colors, labelIndex)
     },
     [colors, labelIndex]
+  )
+
+  const linkCanvasObject = useCallback(
+    (link: GraphEdge, ctx: CanvasRenderingContext2D, globalScale: number) => {
+      const source = getNodeCoordinate(link.source)
+      const target = getNodeCoordinate(link.target)
+      if (!source || !target || !link.type) return
+
+      const textPos = {
+        x: source.x + (target.x - source.x) * 0.5,
+        y: source.y + (target.y - source.y) * 0.5,
+      }
+      const fontSize = Math.max(10 / globalScale, 3)
+
+      ctx.save()
+      ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+
+      const textWidth = ctx.measureText(link.type).width
+      ctx.fillStyle = `${colors.bg}CC`
+      ctx.fillRect(
+        textPos.x - textWidth / 2 - 2,
+        textPos.y - fontSize / 2 - 1,
+        textWidth + 4,
+        fontSize + 2
+      )
+      ctx.fillStyle = colors.text
+      ctx.fillText(link.type, textPos.x, textPos.y)
+      ctx.restore()
+    },
+    [colors.bg, colors.text]
   )
 
   const handleNodeClick = useCallback(
@@ -76,6 +115,8 @@ export function GraphCanvas({ graphData }: GraphCanvasProps) {
         linkDirectionalArrowLength={4}
         linkDirectionalArrowRelPos={1}
         linkLabel={(link: GraphEdge) => link.type}
+        linkCanvasObject={linkCanvasObject}
+        linkCanvasObjectMode={() => 'after'}
         onNodeClick={handleNodeClick}
         onLinkClick={handleLinkClick}
         onBackgroundClick={handleBackgroundClick}

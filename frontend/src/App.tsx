@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { AppShell } from '@/components/layout/AppShell'
 import { PropertyPanel } from '@/components/layout/PropertyPanel'
-import { QueryInput } from '@/components/query/QueryInput'
+import { CypherEditorPanel } from '@/components/query/CypherEditorPanel'
 import { QueryError } from '@/components/query/QueryError'
 import { ResultsView } from '@/components/results/ResultsView'
 import { ResultsBanner } from '@/components/results/ResultsBanner'
@@ -24,7 +24,10 @@ function App() {
 
   return (
     <AppShell>
-      <QueryInput />
+      <CypherEditorPanel
+        onRunQuery={(cypher) => mutation.mutate(cypher)}
+        isRunning={mutation.isPending}
+      />
       <QueryError error={mutation.error} />
 
       {graphData ? (
@@ -34,6 +37,7 @@ function App() {
             edgeCount={edgeCount}
             isLimited={isLimited}
             resultLimit={resultLimit}
+            queryResponse={mutation.data}
           />
           <ResultsView graphData={graphData} />
         </>

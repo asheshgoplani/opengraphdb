@@ -12,10 +12,10 @@ Build a developer-facing SPA that lets users visually explore and query their gr
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation and Graph Visualization** - Scaffold, API client, state management, and a working force-directed graph canvas with dark mode and responsive layout
-- [ ] **Phase 2: Cypher Editor and Query Workflow** - Full Cypher editor with syntax highlighting, autocomplete, history, saved queries, keyboard shortcuts, and export
-- [ ] **Phase 3: Schema Browser** - Schema exploration showing node labels, relationship types, and property keys from the backend
-- [ ] **Phase 4: Landing Page and Playground** - Hero landing page with feature highlights and an interactive playground with pre-loaded sample graph and guided queries
+- [x] **Phase 1: Foundation and Graph Visualization** - Scaffold, API client, state management, and a working force-directed graph canvas with dark mode and responsive layout
+- [x] **Phase 2: Cypher Editor and Query Workflow** - Full Cypher editor with syntax highlighting, autocomplete, history, saved queries, keyboard shortcuts, and export
+- [x] **Phase 3: Schema Browser** - Schema exploration showing node labels, relationship types, and property keys from the backend
+- [x] **Phase 4: Landing Page and Playground** - Hero landing page with feature highlights and an interactive playground with pre-loaded sample graph and guided queries
 
 ## Phase Details
 
@@ -41,7 +41,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can browse the full query history that persists after closing and reopening the browser, navigate entries with Ctrl+Up/Down, and re-run any entry
   4. User can save/bookmark a query, name it, and re-run it from the saved list at any time
   5. User can export query results as a JSON file and as a CSV file from the results panel
-**Plans**: TBD
+**Plans**: 3 plans
+  - [x] 02-01-PLAN.md — Install CypherEditor, create history store and schema hook, replace textarea with full editor
+  - [x] 02-02-PLAN.md — Export utilities (JSON/CSV) with tests and wire export buttons into ResultsBanner
+  - [x] 02-03-PLAN.md — History panel, saved queries panel, save-query dialog, wire into Header and editor
 
 ### Phase 3: Schema Browser
 **Goal**: Users can explore the full database schema including node labels, relationship types, and property keys without writing a query
@@ -50,7 +53,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Success Criteria** (what must be TRUE):
   1. User can open the schema browser and see all node labels, relationship types, and property keys currently in the database
   2. User can manually refresh the schema view and see updated results after data changes
-**Plans**: TBD
+**Plans**: 1 plan
+  - [x] 03-01-PLAN.md — Install Accordion, create SchemaPanel with three collapsible sections, wire into Header
 
 ### Phase 4: Landing Page and Playground
 **Goal**: First-time evaluators can learn what OpenGraphDB does from a landing page and explore a pre-loaded sample graph through guided queries without configuring a backend
@@ -60,7 +64,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   1. User lands on a hero page that explains OpenGraphDB's key differentiators and includes a getting started guide with feature highlights
   2. User can navigate to the interactive playground without connecting a backend and see a pre-loaded sample graph rendered as a force-directed visualization
   3. User can run guided example queries in the playground that demonstrate graph visualization and see results update in the graph canvas
-**Plans**: TBD
+**Plans**: 3 plans
+  - [x] 04-01-PLAN.md — Wire React Router, create movies sample dataset, implement playground query filter with tests
+  - [x] 04-02-PLAN.md — Landing page with hero section, feature highlights, and getting started guide
+  - [x] 04-03-PLAN.md — Playground page with GraphCanvas, guided query buttons, and Header wordmark link
 
 ## Progress
 
@@ -69,7 +76,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation and Graph Visualization | 0/TBD | Not started | - |
-| 2. Cypher Editor and Query Workflow | 0/TBD | Not started | - |
-| 3. Schema Browser | 0/TBD | Not started | - |
-| 4. Landing Page and Playground | 0/TBD | Not started | - |
+| 1. Foundation and Graph Visualization | 5/5 | Complete | 2026-03-01 |
+| 2. Cypher Editor and Query Workflow | 3/3 | Complete | 2026-03-01 |
+| 3. Schema Browser | 1/1 | Complete | 2026-03-01 |
+| 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |

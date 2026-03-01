@@ -1,16 +1,14 @@
 import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/stores/settings'
 import { Sun, Moon, Monitor } from 'lucide-react'
+import { getNextTheme } from './theme-utils'
 
 export function ThemeToggle() {
   const theme = useSettingsStore((s) => s.theme)
   const setTheme = useSettingsStore((s) => s.setTheme)
 
   const cycleTheme = () => {
-    const order = ['system', 'light', 'dark'] as const
-    const current = order.indexOf(theme)
-    const next = order[(current + 1) % order.length]
-    setTheme(next)
+    setTheme(getNextTheme(theme))
   }
 
   const Icon = theme === 'dark' ? Sun : theme === 'light' ? Moon : Monitor

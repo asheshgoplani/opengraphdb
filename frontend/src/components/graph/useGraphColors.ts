@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSettingsStore } from '@/stores/settings'
+import { resolveTheme } from '@/components/layout/theme-utils'
 
 export interface CanvasColors {
   bg: string
@@ -11,12 +12,26 @@ export interface CanvasColors {
 
 function useResolvedTheme(): 'light' | 'dark' {
   const theme = useSettingsStore((s) => s.theme)
-  if (theme === 'system') {
+  const [isSystemDark, setIsSystemDark] = useState(() => {
+    if (typeof window === 'undefined') return false
     return window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light'
-  }
-  return theme
+  })
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || theme !== 'system') return
+
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    setIsSystemDark(mq.matches)
+
+    const handler = (event: MediaQueryListEvent) => {
+      setIsSystemDark(event.matches)
+    }
+
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [theme])
+
+  return resolveTheme(theme, isSystemDark)
 }
 
 export function useGraphColors(): CanvasColors {

@@ -19,6 +19,12 @@ export interface QueryResponse {
   rows?: unknown[][]
 }
 
+export interface SchemaResponse {
+  labels: string[]
+  relationshipTypes: string[]
+  propertyKeys: string[]
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,

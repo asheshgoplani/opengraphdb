@@ -3,6 +3,7 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogDescription,
   DialogTitle,
   DialogTrigger,
   DialogFooter,
@@ -11,6 +12,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useSettingsStore } from '@/stores/settings'
 import { Settings } from 'lucide-react'
+import { ConnectionStatus } from './ConnectionStatus'
 
 export function SettingsDialog() {
   const serverUrl = useSettingsStore((s) => s.serverUrl)
@@ -49,8 +51,15 @@ export function SettingsDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
+          <DialogDescription>
+            Configure backend connectivity and query result limits.
+          </DialogDescription>
         </DialogHeader>
         <div className="space-y-4 py-2">
+          <div className="rounded-md border bg-muted/40 p-2">
+            <p className="mb-1 text-xs text-muted-foreground">Connection</p>
+            <ConnectionStatus />
+          </div>
           <div className="space-y-2">
             <label
               htmlFor="server-url"

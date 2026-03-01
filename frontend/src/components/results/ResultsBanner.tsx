@@ -1,12 +1,15 @@
 import { Button } from '@/components/ui/button'
 import { useQueryStore } from '@/stores/query'
-import { LayoutGrid, Network } from 'lucide-react'
+import type { QueryResponse } from '@/types/api'
+import { Download, LayoutGrid, Network } from 'lucide-react'
+import { exportAsCsv, exportAsJson } from '@/components/query/export-utils'
 
 interface ResultsBannerProps {
   nodeCount: number
   edgeCount: number
   isLimited: boolean
   resultLimit: number
+  queryResponse?: QueryResponse
 }
 
 export function ResultsBanner({
@@ -14,6 +17,7 @@ export function ResultsBanner({
   edgeCount,
   isLimited,
   resultLimit,
+  queryResponse,
 }: ResultsBannerProps) {
   const viewMode = useQueryStore((s) => s.viewMode)
   const setViewMode = useQueryStore((s) => s.setViewMode)
@@ -32,6 +36,27 @@ export function ResultsBanner({
         )}
       </div>
       <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          title="Export JSON"
+          disabled={!queryResponse}
+          onClick={() => queryResponse && exportAsJson(queryResponse)}
+        >
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          title="Export CSV"
+          disabled={!queryResponse}
+          onClick={() => queryResponse && exportAsCsv(queryResponse)}
+        >
+          <Download className="h-3.5 w-3.5" />
+        </Button>
+        <div className="mx-1 h-5 w-px bg-border" />
         <Button
           variant={viewMode === 'graph' ? 'default' : 'ghost'}
           size="icon"
