@@ -2,7 +2,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useMemo } from 'react'
 import { ApiClient } from './client'
 import { useSettingsStore } from '@/stores/settings'
-import type { SchemaResponse } from '@/types/api'
 
 function useApiClient(): ApiClient {
   const serverUrl = useSettingsStore((s) => s.serverUrl)
@@ -37,7 +36,7 @@ export function useSchemaQuery() {
   const serverUrl = useSettingsStore((s) => s.serverUrl)
   return useQuery({
     queryKey: ['schema', serverUrl],
-    queryFn: () => client.schema() as Promise<SchemaResponse>,
+    queryFn: () => client.schema(),
     staleTime: 60_000,
     retry: 1,
     enabled: true,

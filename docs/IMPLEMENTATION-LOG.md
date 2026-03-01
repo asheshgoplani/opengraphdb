@@ -3540,3 +3540,86 @@ Validation:
 
 Notes:
 - `./scripts/test.sh` and `./scripts/coverage.sh` were intentionally skipped per explicit user instruction for this phase execution.
+
+---
+
+## 2026-03-01 — Step 075: Phase 06-01 Demo Datasets + Idempotent Seed Script
+
+Tests Added:
+- `crates/ogdb-cli/tests/demo_datasets_seed.rs`:
+  - validates dataset file presence/shape (`{nodes,edges}`), numeric IDs, and non-overlapping ranges across `movies/social/fraud`.
+  - validates movies constraints (required title coverage, required edge types, Matrix trilogy connectivity, per-movie `DIRECTED` + `IN_GENRE` coverage).
+  - validates social constraints (ID ranges by node class, required relationship types, 3+ hop `FOLLOWS` chain presence).
+  - validates fraud constraints (ID ranges by node class, flagged transaction semantics, shared device/IP fraud patterns).
+  - executes `scripts/seed-demo.sh` twice against a temp DB with `OGDB_BIN` override to verify idempotent seeding behavior and non-empty final graph counts.
+
+Implementation:
+- Added `datasets/` import files in backend JSON graph payload format:
+  - `datasets/movies.json` with 262 nodes (50 movies, 200 persons, 12 genres) and 434 edges (`ACTED_IN`, `DIRECTED`, `WROTE`, `IN_GENRE`).
+  - `datasets/social.json` with 280 nodes (200 users, 60 posts, 20 groups) and 1300 edges (`FOLLOWS`, `CREATED`, `LIKED`, `POSTED_IN`, `MEMBER_OF`).
+  - `datasets/fraud.json` with 140 nodes (60 accounts, 50 transactions, 15 devices, 15 IPs) and 269 edges (`SENT_TO`, `RECEIVED`, `USED_DEVICE`, `LOGGED_FROM`, `FLAGGED`).
+- Added executable `scripts/seed-demo.sh`:
+  - idempotent reset (removes existing DB + sidecars),
+  - initializes a fresh DB,
+  - imports movies/social/fraud datasets in sequence,
+  - supports overrides via `OGDB_DEMO_DB` and `OGDB_BIN`.
+- Updated `.gitignore` to include `data/` so demo DB artifacts stay untracked.
+
+Documentation Updated:
+- `CHANGELOG.md`
+- `docs/IMPLEMENTATION-LOG.md`
+- `.planning/phases/06-demo-datasets-and-live-backend/06-01-SUMMARY.md`
+
+Validation:
+- `cargo test -p ogdb-cli --test demo_datasets_seed -- --nocapture` (pass)
+- `node -e "const m=require('./datasets/movies.json'); console.log(m.nodes.length,m.edges.length)"` (pass)
+- `node -e "const s=require('./datasets/social.json'); console.log(s.nodes.length,s.edges.length)"` (pass)
+- `node -e "const f=require('./datasets/fraud.json'); console.log(f.nodes.length,f.edges.length)"` (pass)
+- `bash -n scripts/seed-demo.sh` and `test -x scripts/seed-demo.sh` (pass)
+- Manual temp-db seed verification:
+  - `OGDB_DEMO_DB=/tmp/.../demo.ogdb OGDB_BIN=$PWD/target/debug/ogdb ./scripts/seed-demo.sh` (pass)
+  - `target/debug/ogdb info /tmp/.../demo.ogdb` reported `node_count=1315`, `edge_count=2003`
+- `./scripts/test.sh` (fails at `cargo fmt --all --check` due pre-existing rustfmt drift in untouched files outside this phase scope)
+- `./scripts/coverage.sh` (executes tests successfully, then fails configured uncovered-lines gate with current workspace baseline above threshold)
+
+Notes:
+- Import pipeline currently treats JSON arrays as numeric vectors only; therefore `ACTED_IN` role metadata is encoded as scalar `role` strings (not string arrays) to keep seed imports executable against the existing CLI importer.
+
+---
+
+## 2026-03-01 — Step 076: Frontend Phase 06-03 (Playground Live Toggle + Grouped Queries)
+
+Tests Added:
+- `frontend/vitest/playground-polish.test.tsx`:
+  - verifies mode-aware `ConnectionBadge` rendering for sample/live/error states
+  - verifies `LiveModeToggle` renders both Sample and Live actions
+  - verifies uncategorized query fallback grouping under `Explore`
+  - verifies `PlaygroundPage` render path with QueryClient provider and grouped query section headings
+
+Implementation:
+- Added `frontend/src/components/playground/LiveModeToggle.tsx`:
+  - compact two-button Sample/Live control for playground header mode switching
+- Updated `frontend/src/components/playground/ConnectionBadge.tsx`:
+  - added `isLive` and `liveError` props
+  - mode-aware timing formatting (`(in-memory)` only for offline mode)
+  - status dot/ping variants for sample/live/error states
+- Reworked `frontend/src/pages/PlaygroundPage.tsx`:
+  - added live mode state (`isLiveMode`), loading (`isLiveLoading`), and live error (`liveError`) state
+  - added backend live query path with TanStack `useMutation`, `ApiClient.query()`, and `transformLiveResponse()`
+  - retained offline execution path via `runDatasetQuery()` when offline or when a query lacks `liveDescriptor`
+  - grouped guided queries by `Explore`, `Traverse`, `Analyze` in desktop and mobile controls
+  - added live loading overlay (`Querying live database...`) and visible graph-area live error panel
+  - integrated `LiveModeToggle` + enhanced `ConnectionBadge` in header
+
+Documentation Updated:
+- `CHANGELOG.md`
+- `docs/IMPLEMENTATION-LOG.md`
+- `.planning/phases/06-demo-datasets-and-live-backend/06-03-SUMMARY.md`
+
+Validation:
+- `cd frontend && npx tsc --noEmit` (pass)
+- `cd frontend && npx vitest run` (pass: 5 files, 23 tests)
+- `cd frontend && npx vite build` (pass; existing Vite warnings about externalized Node modules and chunk size)
+
+Notes:
+- `./scripts/test.sh` and `./scripts/coverage.sh` were intentionally skipped per explicit user instruction for this phase execution.

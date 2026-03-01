@@ -1,5 +1,6 @@
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { vi } from 'vitest'
 
@@ -10,9 +11,33 @@ vi.mock('react-force-graph-2d', () => ({
 import { DatasetSwitcher } from '../src/components/playground/DatasetSwitcher'
 import { QueryCard } from '../src/components/playground/QueryCard'
 import { ConnectionBadge } from '../src/components/playground/ConnectionBadge'
+import { LiveModeToggle } from '../src/components/playground/LiveModeToggle'
 import { StatsPanel } from '../src/components/playground/StatsPanel'
-import PlaygroundPage from '../src/pages/PlaygroundPage'
+import PlaygroundPage, { groupQueriesByCategory } from '../src/pages/PlaygroundPage'
 import { getDatasetList, getDatasetQueries, runDatasetQuery } from '../src/data/datasets'
+
+function renderPlayground(initialEntry: string) {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+      },
+      mutations: {
+        retry: false,
+      },
+    },
+  })
+
+  return renderToStaticMarkup(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={[initialEntry]}>
+        <Routes>
+          <Route path="/playground" element={<PlaygroundPage />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
+  )
+}
 
 describe('playground polish redesign', () => {
   it('renders dataset switcher options with active dataset description', () => {
@@ -43,11 +68,45 @@ describe('playground polish redesign', () => {
     expect(html).toContain('border-primary')
   })
 
-  it('renders connection badge with sample data label and in-memory timing', () => {
-    const html = renderToStaticMarkup(<ConnectionBadge queryTimeMs={0} />)
+  it('renders connection badge with mode and timing specific labels', () => {
+    const sampleHtml = renderToStaticMarkup(<ConnectionBadge queryTimeMs={0} isLive={false} />)
+    const liveHtml = renderToStaticMarkup(<ConnectionBadge queryTimeMs={18} isLive={true} />)
+    const errorHtml = renderToStaticMarkup(
+      <ConnectionBadge isLive={true} liveError="Live backend unavailable" />
+    )
 
-    expect(html).toContain('Sample Data')
-    expect(html).toContain('(in-memory)')
+    expect(sampleHtml).toContain('Sample Data')
+    expect(sampleHtml).toContain('(in-memory)')
+
+    expect(liveHtml).toContain('Live')
+    expect(liveHtml).toContain('18ms')
+    expect(liveHtml).not.toContain('(in-memory)')
+
+    expect(errorHtml).toContain('Error')
+    expect(errorHtml).toContain('Live backend unavailable')
+  })
+
+  it('renders the sample/live toggle with both actions visible', () => {
+    const offlineHtml = renderToStaticMarkup(
+      <LiveModeToggle isLive={false} onChange={() => {}} />
+    )
+    const liveHtml = renderToStaticMarkup(<LiveModeToggle isLive={true} onChange={() => {}} />)
+
+    expect(offlineHtml).toContain('Sample')
+    expect(offlineHtml).toContain('Live')
+    expect(liveHtml).toContain('Sample')
+    expect(liveHtml).toContain('Live')
+  })
+
+  it('groups uncategorized queries under Explore for sidebar rendering', () => {
+    const query = getDatasetQueries('movies')[0]
+    const grouped = groupQueriesByCategory([
+      { ...query, key: 'uncategorized', category: undefined },
+      { ...query, key: 'analyze', category: 'Analyze' },
+    ])
+
+    expect(grouped.Explore.map((item) => item.key)).toEqual(['uncategorized'])
+    expect(grouped.Analyze.map((item) => item.key)).toEqual(['analyze'])
   })
 
   it('renders stats panel with node, edge, and label counts', () => {
@@ -63,17 +122,15 @@ describe('playground polish redesign', () => {
 
   it('uses dataset search params for initial playground dataset and renders split-pane controls', () => {
     const socialAll = runDatasetQuery('social', 'all')
-    const html = renderToStaticMarkup(
-      <MemoryRouter initialEntries={['/playground?dataset=social']}>
-        <Routes>
-          <Route path="/playground" element={<PlaygroundPage />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    const html = renderPlayground('/playground?dataset=social')
 
     expect(html).toContain('Playground')
     expect(html).toContain('Guided Queries')
+    expect(html).toContain('Sample')
+    expect(html).toContain('Live')
     expect(html).toContain('Sample Data')
+    expect(html).toContain('Explore')
+    expect(html).toContain('Traverse')
     expect(html).toContain('Social Network')
     expect(html).toContain(`${socialAll.nodes.length}`)
     expect(html).toContain(`${socialAll.links.length}`)

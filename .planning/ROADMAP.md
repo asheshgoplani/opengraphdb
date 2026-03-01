@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Schema Browser** - Schema exploration showing node labels, relationship types, and property keys from the backend
 - [x] **Phase 4: Landing Page and Playground** - Hero landing page with feature highlights and an interactive playground with pre-loaded sample graph and guided queries
 - [x] **Phase 5: Frontend Polish & Knowledge Graph Showcase** - Polish all pages to production quality with Linear/Vercel aesthetic, real-world knowledge graph showcase, redesigned playground with split-pane layout, and Playwright visual verification
-- [ ] **Phase 6: Production Demo Datasets & Live Backend Integration** - Create rich, realistic demo datasets loaded into the actual OpenGraphDB database, wire frontend to showcase live backend queries, and provide a seed script for reproducible demo data
+- [x] **Phase 6: Production Demo Datasets & Live Backend Integration** - Create rich, realistic demo datasets loaded into the actual OpenGraphDB database, wire frontend to showcase live backend queries, and provide a seed script for reproducible demo data
 
 ## Phase Details
 
@@ -100,9 +100,9 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. A seed script can recreate all demo data from scratch at any time
   5. The /app route connects to the backend and lets users query the demo data interactively with meaningful results
 **Plans**: 3 plans
-  - [ ] 06-01-PLAN.md — Three JSON import datasets (movies flagship, social, fraud) + idempotent seed shell script
-  - [ ] 06-02-PLAN.md — API layer fixes (schema normalization, row-based transform), extended GuidedQuery interface, expanded offline datasets
-  - [ ] 06-03-PLAN.md — Playground live mode toggle, category-grouped query cards, loading skeleton, updated ConnectionBadge
+  - [x] 06-01-PLAN.md — Three JSON import datasets (movies flagship, social, fraud) + idempotent seed shell script
+  - [x] 06-02-PLAN.md — API layer fixes (schema normalization, row-based transform), extended GuidedQuery interface, expanded offline datasets
+  - [x] 06-03-PLAN.md — Playground live mode toggle, category-grouped query cards, loading skeleton, updated ConnectionBadge
 
 ## Progress
 
@@ -116,4 +116,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 3. Schema Browser | 1/1 | Complete | 2026-03-01 |
 | 4. Landing Page and Playground | 3/3 | Complete | 2026-03-01 |
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
-| 6. Production Demo Datasets & Live Backend Integration | 0/3 | Planning Complete | - |
+| 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |

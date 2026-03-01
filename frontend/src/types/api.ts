@@ -2,6 +2,14 @@ export interface HealthStatus {
   connected: boolean
 }
 
+// Raw response from backend POST /query
+export interface BackendQueryResponse {
+  columns: string[]
+  rows: Record<string, unknown>[]
+  row_count: number
+}
+
+// Kept for backward compat - not used for live graph rendering
 export interface QueryResponse {
   nodes: Array<{
     id: string | number
@@ -15,14 +23,20 @@ export interface QueryResponse {
     endNode: string | number
     properties: Record<string, unknown>
   }>
-  columns?: string[]
-  rows?: unknown[][]
 }
 
+// Frontend-facing schema (normalized field names)
 export interface SchemaResponse {
   labels: string[]
   relationshipTypes: string[]
   propertyKeys: string[]
+}
+
+// Raw backend /schema response
+export interface BackendSchemaResponse {
+  labels: string[]
+  edge_types: string[]
+  property_keys: string[]
 }
 
 export class ApiError extends Error {

@@ -1,4 +1,4 @@
-import { ApiError, type HealthStatus, type QueryResponse } from '@/types/api'
+import { ApiError, type BackendSchemaResponse, type HealthStatus, type QueryResponse, type SchemaResponse } from '@/types/api'
 
 export class ApiClient {
   constructor(private baseUrl: string) {}
@@ -37,7 +37,12 @@ export class ApiClient {
     })
   }
 
-  async schema(): Promise<unknown> {
-    return this.request<unknown>('/schema')
+  async schema(): Promise<SchemaResponse> {
+    const raw = await this.request<BackendSchemaResponse>('/schema')
+    return {
+      labels: raw.labels ?? [],
+      relationshipTypes: raw.edge_types ?? [],
+      propertyKeys: raw.property_keys ?? [],
+    }
   }
 }
