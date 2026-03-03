@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: unknown
-last_updated: "2026-03-01T20:39:22.317Z"
+status: in_progress
+last_updated: "2026-03-03T18:06:00.000Z"
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 8
-  total_plans: 27
-  completed_plans: 27
+  total_plans: 30
+  completed_plans: 29
 ---
 
 # Project State
@@ -22,12 +22,12 @@ See: .planning/PROJECT.md (updated 2026-03-02)
 
 ## Current Position
 
-Phase: 8 of 9 (Complete)
-Plan: 3 of 3 complete
-Status: Phase 8 complete — Geographic map, trace backend, LOD + trace animation all delivered
-Last activity: 2026-03-02 — Phase 8 Plan 03 executed via Codex
+Phase: 9 of 9 (In Progress)
+Plan: 2 of 3 complete
+Status: Phase 9 Plan 02 complete — AI chat UI components delivered (store, panel, message, download progress, typing indicator)
+Last activity: 2026-03-03 — Phase 9 Plan 02 executed
 
-Progress: [██████████████░] 89%
+Progress: [██████████████░] 93%
 
 ## Performance Metrics
 
@@ -48,7 +48,7 @@ Progress: [██████████████░] 89%
 | 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |
 | 7. Real-World Famous Dataset Showcase | 3/3 | Complete | 2026-03-02 |
 | 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-02 |
-| 9. AI Knowledge Graph Assistant | 0/? | Pending | — |
+| 9. AI Knowledge Graph Assistant | 2/3 | In Progress | — |
 
 ## Accumulated Context
 
@@ -90,6 +90,9 @@ Recent decisions affecting current work:
 - [Phase 08-01]: GeoCanvas uses CARTO Dark Matter tiles (no API key) with deck.gl ScatterplotLayer for airports and ArcLayer for great-circle routes with pulse animation
 - [Phase 08-01]: isGeographic flag on DatasetMeta auto-activates geographic mode when Air Routes dataset is selected — no user toggle needed
 - [Phase 08-03]: Viewport culling uses ctx.getTransform() to compute graph-space visible bounds — avoids react-force-graph-2d needing to expose viewport rect
+- [Phase 09-02]: Streamdown used over react-markdown for AI message rendering — handles unterminated code fences during token streaming without visual glitching
+- [Phase 09-02]: Run Query and Copy buttons rendered only after isStreaming === false to prevent premature Cypher block extraction
+- [Phase 09-02]: AIChatPanel accepts onSendMessage and onRunQuery as props; AI provider calls wired in Plan 03
 
 ### Pending Todos
 
@@ -101,6 +104,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-04
-Stopped at: Phase 9 context gathered
-Resume file: .planning/phases/09-ai-knowledge-graph-assistant/09-CONTEXT.md
+Last session: 2026-03-03
+Stopped at: Completed 09-02-PLAN.md — AI chat UI components
+Resume file: .planning/phases/09-ai-knowledge-graph-assistant/09-03-PLAN.md
