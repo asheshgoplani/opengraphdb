@@ -11,23 +11,62 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useSettingsStore } from '@/stores/settings'
-import { Settings } from 'lucide-react'
+import { Settings, ShieldCheck } from 'lucide-react'
 import { ConnectionStatus } from './ConnectionStatus'
+import { PROVIDER_MODELS, type AIProviderType } from '@/lib/ai/providers'
+
+const PROVIDER_OPTIONS: { value: AIProviderType; label: string }[] = [
+  { value: 'webllm', label: 'WebLLM (Free, Local)' },
+  { value: 'openai', label: 'OpenAI' },
+  { value: 'anthropic', label: 'Anthropic' },
+  { value: 'gemini', label: 'Google Gemini' },
+  { value: 'openai-compatible', label: 'OpenAI-Compatible' },
+]
+
+const API_KEY_PLACEHOLDERS: Record<AIProviderType, string> = {
+  webllm: '',
+  openai: 'sk-...',
+  anthropic: 'sk-ant-...',
+  gemini: 'AI...',
+  'openai-compatible': 'Enter API key',
+}
 
 export function SettingsDialog() {
   const serverUrl = useSettingsStore((s) => s.serverUrl)
   const resultLimit = useSettingsStore((s) => s.resultLimit)
+  const aiProvider = useSettingsStore((s) => s.aiProvider)
+  const aiApiKey = useSettingsStore((s) => s.aiApiKey)
+  const aiModel = useSettingsStore((s) => s.aiModel)
+  const aiBaseUrl = useSettingsStore((s) => s.aiBaseUrl)
+
   const setServerUrl = useSettingsStore((s) => s.setServerUrl)
   const setResultLimit = useSettingsStore((s) => s.setResultLimit)
+  const setAiProvider = useSettingsStore((s) => s.setAiProvider)
+  const setAiApiKey = useSettingsStore((s) => s.setAiApiKey)
+  const setAiModel = useSettingsStore((s) => s.setAiModel)
+  const setAiBaseUrl = useSettingsStore((s) => s.setAiBaseUrl)
 
   const [open, setOpen] = useState(false)
   const [localUrl, setLocalUrl] = useState(serverUrl)
   const [localLimit, setLocalLimit] = useState(String(resultLimit))
+  const [localAiProvider, setLocalAiProvider] = useState<AIProviderType>(aiProvider)
+  const [localAiApiKey, setLocalAiApiKey] = useState(aiApiKey)
+  const [localAiModel, setLocalAiModel] = useState(aiModel)
+  const [localAiBaseUrl, setLocalAiBaseUrl] = useState(aiBaseUrl)
+  const [customModel, setCustomModel] = useState(false)
 
   const handleOpen = (isOpen: boolean) => {
     if (isOpen) {
       setLocalUrl(serverUrl)
       setLocalLimit(String(resultLimit))
+      setLocalAiProvider(aiProvider)
+      setLocalAiApiKey(aiApiKey)
+      setLocalAiModel(aiModel)
+      setLocalAiBaseUrl(aiBaseUrl)
+      // Determine if currently using a custom model
+      const models = PROVIDER_MODELS[aiProvider]
+      const isCustom = aiModel !== '' && !models.some((m) => m.id === aiModel)
+      setCustomModel(isCustom)
     }
     setOpen(isOpen)
   }
@@ -38,8 +77,22 @@ export function SettingsDialog() {
     if (!isNaN(limit) && limit > 0) {
       setResultLimit(limit)
     }
+    setAiProvider(localAiProvider)
+    setAiApiKey(localAiApiKey)
+    setAiModel(localAiModel)
+    setAiBaseUrl(localAiBaseUrl)
     setOpen(false)
   }
+
+  const handleProviderChange = (provider: AIProviderType) => {
+    setLocalAiProvider(provider)
+    setLocalAiModel('')
+    setCustomModel(false)
+  }
+
+  const providerModels = PROVIDER_MODELS[localAiProvider]
+  const showApiKey = localAiProvider !== 'webllm'
+  const showBaseUrl = localAiProvider === 'openai-compatible'
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -63,10 +116,7 @@ export function SettingsDialog() {
             <ConnectionStatus />
           </div>
           <div className="space-y-2.5">
-            <label
-              htmlFor="server-url"
-              className="text-sm font-medium"
-            >
+            <label htmlFor="server-url" className="text-sm font-medium">
               Server URL
             </label>
             <Input
@@ -81,10 +131,7 @@ export function SettingsDialog() {
             </p>
           </div>
           <div className="space-y-2.5">
-            <label
-              htmlFor="result-limit"
-              className="text-sm font-medium"
-            >
+            <label htmlFor="result-limit" className="text-sm font-medium">
               Result Limit
             </label>
             <Input
@@ -99,6 +146,135 @@ export function SettingsDialog() {
             <p className="text-xs text-muted-foreground">
               Caps returned records for graph and table rendering.
             </p>
+          </div>
+
+          {/* AI Assistant section */}
+          <div className="space-y-3">
+            <div className="rounded-lg border bg-muted/25 p-3">
+              <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                AI Assistant
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Configure the AI model that converts natural language to Cypher queries.
+              </p>
+            </div>
+
+            <div className="space-y-2.5">
+              <label htmlFor="ai-provider" className="text-sm font-medium">
+                Provider
+              </label>
+              <select
+                id="ai-provider"
+                value={localAiProvider}
+                onChange={(e) => handleProviderChange(e.target.value as AIProviderType)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {PROVIDER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {showApiKey && (
+              <div className="space-y-2.5">
+                <label htmlFor="ai-api-key" className="text-sm font-medium">
+                  API Key
+                </label>
+                <Input
+                  id="ai-api-key"
+                  type="password"
+                  value={localAiApiKey}
+                  onChange={(e) => setLocalAiApiKey(e.target.value)}
+                  placeholder={API_KEY_PLACEHOLDERS[localAiProvider]}
+                  className="focus-visible:ring-2"
+                />
+              </div>
+            )}
+
+            <div className="space-y-2.5">
+              <label htmlFor="ai-model" className="text-sm font-medium">
+                Model
+              </label>
+              {localAiProvider === 'webllm' ? (
+                <Input
+                  id="ai-model"
+                  value={providerModels[0]?.label ?? ''}
+                  readOnly
+                  className="cursor-not-allowed opacity-60"
+                />
+              ) : localAiProvider === 'openai-compatible' ? (
+                <Input
+                  id="ai-model"
+                  value={localAiModel}
+                  onChange={(e) => setLocalAiModel(e.target.value)}
+                  placeholder="e.g. llama-3.1-70b-versatile"
+                  className="focus-visible:ring-2"
+                />
+              ) : customModel ? (
+                <div className="space-y-1.5">
+                  <Input
+                    id="ai-model"
+                    value={localAiModel}
+                    onChange={(e) => setLocalAiModel(e.target.value)}
+                    placeholder="Enter custom model name"
+                    className="focus-visible:ring-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { setCustomModel(false); setLocalAiModel('') }}
+                    className="text-xs text-muted-foreground underline underline-offset-2"
+                  >
+                    Choose from list
+                  </button>
+                </div>
+              ) : (
+                <select
+                  id="ai-model"
+                  value={localAiModel}
+                  onChange={(e) => {
+                    if (e.target.value === '__custom__') {
+                      setCustomModel(true)
+                      setLocalAiModel('')
+                    } else {
+                      setLocalAiModel(e.target.value)
+                    }
+                  }}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="">Select a model...</option>
+                  {providerModels.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                  <option value="__custom__">Other (custom)</option>
+                </select>
+              )}
+            </div>
+
+            {showBaseUrl && (
+              <div className="space-y-2.5">
+                <label htmlFor="ai-base-url" className="text-sm font-medium">
+                  Base URL
+                </label>
+                <Input
+                  id="ai-base-url"
+                  value={localAiBaseUrl}
+                  onChange={(e) => setLocalAiBaseUrl(e.target.value)}
+                  placeholder="https://api.groq.com/openai/v1"
+                  className="focus-visible:ring-2"
+                />
+              </div>
+            )}
+
+            <div className="flex items-start gap-2 rounded-md border bg-muted/25 px-3 py-2.5 text-xs text-muted-foreground">
+              <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+              <span>
+                Your API key is stored in your browser only. It is never sent to our servers.
+              </span>
+            </div>
           </div>
         </div>
         <DialogFooter className="gap-2">
