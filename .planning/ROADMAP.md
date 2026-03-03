@@ -149,7 +149,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. When AI generates and runs a query, the graph trace animation shows the data path
   5. All API calls happen client-side; keys are never sent to the backend
 **Plans**: 3 plans
-  - [ ] 09-01-PLAN.md — AI provider SDKs, ChatProvider interface, 5 provider adapters, system prompt, settings store extension, SettingsDialog AI section
+  - [x] 09-01-PLAN.md — AI provider SDKs, ChatProvider interface, 5 provider adapters, system prompt, settings store extension, SettingsDialog AI section
   - [x] 09-02-PLAN.md — Zustand ephemeral chat store, AIChatPanel (Sheet), AIChatMessage (streaming markdown), download progress bar, typing indicator
   - [ ] 09-03-PLAN.md — useAIChat orchestration hook, trace integration for AI queries, Header and PlaygroundPage wiring, MCP activity placeholder
 

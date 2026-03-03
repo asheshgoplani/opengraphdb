@@ -90,6 +90,11 @@ Recent decisions affecting current work:
 - [Phase 08-01]: GeoCanvas uses CARTO Dark Matter tiles (no API key) with deck.gl ScatterplotLayer for airports and ArcLayer for great-circle routes with pulse animation
 - [Phase 08-01]: isGeographic flag on DatasetMeta auto-activates geographic mode when Air Routes dataset is selected — no user toggle needed
 - [Phase 08-03]: Viewport culling uses ctx.getTransform() to compute graph-space visible bounds — avoids react-force-graph-2d needing to expose viewport rect
+- [Phase 09-01]: Dynamic imports per adapter: avoids bundling all AI SDKs in main chunk; each provider loaded only when createProvider() is called
+- [Phase 09-01]: Singleton WebLLM engine: module-level variable prevents re-downloading model weights across re-renders
+- [Phase 09-01]: System message separation in Anthropic adapter: Anthropic API takes system as top-level param, not in messages array
+- [Phase 09-01]: Google Gemini uses @google/genai (GA May 2025) not deprecated @google/generative-ai
+- [Phase 09-01]: createProvider factory is async (Promise-returning) to support dynamic imports — callers must await it
 - [Phase 09-02]: Streamdown used over react-markdown for AI message rendering — handles unterminated code fences during token streaming without visual glitching
 - [Phase 09-02]: Run Query and Copy buttons rendered only after isStreaming === false to prevent premature Cypher block extraction
 - [Phase 09-02]: AIChatPanel accepts onSendMessage and onRunQuery as props; AI provider calls wired in Plan 03
@@ -105,5 +110,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-03
-Stopped at: Completed 09-02-PLAN.md — AI chat UI components
-Resume file: .planning/phases/09-ai-knowledge-graph-assistant/09-03-PLAN.md
+Stopped at: Completed 09-01-PLAN.md — AI provider infrastructure (ChatProvider, 5 adapters, settings, SettingsDialog)
+Resume file: .planning/phases/09-ai-knowledge-graph-assistant/09-02-PLAN.md
