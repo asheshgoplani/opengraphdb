@@ -1,5 +1,5 @@
 import { useRef, useEffect, useState, type KeyboardEvent } from 'react'
-import { Send, Trash2, Bot } from 'lucide-react'
+import { Send, Trash2, Bot, ChevronDown, ChevronUp } from 'lucide-react'
 import {
   Sheet,
   SheetContent,
@@ -12,6 +12,7 @@ import { useAIChatStore } from '@/stores/ai-chat'
 import { AIChatMessage } from './AIChatMessage'
 import { AIDownloadProgress } from './AIDownloadProgress'
 import { AITypingIndicator } from './AITypingIndicator'
+import { MCPActivityPanel } from './MCPActivityPanel'
 
 const EXAMPLE_PROMPTS = [
   'Show all node labels',
@@ -34,6 +35,7 @@ export function AIChatPanel({ onRunQuery, onSendMessage }: AIChatPanelProps) {
   const clearMessages = useAIChatStore((s) => s.clearMessages)
 
   const [inputValue, setInputValue] = useState('')
+  const [showActivity, setShowActivity] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -186,6 +188,25 @@ export function AIChatPanel({ onRunQuery, onSendMessage }: AIChatPanelProps) {
           <p className="mt-1.5 text-center text-[10px] text-muted-foreground/50">
             Enter to send, Shift+Enter for newline
           </p>
+        </div>
+
+        <div className="shrink-0 border-t">
+          <button
+            onClick={() => setShowActivity((v) => !v)}
+            className="flex w-full items-center justify-between px-4 py-2 text-xs text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground"
+          >
+            <span className="font-medium">Activity</span>
+            {showActivity ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronUp className="h-3.5 w-3.5" />
+            )}
+          </button>
+          {showActivity && (
+            <div className="px-4 pb-3">
+              <MCPActivityPanel />
+            </div>
+          )}
         </div>
       </SheetContent>
     </Sheet>

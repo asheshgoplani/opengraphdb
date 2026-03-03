@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
-import { AlertCircle, ArrowLeft, Zap } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Sparkles, Zap } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiClient } from '@/api/client'
 import { transformLiveResponse } from '@/api/transform'
@@ -11,6 +11,9 @@ import { LiveModeToggle } from '@/components/playground/LiveModeToggle'
 import { QueryCard } from '@/components/playground/QueryCard'
 import { StatsPanel } from '@/components/playground/StatsPanel'
 import { Button } from '@/components/ui/button'
+import { AIChatPanel } from '@/components/ai/AIChatPanel'
+import { useAIChatStore } from '@/stores/ai-chat'
+import { useAIChat } from '@/hooks/useAIChat'
 import {
   DATASETS,
   getDatasetQueries,
@@ -65,6 +68,9 @@ export default function PlaygroundPage() {
   const setTrace = useGraphStore((s) => s.setTrace)
   const advanceTrace = useGraphStore((s) => s.advanceTrace)
   const [isTraceMode, setIsTraceMode] = useState(false)
+  const isAIOpen = useAIChatStore((s) => s.isOpen)
+  const setIsAIOpen = useAIChatStore((s) => s.setIsOpen)
+  const { sendMessage, runCypherFromAI } = useAIChat()
 
   const liveQueryMutation = useMutation({
     mutationFn: (cypher: string) => apiClient.query(cypher),
@@ -212,10 +218,20 @@ export default function PlaygroundPage() {
                 Trace
               </Button>
             )}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsAIOpen(!isAIOpen)}
+              title="AI Assistant"
+            >
+              <Sparkles className="h-3.5 w-3.5 mr-1" />
+              AI
+            </Button>
             <ConnectionBadge queryTimeMs={queryTimeMs} isLive={isLiveMode} liveError={liveError} />
           </div>
         </div>
       </header>
+      <AIChatPanel onRunQuery={runCypherFromAI} onSendMessage={sendMessage} />
 
       <div className="flex flex-1 overflow-hidden">
         <aside className="hidden w-[320px] shrink-0 space-y-4 overflow-y-auto border-r bg-muted/20 p-4 md:block">
