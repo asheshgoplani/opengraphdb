@@ -148,7 +148,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A free default model works out of the box without any API key
   4. When AI generates and runs a query, the graph trace animation shows the data path
   5. All API calls happen client-side; keys are never sent to the backend
-**Plans**: TBD
+**Plans**: 3 plans
+  - [ ] 09-01-PLAN.md — AI provider SDKs, ChatProvider interface, 5 provider adapters, system prompt, settings store extension, SettingsDialog AI section
+  - [ ] 09-02-PLAN.md — Zustand ephemeral chat store, AIChatPanel (Sheet), AIChatMessage (streaming markdown), download progress bar, typing indicator
+  - [ ] 09-03-PLAN.md — useAIChat orchestration hook, trace integration for AI queries, Header and PlaygroundPage wiring, MCP activity placeholder
 
 ## Progress
 
@@ -165,4 +168,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |
 | 7. Real-World Famous Dataset Showcase | 3/3 | Complete | 2026-03-02 |
 | 8. Revolutionary Graph Visualization | 3/3 | Complete   | 2026-03-01 |
-| 9. AI Knowledge Graph Assistant | 0/? | Pending | — |
+| 9. AI Knowledge Graph Assistant | 0/3 | Pending | — |
