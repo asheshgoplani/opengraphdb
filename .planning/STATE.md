@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: unknown
-last_updated: "2026-03-03T18:29:45.210Z"
+milestone: v2.0
+milestone_name: AI-First Developer Tools & Demo
+status: planning
+last_updated: "2026-03-12T08:00:00.000Z"
 progress:
-  total_phases: 9
+  total_phases: 13
   completed_phases: 9
   total_plans: 30
   completed_plans: 30
@@ -15,19 +15,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-02)
+See: .planning/PROJECT.md (updated 2026-03-12)
 
-**Core value:** Developers can visually explore and query their graph data through an interactive Cypher query interface with force-directed graph visualization
-**Current focus:** Milestone 2 complete — AI Knowledge Graph Assistant delivered
+**Core value:** AI-first graph database where developers install skills to work with graph data through natural language, and visitors can talk to knowledge graphs live on the website
+**Current focus:** Milestone v2.0 formalization — defining requirements and regenerating roadmap
 
 ## Current Position
 
-Phase: 9 of 9 (Complete)
-Plan: 3 of 3 complete
-Status: Phase 9 Plan 03 complete — AI end-to-end wiring done (useAIChat hook, dual-route integration, trace feedback loop, MCP activity placeholder)
-Last activity: 2026-03-03 — Phase 9 Plan 03 executed
-
-Progress: [███████████████] 100%
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements for Milestone v2.0
+Last activity: 2026-03-12 — Milestone v2.0 started
 
 ## Performance Metrics
 
