@@ -21,7 +21,7 @@
     "@types/node": "^22.0.0",
     "typescript": "^5.7.0"
   },
-  "files": ["dist", "ogdb-cypher", "graph-explore", "schema-advisor", "data-import", "README.md", "LICENSE"],
+  "files": ["dist", "evals", "ogdb-cypher", "graph-explore", "schema-advisor", "data-import", "README.md", "LICENSE"],
   "repository": {
     "type": "git",
     "url": "https://github.com/openGraphDB/openGraphDB",
