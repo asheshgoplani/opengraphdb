@@ -75,11 +75,11 @@ Requirements for Milestone v2.0. Each maps to roadmap phases 10-13.
 
 ### MCP Server
 
-- [ ] **MCP-01**: LLM can discover graph schema (labels, relationship types, properties) via browse_schema tool
-- [ ] **MCP-02**: LLM can execute arbitrary Cypher queries and receive structured results via execute_cypher tool
-- [ ] **MCP-03**: LLM can explore a node's N-hop neighborhood with configurable depth and edge type filters via get_node_neighborhood tool
-- [ ] **MCP-04**: LLM can search nodes by property values via search_nodes tool
-- [ ] **MCP-05**: MCP server is published as @opengraphdb/mcp npm package, installable via npx with zero config
+- [x] **MCP-01**: LLM can discover graph schema (labels, relationship types, properties) via browse_schema tool
+- [x] **MCP-02**: LLM can execute arbitrary Cypher queries and receive structured results via execute_cypher tool
+- [x] **MCP-03**: LLM can explore a node's N-hop neighborhood with configurable depth and edge type filters via get_node_neighborhood tool
+- [x] **MCP-04**: LLM can search nodes by property values via search_nodes tool
+- [x] **MCP-05**: MCP server is published as @opengraphdb/mcp npm package, installable via npx with zero config
 - [ ] **MCP-06**: README includes Claude Code, Cursor, and VS Code Copilot configuration examples
 
 ### Developer Skills
@@ -155,11 +155,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MCP-01 | Phase 10 | Pending |
-| MCP-02 | Phase 10 | Pending |
-| MCP-03 | Phase 10 | Pending |
-| MCP-04 | Phase 10 | Pending |
-| MCP-05 | Phase 10 | Pending |
+| MCP-01 | Phase 10 | Complete (10-01) |
+| MCP-02 | Phase 10 | Complete (10-01) |
+| MCP-03 | Phase 10 | Complete (10-01) |
+| MCP-04 | Phase 10 | Complete (10-01) |
+| MCP-05 | Phase 10 | Complete (10-01) |
 | MCP-06 | Phase 10 | Pending |
 | SKILL-01 | Phase 11 | Pending |
 | SKILL-02 | Phase 11 | Pending |
@@ -187,4 +187,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-01 (v1), 2026-03-12 (v2)*
-*Last updated: 2026-03-12 after milestone v2.0 roadmap formalization*
+*Last updated: 2026-03-12 after Phase 10 Plan 01 execution (MCP-01 through MCP-05 complete)*

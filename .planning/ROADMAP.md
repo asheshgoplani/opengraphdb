@@ -189,6 +189,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. A developer can install the MCP server by running `npx @opengraphdb/mcp` with no other configuration steps required
   6. A developer can copy ready-to-paste configuration snippets from the README for Claude Code, Cursor, and VS Code Copilot
 **Plans**: TBD (estimated 3-4 plans)
+  - [x] 10-01-PLAN.md — @opengraphdb/mcp npm package: 5 MCP tools (browse_schema, execute_cypher, get_node_neighborhood, search_nodes, list_datasets), TypeScript build, stdio transport
 
 ### Phase 11: Developer Skills & CLI
 **Goal**: Developers install OpenGraphDB skills in their AI coding tool and get expert-level graph database assistance: NL-to-Cypher, schema design, data import, graph analysis, all with verified quality via evals
@@ -214,7 +215,13 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A `hybrid_search` call returns results that fuse BM25 (tantivy), vector similarity (usearch), and graph traversal candidates via Reciprocal Rank Fusion, outperforming any single retrieval method alone
   4. An `ingest_document` call on a PDF or Markdown file produces a graph with sections as nodes, cross-references as edges, and both text and vector indexes populated
   5. All four RAG pipeline operations (`browse_communities`, `drill_into_community`, `hybrid_search`, `ingest_document`) are accessible as MCP tools
-**Plans**: TBD (estimated 4-5 plans)
+  6. Benchmark on a standard dataset (FinanceBench or equivalent) shows measurable improvement over pure vector RAG
+**Plans**: 5 plans
+  - [ ] 12-01-PLAN.md — Leiden community detection algorithm and hierarchical community index with LLM-summary callbacks
+  - [ ] 12-02-PLAN.md — Hybrid retrieval pipeline with RRF fusion: BM25 + vector + graph traversal (entity linking + BFS)
+  - [ ] 12-03-PLAN.md — Document ingestion pipeline: PDF (lopdf) + Markdown (pulldown-cmark) → graph + text + vector indexes
+  - [ ] 12-04-PLAN.md — RAG API methods and HTTP endpoints: browse_communities, drill_into_community, hybrid_search, ingest_document
+  - [ ] 12-05-PLAN.md — RAG benchmark suite: 30 Q&A dataset, 4-strategy comparison, accuracy metrics
 
 ### Phase 13: AI Demo Experience
 **Goal**: Website visitors can talk to a knowledge graph in natural language, see Cypher generated live, watch query trace animations, and explore results visually, all without installing anything
@@ -249,7 +256,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-01 |
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | **Milestone 2: AI-First** | | | |
-| 10. MCP Server for OpenGraphDB | 0/? | Not started | — |
+| 10. MCP Server for OpenGraphDB | 1/? | In progress | — |
 | 11. Developer Skills & CLI | 0/? | Not started | — |
-| 12. Graph-Native RAG Engine | 0/? | Not started | — |
+| 12. Graph-Native RAG Engine | 0/5 | Planning | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
