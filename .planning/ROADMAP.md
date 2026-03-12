@@ -188,8 +188,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   4. An LLM can call `search_nodes` with property key-value pairs and receive matching nodes with their properties
   5. A developer can install the MCP server by running `npx @opengraphdb/mcp` with no other configuration steps required
   6. A developer can copy ready-to-paste configuration snippets from the README for Claude Code, Cursor, and VS Code Copilot
-**Plans**: TBD (estimated 3-4 plans)
-  - [x] 10-01-PLAN.md — @opengraphdb/mcp npm package: 5 MCP tools (browse_schema, execute_cypher, get_node_neighborhood, search_nodes, list_datasets), TypeScript build, stdio transport
+**Plans**: 3 plans
+  - [ ] 10-01-PLAN.md — @opengraphdb/mcp npm package: 5 MCP tools, TypeScript build, stdio transport
+  - [ ] 10-02-PLAN.md — Rust MCP server alignment: standardized tool names, improved descriptions, MCP resources
+  - [ ] 10-03-PLAN.md — Configuration examples (Claude Code, Cursor, VS Code Copilot), README, integration tests
 
 ### Phase 11: Developer Skills & CLI
 **Goal**: Developers install OpenGraphDB skills in their AI coding tool and get expert-level graph database assistance: NL-to-Cypher, schema design, data import, graph analysis, all with verified quality via evals
@@ -203,7 +205,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. Each skill passes A/B benchmarks where task completion with the skill measurably outperforms task completion without the skill
   6. All four skills install as a single package via one command in Claude Code, Copilot, Codex, and Cursor
   7. Each skill ships with structured evals runnable via the Skills 2.0 eval framework, covering correctness, edge cases, and regression prevention
-**Plans**: TBD (estimated 4-5 plans)
+**Plans**: 5 plans
+  - [ ] 11-01-PLAN.md — npm package scaffold (@opengraphdb/skills) with cross-platform install CLI + ogdb-cypher skill (SKILL.md + 3 rule files)
+  - [ ] 11-02-PLAN.md — graph-explore skill (SKILL.md + 2 rule files) + schema-advisor skill (SKILL.md + 3 rule files)
+  - [ ] 11-03-PLAN.md — data-import skill (SKILL.md + 3 rule files) for CSV, JSON, and RDF import assistance
+  - [ ] 11-04-PLAN.md — Eval framework: 4 eval YAML files (30+ test cases), eval runner with A/B scoring, CLI eval command
+  - [ ] 11-05-PLAN.md — README with platform guides, package finalization, npm pack verification
 
 ### Phase 12: Graph-Native RAG Engine
 **Goal**: OpenGraphDB becomes a reasoning-based retrieval engine where LLMs navigate graph structure like a human expert navigates a document, combined with hybrid BM25 + vector + graph search for maximum retrieval accuracy
@@ -256,7 +263,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-01 |
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | **Milestone 2: AI-First** | | | |
-| 10. MCP Server for OpenGraphDB | 1/? | In progress | — |
-| 11. Developer Skills & CLI | 0/? | Not started | — |
+| 10. MCP Server for OpenGraphDB | 0/3 | Planning | — |
+| 11. Developer Skills & CLI | 0/5 | Planning | — |
 | 12. Graph-Native RAG Engine | 0/5 | Planning | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
