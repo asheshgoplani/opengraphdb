@@ -3,7 +3,7 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-12T10:12:30Z"
+last_updated: "2026-03-12T10:13:34Z"
 progress:
   total_phases: 14
   completed_phases: 10
@@ -137,6 +137,9 @@ Recent decisions affecting current work:
 - [Phase 11-03]: RDF files delegated to import_rdf MCP tool, never manually converted to Cypher
 - [Phase 11-03]: Two-pass import: nodes first, relationships second, to avoid missing endpoint errors
 - [Phase 11-03]: Batch size tiers: <100 individual, 100-10K UNWIND batches, 10K+ POST /import API
+- [Phase 11-02]: graph-explore uses 5 strategies (top-down, bottom-up, goal-directed, pattern discovery, temporal) selected by graph size and user intent
+- [Phase 11-02]: schema-advisor covers 8 good patterns + 6 anti-patterns with before/after Cypher examples
+- [Phase 11-02]: RDF mapping includes both import_rdf and export_rdf workflows with _uri property preservation for round-trip fidelity
 
 ### Pending Todos
 
@@ -149,5 +152,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed 11-developer-skills-cli-11-03-PLAN.md — data-import skill with CSV/JSON/RDF schema detection, Cypher generation, and validation
+Stopped at: Completed 11-developer-skills-cli-11-02-PLAN.md — graph-explore and schema-advisor skills (7 files, 1195 lines)
 Resume at: Phase 11 Plan 04 (Eval Framework)
