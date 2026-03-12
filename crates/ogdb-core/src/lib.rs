@@ -1398,6 +1398,71 @@ pub struct RagResult {
     pub community_id: Option<u64>,
 }
 
+/// Supported document formats for ingestion
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum DocumentFormat {
+    Pdf,
+    Markdown,
+    PlainText,
+}
+
+/// Configuration for document ingestion
+pub struct IngestConfig {
+    /// Document title (used as :Document node title property)
+    pub title: String,
+    /// Document format
+    pub format: DocumentFormat,
+    /// Optional embedding callback: given text, returns embedding vector.
+    /// If None, content nodes are added to text index only (no vector index).
+    pub embed_fn: Option<Box<dyn Fn(&str) -> Vec<f32> + Send + Sync>>,
+    /// Vector dimensions (required if embed_fn is provided)
+    pub embedding_dimensions: Option<usize>,
+    /// Optional source URI for provenance tracking
+    pub source_uri: Option<String>,
+    /// Max words per content chunk (default: 512)
+    pub max_chunk_words: usize,
+}
+
+impl Default for IngestConfig {
+    fn default() -> Self {
+        Self {
+            title: String::new(),
+            format: DocumentFormat::PlainText,
+            embed_fn: None,
+            embedding_dimensions: None,
+            source_uri: None,
+            max_chunk_words: 512,
+        }
+    }
+}
+
+/// Result of document ingestion
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct IngestResult {
+    /// ID of the :Document node created
+    pub document_node_id: u64,
+    /// Number of :Section nodes created
+    pub section_count: u64,
+    /// Number of :Content nodes created (leaf chunks)
+    pub content_count: u64,
+    /// Number of :REFERENCES edges created (cross-references)
+    pub reference_count: u64,
+    /// Whether text index was populated
+    pub text_indexed: bool,
+    /// Whether vector index was populated
+    pub vector_indexed: bool,
+}
+
+/// Internal: a parsed section from a document
+#[derive(Debug, Clone)]
+struct ParsedSection {
+    title: String,
+    level: u32,
+    content: String,
+    page_start: Option<u32>,
+    page_end: Option<u32>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParseError {
     pub message: String,
@@ -8522,6 +8587,15 @@ impl<'a> ReadTransaction<'a> {
             .build_community_summaries_at(resolution, self.snapshot_txn_id)
     }
 
+    pub fn build_community_hierarchy(
+        &self,
+        resolutions: &[f64],
+        summarize: Option<&dyn Fn(&[u64], &[(u64, u64, String)]) -> String>,
+    ) -> Result<CommunityHierarchy, DbError> {
+        self.db
+            .build_community_hierarchy_at(resolutions, self.snapshot_txn_id, summarize)
+    }
+
     pub fn hybrid_rag_retrieve(
         &self,
         query_embedding: &[f32],
@@ -9122,6 +9196,15 @@ impl<'a> ReadSnapshot<'a> {
     ) -> Result<Vec<CommunitySummary>, DbError> {
         self.guard
             .build_community_summaries_at(resolution, self.snapshot_txn_id)
+    }
+
+    pub fn build_community_hierarchy(
+        &self,
+        resolutions: &[f64],
+        summarize: Option<&dyn Fn(&[u64], &[(u64, u64, String)]) -> String>,
+    ) -> Result<CommunityHierarchy, DbError> {
+        self.guard
+            .build_community_hierarchy_at(resolutions, self.snapshot_txn_id, summarize)
     }
 
     pub fn hybrid_rag_retrieve(
@@ -11247,6 +11330,237 @@ fn truncate_wal(path: &Path) -> Result<(), DbError> {
     file.write_all(&WAL_MAGIC)?;
     file.sync_data()?;
     Ok(())
+}
+
+// ─── Document ingestion helpers ─────────────────────────────────────────────
+
+#[cfg(feature = "document-ingest")]
+fn parse_pdf_sections(data: &[u8]) -> Result<Vec<ParsedSection>, DbError> {
+    use lopdf::Document as PdfDocument;
+
+    let doc = PdfDocument::load_mem(data)
+        .map_err(|e| DbError::InvalidArgument(format!("Failed to parse PDF: {e}")))?;
+
+    let page_count = doc.get_pages().len();
+    let mut sections: Vec<ParsedSection> = Vec::new();
+    let mut current_text = String::new();
+    let mut current_page_start = 1u32;
+    let mut current_heading: Option<String> = None;
+
+    for page_num in 1..=(page_count as u32) {
+        let page_text = doc.extract_text(&[page_num]).unwrap_or_default();
+
+        if page_text.trim().is_empty() {
+            continue;
+        }
+
+        for line in page_text.lines() {
+            let trimmed = line.trim();
+            if trimmed.is_empty() {
+                current_text.push('\n');
+                continue;
+            }
+
+            // Heuristic: heading if short (<100 chars), not a sentence, and ALL CAPS or Title Case
+            let is_heading = trimmed.len() < 100
+                && !trimmed.ends_with('.')
+                && (trimmed == trimmed.to_uppercase()
+                    || trimmed.split_whitespace().all(|w| {
+                        w.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
+                            || w.len() <= 3
+                    }));
+
+            if is_heading && !current_text.trim().is_empty() {
+                // Flush previous section
+                let title = current_heading
+                    .take()
+                    .unwrap_or_else(|| "Introduction".to_string());
+                sections.push(ParsedSection {
+                    title,
+                    level: 2,
+                    content: std::mem::take(&mut current_text).trim().to_string(),
+                    page_start: Some(current_page_start),
+                    page_end: Some(page_num),
+                });
+                current_page_start = page_num;
+                current_heading = Some(trimmed.to_string());
+            } else if is_heading {
+                current_heading = Some(trimmed.to_string());
+            } else {
+                current_text.push_str(trimmed);
+                current_text.push('\n');
+            }
+        }
+    }
+
+    // Flush remaining
+    if !current_text.trim().is_empty() {
+        let title = current_heading
+            .take()
+            .unwrap_or_else(|| "Content".to_string());
+        sections.push(ParsedSection {
+            title,
+            level: 2,
+            content: current_text.trim().to_string(),
+            page_start: Some(current_page_start),
+            page_end: Some(page_count as u32),
+        });
+    }
+
+    // Fallback: single section with all content
+    if sections.is_empty() {
+        let all_text = (1..=(page_count as u32))
+            .filter_map(|p| doc.extract_text(&[p]).ok())
+            .collect::<Vec<_>>()
+            .join("\n");
+        if !all_text.trim().is_empty() {
+            sections.push(ParsedSection {
+                title: "Document Content".to_string(),
+                level: 1,
+                content: all_text.trim().to_string(),
+                page_start: Some(1),
+                page_end: Some(page_count as u32),
+            });
+        }
+    }
+
+    sections.retain(|s| !s.content.trim().is_empty());
+    Ok(sections)
+}
+
+#[cfg(feature = "document-ingest")]
+fn parse_markdown_sections(text: &str) -> Result<Vec<ParsedSection>, DbError> {
+    use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
+
+    let parser = Parser::new(text);
+    let mut sections: Vec<ParsedSection> = Vec::new();
+    let mut current_heading: Option<(String, u32)> = None;
+    let mut current_content = String::new();
+    let mut in_heading = false;
+    let mut heading_text = String::new();
+    let mut heading_level = 0u32;
+
+    for event in parser {
+        match event {
+            Event::Start(Tag::Heading { level, .. }) => {
+                // Flush previous section
+                if !current_content.trim().is_empty() || current_heading.is_some() {
+                    let (title, lvl) = current_heading
+                        .take()
+                        .unwrap_or_else(|| ("Introduction".to_string(), 1));
+                    if !current_content.trim().is_empty() {
+                        sections.push(ParsedSection {
+                            title,
+                            level: lvl,
+                            content: current_content.trim().to_string(),
+                            page_start: None,
+                            page_end: None,
+                        });
+                    }
+                    current_content.clear();
+                }
+                in_heading = true;
+                heading_text.clear();
+                heading_level = match level {
+                    HeadingLevel::H1 => 1,
+                    HeadingLevel::H2 => 2,
+                    HeadingLevel::H3 => 3,
+                    HeadingLevel::H4 => 4,
+                    HeadingLevel::H5 => 5,
+                    HeadingLevel::H6 => 6,
+                };
+            }
+            Event::End(TagEnd::Heading(_)) => {
+                in_heading = false;
+                current_heading = Some((heading_text.clone(), heading_level));
+            }
+            Event::Text(t) | Event::Code(t) => {
+                if in_heading {
+                    heading_text.push_str(&t);
+                } else {
+                    current_content.push_str(&t);
+                }
+            }
+            Event::SoftBreak | Event::HardBreak => {
+                if !in_heading {
+                    current_content.push('\n');
+                }
+            }
+            Event::End(TagEnd::Paragraph) => {
+                current_content.push_str("\n\n");
+            }
+            _ => {}
+        }
+    }
+
+    // Flush final section
+    if !current_content.trim().is_empty() {
+        let (title, lvl) = current_heading
+            .take()
+            .unwrap_or_else(|| ("Content".to_string(), 1));
+        sections.push(ParsedSection {
+            title,
+            level: lvl,
+            content: current_content.trim().to_string(),
+            page_start: None,
+            page_end: None,
+        });
+    }
+
+    Ok(sections)
+}
+
+#[cfg(feature = "document-ingest")]
+fn parse_plaintext_sections(text: &str, max_chunk_words: usize) -> Vec<ParsedSection> {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    if words.is_empty() {
+        return Vec::new();
+    }
+    let chunk_size = if max_chunk_words == 0 { words.len() } else { max_chunk_words };
+    words
+        .chunks(chunk_size)
+        .enumerate()
+        .map(|(i, chunk)| ParsedSection {
+            title: format!("Chunk {}", i + 1),
+            level: 1,
+            content: chunk.join(" "),
+            page_start: None,
+            page_end: None,
+        })
+        .collect()
+}
+
+#[cfg(feature = "document-ingest")]
+fn chunk_content(content: &str, max_words: usize) -> Vec<String> {
+    if max_words == 0 {
+        return vec![content.to_string()];
+    }
+    let words: Vec<&str> = content.split_whitespace().collect();
+    if words.len() <= max_words {
+        return vec![content.to_string()];
+    }
+    words.chunks(max_words).map(|c| c.join(" ")).collect()
+}
+
+#[cfg(feature = "document-ingest")]
+fn detect_cross_references(sections: &[ParsedSection]) -> Vec<(usize, usize)> {
+    let mut refs = Vec::new();
+    for (i, section) in sections.iter().enumerate() {
+        let content_lower = section.content.to_lowercase();
+        for (j, other) in sections.iter().enumerate() {
+            if i == j {
+                continue;
+            }
+            let title_words: Vec<&str> = other.title.split_whitespace().collect();
+            if title_words.len() >= 3 {
+                let title_lower = other.title.to_lowercase();
+                if content_lower.contains(&title_lower) {
+                    refs.push((i, j));
+                }
+            }
+        }
+    }
+    refs
 }
 
 /// Primary embedded database handle.
@@ -18337,6 +18651,190 @@ impl Database {
             .iter()
             .map(|node_id| (*node_id, communities[*node_id as usize]))
             .collect())
+    }
+
+    fn build_community_hierarchy_at(
+        &self,
+        resolutions: &[f64],
+        snapshot_txn_id: u64,
+        summarize: Option<&dyn Fn(&[u64], &[(u64, u64, String)]) -> String>,
+    ) -> Result<CommunityHierarchy, DbError> {
+        if resolutions.is_empty() {
+            return Err(DbError::InvalidArgument(
+                "at least one resolution required".to_string(),
+            ));
+        }
+        for r in resolutions {
+            if !r.is_finite() || *r <= 0.0 {
+                return Err(DbError::InvalidArgument(
+                    "all resolutions must be positive finite values".to_string(),
+                ));
+            }
+        }
+
+        // Sort descending: highest resolution first (finest granularity = most communities)
+        let mut sorted_resolutions = resolutions.to_vec();
+        sorted_resolutions.sort_by(|a, b| b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal));
+
+        let mut hierarchy = CommunityHierarchy {
+            communities: BTreeMap::new(),
+            levels: BTreeMap::new(),
+            children: BTreeMap::new(),
+            members: BTreeMap::new(),
+            depth: sorted_resolutions.len() as u32,
+        };
+
+        let mut community_id_offset: u64 = 0;
+        let mut prev_level_assignments: Option<BTreeMap<u64, u64>> = None;
+
+        for (level_idx, resolution) in sorted_resolutions.iter().enumerate() {
+            let level = level_idx as u32;
+            let raw_communities =
+                self.community_leiden_at(None, *resolution, snapshot_txn_id)?;
+            if raw_communities.is_empty() {
+                continue;
+            }
+
+            // Remap raw community IDs to globally unique IDs
+            let unique_raw_ids: BTreeSet<u64> =
+                raw_communities.iter().map(|(_, c)| *c).collect();
+            let mut remap = BTreeMap::<u64, u64>::new();
+            for (i, raw_id) in unique_raw_ids.iter().enumerate() {
+                remap.insert(*raw_id, community_id_offset + i as u64);
+            }
+            community_id_offset += unique_raw_ids.len() as u64;
+
+            let assignments: BTreeMap<u64, u64> = raw_communities
+                .iter()
+                .map(|(node_id, raw_comm)| (*node_id, *remap.get(raw_comm).unwrap()))
+                .collect();
+
+            // Group member nodes per community at this level
+            let mut level_members = BTreeMap::<u64, Vec<u64>>::new();
+            for (node_id, comm_id) in &assignments {
+                level_members.entry(*comm_id).or_default().push(*node_id);
+            }
+
+            let mut level_community_ids = Vec::new();
+
+            for (comm_id, member_nodes) in &level_members {
+                // Determine parent community from the previous (coarser) level
+                let parent_community_id = prev_level_assignments.as_ref().and_then(|prev| {
+                    let mut parent_votes = BTreeMap::<u64, usize>::new();
+                    for node_id in member_nodes {
+                        if let Some(parent_comm) = prev.get(node_id) {
+                            *parent_votes.entry(*parent_comm).or_insert(0) += 1;
+                        }
+                    }
+                    parent_votes
+                        .into_iter()
+                        .max_by_key(|(_, count)| *count)
+                        .map(|(parent_id, _)| parent_id)
+                });
+
+                let member_set: BTreeSet<u64> = member_nodes.iter().copied().collect();
+
+                // Count internal edges and build label/property distributions
+                let mut internal_edges = 0u64;
+                let mut label_distribution = BTreeMap::<String, u64>::new();
+                let mut property_counts = BTreeMap::<String, u64>::new();
+
+                for node_id in member_nodes {
+                    if let Ok(labels) = self.node_labels_at(*node_id, snapshot_txn_id) {
+                        for label in labels {
+                            *label_distribution.entry(label).or_insert(0) += 1;
+                        }
+                    }
+                    if let Ok(props) = self.node_properties_at(*node_id, snapshot_txn_id) {
+                        for key in props.keys() {
+                            *property_counts.entry(key.clone()).or_insert(0) += 1;
+                        }
+                    }
+                }
+
+                for edge_id in 0..self.edge_records.len() {
+                    let eid = edge_id as u64;
+                    if !self.is_edge_visible_at(eid, snapshot_txn_id) {
+                        continue;
+                    }
+                    let record = &self.edge_records[edge_id];
+                    if member_set.contains(&record.src) && member_set.contains(&record.dst) {
+                        internal_edges += 1;
+                    }
+                }
+
+                let mut top_properties: Vec<(String, u64)> =
+                    property_counts.into_iter().collect();
+                top_properties.sort_by(|a, b| b.1.cmp(&a.1));
+                top_properties.truncate(10);
+
+                // Generate description via callback or auto-generate structural description
+                let description = if let Some(summarize_fn) = &summarize {
+                    let mut edge_triples = Vec::new();
+                    for edge_id in 0..self.edge_records.len() {
+                        let eid = edge_id as u64;
+                        if !self.is_edge_visible_at(eid, snapshot_txn_id) {
+                            continue;
+                        }
+                        let record = &self.edge_records[edge_id];
+                        if member_set.contains(&record.src) && member_set.contains(&record.dst) {
+                            let etype = self
+                                .edge_type_at(eid, snapshot_txn_id)
+                                .ok()
+                                .flatten()
+                                .unwrap_or_default();
+                            edge_triples.push((record.src, record.dst, etype));
+                        }
+                    }
+                    summarize_fn(member_nodes, &edge_triples)
+                } else {
+                    let top_labels: Vec<&str> = label_distribution
+                        .iter()
+                        .take(3)
+                        .map(|(l, _)| l.as_str())
+                        .collect();
+                    format!(
+                        "Community of {} nodes ({} internal edges). Primary labels: {}.",
+                        member_nodes.len(),
+                        internal_edges,
+                        if top_labels.is_empty() {
+                            "none".to_string()
+                        } else {
+                            top_labels.join(", ")
+                        }
+                    )
+                };
+
+                let summary = CommunitySummary {
+                    community_id: *comm_id,
+                    node_count: member_nodes.len() as u64,
+                    edge_count: internal_edges,
+                    label_distribution,
+                    top_properties,
+                    level,
+                    parent_community_id,
+                    description,
+                };
+
+                hierarchy.communities.insert(*comm_id, summary);
+                level_community_ids.push(*comm_id);
+
+                // Register parent-child relationship
+                if let Some(parent_id) = parent_community_id {
+                    hierarchy.children.entry(parent_id).or_default().push(*comm_id);
+                }
+
+                // Store members for leaf level (finest granularity, level 0)
+                if level == 0 {
+                    hierarchy.members.insert(*comm_id, member_nodes.clone());
+                }
+            }
+
+            hierarchy.levels.insert(level, level_community_ids);
+            prev_level_assignments = Some(assignments);
+        }
+
+        Ok(hierarchy)
     }
 
     fn ensure_episode_indexes(&mut self, dimensions: usize) -> Result<(), DbError> {
