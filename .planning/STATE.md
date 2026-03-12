@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-12T10:04:26.855Z"
+last_updated: "2026-03-12T10:12:30Z"
 progress:
   total_phases: 14
   completed_phases: 10
   total_plans: 46
-  completed_plans: 33
+  completed_plans: 34
 ---
 
 # Project State
@@ -22,15 +22,15 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 
 ## Current Position
 
-Phase: 10 (MCP Server for OpenGraphDB) — Complete (Plan 03 complete)
+Phase: 11 (Developer Skills & CLI) — In Progress (Plan 03 complete)
 Plan: 03 complete
-Status: Phase 10 complete (3 plans done); next is Phase 11 (Developer Skills & CLI)
-Last activity: 2026-03-12 — Phase 10 Plan 03 executed: README, integration tests, npm package metadata finalized
+Status: Phase 11 in progress (3/5 plans done); next is Plan 11-04 (Eval Framework)
+Last activity: 2026-03-12 — Phase 11 Plan 03 executed: data-import skill with SKILL.md + 3 rule files (651 lines)
 
 ```
 Milestone 2 Progress: [##        ] 1/4 phases complete
 Phase 10: [3/3] Complete — npm MCP server docs, integration tests, publish-ready package
-Phase 11: [ ] Not started
+Phase 11: [3/5] In Progress — ogdb-cypher, graph-explore, schema-advisor, data-import skills created
 Phase 12: [ ] Not started
 Phase 13: [ ] Not started
 ```
@@ -56,7 +56,7 @@ Phase 13: [ ] Not started
 | 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-02 |
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | 10. MCP Server for OpenGraphDB | 3/3 | Complete | 2026-03-12 |
-| 11. Developer Skills & CLI | 0/? | Not started | — |
+| 11. Developer Skills & CLI | 3/5 | In Progress | — |
 | 12. Graph-Native RAG Engine | 0/? | Not started | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
 
@@ -129,6 +129,14 @@ Recent decisions affecting current work:
 - [Phase 10-02]: Rust and npm MCP servers now expose identical tool surface for consistent AI agent experience
 - [Phase 10-mcp-server]: Integration tests use node:test (built-in) and spawn server at port 19999 for protocol testing without live DB
 - [Phase 10-mcp-server]: VS Code Copilot config uses 'servers' key (not 'mcpServers') per VS Code MCP spec
+- [Phase 11-01]: Skills 2.0 structure: SKILL.md master file + rules/*.md for detailed patterns, portable across platforms
+- [Phase 11-01]: Node built-ins only for install script (fs, path, process): zero runtime dependencies
+- [Phase 11-01]: Four platform targets: Claude Code (.claude/skills/), Cursor (.cursorrules), Copilot (.github/copilot-instructions.md), Codex (.codex/instructions.md)
+- [Phase 11-01]: ogdb-cypher rules written as AI instructions (second person imperative), not developer documentation
+- [Phase 11-03]: All data-import Cypher uses MERGE for idempotency, never bare CREATE for data import
+- [Phase 11-03]: RDF files delegated to import_rdf MCP tool, never manually converted to Cypher
+- [Phase 11-03]: Two-pass import: nodes first, relationships second, to avoid missing endpoint errors
+- [Phase 11-03]: Batch size tiers: <100 individual, 100-10K UNWIND batches, 10K+ POST /import API
 
 ### Pending Todos
 
@@ -141,5 +149,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed 10-mcp-server-10-03-PLAN.md — README, integration tests (3 passing), npm package metadata finalized for publish
-Resume at: Phase 11 (Developer Skills & CLI)
+Stopped at: Completed 11-developer-skills-cli-11-03-PLAN.md — data-import skill with CSV/JSON/RDF schema detection, Cypher generation, and validation
+Resume at: Phase 11 Plan 04 (Eval Framework)
