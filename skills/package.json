@@ -14,8 +14,11 @@
     "test": "node --test dist/**/*.test.js",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["opengraphdb", "skills", "ai", "cypher", "graph-database", "claude", "copilot", "cursor", "codex"],
+  "keywords": ["opengraphdb", "skills", "ai", "cypher", "graph-database", "claude", "copilot", "cursor", "codex", "mcp"],
+  "author": "OpenGraphDB Contributors",
   "license": "MIT",
+  "homepage": "https://github.com/openGraphDB/openGraphDB/tree/main/skills",
+  "bugs": "https://github.com/openGraphDB/openGraphDB/issues",
   "engines": { "node": ">=18" },
   "devDependencies": {
     "@types/node": "^22.0.0",

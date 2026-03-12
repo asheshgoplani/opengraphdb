@@ -49,6 +49,12 @@ function loadSkill(skillName: string): string {
   return combined;
 }
 
+function countRuleFiles(skillName: string): number {
+  const rulesDir = join(SKILLS_ROOT, skillName, "rules");
+  if (!existsSync(rulesDir)) return 0;
+  return readdirSync(rulesDir).filter((f) => f.endsWith(".md")).length;
+}
+
 function installClaude(skills: string[]): void {
   for (const skillName of skills) {
     const skillDir = join(SKILLS_ROOT, skillName);
@@ -132,6 +138,12 @@ export async function install(options: InstallOptions): Promise<void> {
       throw new Error(`Unknown platform: ${platform}. Use: claude, cursor, copilot, or codex`);
   }
 
-  console.log("\nDone! Your AI coding tool now has OpenGraphDB expertise.");
+  const ruleCount = skills.reduce((sum, s) => sum + countRuleFiles(s), 0);
+  console.log(`\nInstalled ${skills.length} skill(s) with ${ruleCount} rule file(s) for ${platform}.`);
+  console.log("Done! Your AI coding tool now has OpenGraphDB expertise.");
   console.log("Try asking: \"Show me all node labels in the database\"");
+
+  console.log("\nTip: For live database access, also install the MCP server:");
+  console.log("  npx @opengraphdb/mcp");
+  console.log("Add it to your AI tool's MCP config (see @opengraphdb/mcp README).\n");
 }
