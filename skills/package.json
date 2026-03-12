@@ -1,0 +1,30 @@
+{
+  "name": "@opengraphdb/skills",
+  "version": "0.1.0",
+  "description": "AI coding skills for OpenGraphDB — install expert graph database knowledge into Claude Code, Cursor, Copilot, and Codex",
+  "type": "module",
+  "bin": {
+    "opengraphdb-skills": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "test": "node --test dist/**/*.test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": ["opengraphdb", "skills", "ai", "cypher", "graph-database", "claude", "copilot", "cursor", "codex"],
+  "license": "MIT",
+  "engines": { "node": ">=18" },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  },
+  "files": ["dist", "ogdb-cypher", "graph-explore", "schema-advisor", "data-import", "README.md", "LICENSE"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/openGraphDB/openGraphDB",
+    "directory": "skills"
+  }
+}
