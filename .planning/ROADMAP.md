@@ -32,7 +32,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 ### Milestone 2: AI-First Developer Tools & Demo (Phases 10-13)
 
-- [ ] **Phase 10: MCP Server for OpenGraphDB** - First-class MCP server exposing graph operations (schema browse, Cypher execute, neighborhood explore, hybrid search) so any AI agent can work with the graph database natively
+- [x] **Phase 10: MCP Server for OpenGraphDB** - First-class MCP server exposing graph operations (schema browse, Cypher execute, neighborhood explore, hybrid search) so any AI agent can work with the graph database natively (completed 2026-03-12)
 - [ ] **Phase 11: Developer Skills & CLI** - OpenGraphDB-specific skills (ogdb-cypher, graph-explore, schema-advisor, data-import) built with Skills 2.0 framework including evals and benchmarks, published as open standard skills portable across Claude Code, Copilot, Codex, Cursor
 - [ ] **Phase 12: Graph-Native RAG Engine** - PageIndex-style hierarchical navigation over graph structure, Leiden community detection with summaries, hybrid retrieval (BM25 + vector + graph traversal + RRF fusion), document ingestion pipeline
 - [ ] **Phase 13: AI Demo Experience** - Interactive "Talk to Your Knowledge Graph" demo on the website where visitors ask natural language questions against pre-loaded famous datasets, see Cypher generated live, watch query trace animations, and explore results visually
@@ -263,7 +263,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-01 |
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | **Milestone 2: AI-First** | | | |
-| 10. MCP Server for OpenGraphDB | 2/3 | In progress | — |
+| 10. MCP Server for OpenGraphDB | 4/3 | Complete   | 2026-03-12 |
 | 11. Developer Skills & CLI | 0/5 | Planning | — |
 | 12. Graph-Native RAG Engine | 0/5 | Planning | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |

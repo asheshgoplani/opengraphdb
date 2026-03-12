@@ -80,7 +80,7 @@ Requirements for Milestone v2.0. Each maps to roadmap phases 10-13.
 - [x] **MCP-03**: LLM can explore a node's N-hop neighborhood with configurable depth and edge type filters via get_node_neighborhood tool
 - [x] **MCP-04**: LLM can search nodes by property values via search_nodes tool
 - [x] **MCP-05**: MCP server is published as @opengraphdb/mcp npm package, installable via npx with zero config
-- [ ] **MCP-06**: README includes Claude Code, Cursor, and VS Code Copilot configuration examples
+- [x] **MCP-06**: README includes Claude Code, Cursor, and VS Code Copilot configuration examples
 
 ### Developer Skills
 
@@ -160,7 +160,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MCP-03 | Phase 10 | Complete (10-01) |
 | MCP-04 | Phase 10 | Complete (10-01) |
 | MCP-05 | Phase 10 | Complete (10-01) |
-| MCP-06 | Phase 10 | Pending |
+| MCP-06 | Phase 10 | Complete |
 | SKILL-01 | Phase 11 | Pending |
 | SKILL-02 | Phase 11 | Pending |
 | SKILL-03 | Phase 11 | Pending |
