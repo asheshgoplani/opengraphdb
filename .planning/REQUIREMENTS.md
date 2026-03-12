@@ -1,59 +1,117 @@
-# Requirements: OpenGraphDB Frontend
+# Requirements: OpenGraphDB
 
-**Defined:** 2026-03-01
-**Core Value:** Developers can visually explore and query their graph data through an interactive Cypher query interface with force-directed graph visualization
+**Defined:** 2026-03-01 (v1.0), updated 2026-03-12 (v2.0)
+**Core Value:** AI-first graph database where developers install skills to work with graph data through natural language, and visitors can talk to knowledge graphs live on the website
 
-## v1 Requirements
+## v1 Requirements (Milestone 1: Complete)
 
-Requirements for initial release. Each maps to roadmap phases.
+All v1 requirements shipped in Phases 1-9.
 
 ### Foundation
 
-- [ ] **FOUND-01**: Application scaffolded with React + TypeScript + Vite + Tailwind + shadcn/ui
-- [ ] **FOUND-02**: Route-based code splitting delivers initial bundle under 500KB
-- [ ] **FOUND-03**: Dark mode works across all surfaces including graph canvas
-- [ ] **FOUND-04**: Responsive layout works on desktop and tablet viewports
-- [ ] **FOUND-05**: Configurable server URL for backend connection (default localhost:8080)
-- [ ] **FOUND-06**: Typed API client layer isolates all HTTP calls to backend REST endpoints
+- [x] **FOUND-01**: Application scaffolded with React + TypeScript + Vite + Tailwind + shadcn/ui
+- [x] **FOUND-02**: Route-based code splitting delivers initial bundle under 500KB
+- [x] **FOUND-03**: Dark mode works across all surfaces including graph canvas
+- [x] **FOUND-04**: Responsive layout works on desktop and tablet viewports
+- [x] **FOUND-05**: Configurable server URL for backend connection (default localhost:8080)
+- [x] **FOUND-06**: Typed API client layer isolates all HTTP calls to backend REST endpoints
 
 ### Graph Visualization
 
-- [ ] **GRAPH-01**: User can view query results as a force-directed graph with nodes as labeled circles colored by label
-- [ ] **GRAPH-02**: User can view edges as directional lines labeled by relationship type
-- [ ] **GRAPH-03**: User can click a node to inspect its properties in a side panel
-- [ ] **GRAPH-04**: User can click an edge to inspect its properties in a side panel
-- [ ] **GRAPH-05**: User can drag nodes to reposition them in the graph canvas
-- [ ] **GRAPH-06**: User can scroll to zoom in and out of the graph
-- [ ] **GRAPH-07**: User can toggle between graph view and table view of query results
-- [ ] **GRAPH-08**: Result set is capped with a configurable LIMIT to prevent browser crashes on large queries
+- [x] **GRAPH-01**: User can view query results as a force-directed graph with nodes as labeled circles colored by label
+- [x] **GRAPH-02**: User can view edges as directional lines labeled by relationship type
+- [x] **GRAPH-03**: User can click a node to inspect its properties in a side panel
+- [x] **GRAPH-04**: User can click an edge to inspect its properties in a side panel
+- [x] **GRAPH-05**: User can drag nodes to reposition them in the graph canvas
+- [x] **GRAPH-06**: User can scroll to zoom in and out of the graph
+- [x] **GRAPH-07**: User can toggle between graph view and table view of query results
+- [x] **GRAPH-08**: Result set is capped with a configurable LIMIT to prevent browser crashes on large queries
 
 ### Query Editor
 
-- [ ] **QUERY-01**: User can write Cypher queries in an editor with syntax highlighting
-- [ ] **QUERY-02**: User can get schema-aware autocomplete suggestions for labels, relationship types, and property keys
-- [ ] **QUERY-03**: User can execute queries with Ctrl+Enter keyboard shortcut
-- [ ] **QUERY-04**: User can browse query history persisted across browser sessions
-- [ ] **QUERY-05**: User can navigate history with Ctrl+Up/Down keyboard shortcuts
-- [ ] **QUERY-06**: User can save/bookmark frequently used queries
-- [ ] **QUERY-07**: User can re-run any query from history or saved queries
-- [ ] **QUERY-08**: User can export query results as JSON
-- [ ] **QUERY-09**: User can export query results as CSV
+- [x] **QUERY-01**: User can write Cypher queries in an editor with syntax highlighting
+- [x] **QUERY-02**: User can get schema-aware autocomplete suggestions for labels, relationship types, and property keys
+- [x] **QUERY-03**: User can execute queries with Ctrl+Enter keyboard shortcut
+- [x] **QUERY-04**: User can browse query history persisted across browser sessions
+- [x] **QUERY-05**: User can navigate history with Ctrl+Up/Down keyboard shortcuts
+- [x] **QUERY-06**: User can save/bookmark frequently used queries
+- [x] **QUERY-07**: User can re-run any query from history or saved queries
+- [x] **QUERY-08**: User can export query results as JSON
+- [x] **QUERY-09**: User can export query results as CSV
 
 ### Schema and Health
 
-- [ ] **SCHEMA-01**: User can browse database schema showing node labels, relationship types, and property keys
-- [ ] **SCHEMA-02**: User can see database connection health status indicator (connected/disconnected)
+- [x] **SCHEMA-01**: User can browse database schema showing node labels, relationship types, and property keys
+- [x] **SCHEMA-02**: User can see database connection health status indicator (connected/disconnected)
 
 ### Demo and Showcase
 
-- [ ] **DEMO-01**: User sees a landing page with hero section explaining OpenGraphDB's key differentiators
-- [ ] **DEMO-02**: User sees feature highlights and getting started guide on the landing page
-- [ ] **DEMO-03**: User can access an interactive playground with a pre-loaded sample graph
-- [ ] **DEMO-04**: User can run guided example queries in the playground that demonstrate graph visualization
+- [x] **DEMO-01**: User sees a landing page with hero section explaining OpenGraphDB's key differentiators
+- [x] **DEMO-02**: User sees feature highlights and getting started guide on the landing page
+- [x] **DEMO-03**: User can access an interactive playground with a pre-loaded sample graph
+- [x] **DEMO-04**: User can run guided example queries in the playground that demonstrate graph visualization
 
-## v2 Requirements
+### Advanced Visualization (Phases 7-8)
 
-Deferred to future release. Tracked but not in current roadmap.
+- [x] **SHOWCASE-01**: 4 famous datasets (MovieLens, Air Routes, GoT, Wikidata) importable via download + convert + seed pipeline
+- [x] **SHOWCASE-02**: Each dataset has guided queries categorized as Explore/Traverse/Analyze
+- [x] **SHOWCASE-03**: Landing page features all 4 datasets with real stats
+- [x] **SHOWCASE-04**: Air Routes dataset preserves lat/long for geographic rendering
+- [x] **VIZ-01**: Air Routes renders on geographic map with arcs
+- [x] **VIZ-02**: Graph rendering handles 1000+ nodes without performance degradation
+- [x] **VIZ-03**: Query execution returns trace data via EXPLAIN-like endpoint
+- [x] **VIZ-04**: Frontend displays real-time traversal animation via SSE
+
+### AI Assistant (Phase 9)
+
+- [x] **AI-01**: User can type NL questions and receive Cypher queries that execute against the knowledge graph
+- [x] **AI-02**: User can configure API keys (OpenAI, Anthropic, Google Gemini) via settings UI
+- [x] **AI-03**: A free default model works without any API key
+- [x] **AI-04**: AI-generated queries trigger graph trace animation
+
+## v2 Requirements (Milestone 2: Active)
+
+Requirements for Milestone v2.0. Each maps to roadmap phases 10-13.
+
+### MCP Server
+
+- [ ] **MCP-01**: LLM can discover graph schema (labels, relationship types, properties) via browse_schema tool
+- [ ] **MCP-02**: LLM can execute arbitrary Cypher queries and receive structured results via execute_cypher tool
+- [ ] **MCP-03**: LLM can explore a node's N-hop neighborhood with configurable depth and edge type filters via get_node_neighborhood tool
+- [ ] **MCP-04**: LLM can search nodes by property values via search_nodes tool
+- [ ] **MCP-05**: MCP server is published as @opengraphdb/mcp npm package, installable via npx with zero config
+- [ ] **MCP-06**: README includes Claude Code, Cursor, and VS Code Copilot configuration examples
+
+### Developer Skills
+
+- [ ] **SKILL-01**: ogdb-cypher skill generates correct, optimized Cypher for OpenGraphDB, validated by evals against TCK test cases
+- [ ] **SKILL-02**: graph-explore skill provides guided graph exploration with schema awareness, traversal suggestions, and subgraph explanations
+- [ ] **SKILL-03**: schema-advisor skill helps design graph schemas, suggests indexes, and provides RDF ontology mapping guidance
+- [ ] **SKILL-04**: data-import skill assists CSV/JSON/RDF import with schema detection, validation, and Cypher generation
+- [ ] **SKILL-05**: All skills pass A/B benchmarks showing measurable improvement in task completion
+- [ ] **SKILL-06**: Skills published as open standard package, installable in Claude Code, Copilot, Codex, and Cursor
+- [ ] **SKILL-07**: Each skill includes structured evals that run via the Skills 2.0 eval framework
+
+### Graph-Native RAG
+
+- [ ] **RAG-01**: LLM can browse communities, drill into clusters, and follow relationships via MCP tools (PageIndex-style navigation)
+- [ ] **RAG-02**: Leiden community detection produces hierarchical clusters with LLM-generated summaries at each level
+- [ ] **RAG-03**: Hybrid retrieval pipeline combines BM25, vector, and graph traversal results via Reciprocal Rank Fusion
+- [ ] **RAG-04**: Document ingestion pipeline converts PDF/Markdown into graph structure with text and vector indexes
+- [ ] **RAG-05**: MCP tools expose full RAG pipeline: browse_communities, drill_into_community, hybrid_search, ingest_document
+
+### AI Demo Experience
+
+- [ ] **DEMO-AI-01**: Landing page features "Talk to Your Knowledge Graph" section with NL input and live responses
+- [ ] **DEMO-AI-02**: Demo works against pre-loaded famous datasets with no setup required
+- [ ] **DEMO-AI-03**: Each AI response shows generated Cypher, query trace animation, and NL answer
+- [ ] **DEMO-AI-04**: Demo includes "How it works" explainer showing MCP + Skills + RAG pipeline visually
+- [ ] **DEMO-AI-05**: Response latency under 5 seconds for typical questions (streaming for longer)
+- [ ] **DEMO-AI-06**: Works with free default model, option to use own API keys for better models
+
+## Future Requirements
+
+Deferred beyond Milestone 2. Tracked but not in current roadmap.
 
 ### Admin Dashboard
 
@@ -74,13 +132,6 @@ Deferred to future release. Tracked but not in current roadmap.
 - **EXPLORE-02**: User can double-click an expanded node to collapse it
 - **EXPLORE-03**: User can view query execution plans for EXPLAIN/PROFILE queries
 - **EXPLORE-04**: User can view schema as a clickable graph diagram
-- **EXPLORE-05**: User can set query parameters via a key-value editor panel
-- **EXPLORE-06**: User can apply rule-based conditional styling to nodes by property values
-
-### AI Integration
-
-- **AI-01**: User can generate Cypher queries from natural language input
-- **AI-02**: User can view MCP tool call activity from AI agents
 
 ## Out of Scope
 
@@ -88,14 +139,15 @@ Explicitly excluded. Documented to prevent scope creep.
 
 | Feature | Reason |
 |---------|--------|
-| User authentication/authorization | Not needed for v1 local-first developer tool |
-| Multi-database support | Single database connection sufficient for v1 |
-| Real-time streaming/subscriptions | Standard request-response sufficient; adds WebSocket complexity |
-| Mobile-optimized layout | Desktop and tablet focus per spec |
-| Bolt protocol from browser | Would need WebSocket bridge; HTTP REST is sufficient |
-| SPARQL query editor | OpenGraphDB does not support SPARQL; Cypher-first |
-| Full no-code graph builder | Target user writes Cypher; defer visual query building |
-| Render entire graph by default | Hairball problem; use LIMIT-bounded defaults instead |
+| User authentication/authorization | Not needed for local-first developer tool |
+| Multi-database support | Single database connection sufficient |
+| Real-time streaming/subscriptions | Standard request-response sufficient |
+| Mobile-optimized layout | Desktop and tablet focus |
+| Bolt protocol from browser | HTTP REST is sufficient |
+| SPARQL query editor | Cypher-first |
+| Self-hosted LLM inference | Use external providers; free default via WebLLM |
+| Multi-tenant RAG | Single-user graph navigation |
+| Paid API gateway | All tools are open source, self-hosted |
 
 ## Traceability
 
@@ -103,41 +155,36 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FOUND-01 | Phase 1 | Pending |
-| FOUND-02 | Phase 1 | Pending |
-| FOUND-03 | Phase 1 | Pending |
-| FOUND-04 | Phase 1 | Pending |
-| FOUND-05 | Phase 1 | Pending |
-| FOUND-06 | Phase 1 | Pending |
-| GRAPH-01 | Phase 1 | Pending |
-| GRAPH-02 | Phase 1 | Pending |
-| GRAPH-03 | Phase 1 | Pending |
-| GRAPH-04 | Phase 1 | Pending |
-| GRAPH-05 | Phase 1 | Pending |
-| GRAPH-06 | Phase 1 | Pending |
-| GRAPH-07 | Phase 1 | Pending |
-| GRAPH-08 | Phase 1 | Pending |
-| QUERY-01 | Phase 2 | Pending |
-| QUERY-02 | Phase 2 | Pending |
-| QUERY-03 | Phase 2 | Pending |
-| QUERY-04 | Phase 2 | Pending |
-| QUERY-05 | Phase 2 | Pending |
-| QUERY-06 | Phase 2 | Pending |
-| QUERY-07 | Phase 2 | Pending |
-| QUERY-08 | Phase 2 | Pending |
-| QUERY-09 | Phase 2 | Pending |
-| SCHEMA-01 | Phase 3 | Pending |
-| SCHEMA-02 | Phase 1 | Pending |
-| DEMO-01 | Phase 4 | Pending |
-| DEMO-02 | Phase 4 | Pending |
-| DEMO-03 | Phase 4 | Pending |
-| DEMO-04 | Phase 4 | Pending |
+| MCP-01 | — | Pending |
+| MCP-02 | — | Pending |
+| MCP-03 | — | Pending |
+| MCP-04 | — | Pending |
+| MCP-05 | — | Pending |
+| MCP-06 | — | Pending |
+| SKILL-01 | — | Pending |
+| SKILL-02 | — | Pending |
+| SKILL-03 | — | Pending |
+| SKILL-04 | — | Pending |
+| SKILL-05 | — | Pending |
+| SKILL-06 | — | Pending |
+| SKILL-07 | — | Pending |
+| RAG-01 | — | Pending |
+| RAG-02 | — | Pending |
+| RAG-03 | — | Pending |
+| RAG-04 | — | Pending |
+| RAG-05 | — | Pending |
+| DEMO-AI-01 | — | Pending |
+| DEMO-AI-02 | — | Pending |
+| DEMO-AI-03 | — | Pending |
+| DEMO-AI-04 | — | Pending |
+| DEMO-AI-05 | — | Pending |
+| DEMO-AI-06 | — | Pending |
 
 **Coverage:**
-- v1 requirements: 29 total
-- Mapped to phases: 29
-- Unmapped: 0 ✓
+- v2 requirements: 24 total
+- Mapped to phases: 0
+- Unmapped: 24 (roadmapper will fill)
 
 ---
-*Requirements defined: 2026-03-01*
-*Last updated: 2026-03-01 after initial definition*
+*Requirements defined: 2026-03-01 (v1), 2026-03-12 (v2)*
+*Last updated: 2026-03-12 after milestone v2.0 formalization*
