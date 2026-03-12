@@ -191,7 +191,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans
   - [x] 10-01-PLAN.md — @opengraphdb/mcp npm package: 5 MCP tools, TypeScript build, stdio transport
   - [x] 10-02-PLAN.md — Rust MCP server alignment: standardized tool names, improved descriptions, MCP resources
-  - [ ] 10-03-PLAN.md — Configuration examples (Claude Code, Cursor, VS Code Copilot), README, integration tests
+  - [x] 10-03-PLAN.md — Configuration examples (Claude Code, Cursor, VS Code Copilot), README, integration tests
 
 ### Phase 11: Developer Skills & CLI
 **Goal**: Developers install OpenGraphDB skills in their AI coding tool and get expert-level graph database assistance: NL-to-Cypher, schema design, data import, graph analysis, all with verified quality via evals
@@ -263,7 +263,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-01 |
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | **Milestone 2: AI-First** | | | |
-| 10. MCP Server for OpenGraphDB | 4/3 | Complete   | 2026-03-12 |
+| 10. MCP Server for OpenGraphDB | 4/3 | Complete    | 2026-03-12 |
 | 11. Developer Skills & CLI | 0/5 | Planning | — |
 | 12. Graph-Native RAG Engine | 0/5 | Planning | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
