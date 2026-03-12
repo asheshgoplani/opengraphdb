@@ -1,0 +1,142 @@
+{
+  "skill": "schema-advisor",
+  "version": "0.1.0",
+  "description": "Eval suite for OpenGraphDB schema design and advisory skill",
+
+  "cases": [
+    {
+      "name": "simple-domain",
+      "difficulty": "easy",
+      "input": "Design a schema for a blog with posts and comments",
+      "context": {},
+      "expected": {
+        "must_contain": ["Post", "Comment", "Author"],
+        "pattern": "(AUTHORED|WROTE|CREATED).*(Post|BLOG)|(COMMENTED_ON|HAS_COMMENT)"
+      },
+      "scoring": {
+        "identifies_entities": 1,
+        "defines_relationships": 1,
+        "includes_properties": 1,
+        "provides_create_statements": 0.5
+      }
+    },
+    {
+      "name": "social-network",
+      "difficulty": "easy",
+      "input": "Design a schema for a social network where users can follow each other, create posts, like posts, and tag posts",
+      "context": {},
+      "expected": {
+        "must_contain": ["User", "Post"],
+        "pattern": "FOLLOWS|CREATED|LIKES|TAGGED"
+      },
+      "scoring": {
+        "identifies_all_entities": 1,
+        "defines_all_relationships": 1,
+        "correct_cardinality": 1,
+        "includes_properties": 0.5,
+        "provides_cypher_ddl": 0.5
+      }
+    },
+    {
+      "name": "e-commerce",
+      "difficulty": "medium",
+      "input": "Design a schema for an online store with products, orders, and reviews. Users browse products, place orders with multiple items, and leave reviews.",
+      "context": {},
+      "expected": {
+        "must_contain": ["Product", "Order", "User"],
+        "pattern": "(ORDERED|PURCHASED|PLACED).*(REVIEWED|RATED|HAS_REVIEW)"
+      },
+      "scoring": {
+        "identifies_all_entities": 1,
+        "handles_order_items": 1,
+        "defines_review_relationship": 1,
+        "includes_properties": 1,
+        "mentions_indexes": 0.5
+      }
+    },
+    {
+      "name": "index-recommendations",
+      "difficulty": "medium",
+      "input": "I have this schema and these common queries. What indexes should I create?",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie", "Genre"],
+          "edge_types": ["ACTED_IN", "DIRECTED", "IN_GENRE"],
+          "property_keys": ["name", "title", "year", "genre_name", "rating"]
+        },
+        "data": "Common queries:\n1. Find movies by title\n2. Find people by name\n3. Find movies from a specific year\n4. Find highest rated movies in a genre"
+      },
+      "expected": {
+        "must_contain": ["CREATE INDEX", "name", "title"],
+        "pattern": "CREATE\\s+(INDEX|CONSTRAINT)"
+      },
+      "scoring": {
+        "recommends_name_index": 1,
+        "recommends_title_index": 1,
+        "recommends_year_index": 1,
+        "explains_index_selection": 1,
+        "considers_composite_indexes": 0.5
+      }
+    },
+    {
+      "name": "rdf-mapping",
+      "difficulty": "medium",
+      "input": "Map this movie database schema to an RDF ontology for interoperability with Wikidata",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie", "Genre"],
+          "edge_types": ["ACTED_IN", "DIRECTED", "IN_GENRE"],
+          "property_keys": ["name", "title", "year", "genre_name"]
+        }
+      },
+      "expected": {
+        "must_contain": ["_uri", "rdf"],
+        "pattern": "_uri|ontology|schema\\.org|wikidata|RDF|turtle|PREFIX"
+      },
+      "scoring": {
+        "maps_labels_to_classes": 1,
+        "maps_edges_to_predicates": 1,
+        "preserves_uri_property": 1,
+        "mentions_standard_ontology": 1,
+        "provides_example_mapping": 0.5
+      }
+    },
+    {
+      "name": "anti-pattern-detection",
+      "difficulty": "hard",
+      "input": "Review this schema for anti-patterns and suggest improvements",
+      "context": {
+        "data": "Current schema:\n- Node labels: Person (with properties: name, age, address_street, address_city, address_state, address_zip, spouse_name, spouse_age, child1_name, child2_name, child3_name)\n- Relationship types: KNOWS (with properties: since, strength, type, notes, last_contacted, contact_count, shared_interests_1, shared_interests_2, shared_interests_3)\n- No indexes defined"
+      },
+      "expected": {
+        "must_contain": ["anti-pattern"],
+        "pattern": "anti.?pattern|embedded.*entit|denormali|property.*list|missing.*index"
+      },
+      "scoring": {
+        "identifies_embedded_entities": 1,
+        "identifies_list_as_properties": 1,
+        "identifies_missing_indexes": 1,
+        "suggests_node_extraction": 1,
+        "provides_refactored_schema": 1,
+        "explains_tradeoffs": 0.5
+      }
+    },
+    {
+      "name": "temporal-schema",
+      "difficulty": "hard",
+      "input": "Design a schema for tracking employee job history where we need to query who worked where at any point in time",
+      "context": {},
+      "expected": {
+        "must_contain": ["Employee", "Company"],
+        "pattern": "temporal|_valid_from|_valid_to|WORKED_AT|EMPLOYED_BY|start_date|end_date"
+      },
+      "scoring": {
+        "models_temporal_relationships": 1,
+        "includes_time_properties": 1,
+        "supports_point_in_time_query": 1,
+        "mentions_ogdb_temporal": 0.5,
+        "provides_example_queries": 0.5
+      }
+    }
+  ]
+}

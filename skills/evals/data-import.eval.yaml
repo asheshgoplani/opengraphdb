@@ -1,0 +1,144 @@
+{
+  "skill": "data-import",
+  "version": "0.1.0",
+  "description": "Eval suite for OpenGraphDB data import skill",
+
+  "cases": [
+    {
+      "name": "csv-simple",
+      "difficulty": "easy",
+      "input": "Import this CSV file of people into the graph",
+      "context": {
+        "data": "name,age,city\nAlice,30,NYC\nBob,25,London\nCharlie,35,Berlin"
+      },
+      "expected": {
+        "must_contain": ["MERGE", "Person", "name", "age", "city"],
+        "must_not_contain": ["CREATE"],
+        "pattern": "MERGE\\s*\\(.*:Person.*\\{name:.*\\}\\)|LOAD\\s+CSV|UNWIND"
+      },
+      "scoring": {
+        "uses_merge_not_create": 1,
+        "correct_label": 1,
+        "maps_all_columns": 1,
+        "handles_types": 0.5
+      }
+    },
+    {
+      "name": "csv-with-relationships",
+      "difficulty": "medium",
+      "input": "Import this CSV file that contains people and their companies. Create both Person and Company nodes with WORKS_AT relationships.",
+      "context": {
+        "data": "person_name,person_age,company_name,company_city,role\nAlice,30,Acme Corp,NYC,Engineer\nBob,25,Acme Corp,NYC,Manager\nCharlie,35,Globex,London,Director"
+      },
+      "expected": {
+        "must_contain": ["MERGE", "Person", "Company", "WORKS_AT"],
+        "must_not_contain": ["CREATE"],
+        "pattern": "MERGE.*Person.*MERGE.*Company.*MERGE.*WORKS_AT|two.?pass|nodes.*first"
+      },
+      "scoring": {
+        "uses_merge": 1,
+        "creates_both_node_types": 1,
+        "creates_relationship": 1,
+        "two_pass_approach": 1,
+        "handles_shared_company": 0.5
+      }
+    },
+    {
+      "name": "json-array",
+      "difficulty": "easy",
+      "input": "Import this JSON data into the graph",
+      "context": {
+        "data": "[{\"name\": \"Alice\", \"role\": \"Engineer\"}, {\"name\": \"Bob\", \"role\": \"Designer\"}, {\"name\": \"Charlie\", \"role\": \"Manager\"}]"
+      },
+      "expected": {
+        "must_contain": ["MERGE", "name", "role"],
+        "pattern": "UNWIND.*MERGE|MERGE.*\\{name:"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "uses_merge": 1,
+        "maps_all_fields": 1,
+        "uses_unwind_for_batch": 0.5
+      }
+    },
+    {
+      "name": "json-nested",
+      "difficulty": "medium",
+      "input": "Import this nested JSON into the graph. Each person has an embedded address and a list of skills.",
+      "context": {
+        "data": "[{\"name\": \"Alice\", \"address\": {\"city\": \"NYC\", \"country\": \"US\"}, \"skills\": [\"Python\", \"SQL\"]}, {\"name\": \"Bob\", \"address\": {\"city\": \"London\", \"country\": \"UK\"}, \"skills\": [\"JavaScript\", \"Graph\"]}]"
+      },
+      "expected": {
+        "must_contain": ["Person", "Skill"],
+        "pattern": "MERGE.*Person.*MERGE.*(Skill|City|Address)|flatten|extract.*nested|separate.*nodes"
+      },
+      "scoring": {
+        "proposes_schema": 1,
+        "extracts_nested_objects": 1,
+        "handles_arrays_as_relationships": 1,
+        "creates_separate_nodes": 1,
+        "uses_merge": 0.5
+      }
+    },
+    {
+      "name": "rdf-turtle",
+      "difficulty": "medium",
+      "input": "Import this Turtle RDF data into OpenGraphDB",
+      "context": {
+        "data": "@prefix ex: <http://example.org/> .\n@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n\nex:alice a foaf:Person ;\n  foaf:name \"Alice\" ;\n  foaf:knows ex:bob .\n\nex:bob a foaf:Person ;\n  foaf:name \"Bob\" ."
+      },
+      "expected": {
+        "must_contain": ["import_rdf", "_uri"],
+        "must_not_contain": [],
+        "pattern": "import_rdf|RDF.*import|turtle.*import|_uri.*preserv"
+      },
+      "scoring": {
+        "uses_import_rdf_tool": 1,
+        "preserves_uris": 1,
+        "explains_mapping": 1,
+        "mentions_round_trip": 0.5
+      }
+    },
+    {
+      "name": "validation-issues",
+      "difficulty": "hard",
+      "input": "Import this data. Watch out for data quality issues.",
+      "context": {
+        "data": "name,age,email,department\nAlice,30,alice@example.com,Engineering\nBob,,bob@example.com,Sales\n,25,charlie@example.com,Engineering\nDiana,not_a_number,diana@example.com,Marketing\nAlice,30,alice@example.com,Engineering\nEve,28,,Research"
+      },
+      "expected": {
+        "must_contain": ["null", "duplicate"],
+        "pattern": "(null|missing|empty).*(age|name|email)|(duplicate|already exists).*(Alice|row)"
+      },
+      "scoring": {
+        "identifies_missing_name": 1,
+        "identifies_missing_age": 1,
+        "identifies_invalid_age": 1,
+        "identifies_duplicate_row": 1,
+        "identifies_missing_email": 0.5,
+        "suggests_handling_strategy": 1,
+        "provides_clean_import": 0.5
+      }
+    },
+    {
+      "name": "large-batch-strategy",
+      "difficulty": "hard",
+      "input": "I need to import 500,000 rows from a CSV file. What's the best approach?",
+      "context": {
+        "data": "The CSV has columns: id, name, type, parent_id, value, created_at"
+      },
+      "expected": {
+        "must_contain": ["batch", "UNWIND"],
+        "pattern": "batch|UNWIND|chunk|\\d+.*rows.*at.*time|PERIODIC\\s+COMMIT|/import"
+      },
+      "scoring": {
+        "recommends_batching": 1,
+        "suggests_batch_size": 1,
+        "mentions_unwind_pattern": 1,
+        "considers_api_endpoint": 1,
+        "handles_relationships_separately": 0.5,
+        "mentions_index_before_import": 0.5
+      }
+    }
+  ]
+}

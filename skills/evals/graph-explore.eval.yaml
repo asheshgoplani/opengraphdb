@@ -1,0 +1,157 @@
+{
+  "skill": "graph-explore",
+  "version": "0.1.0",
+  "description": "Eval suite for OpenGraphDB graph exploration skill",
+
+  "cases": [
+    {
+      "name": "unknown-database",
+      "difficulty": "easy",
+      "input": "I just connected to a new graph database. How should I explore it?",
+      "context": {},
+      "expected": {
+        "must_contain": ["browse_schema"],
+        "pattern": "browse_schema|schema.*first|start.*schema"
+      },
+      "scoring": {
+        "calls_schema_first": 1,
+        "describes_exploration_plan": 1,
+        "mentions_tool_sequence": 1
+      }
+    },
+    {
+      "name": "schema-interpretation",
+      "difficulty": "easy",
+      "input": "Here is the schema of my database. What are the central entities and how should I explore the data?",
+      "context": {
+        "schema": {
+          "labels": ["User", "Post", "Comment", "Tag", "Category"],
+          "edge_types": ["AUTHORED", "COMMENTED_ON", "TAGGED_WITH", "IN_CATEGORY", "FOLLOWS", "LIKES"],
+          "property_keys": ["username", "email", "title", "body", "created_at", "tag_name", "category_name"]
+        }
+      },
+      "expected": {
+        "must_contain": ["User", "Post"],
+        "pattern": "(central|hub|core).*(User|Post)|(User|Post).*(central|hub|core)"
+      },
+      "scoring": {
+        "identifies_central_entities": 1,
+        "explains_relationship_structure": 1,
+        "suggests_starting_queries": 1,
+        "considers_degree_centrality": 0.5
+      }
+    },
+    {
+      "name": "find-entity",
+      "difficulty": "medium",
+      "input": "I need to find Tom Hanks and see all his connections in the graph",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie", "Award"],
+          "edge_types": ["ACTED_IN", "DIRECTED", "WON", "NOMINATED_FOR"],
+          "property_keys": ["name", "title", "year", "award_name", "category"]
+        }
+      },
+      "expected": {
+        "must_contain": ["search_nodes", "Tom Hanks"],
+        "pattern": "search_nodes|get_node_neighborhood"
+      },
+      "scoring": {
+        "uses_search_tool": 1,
+        "expands_neighborhood": 1,
+        "explains_strategy": 1,
+        "provides_example_queries": 0.5
+      }
+    },
+    {
+      "name": "hub-detection",
+      "difficulty": "medium",
+      "input": "Which nodes are the most connected hubs in this graph?",
+      "context": {
+        "schema": {
+          "labels": ["Airport", "City", "Country", "Airline"],
+          "edge_types": ["HAS_ROUTE", "IN_CITY", "IN_COUNTRY", "OPERATED_BY"],
+          "property_keys": ["code", "name", "latitude", "longitude", "country"]
+        }
+      },
+      "expected": {
+        "must_contain": ["count", "ORDER BY"],
+        "pattern": "count\\(.*\\).*ORDER\\s+BY.*DESC|degree|centrality"
+      },
+      "scoring": {
+        "identifies_degree_query": 1,
+        "orders_by_connections": 1,
+        "considers_multiple_labels": 1,
+        "explains_hub_significance": 0.5
+      }
+    },
+    {
+      "name": "pattern-discovery",
+      "difficulty": "medium",
+      "input": "Help me find triangle patterns in this social network",
+      "context": {
+        "schema": {
+          "labels": ["Person"],
+          "edge_types": ["KNOWS"],
+          "property_keys": ["name", "age", "city"]
+        }
+      },
+      "expected": {
+        "must_contain": ["MATCH", "KNOWS"],
+        "pattern": "\\(\\w+\\).*-.*-.*\\(\\w+\\).*-.*-.*\\(\\w+\\)|triangle|three.*nodes.*connected"
+      },
+      "scoring": {
+        "describes_triangle_pattern": 1,
+        "provides_cypher_query": 1,
+        "avoids_duplicate_triangles": 1,
+        "explains_significance": 0.5
+      }
+    },
+    {
+      "name": "temporal-exploration",
+      "difficulty": "hard",
+      "input": "This graph has temporal properties. How should I analyze how the network changed over time?",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Organization"],
+          "edge_types": ["MEMBER_OF", "REPORTS_TO", "COLLABORATES_WITH"],
+          "property_keys": ["name", "role", "joined_date", "left_date", "_valid_from", "_valid_to"]
+        }
+      },
+      "expected": {
+        "must_contain": ["temporal", "_valid_from"],
+        "pattern": "temporal|time.*travel|snapshot|_valid_from.*_valid_to|historical"
+      },
+      "scoring": {
+        "identifies_temporal_properties": 1,
+        "suggests_time_range_queries": 1,
+        "describes_change_analysis": 1,
+        "mentions_ogdb_temporal_features": 0.5,
+        "provides_example_queries": 0.5
+      }
+    },
+    {
+      "name": "large-graph-strategy",
+      "difficulty": "hard",
+      "input": "The graph has 10 million nodes and 50 million edges. How do I explore it efficiently without overwhelming my system?",
+      "context": {
+        "schema": {
+          "labels": ["Document", "Entity", "Concept", "Source"],
+          "edge_types": ["MENTIONS", "RELATED_TO", "CITED_BY", "FROM_SOURCE"],
+          "property_keys": ["title", "text", "entity_type", "confidence", "url"]
+        }
+      },
+      "expected": {
+        "must_contain": ["LIMIT"],
+        "pattern": "LIMIT|sample|top-down|schema.*first|aggregat"
+      },
+      "scoring": {
+        "recommends_limits": 1,
+        "suggests_top_down_approach": 1,
+        "uses_aggregation_first": 1,
+        "avoids_full_scan": 1,
+        "mentions_indexes": 0.5
+      }
+    }
+  ]
+}

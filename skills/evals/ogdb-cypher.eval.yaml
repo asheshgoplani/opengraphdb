@@ -1,0 +1,296 @@
+{
+  "skill": "ogdb-cypher",
+  "version": "0.1.0",
+  "description": "Eval suite for OpenGraphDB Cypher generation skill",
+
+  "cases": [
+    {
+      "name": "basic-node-query",
+      "difficulty": "easy",
+      "input": "Find all Person nodes in the database",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie", "Company"],
+          "edge_types": ["ACTED_IN", "DIRECTED", "WORKS_AT"],
+          "property_keys": ["name", "age", "title", "year", "role"]
+        }
+      },
+      "expected": {
+        "must_contain": ["MATCH", "Person", "RETURN"],
+        "must_not_contain": ["Movie", "Company"],
+        "pattern": "MATCH\\s*\\(\\w+:Person\\)\\s*RETURN"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "uses_label": 1,
+        "has_limit": 0.5
+      }
+    },
+    {
+      "name": "property-filter",
+      "difficulty": "easy",
+      "input": "Find all people named 'Alice'",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie", "Company"],
+          "edge_types": ["ACTED_IN", "DIRECTED", "WORKS_AT"],
+          "property_keys": ["name", "age", "title", "year", "role"]
+        }
+      },
+      "expected": {
+        "must_contain": ["MATCH", "Person", "name", "Alice", "RETURN"],
+        "must_not_contain": ["Movie"],
+        "pattern": "WHERE\\s+\\w+\\.name\\s*=\\s*['\"]Alice['\"]"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "uses_where_clause": 1,
+        "correct_property": 1
+      }
+    },
+    {
+      "name": "relationship-traversal",
+      "difficulty": "easy",
+      "input": "Find all movies that Tom Hanks acted in",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie"],
+          "edge_types": ["ACTED_IN", "DIRECTED"],
+          "property_keys": ["name", "title", "year", "role"]
+        }
+      },
+      "expected": {
+        "must_contain": ["MATCH", "Person", "ACTED_IN", "Movie", "Tom Hanks", "RETURN"],
+        "must_not_contain": ["DIRECTED"],
+        "pattern": "\\(\\w+:Person\\s*\\{name:\\s*['\"]Tom Hanks['\"]\\}\\)\\s*-\\[.*:ACTED_IN\\]"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "correct_relationship": 1,
+        "correct_direction": 1
+      }
+    },
+    {
+      "name": "multi-hop-traversal",
+      "difficulty": "medium",
+      "input": "Find all actors who acted in a movie directed by Steven Spielberg",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie"],
+          "edge_types": ["ACTED_IN", "DIRECTED"],
+          "property_keys": ["name", "title", "year"]
+        }
+      },
+      "expected": {
+        "must_contain": ["MATCH", "ACTED_IN", "DIRECTED", "Steven Spielberg", "RETURN"],
+        "pattern": "MATCH.*ACTED_IN.*DIRECTED|MATCH.*DIRECTED.*ACTED_IN"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "both_relationships": 1,
+        "correct_direction": 1,
+        "returns_actors": 1
+      }
+    },
+    {
+      "name": "aggregation-count",
+      "difficulty": "medium",
+      "input": "Count how many movies each person directed, sorted by count descending",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie"],
+          "edge_types": ["ACTED_IN", "DIRECTED"],
+          "property_keys": ["name", "title", "year"]
+        }
+      },
+      "expected": {
+        "must_contain": ["MATCH", "DIRECTED", "count", "RETURN", "ORDER BY"],
+        "must_not_contain": ["ACTED_IN"],
+        "pattern": "count\\(.*\\).*ORDER\\s+BY.*DESC"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "uses_count": 1,
+        "has_order_by": 1,
+        "descending": 0.5
+      }
+    },
+    {
+      "name": "aggregation-collect",
+      "difficulty": "medium",
+      "input": "For each director, collect the titles of all movies they directed",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie"],
+          "edge_types": ["ACTED_IN", "DIRECTED"],
+          "property_keys": ["name", "title", "year"]
+        }
+      },
+      "expected": {
+        "must_contain": ["MATCH", "DIRECTED", "collect", "RETURN"],
+        "pattern": "collect\\(\\w+\\.title\\)"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "uses_collect": 1,
+        "correct_property": 1
+      }
+    },
+    {
+      "name": "path-query",
+      "difficulty": "medium",
+      "input": "Find the shortest path between 'Alice' and 'Bob' in the social network",
+      "context": {
+        "schema": {
+          "labels": ["Person"],
+          "edge_types": ["KNOWS", "FOLLOWS"],
+          "property_keys": ["name", "age", "city"]
+        }
+      },
+      "expected": {
+        "must_contain": ["shortestPath", "Alice", "Bob"],
+        "pattern": "shortestPath\\(.*\\)"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "uses_shortestpath": 1,
+        "both_endpoints": 1,
+        "returns_path": 0.5
+      }
+    },
+    {
+      "name": "optional-match",
+      "difficulty": "medium",
+      "input": "List all people and their companies, including people who don't work anywhere",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Company"],
+          "edge_types": ["WORKS_AT"],
+          "property_keys": ["name", "founded", "industry"]
+        }
+      },
+      "expected": {
+        "must_contain": ["OPTIONAL MATCH", "WORKS_AT", "RETURN"],
+        "pattern": "OPTIONAL\\s+MATCH.*WORKS_AT"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "uses_optional_match": 1,
+        "preserves_nulls": 1
+      }
+    },
+    {
+      "name": "create-with-merge",
+      "difficulty": "medium",
+      "input": "Add a person named 'Charlie' who works at 'Acme Corp'. Don't create duplicates if they already exist.",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Company"],
+          "edge_types": ["WORKS_AT"],
+          "property_keys": ["name", "founded"]
+        }
+      },
+      "expected": {
+        "must_contain": ["MERGE", "Person", "Charlie", "Company", "Acme Corp", "WORKS_AT"],
+        "must_not_contain": ["CREATE"],
+        "pattern": "MERGE\\s*\\(.*:Person.*\\{name:.*Charlie.*\\}\\)"
+      },
+      "scoring": {
+        "uses_merge_not_create": 1,
+        "creates_both_nodes": 1,
+        "creates_relationship": 1,
+        "idempotent": 1
+      }
+    },
+    {
+      "name": "complex-pattern",
+      "difficulty": "hard",
+      "input": "Find actors who have worked with at least 3 different directors, and list the directors for each",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie"],
+          "edge_types": ["ACTED_IN", "DIRECTED"],
+          "property_keys": ["name", "title", "year"]
+        }
+      },
+      "expected": {
+        "must_contain": ["MATCH", "ACTED_IN", "DIRECTED", "WITH", "RETURN"],
+        "pattern": "WITH.*count.*>=\\s*3|HAVING.*count.*>=\\s*3"
+      },
+      "scoring": {
+        "correct_syntax": 1,
+        "multi_pattern_match": 1,
+        "uses_with_clause": 1,
+        "filters_by_count": 1,
+        "collects_directors": 0.5
+      }
+    },
+    {
+      "name": "temporal-query",
+      "difficulty": "hard",
+      "input": "Show me what the social network graph looked like on January 1st 2025",
+      "context": {
+        "schema": {
+          "labels": ["Person"],
+          "edge_types": ["KNOWS", "FOLLOWS"],
+          "property_keys": ["name", "age", "joined_date"]
+        }
+      },
+      "expected": {
+        "must_contain": ["SNAPSHOT", "2025"],
+        "pattern": "SNAPSHOT\\s+AT|AS\\s+OF|MATCH.*\\{.*_valid_from"
+      },
+      "scoring": {
+        "uses_temporal_syntax": 1,
+        "correct_timestamp": 1,
+        "returns_graph_state": 1,
+        "mentions_ogdb_temporal": 0.5
+      }
+    },
+    {
+      "name": "error-recovery",
+      "difficulty": "hard",
+      "input": "This query returns no results but I think it should: MATCH (p:Person)-[:FRIENDS_WITH]->(m:Movie) WHERE p.name = 'Alice' RETURN m.title",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie"],
+          "edge_types": ["ACTED_IN", "DIRECTED", "REVIEWED"],
+          "property_keys": ["name", "title", "year", "rating"]
+        }
+      },
+      "expected": {
+        "must_contain": ["FRIENDS_WITH"],
+        "must_not_contain": [],
+        "pattern": "FRIENDS_WITH.*(does not exist|not in schema|invalid|no such|should be)"
+      },
+      "scoring": {
+        "identifies_wrong_type": 1,
+        "suggests_correct_type": 1,
+        "explains_reasoning": 1,
+        "provides_fixed_query": 1
+      }
+    },
+    {
+      "name": "schema-first-approach",
+      "difficulty": "easy",
+      "input": "What data is in my graph?",
+      "context": {
+        "schema": {
+          "labels": ["Person", "Movie", "Genre"],
+          "edge_types": ["ACTED_IN", "DIRECTED", "IN_GENRE"],
+          "property_keys": ["name", "title", "year", "genre_name"]
+        }
+      },
+      "expected": {
+        "must_contain": ["browse_schema"],
+        "pattern": "browse_schema|schema|labels.*relationship"
+      },
+      "scoring": {
+        "calls_browse_schema_first": 1,
+        "summarizes_labels": 1,
+        "summarizes_relationships": 1,
+        "suggests_exploration": 0.5
+      }
+    }
+  ]
+}
