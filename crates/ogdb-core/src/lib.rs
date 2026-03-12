@@ -20094,6 +20094,22 @@ impl Database {
         self.community_louvain_at(edge_type, self.current_snapshot_txn_id())
     }
 
+    pub fn community_leiden(
+        &self,
+        edge_type: Option<&str>,
+        resolution: f64,
+    ) -> Result<Vec<(u64, u64)>, DbError> {
+        self.community_leiden_at(edge_type, resolution, self.current_snapshot_txn_id())
+    }
+
+    pub fn build_community_hierarchy(
+        &self,
+        resolutions: &[f64],
+        summarize: Option<&dyn Fn(&[u64], &[(u64, u64, String)]) -> String>,
+    ) -> Result<CommunityHierarchy, DbError> {
+        self.build_community_hierarchy_at(resolutions, self.current_snapshot_txn_id(), summarize)
+    }
+
     fn page_size_usize(&self) -> usize {
         self.header.page_size as usize
     }
@@ -39413,6 +39429,290 @@ mod tests {
             unique.len() <= trace.visited_node_ids.len(),
             "unique must be <= total visited"
         );
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[test]
+    fn test_leiden_produces_connected_communities() {
+        // Create a graph with two clear clusters connected by a bridge edge
+        let path = temp_db_path("leiden-connected-communities");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        // Cluster A: nodes 0-4
+        let mut cluster_a = Vec::new();
+        for i in 0..5u64 {
+            let label = format!("N{i}");
+            let n = db
+                .create_node_with(&[label], &PropertyMap::new())
+                .expect("create node");
+            cluster_a.push(n);
+        }
+        // Fully connect cluster A
+        for i in 0..cluster_a.len() {
+            for j in (i + 1)..cluster_a.len() {
+                db.add_typed_edge(cluster_a[i], cluster_a[j], "CONNECTS", &PropertyMap::new())
+                    .expect("intra-cluster A edge");
+            }
+        }
+
+        // Cluster B: nodes 5-9
+        let mut cluster_b = Vec::new();
+        for i in 5..10u64 {
+            let label = format!("N{i}");
+            let n = db
+                .create_node_with(&[label], &PropertyMap::new())
+                .expect("create node");
+            cluster_b.push(n);
+        }
+        // Fully connect cluster B
+        for i in 0..cluster_b.len() {
+            for j in (i + 1)..cluster_b.len() {
+                db.add_typed_edge(cluster_b[i], cluster_b[j], "CONNECTS", &PropertyMap::new())
+                    .expect("intra-cluster B edge");
+            }
+        }
+
+        // Bridge edge connecting the two clusters
+        db.add_typed_edge(cluster_a[4], cluster_b[0], "BRIDGE", &PropertyMap::new())
+            .expect("bridge edge");
+
+        let communities = db.community_leiden(None, 1.0).expect("leiden");
+
+        // Should produce exactly 2 communities
+        let community_ids: BTreeSet<u64> = communities.iter().map(|(_, c)| *c).collect();
+        assert_eq!(
+            community_ids.len(),
+            2,
+            "Expected 2 communities for two clusters, got {}: {:?}",
+            community_ids.len(),
+            communities
+        );
+
+        // Nodes in cluster A should share a community
+        let comm_a = communities
+            .iter()
+            .find(|(n, _)| *n == cluster_a[0])
+            .unwrap()
+            .1;
+        for &node in &cluster_a[1..] {
+            let comm = communities.iter().find(|(n, _)| *n == node).unwrap().1;
+            assert_eq!(
+                comm, comm_a,
+                "Nodes in cluster A should share a community"
+            );
+        }
+
+        // Nodes in cluster B should share a community
+        let comm_b = communities
+            .iter()
+            .find(|(n, _)| *n == cluster_b[0])
+            .unwrap()
+            .1;
+        for &node in &cluster_b[1..] {
+            let comm = communities.iter().find(|(n, _)| *n == node).unwrap().1;
+            assert_eq!(
+                comm, comm_b,
+                "Nodes in cluster B should share a community"
+            );
+        }
+
+        assert_ne!(comm_a, comm_b, "Two clusters should be in different communities");
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[test]
+    fn test_leiden_refinement_splits_disconnected() {
+        // Three isolated pairs with no inter-pair edges — Leiden must keep them separate
+        let path = temp_db_path("leiden-split-disconnected");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let mut nodes = Vec::new();
+        for _ in 0..6 {
+            let n = db
+                .create_node_with(&["Node".to_string()], &PropertyMap::new())
+                .expect("create node");
+            nodes.push(n);
+        }
+        // Pair 0-1
+        db.add_typed_edge(nodes[0], nodes[1], "LINK", &PropertyMap::new())
+            .expect("pair 0-1");
+        // Pair 2-3
+        db.add_typed_edge(nodes[2], nodes[3], "LINK", &PropertyMap::new())
+            .expect("pair 2-3");
+        // Pair 4-5
+        db.add_typed_edge(nodes[4], nodes[5], "LINK", &PropertyMap::new())
+            .expect("pair 4-5");
+
+        let communities = db.community_leiden(None, 1.0).expect("leiden");
+
+        // Each node's partner should be in the same community
+        let comm = |n: u64| -> u64 {
+            communities
+                .iter()
+                .find(|(node_id, _)| *node_id == n)
+                .unwrap()
+                .1
+        };
+
+        assert_eq!(
+            comm(nodes[0]),
+            comm(nodes[1]),
+            "Pair 0-1 should share a community"
+        );
+        assert_eq!(
+            comm(nodes[2]),
+            comm(nodes[3]),
+            "Pair 2-3 should share a community"
+        );
+        assert_eq!(
+            comm(nodes[4]),
+            comm(nodes[5]),
+            "Pair 4-5 should share a community"
+        );
+
+        // Leiden refinement ensures disconnected pairs aren't merged
+        assert_ne!(
+            comm(nodes[0]),
+            comm(nodes[2]),
+            "Pairs 0-1 and 2-3 should be in different communities"
+        );
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[test]
+    fn test_community_hierarchy_multi_resolution() {
+        // 4 tight clusters of 5 nodes each with sparse inter-cluster connections
+        let path = temp_db_path("community-hierarchy-multi-res");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let mut all_nodes = Vec::new();
+        for cluster in 0..4u64 {
+            let mut cluster_nodes = Vec::new();
+            for _ in 0..5 {
+                let label = format!("Group{cluster}");
+                let n = db
+                    .create_node_with(
+                        &[label],
+                        &PropertyMap::new(),
+                    )
+                    .expect("create node");
+                cluster_nodes.push(n);
+            }
+            // Fully connect within cluster
+            for i in 0..cluster_nodes.len() {
+                for j in (i + 1)..cluster_nodes.len() {
+                    db.add_typed_edge(
+                        cluster_nodes[i],
+                        cluster_nodes[j],
+                        "INTRA",
+                        &PropertyMap::new(),
+                    )
+                    .expect("intra-cluster edge");
+                }
+            }
+            all_nodes.push(cluster_nodes);
+        }
+
+        // Sparse inter-cluster connections between adjacent clusters
+        for cluster in 0..3usize {
+            db.add_typed_edge(
+                all_nodes[cluster][0],
+                all_nodes[cluster + 1][0],
+                "INTER",
+                &PropertyMap::new(),
+            )
+            .expect("inter-cluster edge");
+        }
+
+        let hierarchy = db
+            .build_community_hierarchy(&[2.0, 0.5], None)
+            .expect("build hierarchy");
+
+        // Should have exactly 2 levels
+        assert_eq!(hierarchy.depth, 2);
+        assert!(
+            hierarchy.levels.contains_key(&0),
+            "Should have level 0 (fine)"
+        );
+        assert!(
+            hierarchy.levels.contains_key(&1),
+            "Should have level 1 (coarse)"
+        );
+
+        // Fine level should have at least as many communities as coarse
+        let fine_count = hierarchy.levels.get(&0).map(|v| v.len()).unwrap_or(0);
+        let coarse_count = hierarchy.levels.get(&1).map(|v| v.len()).unwrap_or(0);
+        assert!(
+            fine_count >= coarse_count,
+            "Fine level ({fine_count}) should have >= communities than coarse ({coarse_count})"
+        );
+
+        // Top level communities should exist with non-empty descriptions
+        let top = hierarchy.top_level();
+        assert!(!top.is_empty(), "Should have top-level communities");
+        for comm in &top {
+            assert!(
+                !comm.description.is_empty(),
+                "Community {} should have auto-generated description",
+                comm.community_id
+            );
+        }
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[test]
+    fn test_community_hierarchy_with_summarize_callback() {
+        let path = temp_db_path("community-hierarchy-summarize-cb");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        // Two groups of 3 nodes each, fully connected within
+        let mut group_a = Vec::new();
+        for _ in 0..3 {
+            let n = db
+                .create_node_with(&["Person".to_string()], &PropertyMap::new())
+                .expect("create node");
+            group_a.push(n);
+        }
+        for i in 0..group_a.len() {
+            for j in (i + 1)..group_a.len() {
+                db.add_typed_edge(group_a[i], group_a[j], "KNOWS", &PropertyMap::new())
+                    .expect("group A edge");
+            }
+        }
+
+        let mut group_b = Vec::new();
+        for _ in 0..3 {
+            let n = db
+                .create_node_with(&["Person".to_string()], &PropertyMap::new())
+                .expect("create node");
+            group_b.push(n);
+        }
+        for i in 0..group_b.len() {
+            for j in (i + 1)..group_b.len() {
+                db.add_typed_edge(group_b[i], group_b[j], "KNOWS", &PropertyMap::new())
+                    .expect("group B edge");
+            }
+        }
+
+        let summarize = |nodes: &[u64], _edges: &[(u64, u64, String)]| -> String {
+            format!("Custom summary for {} nodes", nodes.len())
+        };
+        let hierarchy = db
+            .build_community_hierarchy(&[1.0], Some(&summarize))
+            .expect("build hierarchy with callback");
+
+        for (_, comm) in &hierarchy.communities {
+            assert!(
+                comm.description.starts_with("Custom summary"),
+                "Community {} should use custom callback description, got: {}",
+                comm.community_id,
+                comm.description
+            );
+        }
 
         cleanup_db_artifacts(&path);
     }
