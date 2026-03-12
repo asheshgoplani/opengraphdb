@@ -209,7 +209,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 11-01-PLAN.md — npm package scaffold (@opengraphdb/skills) with cross-platform install CLI + ogdb-cypher skill (SKILL.md + 3 rule files)
   - [x] 11-02-PLAN.md — graph-explore skill (SKILL.md + 2 rule files) + schema-advisor skill (SKILL.md + 3 rule files)
   - [x] 11-03-PLAN.md — data-import skill (SKILL.md + 3 rule files) for CSV, JSON, and RDF import assistance
-  - [ ] 11-04-PLAN.md — Eval framework: 4 eval YAML files (30+ test cases), eval runner with A/B scoring, CLI eval command
+  - [x] 11-04-PLAN.md — Eval framework: 4 eval YAML files (34 test cases), eval runner with A/B scoring, CLI eval command
   - [ ] 11-05-PLAN.md — README with platform guides, package finalization, npm pack verification
 
 ### Phase 12: Graph-Native RAG Engine
@@ -264,6 +264,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | **Milestone 2: AI-First** | | | |
 | 10. MCP Server for OpenGraphDB | 4/3 | Complete    | 2026-03-12 |
-| 11. Developer Skills & CLI | 3/5 | In Progress | -- |
+| 11. Developer Skills & CLI | 4/5 | In Progress | -- |
 | 12. Graph-Native RAG Engine | 0/5 | Planning | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |

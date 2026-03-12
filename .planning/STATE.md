@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-12T10:13:34Z"
+last_updated: "2026-03-12T10:23:21Z"
 progress:
   total_phases: 14
   completed_phases: 10
   total_plans: 46
-  completed_plans: 34
+  completed_plans: 35
 ---
 
 # Project State
@@ -22,15 +22,15 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 
 ## Current Position
 
-Phase: 11 (Developer Skills & CLI) — In Progress (Plan 03 complete)
-Plan: 03 complete
-Status: Phase 11 in progress (3/5 plans done); next is Plan 11-04 (Eval Framework)
-Last activity: 2026-03-12 — Phase 11 Plan 03 executed: data-import skill with SKILL.md + 3 rule files (651 lines)
+Phase: 11 (Developer Skills & CLI) — In Progress (Plan 04 complete)
+Plan: 04 complete
+Status: Phase 11 in progress (4/5 plans done); next is Plan 11-05 (README and Package Finalization)
+Last activity: 2026-03-12 — Phase 11 Plan 04 executed: eval framework with 34 test cases, A/B runner, CLI eval command
 
 ```
 Milestone 2 Progress: [##        ] 1/4 phases complete
 Phase 10: [3/3] Complete — npm MCP server docs, integration tests, publish-ready package
-Phase 11: [3/5] In Progress — ogdb-cypher, graph-explore, schema-advisor, data-import skills created
+Phase 11: [4/5] In Progress — all 4 skills + eval framework complete, README/publish remaining
 Phase 12: [ ] Not started
 Phase 13: [ ] Not started
 ```
@@ -56,7 +56,7 @@ Phase 13: [ ] Not started
 | 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-02 |
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | 10. MCP Server for OpenGraphDB | 3/3 | Complete | 2026-03-12 |
-| 11. Developer Skills & CLI | 3/5 | In Progress | — |
+| 11. Developer Skills & CLI | 4/5 | In Progress | — |
 | 12. Graph-Native RAG Engine | 0/? | Not started | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
 
@@ -140,6 +140,9 @@ Recent decisions affecting current work:
 - [Phase 11-02]: graph-explore uses 5 strategies (top-down, bottom-up, goal-directed, pattern discovery, temporal) selected by graph size and user intent
 - [Phase 11-02]: schema-advisor covers 8 good patterns + 6 anti-patterns with before/after Cypher examples
 - [Phase 11-02]: RDF mapping includes both import_rdf and export_rdf workflows with _uri property preservation for round-trip fidelity
+- [Phase 11-04]: Eval files use JSON content with .eval.yaml extension: no YAML parser dependency, JSON.parse fallback in runner
+- [Phase 11-04]: Eval runner in src/eval-runner.ts (not evals/runner.ts) to preserve TypeScript rootDir: src and dist layout
+- [Phase 11-04]: A/B comparison generates prompts for external LLM evaluation, avoiding API key requirements in eval framework
 
 ### Pending Todos
 
@@ -152,5 +155,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed 11-developer-skills-cli-11-02-PLAN.md — graph-explore and schema-advisor skills (7 files, 1195 lines)
-Resume at: Phase 11 Plan 04 (Eval Framework)
+Stopped at: Completed 11-04-PLAN.md — eval framework with 34 test cases, A/B runner, CLI eval command
+Resume at: Phase 11 Plan 05 (README and Package Finalization)
