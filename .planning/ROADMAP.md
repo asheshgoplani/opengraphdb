@@ -236,7 +236,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Requirements**: DEMO-AI-01, DEMO-AI-02, DEMO-AI-03, DEMO-AI-04, DEMO-AI-05, DEMO-AI-06
 **Success Criteria** (what must be TRUE):
   1. The landing page has a "Talk to Your Knowledge Graph" section where a visitor can type a natural language question and see a live AI-generated response without any account or setup
-  2. The demo runs against at least one pre-loaded famous dataset (MovieLens, Air Routes, GoT, or Wikidata) served from the backend with no visitor configuration required
+  2. The demo runs against at least one pre-loaded famous dataset (MovieLens, Air Routes, GoT, or Wikidata) using pre-computed offline data for zero-config, instant-response visitor experience (offline-first by design: no backend dependency required)
   3. Each AI response displays three visible artifacts: the generated Cypher query, the query trace animation on the graph canvas, and a natural language answer
   4. The demo page includes a "How it works" visual explainer showing the MCP + Skills + RAG pipeline at a glance
   5. A typical demo question receives a first token within 5 seconds, with streaming for longer responses
