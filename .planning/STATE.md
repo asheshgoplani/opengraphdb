@@ -22,14 +22,14 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 
 ## Current Position
 
-Phase: 10 (MCP Server for OpenGraphDB) — In progress (Plan 01 complete)
-Plan: 01 complete
-Status: Phase 10 Plan 01 complete; next plan in Phase 10 if applicable, else Phase 11
-Last activity: 2026-03-12 — Phase 10 Plan 01 executed: @opengraphdb/mcp npm package with 5 MCP tools
+Phase: 10 (MCP Server for OpenGraphDB) — In progress (Plan 02 complete)
+Plan: 02 complete
+Status: Phase 10 Plan 02 complete; next plan in Phase 10 if applicable, else Phase 11
+Last activity: 2026-03-12 — Phase 10 Plan 02 executed: Rust MCP server enhanced with standardized tool names, search_nodes, list_datasets, resources support
 
 ```
 Milestone 2 Progress: [##        ] 1/4 phases in progress
-Phase 10: [1/?] In progress — Plan 01 complete (@opengraphdb/mcp package + 5 tools)
+Phase 10: [2/?] In progress — Plan 02 complete (Rust MCP: 5 standardized tools + resources)
 Phase 11: [ ] Not started
 Phase 12: [ ] Not started
 Phase 13: [ ] Not started
@@ -122,6 +122,11 @@ Recent decisions affecting current work:
 - [Phase 10-01]: Dual-block content responses: human-readable text + raw JSON for LLM flexibility
 - [Phase 10-01]: search_nodes fetches schema first to build dynamic WHERE clause across string properties
 - [Phase 10-01]: OGDB_URL env var with http://localhost:8080 default for zero-config local development
+- [Phase 10-02]: browse_schema/execute_cypher/get_node_neighborhood are pure aliases to existing handlers — zero duplication, full backward compat
+- [Phase 10-02]: Standardized tools appear first in tools/list so AI agents discover them before legacy names
+- [Phase 10-02]: search_nodes builds dynamic Cypher WHERE clause from schema property_keys — avoids hardcoded property assumptions
+- [Phase 10-02]: graph://schema is the single MCP resource exposed; both resources/list and resources/read implemented
+- [Phase 10-02]: Rust and npm MCP servers now expose identical tool surface for consistent AI agent experience
 
 ### Pending Todos
 
@@ -134,5 +139,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Phase 10 Plan 01 complete — @opengraphdb/mcp npm package with 5 MCP tools, builds and responds to MCP initialize handshake
-Resume at: Phase 10 Plan 02 (if exists) or Phase 11
+Stopped at: Completed 10-mcp-server-10-02-PLAN.md — Rust MCP server with 5 standardized tools, search_nodes, list_datasets, resources/list, resources/read
+Resume at: Phase 10 Plan 03 (if exists) or Phase 11
