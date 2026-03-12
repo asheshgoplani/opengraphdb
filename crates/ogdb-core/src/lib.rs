@@ -1322,6 +1322,73 @@ pub struct CommunitySummary {
     pub edge_count: u64,
     pub label_distribution: BTreeMap<String, u64>,
     pub top_properties: Vec<(String, u64)>,
+    /// Hierarchy level (0 = finest granularity, higher = coarser)
+    pub level: u32,
+    /// Parent community in the hierarchy (None for top-level communities)
+    pub parent_community_id: Option<u64>,
+    /// LLM-generated or auto-generated text description of this community
+    pub description: String,
+}
+
+/// A node within a community, with its role and connectivity information
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct CommunityMember {
+    pub node_id: u64,
+    pub labels: Vec<String>,
+    /// Number of edges to other members within the same community
+    pub degree_within: u32,
+    /// Number of edges to nodes outside the community
+    pub degree_outside: u32,
+}
+
+/// Multi-level community hierarchy for PageIndex-style LLM navigation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CommunityHierarchy {
+    /// All communities across all levels, keyed by community_id
+    pub communities: BTreeMap<u64, CommunitySummary>,
+    /// Level index: level number → list of community IDs at that level
+    pub levels: BTreeMap<u32, Vec<u64>>,
+    /// Parent → children mapping
+    pub children: BTreeMap<u64, Vec<u64>>,
+    /// Community → member node IDs mapping (only for leaf-level communities)
+    pub members: BTreeMap<u64, Vec<u64>>,
+    /// Number of hierarchy levels
+    pub depth: u32,
+}
+
+impl CommunityHierarchy {
+    /// Get top-level communities (highest/coarsest level)
+    pub fn top_level(&self) -> Vec<&CommunitySummary> {
+        let max_level = self.depth.saturating_sub(1);
+        self.levels
+            .get(&max_level)
+            .map(|ids| {
+                ids.iter()
+                    .filter_map(|id| self.communities.get(id))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get children communities of a given community
+    pub fn children_of(&self, community_id: u64) -> Vec<&CommunitySummary> {
+        self.children
+            .get(&community_id)
+            .map(|ids| {
+                ids.iter()
+                    .filter_map(|id| self.communities.get(id))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get member node IDs for a leaf-level community
+    pub fn members_of(&self, community_id: u64) -> &[u64] {
+        self.members
+            .get(&community_id)
+            .map(|v| v.as_slice())
+            .unwrap_or_default()
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -18444,6 +18511,9 @@ impl Database {
                     .unwrap_or(0),
                 label_distribution,
                 top_properties,
+                level: 0,
+                parent_community_id: None,
+                description: String::new(),
             });
         }
         out.sort_by(|left, right| left.community_id.cmp(&right.community_id));
