@@ -2,13 +2,13 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: AI-First Developer Tools & Demo
-status: planning
-last_updated: "2026-03-12T08:00:00.000Z"
+status: active
+last_updated: "2026-03-12T09:00:00.000Z"
 progress:
   total_phases: 13
   completed_phases: 9
   total_plans: 30
-  completed_plans: 30
+  completed_plans: 27
 ---
 
 # Project State
@@ -18,21 +18,29 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** AI-first graph database where developers install skills to work with graph data through natural language, and visitors can talk to knowledge graphs live on the website
-**Current focus:** Milestone v2.0 formalization — defining requirements and regenerating roadmap
+**Current focus:** Milestone v2.0 — roadmap formalized, ready to begin Phase 10 (MCP Server)
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 10 (MCP Server for OpenGraphDB) — Not started
 Plan: —
-Status: Defining requirements for Milestone v2.0
-Last activity: 2026-03-12 — Milestone v2.0 started
+Status: Roadmap complete; Phase 10 is next
+Last activity: 2026-03-12 — Milestone v2.0 roadmap formalized with full requirement mappings and success criteria
+
+```
+Milestone 2 Progress: [          ] 0/4 phases
+Phase 10: [ ] Not started
+Phase 11: [ ] Not started
+Phase 12: [ ] Not started
+Phase 13: [ ] Not started
+```
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 21
+- Total plans completed: 27
 - Average duration: ~15 min/plan
-- Total execution time: ~4.5 hours
+- Total execution time: ~6.75 hours (estimated)
 
 **By Phase:**
 
@@ -47,6 +55,10 @@ Last activity: 2026-03-12 — Milestone v2.0 started
 | 7. Real-World Famous Dataset Showcase | 3/3 | Complete | 2026-03-02 |
 | 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-02 |
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
+| 10. MCP Server for OpenGraphDB | 0/? | Not started | — |
+| 11. Developer Skills & CLI | 0/? | Not started | — |
+| 12. Graph-Native RAG Engine | 0/? | Not started | — |
+| 13. AI Demo Experience | 0/3 | Not started | — |
 
 ## Accumulated Context
 
@@ -100,6 +112,10 @@ Recent decisions affecting current work:
 - [Phase 09-03]: AIChatPanel rendered once per route (Header for /app via AppShell, PlaygroundPage for /playground) using shared Zustand store for open state
 - [Phase 09-03]: MCPActivityPanel added as collapsible Activity section at bottom of AIChatPanel
 - [Phase 09-03]: runCypherFromAI calls clearTrace() before executing to prevent animation conflicts (per Pitfall 5)
+- [Milestone 2 Roadmap]: MCP server published as @opengraphdb/mcp, zero-config via npx
+- [Milestone 2 Roadmap]: Skills built to Skills 2.0 open standard, portable across Claude Code, Copilot, Codex, Cursor
+- [Milestone 2 Roadmap]: Graph-native RAG uses PageIndex-style navigation (graph IS the index, no separate construction)
+- [Milestone 2 Roadmap]: Phase 12 RAG depends on Phase 10 MCP (RAG tools are MCP-exposed); Phase 13 depends on both 10 and 12
 
 ### Pending Todos
 
@@ -111,6 +127,6 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-03-03
-Stopped at: Completed 09-03-PLAN.md — AI end-to-end wiring (useAIChat hook, dual-route integration, trace feedback loop, MCP activity placeholder)
-Resume file: N/A — all phases and plans complete
+Last session: 2026-03-12
+Stopped at: Milestone v2.0 roadmap formalized — all 24 v2 requirements mapped across phases 10-13 with success criteria
+Resume at: Phase 10 — run `/gsd:plan-phase 10` to create execution plans for the MCP Server

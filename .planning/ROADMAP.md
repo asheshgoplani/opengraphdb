@@ -1,8 +1,13 @@
-# Roadmap: OpenGraphDB Frontend
+# Roadmap: OpenGraphDB
 
 ## Overview
 
-Build a developer-facing SPA that lets users visually explore and query their graph data. The journey goes from a running scaffold with a working graph canvas, through a full Cypher query editor, to a schema browser, and finally a landing page and playground that lets evaluators experience the product end-to-end. Each phase delivers a coherent, independently verifiable capability.
+OpenGraphDB is an AI-first graph database. The project has two tracks:
+
+1. **Developer Tools** (CLI + Skills + MCP): Developers install OpenGraphDB skills in Claude Code, Copilot, Codex, or any MCP-compatible tool and can query, explore, and manage their graph DB through natural language. The skills are the product for developers.
+2. **Demo Website** (Frontend): A showcase where visitors experience OpenGraphDB's AI capabilities live: talk to a knowledge graph, see query traces, explore datasets interactively.
+
+Each phase delivers a coherent, independently verifiable capability.
 
 ## Phases
 
@@ -23,7 +28,26 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Revolutionary Graph Visualization** - Modern production-grade graph rendering with geographic maps, large dataset support, and real-time query trace animation showing traversal paths (completed 2026-03-01)
 - [x] **Phase 9: AI Knowledge Graph Assistant** - Provider-agnostic chatbot converting natural language to Cypher with configurable API keys, free default model, and integration with query trace animation
 
+---
+
+### Milestone 2: AI-First Developer Tools & Demo (Phases 10-13)
+
+- [ ] **Phase 10: MCP Server for OpenGraphDB** - First-class MCP server exposing graph operations (schema browse, Cypher execute, neighborhood explore, hybrid search) so any AI agent can work with the graph database natively
+- [ ] **Phase 11: Developer Skills & CLI** - OpenGraphDB-specific skills (ogdb-cypher, graph-explore, schema-advisor, data-import) built with Skills 2.0 framework including evals and benchmarks, published as open standard skills portable across Claude Code, Copilot, Codex, Cursor
+- [ ] **Phase 12: Graph-Native RAG Engine** - PageIndex-style hierarchical navigation over graph structure, Leiden community detection with summaries, hybrid retrieval (BM25 + vector + graph traversal + RRF fusion), document ingestion pipeline
+- [ ] **Phase 13: AI Demo Experience** - Interactive "Talk to Your Knowledge Graph" demo on the website where visitors ask natural language questions against pre-loaded famous datasets, see Cypher generated live, watch query trace animations, and explore results visually
+
 ## Phase Details
+
+### Milestone 2 Context
+
+**Research basis**: PageIndex (vectorless RAG, 98.7% accuracy on FinanceBench), Anthropic Skills 2.0 (evals, /batch, open standard), Anthropic Contextual Retrieval (BM25 + contextual embeddings), Microsoft GraphRAG (community detection + hierarchical summaries).
+
+**Key insight**: A graph database IS a hierarchical navigable index. PageIndex manually constructs tree structures from flat documents. OpenGraphDB already HAS connected structure natively. We expose graph topology as a PageIndex-style navigable index via MCP, giving LLMs the ability to reason over graph structure instead of doing blind vector similarity search.
+
+**Research artifacts**:
+- `research/pageindex-sparse-indexing-research.md` (detailed PageIndex + hybrid retrieval analysis)
+- Skills 2.0 research (API endpoints, cross-platform standard, eval framework)
 
 ### Phase 1: Foundation and Graph Visualization
 **Goal**: A running SPA where users can connect to OpenGraphDB, run a query, and see results as an interactive force-directed graph with dark mode working across all surfaces
@@ -153,10 +177,65 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 09-02-PLAN.md — Zustand ephemeral chat store, AIChatPanel (Sheet), AIChatMessage (streaming markdown), download progress bar, typing indicator
   - [x] 09-03-PLAN.md — useAIChat orchestration hook, trace integration for AI queries, Header and PlaygroundPage wiring, MCP activity placeholder
 
+### Phase 10: MCP Server for OpenGraphDB
+**Goal**: Any AI agent (Claude, Copilot, Codex, Cursor) can connect to OpenGraphDB via MCP and browse schema, execute Cypher, explore neighborhoods, and search across the graph without writing code
+**Depends on**: Phase 9 (existing HTTP API)
+**Requirements**: MCP-01, MCP-02, MCP-03, MCP-04, MCP-05, MCP-06
+**Success Criteria** (what must be TRUE):
+  1. An LLM connected via MCP can call `browse_schema` and receive the full graph schema (labels, relationship types, property keys) without any prior knowledge of the database
+  2. An LLM can call `execute_cypher` with an arbitrary query string and receive structured results (nodes, edges, scalar values) that it can reason over
+  3. An LLM can call `get_node_neighborhood` with a node ID, a depth, and optional edge type filters and receive the N-hop subgraph
+  4. An LLM can call `search_nodes` with property key-value pairs and receive matching nodes with their properties
+  5. A developer can install the MCP server by running `npx @opengraphdb/mcp` with no other configuration steps required
+  6. A developer can copy ready-to-paste configuration snippets from the README for Claude Code, Cursor, and VS Code Copilot
+**Plans**: TBD (estimated 3-4 plans)
+
+### Phase 11: Developer Skills & CLI
+**Goal**: Developers install OpenGraphDB skills in their AI coding tool and get expert-level graph database assistance: NL-to-Cypher, schema design, data import, graph analysis, all with verified quality via evals
+**Depends on**: Phase 10 (MCP server for live graph access)
+**Requirements**: SKILL-01, SKILL-02, SKILL-03, SKILL-04, SKILL-05, SKILL-06, SKILL-07
+**Success Criteria** (what must be TRUE):
+  1. A developer using `ogdb-cypher` skill receives Cypher queries that execute correctly against OpenGraphDB, verified by evals showing higher accuracy than without the skill
+  2. A developer using `graph-explore` skill can describe a goal in natural language and receive guided traversal suggestions, schema-aware navigation, and subgraph explanations
+  3. A developer using `schema-advisor` skill can describe a domain and receive a graph schema design with index recommendations and optional RDF ontology mapping
+  4. A developer using `data-import` skill can point to a CSV, JSON, or RDF file and receive schema detection, validation feedback, and import-ready Cypher
+  5. Each skill passes A/B benchmarks where task completion with the skill measurably outperforms task completion without the skill
+  6. All four skills install as a single package via one command in Claude Code, Copilot, Codex, and Cursor
+  7. Each skill ships with structured evals runnable via the Skills 2.0 eval framework, covering correctness, edge cases, and regression prevention
+**Plans**: TBD (estimated 4-5 plans)
+
+### Phase 12: Graph-Native RAG Engine
+**Goal**: OpenGraphDB becomes a reasoning-based retrieval engine where LLMs navigate graph structure like a human expert navigates a document, combined with hybrid BM25 + vector + graph search for maximum retrieval accuracy
+**Depends on**: Phase 10 (MCP server), existing tantivy + usearch support
+**Requirements**: RAG-01, RAG-02, RAG-03, RAG-04, RAG-05
+**Success Criteria** (what must be TRUE):
+  1. An LLM using MCP can call `browse_communities` to see the top-level cluster overview, then `drill_into_community` to navigate into sub-clusters, following graph relationships at each level (PageIndex-style navigation)
+  2. Running Leiden community detection on a graph produces hierarchical clusters, and each cluster node has an LLM-generated summary that describes the community's content
+  3. A `hybrid_search` call returns results that fuse BM25 (tantivy), vector similarity (usearch), and graph traversal candidates via Reciprocal Rank Fusion, outperforming any single retrieval method alone
+  4. An `ingest_document` call on a PDF or Markdown file produces a graph with sections as nodes, cross-references as edges, and both text and vector indexes populated
+  5. All four RAG pipeline operations (`browse_communities`, `drill_into_community`, `hybrid_search`, `ingest_document`) are accessible as MCP tools
+**Plans**: TBD (estimated 4-5 plans)
+
+### Phase 13: AI Demo Experience
+**Goal**: Website visitors can talk to a knowledge graph in natural language, see Cypher generated live, watch query trace animations, and explore results visually, all without installing anything
+**Depends on**: Phase 10 (MCP), Phase 12 (RAG engine)
+**Requirements**: DEMO-AI-01, DEMO-AI-02, DEMO-AI-03, DEMO-AI-04, DEMO-AI-05, DEMO-AI-06
+**Success Criteria** (what must be TRUE):
+  1. The landing page has a "Talk to Your Knowledge Graph" section where a visitor can type a natural language question and see a live AI-generated response without any account or setup
+  2. The demo runs against at least one pre-loaded famous dataset (MovieLens, Air Routes, GoT, or Wikidata) served from the backend with no visitor configuration required
+  3. Each AI response displays three visible artifacts: the generated Cypher query, the query trace animation on the graph canvas, and a natural language answer
+  4. The demo page includes a "How it works" visual explainer showing the MCP + Skills + RAG pipeline at a glance
+  5. A typical demo question receives a first token within 5 seconds, with streaming for longer responses
+  6. The demo works with the free default model out of the box, and a visitor can optionally enter their own API key to switch to a premium model
+**Plans**: 3 plans
+  - [ ] 13-01-PLAN.md — Demo data infrastructure: suggested questions, pre-computed responses, demo store, useDemoChat hook, dataset-aware prompts, simulated trace
+  - [ ] 13-02-PLAN.md — "Talk to Your Knowledge Graph" UI: DemoSection + 5 subcomponents (dataset selector, question chips, chat input, response card, graph canvas), landing page integration
+  - [ ] 13-03-PLAN.md — "How It Works" pipeline explainer, demo polish, edge case handling, performance optimization
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11 → 12 → 13
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -167,5 +246,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 5. Frontend Polish & Knowledge Graph Showcase | 6/6 | Complete | 2026-03-01 |
 | 6. Production Demo Datasets & Live Backend Integration | 3/3 | Complete | 2026-03-01 |
 | 7. Real-World Famous Dataset Showcase | 3/3 | Complete | 2026-03-02 |
-| 8. Revolutionary Graph Visualization | 3/3 | Complete   | 2026-03-01 |
+| 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-01 |
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
+| **Milestone 2: AI-First** | | | |
+| 10. MCP Server for OpenGraphDB | 0/? | Not started | — |
+| 11. Developer Skills & CLI | 0/? | Not started | — |
+| 12. Graph-Native RAG Engine | 0/? | Not started | — |
+| 13. AI Demo Experience | 0/3 | Not started | — |

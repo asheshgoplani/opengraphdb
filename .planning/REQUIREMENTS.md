@@ -155,36 +155,36 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| MCP-01 | — | Pending |
-| MCP-02 | — | Pending |
-| MCP-03 | — | Pending |
-| MCP-04 | — | Pending |
-| MCP-05 | — | Pending |
-| MCP-06 | — | Pending |
-| SKILL-01 | — | Pending |
-| SKILL-02 | — | Pending |
-| SKILL-03 | — | Pending |
-| SKILL-04 | — | Pending |
-| SKILL-05 | — | Pending |
-| SKILL-06 | — | Pending |
-| SKILL-07 | — | Pending |
-| RAG-01 | — | Pending |
-| RAG-02 | — | Pending |
-| RAG-03 | — | Pending |
-| RAG-04 | — | Pending |
-| RAG-05 | — | Pending |
-| DEMO-AI-01 | — | Pending |
-| DEMO-AI-02 | — | Pending |
-| DEMO-AI-03 | — | Pending |
-| DEMO-AI-04 | — | Pending |
-| DEMO-AI-05 | — | Pending |
-| DEMO-AI-06 | — | Pending |
+| MCP-01 | Phase 10 | Pending |
+| MCP-02 | Phase 10 | Pending |
+| MCP-03 | Phase 10 | Pending |
+| MCP-04 | Phase 10 | Pending |
+| MCP-05 | Phase 10 | Pending |
+| MCP-06 | Phase 10 | Pending |
+| SKILL-01 | Phase 11 | Pending |
+| SKILL-02 | Phase 11 | Pending |
+| SKILL-03 | Phase 11 | Pending |
+| SKILL-04 | Phase 11 | Pending |
+| SKILL-05 | Phase 11 | Pending |
+| SKILL-06 | Phase 11 | Pending |
+| SKILL-07 | Phase 11 | Pending |
+| RAG-01 | Phase 12 | Pending |
+| RAG-02 | Phase 12 | Pending |
+| RAG-03 | Phase 12 | Pending |
+| RAG-04 | Phase 12 | Pending |
+| RAG-05 | Phase 12 | Pending |
+| DEMO-AI-01 | Phase 13 | Pending |
+| DEMO-AI-02 | Phase 13 | Pending |
+| DEMO-AI-03 | Phase 13 | Pending |
+| DEMO-AI-04 | Phase 13 | Pending |
+| DEMO-AI-05 | Phase 13 | Pending |
+| DEMO-AI-06 | Phase 13 | Pending |
 
 **Coverage:**
 - v2 requirements: 24 total
-- Mapped to phases: 0
-- Unmapped: 24 (roadmapper will fill)
+- Mapped to phases: 24
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-01 (v1), 2026-03-12 (v2)*
-*Last updated: 2026-03-12 after milestone v2.0 formalization*
+*Last updated: 2026-03-12 after milestone v2.0 roadmap formalization*
