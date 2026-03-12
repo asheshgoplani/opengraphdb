@@ -5,9 +5,10 @@ edition.workspace = true
 license.workspace = true
 
 [features]
-default = ["vector-search", "fulltext-search"]
+default = ["vector-search", "fulltext-search", "document-ingest"]
 vector-search = ["dep:instant-distance"]
 fulltext-search = ["dep:tantivy"]
+document-ingest = ["dep:lopdf", "dep:pulldown-cmark"]
 tracing = ["dep:tracing"]
 wasm-bindings = ["dep:wasm-bindgen"]
 
@@ -17,6 +18,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 [dependencies]
 lz4_flex = "0.11"
 instant-distance = { version = "0.6.1", optional = true }
+lopdf = { version = "0.34", optional = true }
+pulldown-cmark = { version = "0.13", optional = true }
 roaring = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

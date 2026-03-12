@@ -21091,6 +21091,200 @@ impl Database {
             None => Err(DbError::Corrupt("page offset overflow".to_string())),
         }
     }
+
+    /// Ingest a document (PDF, Markdown, or plain text) into the graph.
+    ///
+    /// Creates a `:Document` root node, `:Section` nodes per heading, and `:Content`
+    /// leaf nodes per text chunk, connected with `:CONTAINS` and `:HAS_CONTENT` edges.
+    /// Cross-references are detected by title-mention and stored as `:REFERENCES` edges.
+    /// Content is indexed in the full-text index automatically (via property indexing).
+    /// If `embed_fn` is provided in `config`, vectors are stored as a `PropertyValue::Vector`
+    /// property and the named vector index is created.
+    #[cfg(feature = "document-ingest")]
+    pub fn ingest_document(
+        &mut self,
+        data: &[u8],
+        config: &IngestConfig,
+    ) -> Result<IngestResult, DbError> {
+        if config.title.is_empty() {
+            return Err(DbError::InvalidArgument(
+                "document title is required".to_string(),
+            ));
+        }
+
+        // Step 1: Parse document into sections
+        let sections = match config.format {
+            DocumentFormat::Pdf => parse_pdf_sections(data)?,
+            DocumentFormat::Markdown => {
+                let text = std::str::from_utf8(data)
+                    .map_err(|e| DbError::InvalidArgument(format!("Invalid UTF-8: {e}")))?;
+                parse_markdown_sections(text)?
+            }
+            DocumentFormat::PlainText => {
+                let text = std::str::from_utf8(data)
+                    .map_err(|e| DbError::InvalidArgument(format!("Invalid UTF-8: {e}")))?;
+                parse_plaintext_sections(text, config.max_chunk_words)
+            }
+        };
+
+        if sections.is_empty() {
+            return Err(DbError::InvalidArgument(
+                "document contains no extractable content".to_string(),
+            ));
+        }
+
+        // Step 2: Create :Document root node
+        let ingested_at = {
+            let secs = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs();
+            format!("{secs}Z")
+        };
+        let mut doc_props = PropertyMap::new();
+        doc_props.insert("title".to_string(), PropertyValue::String(config.title.clone()));
+        doc_props.insert(
+            "format".to_string(),
+            PropertyValue::String(format!("{:?}", config.format)),
+        );
+        doc_props.insert(
+            "section_count".to_string(),
+            PropertyValue::I64(sections.len() as i64),
+        );
+        if let Some(uri) = &config.source_uri {
+            doc_props.insert("_uri".to_string(), PropertyValue::String(uri.clone()));
+        }
+        doc_props.insert("ingested_at".to_string(), PropertyValue::String(ingested_at));
+        let doc_node_id = self.create_node_with(&["Document".to_string()], &doc_props)?;
+
+        // Step 3: Ensure indexes exist (ignore if already present)
+        let text_index_name = "rag_content_text";
+        let vector_index_name = "rag_content_vector";
+
+        let _ = self.create_fulltext_index(
+            text_index_name,
+            Some("Content"),
+            &["text".to_string(), "title".to_string()],
+        );
+
+        let has_embeddings = config.embed_fn.is_some() && config.embedding_dimensions.is_some();
+        if has_embeddings {
+            let dims = config.embedding_dimensions.unwrap();
+            let _ = self.create_vector_index(
+                vector_index_name,
+                Some("Content"),
+                "embedding",
+                dims,
+                VectorDistanceMetric::Cosine,
+            );
+        }
+
+        // Step 4: Create section hierarchy and content nodes
+        let mut section_node_ids: Vec<u64> = Vec::new();
+        let mut content_count = 0u64;
+        // Stack of (heading_level, section_node_id) for parent resolution
+        let mut section_stack: Vec<(u32, u64)> = Vec::new();
+
+        for (idx, section) in sections.iter().enumerate() {
+            // Create :Section node
+            let mut section_props = PropertyMap::new();
+            section_props.insert("title".to_string(), PropertyValue::String(section.title.clone()));
+            section_props.insert("level".to_string(), PropertyValue::I64(section.level as i64));
+            section_props.insert("index".to_string(), PropertyValue::I64(idx as i64));
+            if let Some(ps) = section.page_start {
+                section_props.insert("page_start".to_string(), PropertyValue::I64(ps as i64));
+            }
+            if let Some(pe) = section.page_end {
+                section_props.insert("page_end".to_string(), PropertyValue::I64(pe as i64));
+            }
+            let section_node_id =
+                self.create_node_with(&["Section".to_string()], &section_props)?;
+            section_node_ids.push(section_node_id);
+
+            // Find parent by popping sections with level >= current
+            while let Some((parent_level, _)) = section_stack.last() {
+                if *parent_level >= section.level {
+                    section_stack.pop();
+                } else {
+                    break;
+                }
+            }
+            let parent_id = section_stack
+                .last()
+                .map(|(_, id)| *id)
+                .unwrap_or(doc_node_id);
+            self.add_typed_edge(parent_id, section_node_id, "CONTAINS", &PropertyMap::new())?;
+            section_stack.push((section.level, section_node_id));
+
+            // Create :Content nodes (word-bounded chunks)
+            if !section.content.is_empty() {
+                let chunks = chunk_content(&section.content, config.max_chunk_words);
+                for (chunk_idx, chunk_text) in chunks.iter().enumerate() {
+                    let mut content_props = PropertyMap::new();
+                    content_props.insert("text".to_string(), PropertyValue::String(chunk_text.clone()));
+                    content_props.insert("title".to_string(), PropertyValue::String(section.title.clone()));
+                    content_props.insert("chunk_index".to_string(), PropertyValue::I64(chunk_idx as i64));
+                    content_props.insert("section_index".to_string(), PropertyValue::I64(idx as i64));
+                    content_props.insert(
+                        "word_count".to_string(),
+                        PropertyValue::I64(chunk_text.split_whitespace().count() as i64),
+                    );
+
+                    // Store embedding as a property if embed_fn is provided
+                    if let Some(embed_fn) = &config.embed_fn {
+                        let embedding = embed_fn(chunk_text);
+                        if !embedding.is_empty() {
+                            content_props.insert(
+                                "embedding".to_string(),
+                                PropertyValue::Vector(embedding),
+                            );
+                        }
+                    }
+
+                    let content_node_id =
+                        self.create_node_with(&["Content".to_string()], &content_props)?;
+                    self.add_typed_edge(
+                        section_node_id,
+                        content_node_id,
+                        "HAS_CONTENT",
+                        &PropertyMap::new(),
+                    )?;
+                    content_count += 1;
+                }
+            }
+        }
+
+        // Step 5: Cross-reference edges
+        let cross_refs = detect_cross_references(&sections);
+        let mut reference_count = 0u64;
+        for (from_idx, to_idx) in &cross_refs {
+            if *from_idx < section_node_ids.len() && *to_idx < section_node_ids.len() {
+                let mut ref_props = PropertyMap::new();
+                ref_props.insert("type".to_string(), PropertyValue::String("mention".to_string()));
+                self.add_typed_edge(
+                    section_node_ids[*from_idx],
+                    section_node_ids[*to_idx],
+                    "REFERENCES",
+                    &ref_props,
+                )?;
+                reference_count += 1;
+            }
+        }
+
+        // Rebuild vector index so embeddings are queryable
+        if has_embeddings {
+            let _ = self.rebuild_vector_indexes_from_catalog();
+        }
+
+        Ok(IngestResult {
+            document_node_id: doc_node_id,
+            section_count: section_node_ids.len() as u64,
+            content_count,
+            reference_count,
+            text_indexed: true,
+            vector_indexed: has_embeddings,
+        })
+    }
 }
 
 fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> Result<(), DbError> {
