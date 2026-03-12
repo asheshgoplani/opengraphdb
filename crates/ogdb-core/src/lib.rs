@@ -39716,4 +39716,260 @@ mod tests {
 
         cleanup_db_artifacts(&path);
     }
+
+    // Document ingestion tests
+
+    #[cfg(feature = "document-ingest")]
+    #[test]
+    fn test_ingest_markdown_basic() {
+        let path = temp_db_path("ingest-md-basic");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let markdown = b"# Introduction
+
+This is the intro paragraph.
+
+## Methods
+
+We used graph analysis.
+
+## Results
+
+The results show improvement.
+";
+
+        let config = IngestConfig {
+            title: "Test Paper".to_string(),
+            format: DocumentFormat::Markdown,
+            ..IngestConfig::default()
+        };
+
+        let result = db.ingest_document(markdown, &config).unwrap();
+
+        assert!(result.section_count >= 3, "Should have at least 3 sections, got {}", result.section_count);
+        assert!(result.content_count >= 3, "Should have at least 3 content chunks, got {}", result.content_count);
+        assert!(!result.vector_indexed, "No embed_fn means no vector index");
+        assert!(result.text_indexed);
+
+        let doc_labels = db.node_labels(result.document_node_id).unwrap();
+        assert!(doc_labels.contains(&"Document".to_string()));
+
+        let doc_props = db.node_properties(result.document_node_id).unwrap();
+        assert_eq!(
+            doc_props.get("title"),
+            Some(&PropertyValue::String("Test Paper".to_string()))
+        );
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[cfg(feature = "document-ingest")]
+    #[test]
+    fn test_ingest_markdown_with_hierarchy() {
+        let path = temp_db_path("ingest-md-hier");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let markdown = b"# Chapter 1
+
+Intro.
+
+## Section 1.1
+
+Content A.
+
+## Section 1.2
+
+Content B.
+
+# Chapter 2
+
+Another chapter.
+";
+
+        let config = IngestConfig {
+            title: "Hierarchical Doc".to_string(),
+            format: DocumentFormat::Markdown,
+            ..IngestConfig::default()
+        };
+
+        let result = db.ingest_document(markdown, &config).unwrap();
+
+        assert!(result.section_count >= 4, "Should have sections for both H1 and H2 headings, got {}", result.section_count);
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[cfg(feature = "document-ingest")]
+    #[test]
+    fn test_ingest_plaintext_chunking() {
+        let path = temp_db_path("ingest-plain-chunk");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let words: Vec<String> = (0..100).map(|i| format!("word{i}")).collect();
+        let text = words.join(" ");
+
+        let config = IngestConfig {
+            title: "Chunked Doc".to_string(),
+            format: DocumentFormat::PlainText,
+            max_chunk_words: 30,
+            ..IngestConfig::default()
+        };
+
+        let result = db.ingest_document(text.as_bytes(), &config).unwrap();
+
+        assert!(result.content_count >= 4, "Should produce at least 4 chunks for 100 words at 30/chunk, got {}", result.content_count);
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[cfg(feature = "document-ingest")]
+    #[test]
+    fn test_ingest_with_embedding_callback() {
+        let path = temp_db_path("ingest-embed");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let markdown = b"# Test
+
+Some content for embedding.
+";
+
+        let config = IngestConfig {
+            title: "Embedded Doc".to_string(),
+            format: DocumentFormat::Markdown,
+            embed_fn: Some(Box::new(|_text: &str| vec![1.0f32, 0.0, 0.0])),
+            embedding_dimensions: Some(3),
+            ..IngestConfig::default()
+        };
+
+        let result = db.ingest_document(markdown, &config).unwrap();
+
+        assert!(result.vector_indexed, "Should report vector indexing when embed_fn provided");
+        assert!(result.content_count >= 1);
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[cfg(feature = "document-ingest")]
+    #[test]
+    fn test_ingest_empty_document_fails() {
+        let path = temp_db_path("ingest-empty");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let config = IngestConfig {
+            title: "Empty".to_string(),
+            format: DocumentFormat::PlainText,
+            ..IngestConfig::default()
+        };
+
+        let result = db.ingest_document(b"   ", &config);
+        assert!(result.is_err(), "Should fail on empty document");
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[cfg(feature = "document-ingest")]
+    #[test]
+    fn test_ingest_missing_title_fails() {
+        let path = temp_db_path("ingest-notitle");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let config = IngestConfig {
+            title: String::new(),
+            format: DocumentFormat::PlainText,
+            ..IngestConfig::default()
+        };
+
+        let result = db.ingest_document(b"Some text", &config);
+        assert!(result.is_err(), "Should fail when title is empty");
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[cfg(feature = "document-ingest")]
+    #[test]
+    fn test_cross_reference_detection() {
+        let sections = vec![
+            ParsedSection {
+                title: "Introduction".to_string(),
+                level: 1,
+                content: "This paper discusses graph algorithms.".to_string(),
+                page_start: None,
+                page_end: None,
+            },
+            ParsedSection {
+                title: "Graph Algorithms Overview".to_string(),
+                level: 2,
+                content: "Various algorithms exist.".to_string(),
+                page_start: None,
+                page_end: None,
+            },
+            ParsedSection {
+                title: "Results and Discussion".to_string(),
+                level: 2,
+                content: "As described in Graph Algorithms Overview, the results show improvement.".to_string(),
+                page_start: None,
+                page_end: None,
+            },
+        ];
+
+        let refs = detect_cross_references(&sections);
+        assert!(
+            refs.contains(&(2, 1)),
+            "Should detect cross-reference from Results to Graph Algorithms Overview, got: {refs:?}"
+        );
+    }
+
+    #[cfg(feature = "document-ingest")]
+    #[test]
+    fn test_ingest_document_graph_structure() {
+        let path = temp_db_path("ingest-graph-struct");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let markdown = b"# Main
+
+Body text here.
+";
+
+        let config = IngestConfig {
+            title: "Struct Test".to_string(),
+            format: DocumentFormat::Markdown,
+            ..IngestConfig::default()
+        };
+
+        let result = db.ingest_document(markdown, &config).unwrap();
+
+        assert!(db.node_count() >= 3, "Expected at least Document + Section + Content nodes, got {}", db.node_count());
+
+        let doc_props = db.node_properties(result.document_node_id).unwrap();
+        assert_eq!(
+            doc_props.get("title"),
+            Some(&PropertyValue::String("Struct Test".to_string()))
+        );
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[cfg(feature = "document-ingest")]
+    #[test]
+    fn test_ingest_source_uri_preserved() {
+        let path = temp_db_path("ingest-uri");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let config = IngestConfig {
+            title: "URI Doc".to_string(),
+            format: DocumentFormat::PlainText,
+            source_uri: Some("https://example.com/doc.txt".to_string()),
+            ..IngestConfig::default()
+        };
+
+        let result = db.ingest_document(b"Some plain text content.", &config).unwrap();
+
+        let doc_props = db.node_properties(result.document_node_id).unwrap();
+        assert_eq!(
+            doc_props.get("_uri"),
+            Some(&PropertyValue::String("https://example.com/doc.txt".to_string()))
+        );
+
+        cleanup_db_artifacts(&path);
+    }
 }
