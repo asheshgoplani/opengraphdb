@@ -2278,6 +2278,13 @@ fn execute_mcp_tools_call(db_path: &str, params: Option<Value>) -> Result<Value,
     };
 
     match tool_name {
+        // Standardized MCP tool names (aliases for existing tools + new tools)
+        "browse_schema" => execute_mcp_schema_tool(db_path),
+        "execute_cypher" => execute_mcp_query_tool(db_path, &args),
+        "get_node_neighborhood" => execute_mcp_subgraph_tool(db_path, &args),
+        "search_nodes" => execute_mcp_search_nodes_tool(db_path, &args),
+        "list_datasets" => execute_mcp_list_datasets_tool(db_path),
+        // Legacy tool names (backward compatible)
         "query" => execute_mcp_query_tool(db_path, &args),
         "schema" => execute_mcp_schema_tool(db_path),
         "upsert_node" => execute_mcp_upsert_node_tool(db_path, &args),
@@ -2322,6 +2329,76 @@ fn execute_mcp_schema_tool(db_path: &str) -> Result<Value, String> {
     let snapshot = shared.read_snapshot().map_err(|e| e.to_string())?;
     let schema = snapshot.schema_catalog();
     Ok(serde_json::json!({
+        "labels": schema.labels,
+        "edge_types": schema.edge_types,
+        "property_keys": schema.property_keys,
+    }))
+}
+
+fn execute_mcp_search_nodes_tool(
+    db_path: &str,
+    args: &Map<String, Value>,
+) -> Result<Value, String> {
+    let query_text = mcp_required_string(args, "query")?;
+    let label = args
+        .get("label")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+    let limit = mcp_optional_usize(args, "limit", 25)?;
+
+    // Build Cypher: search string properties for the query text
+    let label_filter = label.map(|l| format!(":{l}")).unwrap_or_default();
+    let escaped = query_text.replace('\\', "\\\\").replace('\'', "\\'");
+
+    // Get schema to find searchable properties
+    let shared = SharedDatabase::open(db_path).map_err(|e| e.to_string())?;
+    let snapshot = shared.read_snapshot().map_err(|e| e.to_string())?;
+    let schema = snapshot.schema_catalog();
+
+    let props: Vec<&str> = schema
+        .property_keys
+        .iter()
+        .filter(|k| !k.starts_with('_') && *k != "embedding" && *k != "vector")
+        .take(10)
+        .map(String::as_str)
+        .collect();
+
+    if props.is_empty() {
+        return Ok(serde_json::json!({
+            "results": [],
+            "message": "No searchable string properties found in schema"
+        }));
+    }
+
+    let where_clause = props
+        .iter()
+        .map(|p| format!("toString(n.{p}) CONTAINS '{escaped}'"))
+        .collect::<Vec<_>>()
+        .join(" OR ");
+
+    let cypher = format!(
+        "MATCH (n{label_filter}) WHERE {where_clause} RETURN n LIMIT {limit}"
+    );
+
+    let output = execute_query_with_format(db_path, &cypher, QueryOutputFormat::Json)
+        .map_err(|e| e.to_string())?;
+
+    Ok(serde_json::json!({
+        "query": cypher,
+        "output": output,
+    }))
+}
+
+fn execute_mcp_list_datasets_tool(db_path: &str) -> Result<Value, String> {
+    let shared = SharedDatabase::open(db_path).map_err(|e| e.to_string())?;
+    let snapshot = shared.read_snapshot().map_err(|e| e.to_string())?;
+    let schema = snapshot.schema_catalog();
+    let metrics = snapshot.metrics().map_err(|e| e.to_string())?;
+
+    Ok(serde_json::json!({
+        "node_count": metrics.node_count,
+        "edge_count": metrics.edge_count,
         "labels": schema.labels,
         "edge_types": schema.edge_types,
         "property_keys": schema.property_keys,
@@ -3042,6 +3119,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                 },
                 "capabilities": {
                     "tools": true,
+                    "resources": true,
                 },
             }),
         ),
@@ -3049,9 +3127,59 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
             id,
             serde_json::json!({
                 "tools": [
+                    // Standardized MCP tool names — AI agents should prefer these
+                    {
+                        "name": "browse_schema",
+                        "description": "Discover all node labels, relationship types, and property keys in the OpenGraphDB database. Call this first to understand the graph structure before writing queries.",
+                        "inputSchema": { "type": "object", "properties": {} }
+                    },
+                    {
+                        "name": "execute_cypher",
+                        "description": "Execute an openCypher query against the OpenGraphDB database. Returns structured results with columns and rows. Use LIMIT to control result size. Supports MATCH, CREATE, MERGE, DELETE, SET, and all standard Cypher clauses.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "query": { "type": "string", "description": "The Cypher query to execute" },
+                                "format": { "type": "string", "enum": ["table", "json", "jsonl", "csv", "tsv"] }
+                            },
+                            "required": ["query"]
+                        }
+                    },
+                    {
+                        "name": "get_node_neighborhood",
+                        "description": "Explore the neighborhood around a specific node. Returns connected nodes and relationships within the specified hop distance. Use this to understand how a node relates to the rest of the graph.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "node_id": { "type": "integer", "minimum": 0, "description": "The internal node ID to explore around" },
+                                "hops": { "type": "integer", "minimum": 1, "maximum": 5, "description": "Number of hops to expand (1-5, default 1)" },
+                                "edge_type": { "type": "string", "description": "Optional: filter to only this relationship type" }
+                            },
+                            "required": ["node_id"]
+                        }
+                    },
+                    {
+                        "name": "search_nodes",
+                        "description": "Search for nodes by matching text against their properties. Finds nodes where any string property contains the search term. Optionally filter by node label.",
+                        "inputSchema": {
+                            "type": "object",
+                            "properties": {
+                                "query": { "type": "string", "description": "Text to search for in node properties" },
+                                "label": { "type": "string", "description": "Optional: filter to only nodes with this label" },
+                                "limit": { "type": "integer", "minimum": 1, "maximum": 200, "description": "Maximum results (default 25)" }
+                            },
+                            "required": ["query"]
+                        }
+                    },
+                    {
+                        "name": "list_datasets",
+                        "description": "List all datasets loaded in the database with their node counts, edge counts, labels, and relationship types. Gives a high-level overview of what data is available.",
+                        "inputSchema": { "type": "object", "properties": {} }
+                    },
+                    // Legacy tool names — kept for backward compatibility
                     {
                         "name": "query",
-                        "description": "Execute an OpenGraphDB query string against a database path.",
+                        "description": "Execute an OpenGraphDB Cypher query. Returns columns and rows in the requested format. This is the low-level query tool; prefer execute_cypher for a friendlier interface.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3063,7 +3191,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "schema",
-                        "description": "Return schema registries (labels, edge types, property keys).",
+                        "description": "Return schema registries (labels, edge types, property keys). Prefer browse_schema for a more descriptive response.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {}
@@ -3071,7 +3199,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "upsert_node",
-                        "description": "Create or update a node by label + match key/value.",
+                        "description": "Create or update a node by label + match key/value. Performs an idempotent write: if a node with the given label and match_key=match_value exists, it is updated; otherwise a new node is created.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3085,7 +3213,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "upsert_edge",
-                        "description": "Create or update an edge by src + dst + optional edge_type.",
+                        "description": "Create or update an edge between two node IDs with an optional relationship type and properties. Idempotent: updates existing edge if src + dst + edge_type match.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3099,7 +3227,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "subgraph",
-                        "description": "Extract an N-hop neighborhood around a node id.",
+                        "description": "Extract an N-hop neighborhood subgraph around a node ID. Returns all nodes and edges within the hop radius. Prefer get_node_neighborhood for a friendlier interface.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3112,7 +3240,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "shortest_path",
-                        "description": "Compute shortest path between two node ids with optional hop/type/weight constraints.",
+                        "description": "Compute the shortest path between two node IDs. Optionally constrain by maximum hops, edge type, or a numeric weight property for weighted traversal.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3127,7 +3255,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "vector_search",
-                        "description": "Search a vector index by embedding.",
+                        "description": "Perform approximate nearest-neighbor search over a named vector index using a query embedding. Returns top-k matching nodes with similarity scores.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3141,7 +3269,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "text_search",
-                        "description": "Search a full-text index by query string.",
+                        "description": "Search a full-text index by a query string using BM25 ranking. Returns top-k matching nodes. Requires a tantivy text index to have been built on the target properties.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3154,7 +3282,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "temporal_diff",
-                        "description": "Compare node/edge counts at two temporal snapshots.",
+                        "description": "Compare node and edge counts between two temporal snapshots to track how the graph changed over a time window.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3166,7 +3294,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "import_rdf",
-                        "description": "Import RDF data into the graph.",
+                        "description": "Import RDF triples into the graph from a file path. Supports Turtle, N-Triples, RDF/XML, JSON-LD, and N-Quads formats. Preserves source URIs for round-trip fidelity.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3182,7 +3310,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "export_rdf",
-                        "description": "Export graph data as RDF.",
+                        "description": "Export the graph as RDF to a destination file. Supports Turtle, N-Triples, RDF/XML, and JSON-LD output formats.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3194,7 +3322,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "agent_store_episode",
-                        "description": "Store an episodic memory entry for an agent.",
+                        "description": "Store an episodic memory entry for an AI agent session. Embeds the content into the graph for later retrieval by similarity. Use agent_recall to query stored episodes.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3210,7 +3338,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "agent_recall",
-                        "description": "Recall episodic memories by embedding similarity.",
+                        "description": "Recall previously stored episodic memories for an agent by embedding similarity. Returns top-k episodes most semantically similar to the query embedding.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3224,7 +3352,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "rag_build_summaries",
-                        "description": "Build community summaries for GraphRAG.",
+                        "description": "Build community summaries for GraphRAG by running community detection and generating text summaries per cluster. Call before rag_retrieve to ensure summaries are up to date.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3234,7 +3362,7 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "rag_retrieve",
-                        "description": "Hybrid vector + text GraphRAG retrieval.",
+                        "description": "Hybrid vector + text GraphRAG retrieval. Combines embedding similarity with full-text search to return the most relevant graph nodes and community summaries for a query.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3250,6 +3378,44 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                 ]
             }),
         ),
+        "resources/list" => mcp_result_response(
+            id,
+            serde_json::json!({
+                "resources": [
+                    {
+                        "uri": "graph://schema",
+                        "name": "Database Schema",
+                        "description": "Current graph schema including all node labels, relationship types, and property keys",
+                        "mimeType": "application/json"
+                    }
+                ]
+            }),
+        ),
+        "resources/read" => {
+            let uri = request
+                .params
+                .as_ref()
+                .and_then(|p| p.as_object())
+                .and_then(|o| o.get("uri"))
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            match uri {
+                "graph://schema" => match execute_mcp_schema_tool(db_path) {
+                    Ok(schema) => mcp_result_response(
+                        id,
+                        serde_json::json!({
+                            "contents": [{
+                                "uri": "graph://schema",
+                                "mimeType": "application/json",
+                                "text": serde_json::to_string_pretty(&schema).unwrap_or_default()
+                            }]
+                        }),
+                    ),
+                    Err(e) => mcp_error_response(id, -32603, e),
+                },
+                _ => mcp_error_response(id, -32602, format!("unknown resource: {uri}")),
+            }
+        }
         "tools/call" => match execute_mcp_tools_call(db_path, request.params) {
             Ok(result) => mcp_result_response(id, result),
             Err(msg) => mcp_error_response(id, -32602, msg),
@@ -12878,7 +13044,7 @@ ex:acme a schema:Organization ;
         assert_eq!(tools_list.exit_code, 0);
         let tools_json: serde_json::Value =
             serde_json::from_str(&tools_list.stdout).expect("valid tools/list response");
-        assert_eq!(tools_json["result"]["tools"][0]["name"], "query");
+        assert_eq!(tools_json["result"]["tools"][0]["name"], "browse_schema");
 
         fs::remove_file(&path).expect("cleanup db");
         fs::remove_file(wal_path(&path)).expect("cleanup wal");
