@@ -224,7 +224,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. All four RAG pipeline operations (`browse_communities`, `drill_into_community`, `hybrid_search`, `ingest_document`) are accessible as MCP tools
   6. Benchmark on a standard dataset (FinanceBench or equivalent) shows measurable improvement over pure vector RAG
 **Plans**: 5 plans
-  - [ ] 12-01-PLAN.md — Leiden community detection algorithm and hierarchical community index with LLM-summary callbacks
+  - [x] 12-01-PLAN.md — Leiden community detection algorithm and hierarchical community index with LLM-summary callbacks
   - [ ] 12-02-PLAN.md — Hybrid retrieval pipeline with RRF fusion: BM25 + vector + graph traversal (entity linking + BFS)
   - [ ] 12-03-PLAN.md — Document ingestion pipeline: PDF (lopdf) + Markdown (pulldown-cmark) → graph + text + vector indexes
   - [ ] 12-04-PLAN.md — RAG API methods and HTTP endpoints: browse_communities, drill_into_community, hybrid_search, ingest_document

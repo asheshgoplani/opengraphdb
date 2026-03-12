@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-12T10:30:07Z"
+last_updated: "2026-03-12T21:15:00Z"
 progress:
   total_phases: 14
   completed_phases: 11
   total_plans: 46
-  completed_plans: 36
+  completed_plans: 37
 ---
 
 # Project State
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 
 ## Current Position
 
-Phase: 11 (Developer Skills & CLI) — Complete (5/5 plans done)
-Plan: 05 complete
-Status: Phase 11 complete; @opengraphdb/skills publish-ready; next is Phase 12 (Graph-Native RAG Engine)
-Last activity: 2026-03-12 — Phase 11 Plan 05 executed: README, package finalization, npm pack verified
+Phase: 12 (Graph-Native RAG Engine) — In progress (1/5 plans done)
+Plan: 01 complete
+Status: Phase 12 Plan 01 complete; Leiden algorithm + CommunityHierarchy types implemented; next is Phase 12 Plan 02
+Last activity: 2026-03-12 — Phase 12 Plan 01 executed: Leiden community detection, multi-resolution hierarchy, 4 tests pass
 
 ```
 Milestone 2 Progress: [#####     ] 2/4 phases complete
 Phase 10: [3/3] Complete — npm MCP server docs, integration tests, publish-ready package
 Phase 11: [5/5] Complete — 4 skills, eval framework, README, publish-ready package
-Phase 12: [ ] Not started
+Phase 12: [1/5] In progress — Leiden algorithm, CommunityHierarchy navigation types
 Phase 13: [ ] Not started
 ```
 
@@ -57,7 +57,7 @@ Phase 13: [ ] Not started
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | 10. MCP Server for OpenGraphDB | 3/3 | Complete | 2026-03-12 |
 | 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
-| 12. Graph-Native RAG Engine | 0/? | Not started | — |
+| 12. Graph-Native RAG Engine | 1/5 | In progress | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
 
 ## Accumulated Context
@@ -146,6 +146,10 @@ Recent decisions affecting current work:
 - [Phase 11-05]: README written developer-focused (176 lines, 10 sections) with no marketing language
 - [Phase 11-05]: Install output enhanced with rule count summary and MCP server recommendation tip
 - [Phase 11-05]: Package metadata finalized with homepage, bugs, author, mcp keyword for npm discoverability
+- [Phase 12-01]: Leiden signature uses resolution: f64 parameter matching Louvain's modularity optimization
+- [Phase 12-01]: EdgeRecord has no edge_type field; edge types retrieved via edge_type_at(eid, snapshot_txn_id)
+- [Phase 12-01]: Summarize callback edge triples use String (owned) not &str to avoid lifetime complications
+- [Phase 12-01]: community_leiden and build_community_hierarchy exposed on Database, ReadTransaction, and ReadSnapshot
 
 ### Pending Todos
 
@@ -158,5 +162,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed 11-05-PLAN.md — README, package finalization, npm pack verified; Phase 11 complete
-Resume at: Phase 12 Plan 01 (Leiden community detection and hierarchical community index)
+Stopped at: Completed 12-01-PLAN.md — Leiden algorithm, CommunityHierarchy types, 4 tests pass
+Resume at: Phase 12 Plan 02
