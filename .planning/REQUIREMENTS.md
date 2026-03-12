@@ -84,12 +84,12 @@ Requirements for Milestone v2.0. Each maps to roadmap phases 10-13.
 
 ### Developer Skills
 
-- [ ] **SKILL-01**: ogdb-cypher skill generates correct, optimized Cypher for OpenGraphDB, validated by evals against TCK test cases
+- [x] **SKILL-01**: ogdb-cypher skill generates correct, optimized Cypher for OpenGraphDB, validated by evals against TCK test cases
 - [x] **SKILL-02**: graph-explore skill provides guided graph exploration with schema awareness, traversal suggestions, and subgraph explanations
 - [x] **SKILL-03**: schema-advisor skill helps design graph schemas, suggests indexes, and provides RDF ontology mapping guidance
 - [x] **SKILL-04**: data-import skill assists CSV/JSON/RDF import with schema detection, validation, and Cypher generation
 - [x] **SKILL-05**: All skills pass A/B benchmarks showing measurable improvement in task completion
-- [ ] **SKILL-06**: Skills published as open standard package, installable in Claude Code, Copilot, Codex, and Cursor
+- [x] **SKILL-06**: Skills published as open standard package, installable in Claude Code, Copilot, Codex, and Cursor
 - [x] **SKILL-07**: Each skill includes structured evals that run via the Skills 2.0 eval framework
 
 ### Graph-Native RAG
@@ -161,12 +161,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MCP-04 | Phase 10 | Complete (10-01) |
 | MCP-05 | Phase 10 | Complete (10-01) |
 | MCP-06 | Phase 10 | Complete |
-| SKILL-01 | Phase 11 | Pending |
+| SKILL-01 | Phase 11 | Complete |
 | SKILL-02 | Phase 11 | Complete |
 | SKILL-03 | Phase 11 | Complete |
 | SKILL-04 | Phase 11 | Complete (11-03) |
 | SKILL-05 | Phase 11 | Complete (11-04) |
-| SKILL-06 | Phase 11 | Pending |
+| SKILL-06 | Phase 11 | Complete |
 | SKILL-07 | Phase 11 | Complete (11-04) |
 | RAG-01 | Phase 12 | Pending |
 | RAG-02 | Phase 12 | Pending |

@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-12T10:23:21Z"
+last_updated: "2026-03-12T10:30:07Z"
 progress:
   total_phases: 14
-  completed_phases: 10
+  completed_phases: 11
   total_plans: 46
-  completed_plans: 35
+  completed_plans: 36
 ---
 
 # Project State
@@ -18,19 +18,19 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** AI-first graph database where developers install skills to work with graph data through natural language, and visitors can talk to knowledge graphs live on the website
-**Current focus:** Milestone v2.0 — roadmap formalized, ready to begin Phase 10 (MCP Server)
+**Current focus:** Milestone v2.0 — Phase 11 complete, ready for Phase 12 (Graph-Native RAG Engine)
 
 ## Current Position
 
-Phase: 11 (Developer Skills & CLI) — In Progress (Plan 04 complete)
-Plan: 04 complete
-Status: Phase 11 in progress (4/5 plans done); next is Plan 11-05 (README and Package Finalization)
-Last activity: 2026-03-12 — Phase 11 Plan 04 executed: eval framework with 34 test cases, A/B runner, CLI eval command
+Phase: 11 (Developer Skills & CLI) — Complete (5/5 plans done)
+Plan: 05 complete
+Status: Phase 11 complete; @opengraphdb/skills publish-ready; next is Phase 12 (Graph-Native RAG Engine)
+Last activity: 2026-03-12 — Phase 11 Plan 05 executed: README, package finalization, npm pack verified
 
 ```
-Milestone 2 Progress: [##        ] 1/4 phases complete
+Milestone 2 Progress: [#####     ] 2/4 phases complete
 Phase 10: [3/3] Complete — npm MCP server docs, integration tests, publish-ready package
-Phase 11: [4/5] In Progress — all 4 skills + eval framework complete, README/publish remaining
+Phase 11: [5/5] Complete — 4 skills, eval framework, README, publish-ready package
 Phase 12: [ ] Not started
 Phase 13: [ ] Not started
 ```
@@ -56,7 +56,7 @@ Phase 13: [ ] Not started
 | 8. Revolutionary Graph Visualization | 3/3 | Complete | 2026-03-02 |
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | 10. MCP Server for OpenGraphDB | 3/3 | Complete | 2026-03-12 |
-| 11. Developer Skills & CLI | 4/5 | In Progress | — |
+| 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
 | 12. Graph-Native RAG Engine | 0/? | Not started | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
 
@@ -143,6 +143,9 @@ Recent decisions affecting current work:
 - [Phase 11-04]: Eval files use JSON content with .eval.yaml extension: no YAML parser dependency, JSON.parse fallback in runner
 - [Phase 11-04]: Eval runner in src/eval-runner.ts (not evals/runner.ts) to preserve TypeScript rootDir: src and dist layout
 - [Phase 11-04]: A/B comparison generates prompts for external LLM evaluation, avoiding API key requirements in eval framework
+- [Phase 11-05]: README written developer-focused (176 lines, 10 sections) with no marketing language
+- [Phase 11-05]: Install output enhanced with rule count summary and MCP server recommendation tip
+- [Phase 11-05]: Package metadata finalized with homepage, bugs, author, mcp keyword for npm discoverability
 
 ### Pending Todos
 
@@ -155,5 +158,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-12
-Stopped at: Completed 11-04-PLAN.md — eval framework with 34 test cases, A/B runner, CLI eval command
-Resume at: Phase 11 Plan 05 (README and Package Finalization)
+Stopped at: Completed 11-05-PLAN.md — README, package finalization, npm pack verified; Phase 11 complete
+Resume at: Phase 12 Plan 01 (Leiden community detection and hierarchical community index)

@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 ### Milestone 2: AI-First Developer Tools & Demo (Phases 10-13)
 
 - [x] **Phase 10: MCP Server for OpenGraphDB** - First-class MCP server exposing graph operations (schema browse, Cypher execute, neighborhood explore, hybrid search) so any AI agent can work with the graph database natively (completed 2026-03-12)
-- [ ] **Phase 11: Developer Skills & CLI** - OpenGraphDB-specific skills (ogdb-cypher, graph-explore, schema-advisor, data-import) built with Skills 2.0 framework including evals and benchmarks, published as open standard skills portable across Claude Code, Copilot, Codex, Cursor
+- [x] **Phase 11: Developer Skills & CLI** - OpenGraphDB-specific skills (ogdb-cypher, graph-explore, schema-advisor, data-import) built with Skills 2.0 framework including evals and benchmarks, published as open standard skills portable across Claude Code, Copilot, Codex, Cursor (completed 2026-03-12)
 - [ ] **Phase 12: Graph-Native RAG Engine** - PageIndex-style hierarchical navigation over graph structure, Leiden community detection with summaries, hybrid retrieval (BM25 + vector + graph traversal + RRF fusion), document ingestion pipeline
 - [ ] **Phase 13: AI Demo Experience** - Interactive "Talk to Your Knowledge Graph" demo on the website where visitors ask natural language questions against pre-loaded famous datasets, see Cypher generated live, watch query trace animations, and explore results visually
 
@@ -210,7 +210,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   - [x] 11-02-PLAN.md — graph-explore skill (SKILL.md + 2 rule files) + schema-advisor skill (SKILL.md + 3 rule files)
   - [x] 11-03-PLAN.md — data-import skill (SKILL.md + 3 rule files) for CSV, JSON, and RDF import assistance
   - [x] 11-04-PLAN.md — Eval framework: 4 eval YAML files (34 test cases), eval runner with A/B scoring, CLI eval command
-  - [ ] 11-05-PLAN.md — README with platform guides, package finalization, npm pack verification
+  - [x] 11-05-PLAN.md — README with platform guides, package finalization, npm pack verification
 
 ### Phase 12: Graph-Native RAG Engine
 **Goal**: OpenGraphDB becomes a reasoning-based retrieval engine where LLMs navigate graph structure like a human expert navigates a document, combined with hybrid BM25 + vector + graph search for maximum retrieval accuracy
@@ -264,6 +264,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | **Milestone 2: AI-First** | | | |
 | 10. MCP Server for OpenGraphDB | 4/3 | Complete    | 2026-03-12 |
-| 11. Developer Skills & CLI | 4/5 | In Progress | -- |
+| 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
 | 12. Graph-Native RAG Engine | 0/5 | Planning | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
