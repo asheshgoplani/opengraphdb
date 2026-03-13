@@ -8,6 +8,10 @@ import { registerExecuteCypher } from "./tools/execute-cypher.js";
 import { registerGetNodeNeighborhood } from "./tools/get-node-neighborhood.js";
 import { registerSearchNodes } from "./tools/search-nodes.js";
 import { registerListDatasets } from "./tools/list-datasets.js";
+import { registerBrowseCommunities } from "./tools/browse-communities.js";
+import { registerDrillIntoCommunity } from "./tools/drill-into-community.js";
+import { registerHybridSearch } from "./tools/hybrid-search.js";
+import { registerIngestDocument } from "./tools/ingest-document.js";
 
 const DEFAULT_URL = "http://localhost:8080";
 
@@ -26,6 +30,12 @@ async function main(): Promise<void> {
   registerGetNodeNeighborhood(server, client);
   registerSearchNodes(server, client);
   registerListDatasets(server, client);
+
+  // Register RAG tools
+  registerBrowseCommunities(server, client);
+  registerDrillIntoCommunity(server, client);
+  registerHybridSearch(server, client);
+  registerIngestDocument(server, client);
 
   // Connect via stdio transport
   const transport = new StdioServerTransport();

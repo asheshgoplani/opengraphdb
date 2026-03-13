@@ -1,3 +1,39 @@
+export interface CommunitySummaryResponse {
+  community_id: number;
+  node_count: number;
+  edge_count: number;
+  description: string;
+  label_distribution: Record<string, number>;
+  level: number;
+  parent_community_id: number | null;
+}
+
+export interface DrillResultResponse {
+  SubCommunities?: CommunitySummaryResponse[];
+  Members?: Array<{
+    node_id: number;
+    labels: string[];
+    properties: Record<string, unknown>;
+  }>;
+}
+
+export interface EnrichedRagResultResponse {
+  node_id: number;
+  score: number;
+  community_id: number | null;
+  labels: string[];
+  properties: Record<string, unknown>;
+}
+
+export interface IngestResultResponse {
+  document_node_id: number;
+  section_count: number;
+  content_count: number;
+  reference_count: number;
+  text_indexed: boolean;
+  vector_indexed: boolean;
+}
+
 export interface SchemaResponse {
   labels: string[];
   edge_types: string[];
@@ -48,6 +84,51 @@ export class OpenGraphDBClient {
     edge_type?: string;
   }): Promise<{ nodes: unknown[]; edges: unknown[] }> {
     return this.post("/export", filters ?? {});
+  }
+
+  async ragBrowseCommunities(resolutions?: number[]): Promise<CommunitySummaryResponse[]> {
+    return this.post("/rag/communities", resolutions ? { resolutions } : {});
+  }
+
+  async ragDrillIntoCommunity(communityId: number, resolutions?: number[]): Promise<DrillResultResponse> {
+    return this.post("/rag/drill", {
+      community_id: communityId,
+      ...(resolutions ? { resolutions } : {}),
+    });
+  }
+
+  async ragHybridSearch(
+    query: string,
+    options?: {
+      embedding?: number[];
+      k?: number;
+      community_id?: number;
+    }
+  ): Promise<EnrichedRagResultResponse[]> {
+    return this.post("/rag/search", {
+      query,
+      ...options,
+    });
+  }
+
+  async ragIngestDocument(
+    title: string,
+    content: string,
+    options?: {
+      format?: "Markdown" | "PlainText" | "Pdf";
+      content_base64?: string;
+      source_uri?: string;
+    }
+  ): Promise<IngestResultResponse> {
+    const body: Record<string, unknown> = { title };
+    if (options?.content_base64) {
+      body.content_base64 = options.content_base64;
+    } else {
+      body.content = content;
+    }
+    if (options?.format) body.format = options.format;
+    if (options?.source_uri) body.source_uri = options.source_uri;
+    return this.post("/rag/ingest", body);
   }
 
   private async get<T>(path: string): Promise<T> {
