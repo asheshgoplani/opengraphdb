@@ -1,0 +1,272 @@
+[
+  {
+    "id": "q01",
+    "question": "What is supervised learning?",
+    "answer": "Supervised learning is a type of machine learning where an algorithm is trained on labeled data. The training dataset includes input-output pairs, and the algorithm learns to map inputs to outputs.",
+    "relevant_sections": ["machine-learning.md#supervised-learning"],
+    "difficulty": "simple",
+    "requires_cross_doc": false,
+    "signal": "bm25"
+  },
+  {
+    "id": "q02",
+    "question": "What is reinforcement learning and how does it work?",
+    "answer": "Reinforcement learning trains agents to make sequential decisions by rewarding desired behaviors. An agent interacts with an environment, takes actions, and receives rewards or penalties, learning a policy that maximizes cumulative reward.",
+    "relevant_sections": ["machine-learning.md#reinforcement-learning"],
+    "difficulty": "simple",
+    "requires_cross_doc": false,
+    "signal": "bm25"
+  },
+  {
+    "id": "q03",
+    "question": "What are property graphs and how do nodes and edges work?",
+    "answer": "In a property graph, nodes represent entities and can have labels and properties. Edges represent relationships between nodes and can also have types and properties.",
+    "relevant_sections": ["graph-databases.md#property-graphs"],
+    "difficulty": "simple",
+    "requires_cross_doc": false,
+    "signal": "bm25"
+  },
+  {
+    "id": "q04",
+    "question": "What is PageRank and what is it used for?",
+    "answer": "PageRank measures node importance based on incoming link structure. It was originally used by Google for web ranking and is now used in social network analysis, fraud detection, and recommendation systems.",
+    "relevant_sections": ["graph-databases.md#graph-algorithms"],
+    "difficulty": "simple",
+    "requires_cross_doc": false,
+    "signal": "bm25"
+  },
+  {
+    "id": "q05",
+    "question": "Describe neural networks and the types of architectures used in deep learning.",
+    "answer": "Neural networks are computational models inspired by the biological brain, consisting of layers of interconnected nodes. Major types include feedforward networks, CNNs for image data, RNNs for sequential data, and transformer networks for language tasks.",
+    "relevant_sections": ["machine-learning.md#neural-networks"],
+    "difficulty": "simple",
+    "requires_cross_doc": false,
+    "signal": "bm25"
+  },
+  {
+    "id": "q06",
+    "question": "What is narrow AI versus general AI?",
+    "answer": "Narrow AI is designed for a specific task and cannot transfer skills to other domains. General AI would have general cognitive abilities and could apply knowledge from one domain to another autonomously.",
+    "relevant_sections": ["ai-overview.md#narrow-ai", "ai-overview.md#general-ai"],
+    "difficulty": "medium",
+    "requires_cross_doc": false,
+    "signal": "bm25"
+  },
+  {
+    "id": "q07",
+    "question": "What is gradient descent and how does it relate to training neural networks?",
+    "answer": "Gradient descent is the primary optimization algorithm for training neural networks. It iteratively adjusts model parameters in the direction that reduces the loss function. Variants include SGD, Adam, and RMSProp.",
+    "relevant_sections": ["machine-learning.md#gradient-descent-and-optimization"],
+    "difficulty": "simple",
+    "requires_cross_doc": false,
+    "signal": "bm25"
+  },
+  {
+    "id": "q08",
+    "question": "What is Cypher and what graph databases use it?",
+    "answer": "Cypher is the most widely used query language for property graph databases, originally developed for Neo4j and now maintained as an open standard (openCypher). OpenGraphDB supports Cypher queries.",
+    "relevant_sections": ["graph-databases.md#graph-query-languages"],
+    "difficulty": "simple",
+    "requires_cross_doc": false,
+    "signal": "bm25"
+  },
+  {
+    "id": "q09",
+    "question": "How does AI relate to machine learning? Are they the same thing?",
+    "answer": "Machine learning is a subset of AI. AI is the broader field of simulating human intelligence, while machine learning focuses on building systems that learn from data. Most modern AI applications are built on machine learning techniques.",
+    "relevant_sections": ["ai-overview.md#ai-and-machine-learning"],
+    "difficulty": "semantic",
+    "requires_cross_doc": false,
+    "signal": "vector"
+  },
+  {
+    "id": "q10",
+    "question": "How do computers learn from experience without being explicitly programmed?",
+    "answer": "Machine learning enables computers to improve through experience by learning from training data. Algorithms learn patterns from examples rather than following static rule-based programming.",
+    "relevant_sections": ["machine-learning.md#introduction-to-machine-learning"],
+    "difficulty": "semantic",
+    "requires_cross_doc": false,
+    "signal": "vector"
+  },
+  {
+    "id": "q11",
+    "question": "What techniques prevent a model from memorizing training data?",
+    "answer": "Regularization techniques such as dropout, weight decay, and batch normalization prevent overfitting by constraining model complexity during training.",
+    "relevant_sections": ["machine-learning.md#gradient-descent-and-optimization"],
+    "difficulty": "semantic",
+    "requires_cross_doc": false,
+    "signal": "vector"
+  },
+  {
+    "id": "q12",
+    "question": "What makes graph databases better than relational databases for connected data?",
+    "answer": "Graph databases natively represent entities as nodes and connections as edges, making traversal queries efficient. Relational databases require costly JOIN operations to traverse relationships, while graph databases avoid this by storing relationships natively.",
+    "relevant_sections": ["graph-databases.md#introduction-to-graph-databases"],
+    "difficulty": "semantic",
+    "requires_cross_doc": false,
+    "signal": "vector"
+  },
+  {
+    "id": "q13",
+    "question": "How do community detection algorithms help analyze networks?",
+    "answer": "Community detection algorithms like Leiden and Louvain identify groups of densely connected nodes. They are used in social network analysis, fraud detection, recommendation systems, and bioinformatics.",
+    "relevant_sections": ["graph-databases.md#graph-algorithms"],
+    "difficulty": "semantic",
+    "requires_cross_doc": false,
+    "signal": "vector"
+  },
+  {
+    "id": "q14",
+    "question": "Why is labeled training data important for machine learning?",
+    "answer": "Labeled training data provides correct input-output examples from which supervised learning models learn. Without labeled data, the algorithm cannot learn the mapping from inputs to outputs. The labeled data acts as a teacher during training.",
+    "relevant_sections": ["machine-learning.md#supervised-learning"],
+    "difficulty": "semantic",
+    "requires_cross_doc": false,
+    "signal": "vector"
+  },
+  {
+    "id": "q15",
+    "question": "What are the ethical concerns around artificial intelligence?",
+    "answer": "Ethical AI concerns include algorithmic bias (AI reflecting biases in training data), privacy concerns (AI collecting personal data), and transparency (difficulty interpreting complex AI models). Researchers study how to build AI systems aligned with human values.",
+    "relevant_sections": ["ai-overview.md#ethics-and-safety"],
+    "difficulty": "semantic",
+    "requires_cross_doc": false,
+    "signal": "vector"
+  },
+  {
+    "id": "q16",
+    "question": "How are graph databases used in machine learning?",
+    "answer": "Graph databases store relational data for graph neural networks and knowledge graph embeddings. OpenGraphDB provides graph traversal and community detection useful for graph-based machine learning. Graph neural networks operate on graph structured data for node classification, link prediction, and graph prediction.",
+    "relevant_sections": ["graph-databases.md#graph-based-machine-learning", "machine-learning.md#graph-approaches-in-machine-learning"],
+    "difficulty": "hard",
+    "requires_cross_doc": true,
+    "signal": "graph"
+  },
+  {
+    "id": "q17",
+    "question": "What is the connection between AI and knowledge graphs?",
+    "answer": "AI systems use knowledge graphs for reasoning, entity disambiguation, and enriching training data. Knowledge graphs power search engines, virtual assistants, and question answering. The connection between knowledge graphs and artificial intelligence is deep.",
+    "relevant_sections": ["graph-databases.md#knowledge-graphs", "ai-overview.md#ai-and-graph-based-approaches"],
+    "difficulty": "hard",
+    "requires_cross_doc": true,
+    "signal": "graph"
+  },
+  {
+    "id": "q18",
+    "question": "How do graph neural networks relate to both machine learning and graph databases?",
+    "answer": "Graph neural networks (GNNs) extend deep learning to graph structured data. They are a machine learning technique that requires graph-structured data stored in systems like graph databases. GNNs enable node classification, link prediction, and graph classification.",
+    "relevant_sections": ["machine-learning.md#graph-approaches-in-machine-learning", "graph-databases.md#graph-based-machine-learning"],
+    "difficulty": "hard",
+    "requires_cross_doc": true,
+    "signal": "graph"
+  },
+  {
+    "id": "q19",
+    "question": "What is the full chain from AI to machine learning to graph approaches?",
+    "answer": "AI is the broadest field. Machine learning is a subset of AI that learns from data. Graph-based approaches are a technique in both AI and ML that leverage relational structure. Graph databases store this relational data. Graph neural networks bridge deep learning and graph databases.",
+    "relevant_sections": ["ai-overview.md#ai-and-machine-learning", "ai-overview.md#ai-and-graph-based-approaches", "machine-learning.md#graph-approaches-in-machine-learning"],
+    "difficulty": "hard",
+    "requires_cross_doc": true,
+    "signal": "graph"
+  },
+  {
+    "id": "q20",
+    "question": "How does natural language processing connect AI and machine learning?",
+    "answer": "NLP is an AI application that relies heavily on machine learning techniques, specifically transformer architectures and deep learning. Modern NLP systems are ML models. This makes NLP a direct application of machine learning within the broader AI field.",
+    "relevant_sections": ["ai-overview.md#natural-language-processing", "machine-learning.md#neural-networks"],
+    "difficulty": "hard",
+    "requires_cross_doc": true,
+    "signal": "graph"
+  },
+  {
+    "id": "q21",
+    "question": "What is unsupervised learning and when is it preferred over supervised learning?",
+    "answer": "Unsupervised learning trains models on unlabeled data, discovering hidden structure. It is preferred when labeled data is scarce or expensive. Techniques include clustering, dimensionality reduction, and anomaly detection.",
+    "relevant_sections": ["machine-learning.md#unsupervised-learning"],
+    "difficulty": "medium",
+    "requires_cross_doc": false,
+    "signal": "community"
+  },
+  {
+    "id": "q22",
+    "question": "What is graph-native RAG and how does it differ from standard vector RAG?",
+    "answer": "Graph-native RAG uses the graph structure itself as the retrieval index, creating Document, Section, and Content nodes with structural edges. Standard vector RAG indexes documents as flat chunks. Graph-native RAG uses hybrid retrieval combining BM25, vector search, and graph traversal, fused with RRF.",
+    "relevant_sections": ["graph-databases.md#graph-native-rag"],
+    "difficulty": "medium",
+    "requires_cross_doc": false,
+    "signal": "community"
+  },
+  {
+    "id": "q23",
+    "question": "What are the components of the machine learning model evaluation pipeline?",
+    "answer": "Evaluation requires training, validation, and test sets to avoid data leakage. Common metrics include accuracy, precision, recall, F1 score, and MSE. Cross-validation provides robust generalization estimates. Hyperparameter tuning via grid search, random search, or Bayesian optimization finds the best model configuration.",
+    "relevant_sections": ["machine-learning.md#evaluation-and-model-selection"],
+    "difficulty": "medium",
+    "requires_cross_doc": false,
+    "signal": "community"
+  },
+  {
+    "id": "q24",
+    "question": "How is BFS used in graph database queries?",
+    "answer": "Breadth-first search explores nodes level by level from a source node. In graph databases, BFS powers queries for finding shortest paths, discovering neighborhoods, and detecting clusters. Efficient traversal requires indexes and compact storage like CSR format.",
+    "relevant_sections": ["graph-databases.md#graph-traversal-algorithms"],
+    "difficulty": "medium",
+    "requires_cross_doc": false,
+    "signal": "community"
+  },
+  {
+    "id": "q25",
+    "question": "What types of AI have been developed and what distinguishes them from each other?",
+    "answer": "Narrow AI handles specific tasks and cannot transfer skills. General AI would have broad cognitive abilities across domains (theoretical). Superintelligent AI would surpass human intelligence in all fields (philosophical concept). Current AI systems are all forms of narrow AI.",
+    "relevant_sections": ["ai-overview.md#narrow-ai", "ai-overview.md#general-ai", "ai-overview.md#superintelligent-ai"],
+    "difficulty": "medium",
+    "requires_cross_doc": false,
+    "signal": "community"
+  },
+  {
+    "id": "q26",
+    "question": "What is feature engineering and why does it matter for traditional ML methods?",
+    "answer": "Feature engineering transforms raw data into informative representations that improve model performance. For traditional methods like decision trees and SVMs, it is critically important because these models cannot automatically learn features. Deep learning reduces but does not eliminate the need for feature engineering.",
+    "relevant_sections": ["machine-learning.md#feature-engineering"],
+    "difficulty": "medium",
+    "requires_cross_doc": false,
+    "signal": "community"
+  },
+  {
+    "id": "q27",
+    "question": "How does RDF relate to knowledge graphs and AI applications?",
+    "answer": "RDF is the W3C standard for representing knowledge graphs as subject-predicate-object triples. Knowledge graphs power AI applications for reasoning and question answering. OpenGraphDB supports RDF import/export with URI preservation. The connection between RDF knowledge graphs and AI is fundamental to semantic web technologies.",
+    "relevant_sections": ["graph-databases.md#knowledge-graphs", "ai-overview.md#ai-and-graph-based-approaches"],
+    "difficulty": "hard",
+    "requires_cross_doc": true,
+    "signal": "community"
+  },
+  {
+    "id": "q28",
+    "question": "How does reciprocal rank fusion improve retrieval quality in graph-native RAG?",
+    "answer": "RRF combines ranked lists from multiple retrieval signals (BM25, vector, graph traversal) into a single ranked list. Each document's RRF score is the sum of 1/(K+rank) across all signals. This fusion is robust because it uses rank positions, not raw scores, making it resilient to different score scales.",
+    "relevant_sections": ["graph-databases.md#graph-native-rag"],
+    "difficulty": "hard",
+    "requires_cross_doc": false,
+    "signal": "graph"
+  },
+  {
+    "id": "q29",
+    "question": "What is the relationship between Leiden community detection and RAG retrieval quality?",
+    "answer": "Leiden community detection identifies topical clusters in the document graph. In graph-native RAG, communities enable scoped retrieval, restricting results to the most relevant topical cluster. This improves precision for domain-specific queries. Community hierarchy enables multi-resolution navigation from broad to specific topics.",
+    "relevant_sections": ["graph-databases.md#graph-algorithms", "graph-databases.md#graph-native-rag"],
+    "difficulty": "hard",
+    "requires_cross_doc": false,
+    "signal": "graph"
+  },
+  {
+    "id": "q30",
+    "question": "How do computer vision, robotics, and NLP all draw on machine learning and AI?",
+    "answer": "Computer vision uses CNNs (a deep learning ML technique) for image interpretation. NLP uses transformer architectures (a deep learning ML technique). Robotics uses AI for navigation and decision-making. All three are AI application areas that rely on machine learning as their core learning mechanism.",
+    "relevant_sections": ["ai-overview.md#natural-language-processing", "ai-overview.md#computer-vision", "ai-overview.md#robotics", "machine-learning.md#neural-networks"],
+    "difficulty": "hard",
+    "requires_cross_doc": true,
+    "signal": "graph"
+  }
+]
