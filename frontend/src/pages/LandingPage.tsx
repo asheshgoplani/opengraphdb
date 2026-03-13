@@ -1,8 +1,13 @@
+import { lazy, Suspense } from 'react'
 import { LandingNav } from '@/components/landing/LandingNav'
 import { HeroSection } from '@/components/landing/HeroSection'
 import { ShowcaseSection } from '@/components/landing/ShowcaseSection'
 import { FeaturesSection } from '@/components/landing/FeaturesSection'
 import { GettingStartedSection } from '@/components/landing/GettingStartedSection'
+
+const DemoSection = lazy(() =>
+  import('@/components/demo/DemoSection').then((m) => ({ default: m.DemoSection }))
+)
 
 export default function LandingPage() {
   const year = new Date().getFullYear()
@@ -14,6 +19,9 @@ export default function LandingPage() {
       <main>
         <HeroSection />
         <ShowcaseSection />
+        <Suspense fallback={<div className="py-20 sm:py-24" />}>
+          <DemoSection />
+        </Suspense>
         <FeaturesSection />
         <GettingStartedSection />
       </main>

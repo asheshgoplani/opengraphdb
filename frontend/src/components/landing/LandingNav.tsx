@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 
 const SECTION_LINKS = [
+  { href: '#demo', label: 'Demo' },
   { href: '#features', label: 'Features' },
-  { href: '#use-cases', label: 'Use Cases' },
   { href: '#get-started', label: 'Get Started' },
 ]
 
