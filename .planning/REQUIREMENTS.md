@@ -106,7 +106,7 @@ Requirements for Milestone v2.0. Each maps to roadmap phases 10-13.
 - [x] **DEMO-AI-02**: Demo works against pre-loaded famous datasets with no setup required
 - [ ] **DEMO-AI-03**: Each AI response shows generated Cypher, query trace animation, and NL answer
 - [x] **DEMO-AI-04**: Demo includes "How it works" explainer showing MCP + Skills + RAG pipeline visually
-- [ ] **DEMO-AI-05**: Response latency under 5 seconds for typical questions (streaming for longer)
+- [x] **DEMO-AI-05**: Response latency under 5 seconds for typical questions (streaming for longer)
 - [x] **DEMO-AI-06**: Works with free default model, option to use own API keys for better models
 
 ## Future Requirements
@@ -177,7 +177,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEMO-AI-02 | Phase 13 | Complete |
 | DEMO-AI-03 | Phase 13 | Pending |
 | DEMO-AI-04 | Phase 13 | Complete |
-| DEMO-AI-05 | Phase 13 | Pending |
+| DEMO-AI-05 | Phase 13 | Complete |
 | DEMO-AI-06 | Phase 13 | Complete |
 
 **Coverage:**

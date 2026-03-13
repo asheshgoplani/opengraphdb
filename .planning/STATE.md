@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-13T06:16:58Z"
+last_updated: "2026-03-13T06:38:00Z"
 progress:
   total_phases: 14
-  completed_phases: 12
+  completed_phases: 13
   total_plans: 46
-  completed_plans: 45
+  completed_plans: 46
 ---
 
 # Project State
@@ -18,21 +18,21 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** AI-first graph database where developers install skills to work with graph data through natural language, and visitors can talk to knowledge graphs live on the website
-**Current focus:** Milestone v2.0 — Phase 12 Complete; RAG benchmark suite done; ready for Phase 13
+**Current focus:** Milestone v2.0 — Phase 13 Complete; full AI demo experience shipped
 
 ## Current Position
 
-Phase: 13 (AI Demo Experience) — In progress (2/3 done)
-Plan: 13-03 next
-Status: Phase 13 Plan 02 complete; full demo UI component tree and LandingPage integration done
-Last activity: 2026-03-13 — Phase 13 Plan 02 executed: DemoDatasetSelector, DemoSuggestedQuestions, DemoChatInput, DemoResponseCard, DemoGraphCanvas, DemoSection; LandingPage integration with lazy loading
+Phase: 13 (AI Demo Experience) — Complete (3/3 done)
+Plan: All complete
+Status: Phase 13 complete; HowItWorksSection, demo polish, edge case handling, and performance optimization done
+Last activity: 2026-03-13 — Phase 13 Plan 03 executed: HowItWorksSection, PipelineStep, RAF typewriter, lazy GraphCanvas mount, adaptive trace timing, settings upgrade path, LandingNav How It Works link
 
 ```
-Milestone 2 Progress: [#########  ] 3.7/4 phases complete
+Milestone 2 Progress: [##########] 4/4 phases complete
 Phase 10: [3/3] Complete — npm MCP server docs, integration tests, publish-ready package
 Phase 11: [5/5] Complete — 4 skills, eval framework, README, publish-ready package
 Phase 12: [5/5] Complete — Leiden, RRF hybrid RAG, document ingestion, RAG API+MCP, benchmark suite
-Phase 13: [2/3] In Progress — demo data layer + UI done; final polish/tests remaining
+Phase 13: [3/3] Complete — demo data layer, UI, How It Works explainer, polish, performance
 ```
 
 ## Performance Metrics
@@ -58,9 +58,10 @@ Phase 13: [2/3] In Progress — demo data layer + UI done; final polish/tests re
 | 10. MCP Server for OpenGraphDB | 3/3 | Complete | 2026-03-12 |
 | 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
 | 12. Graph-Native RAG Engine | 5/5 | Complete | 2026-03-13 |
-| 13. AI Demo Experience | 2/3 | In Progress | — |
+| 13. AI Demo Experience | 3/3 | Complete | 2026-03-13 |
 | Phase 13-ai-demo-experience P01 | 7 | 3 tasks | 6 files |
 | Phase 13-ai-demo-experience P02 | 3 | 3 tasks | 8 files |
+| Phase 13-ai-demo-experience P03 | 18 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -175,6 +176,11 @@ Recent decisions affecting current work:
 - [Phase 13-02]: DemoSection lazy-loaded via React.lazy + Suspense so GraphCanvas and AI provider only initialize when user scrolls to section
 - [Phase 13-02]: LandingNav Demo link replaces Use Cases; #demo anchor links to DemoSection section element
 - [Phase 13-02]: DemoResponseCard extracts NL text before first cypher fence for clean display separation from Cypher block
+- [Phase 13-03]: HowItWorksSection lazy-loaded via React.lazy to keep main bundle lean; same pattern as DemoSection
+- [Phase 13-03]: Typewriter switched from setTimeout per-chunk to requestAnimationFrame to avoid timer throttling in background tabs
+- [Phase 13-03]: Adaptive trace step delay: <15 nodes 120ms, 15-30 nodes 80ms, >30 nodes 50ms — keeps total animation 2-4 seconds
+- [Phase 13-03]: DemoGraphCanvas IntersectionObserver threshold 0.05 ensures mount starts before user sees the canvas area
+- [Phase 13-03]: Settings upgrade link navigates to /app (SettingsDialog) rather than inline popover to keep DemoSection focused
 
 ### Pending Todos
 
@@ -187,5 +193,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 13-02-PLAN.md — DemoSection component tree + LandingPage integration; Phase 13 Plan 02 complete
-Resume at: Phase 13 Plan 03
+Stopped at: Completed 13-03-PLAN.md — HowItWorksSection, demo polish, edge cases, performance; Phase 13 complete; Milestone 2 complete
+Resume at: Next milestone planning
