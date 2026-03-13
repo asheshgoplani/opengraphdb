@@ -105,6 +105,14 @@ export default {
   					opacity: '1',
   					transform: 'scale(1)'
   				}
+  			},
+  			flow: {
+  				'0%': {
+  					backgroundPosition: '200% 0'
+  				},
+  				'100%': {
+  					backgroundPosition: '-200% 0'
+  				}
   			}
   		},
   		animation: {
@@ -113,7 +121,8 @@ export default {
   			'fade-in': 'fadeIn 0.5s ease-out',
   			'slide-up': 'slideUp 0.5s ease-out',
   			'slide-in': 'slideIn 0.5s ease-out',
-  			'scale-in': 'scaleIn 0.3s ease-out'
+  			'scale-in': 'scaleIn 0.3s ease-out',
+  			'flow': 'flow 2s ease-in-out infinite'
   		}
   	}
   },
