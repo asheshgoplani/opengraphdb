@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-13T00:25:00Z"
+last_updated: "2026-03-13T00:50:00Z"
 progress:
   total_phases: 14
   completed_phases: 11
   total_plans: 46
-  completed_plans: 39
+  completed_plans: 40
 ---
 
 # Project State
@@ -22,16 +22,16 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 
 ## Current Position
 
-Phase: 12 (Graph-Native RAG Engine) — In progress (3/5 plans done)
-Plan: 03 complete
-Status: Phase 12 Plans 01-03 complete; Leiden algorithm + hybrid RAG retrieval + document ingestion pipeline; next is Phase 12 Plan 04
-Last activity: 2026-03-13 — Phase 12 Plan 03 executed: PDF/Markdown/plaintext ingestion pipeline, lopdf + pulldown-cmark, 9 tests pass
+Phase: 12 (Graph-Native RAG Engine) — In progress (4/5 plans done)
+Plan: 04 next
+Status: Phase 12 Plans 01-04 complete; Leiden algorithm + RRF hybrid retrieval + document ingestion pipeline + (02 just finished); next is Phase 12 Plan 05
+Last activity: 2026-03-13 — Phase 12 Plan 02 executed: RRF three-signal hybrid retrieval, entity linking, graph traversal BFS scoring, 5 tests pass
 
 ```
 Milestone 2 Progress: [#####     ] 2/4 phases complete
 Phase 10: [3/3] Complete — npm MCP server docs, integration tests, publish-ready package
 Phase 11: [5/5] Complete — 4 skills, eval framework, README, publish-ready package
-Phase 12: [3/5] In progress — Leiden, hybrid RAG, document ingestion pipeline
+Phase 12: [4/5] In progress — Leiden, RRF hybrid RAG, document ingestion, and more
 Phase 13: [ ] Not started
 ```
 
@@ -57,7 +57,7 @@ Phase 13: [ ] Not started
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | 10. MCP Server for OpenGraphDB | 3/3 | Complete | 2026-03-12 |
 | 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
-| 12. Graph-Native RAG Engine | 3/5 | In progress | — |
+| 12. Graph-Native RAG Engine | 4/5 | In progress | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
 
 ## Accumulated Context
@@ -154,6 +154,10 @@ Recent decisions affecting current work:
 - [Phase 12-03]: Vectors stored as PropertyValue::Vector on Content node properties; rebuild_vector_indexes_from_catalog called post-ingest
 - [Phase 12-03]: Plan's BTreeMap<String, Value> / TransactionSnapshot API adapted to real PropertyMap / Database API
 - [Phase 12-03]: document-ingest feature flag gates lopdf + pulldown-cmark; enabled in default feature set
+- [Phase 12-02]: rrf_fuse is pub(crate) free function (not a method on Database) to enable direct unit testing
+- [Phase 12-02]: Graph traversal iterates edge_records directly for edge-type filtering (consistent with collect_undirected_neighbors_at)
+- [Phase 12-02]: community_leiden_at called lazily only when graph traversal signal active or community_id filter specified
+- [Phase 12-02]: Existing hybrid_rag_retrieve (alpha-blending) preserved unchanged for backward compatibility
 
 ### Pending Todos
 
@@ -166,5 +170,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 12-03-PLAN.md — PDF/Markdown/plaintext ingestion pipeline, 9 tests pass
-Resume at: Phase 12 Plan 04
+Stopped at: Completed 12-02-PLAN.md — RRF three-signal hybrid retrieval with entity linking and graph traversal BFS scoring, 5 tests pass
+Resume at: Phase 12 Plan 04 (note: plan 02 was executed out of order; state represents plan 02 + 03 both complete)

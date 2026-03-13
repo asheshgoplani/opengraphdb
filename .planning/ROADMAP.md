@@ -265,5 +265,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | **Milestone 2: AI-First** | | | |
 | 10. MCP Server for OpenGraphDB | 4/3 | Complete    | 2026-03-12 |
 | 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
-| 12. Graph-Native RAG Engine | 3/5 | In progress | — |
+| 12. Graph-Native RAG Engine | 4/5 | In progress | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
