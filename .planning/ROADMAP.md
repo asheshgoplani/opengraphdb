@@ -242,8 +242,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   5. A typical demo question receives a first token within 5 seconds, with streaming for longer responses
   6. The demo works with the free default model out of the box, and a visitor can optionally enter their own API key to switch to a premium model
 **Plans**: 3 plans
-  - [ ] 13-01-PLAN.md — Demo data infrastructure: suggested questions, pre-computed responses, demo store, useDemoChat hook, dataset-aware prompts, simulated trace
-  - [ ] 13-02-PLAN.md — "Talk to Your Knowledge Graph" UI: DemoSection + 5 subcomponents (dataset selector, question chips, chat input, response card, graph canvas), landing page integration
+  - [x] 13-01-PLAN.md — Demo data infrastructure: suggested questions, pre-computed responses, demo store, useDemoChat hook, dataset-aware prompts, simulated trace
+  - [x] 13-02-PLAN.md — "Talk to Your Knowledge Graph" UI: DemoSection + 5 subcomponents (dataset selector, question chips, chat input, response card, graph canvas), landing page integration
   - [ ] 13-03-PLAN.md — "How It Works" pipeline explainer, demo polish, edge case handling, performance optimization
 
 ## Progress

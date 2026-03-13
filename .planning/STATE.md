@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-13T06:09:57.849Z"
+last_updated: "2026-03-13T06:16:58Z"
 progress:
   total_phases: 14
   completed_phases: 12
   total_plans: 46
-  completed_plans: 44
+  completed_plans: 45
 ---
 
 # Project State
@@ -22,17 +22,17 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 
 ## Current Position
 
-Phase: 13 (AI Demo Experience) — In progress (1/3 done)
-Plan: 13-02 next
-Status: Phase 13 Plan 01 complete; demo data layer (24 questions, pre-computed responses, useDemoChat, demo store)
-Last activity: 2026-03-13 — Phase 13 Plan 01 executed: DEMO_QUESTIONS/DEMO_RESPONSES, useDemoChat hook, demo store, trace utility
+Phase: 13 (AI Demo Experience) — In progress (2/3 done)
+Plan: 13-03 next
+Status: Phase 13 Plan 02 complete; full demo UI component tree and LandingPage integration done
+Last activity: 2026-03-13 — Phase 13 Plan 02 executed: DemoDatasetSelector, DemoSuggestedQuestions, DemoChatInput, DemoResponseCard, DemoGraphCanvas, DemoSection; LandingPage integration with lazy loading
 
 ```
-Milestone 2 Progress: [#########  ] 3.3/4 phases complete
+Milestone 2 Progress: [#########  ] 3.7/4 phases complete
 Phase 10: [3/3] Complete — npm MCP server docs, integration tests, publish-ready package
 Phase 11: [5/5] Complete — 4 skills, eval framework, README, publish-ready package
 Phase 12: [5/5] Complete — Leiden, RRF hybrid RAG, document ingestion, RAG API+MCP, benchmark suite
-Phase 13: [1/3] In Progress — demo data layer done; UI components and integration remaining
+Phase 13: [2/3] In Progress — demo data layer + UI done; final polish/tests remaining
 ```
 
 ## Performance Metrics
@@ -58,8 +58,9 @@ Phase 13: [1/3] In Progress — demo data layer done; UI components and integrat
 | 10. MCP Server for OpenGraphDB | 3/3 | Complete | 2026-03-12 |
 | 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
 | 12. Graph-Native RAG Engine | 5/5 | Complete | 2026-03-13 |
-| 13. AI Demo Experience | 0/3 | Not started | — |
+| 13. AI Demo Experience | 2/3 | In Progress | — |
 | Phase 13-ai-demo-experience P01 | 7 | 3 tasks | 6 files |
+| Phase 13-ai-demo-experience P02 | 3 | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -171,6 +172,9 @@ Recent decisions affecting current work:
 - [Phase 13-ai-demo-experience]: DEMO_RESPONSES uses Map<string, DemoResponse> keyed by questionId for O(1) lookup
 - [Phase 13-ai-demo-experience]: Demo store has no persist middleware — demo state is ephemeral, no localStorage needed
 - [Phase 13-ai-demo-experience]: buildDemoResponse sorts traceNodeIds by edge degree for expanding-outward graph animation
+- [Phase 13-02]: DemoSection lazy-loaded via React.lazy + Suspense so GraphCanvas and AI provider only initialize when user scrolls to section
+- [Phase 13-02]: LandingNav Demo link replaces Use Cases; #demo anchor links to DemoSection section element
+- [Phase 13-02]: DemoResponseCard extracts NL text before first cypher fence for clean display separation from Cypher block
 
 ### Pending Todos
 
@@ -183,5 +187,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 12-05-PLAN.md — RAG benchmark suite, 30-question dataset, criterion harness, accuracy test, RESULTS.md; Phase 12 complete
-Resume at: Phase 13 Plan 01
+Stopped at: Completed 13-02-PLAN.md — DemoSection component tree + LandingPage integration; Phase 13 Plan 02 complete
+Resume at: Phase 13 Plan 03
