@@ -1398,6 +1398,46 @@ pub struct RagResult {
     pub community_id: Option<u64>,
 }
 
+/// Which retrieval signals to include in hybrid search
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RetrievalSignal {
+    Bm25,
+    Vector,
+    GraphTraversal,
+}
+
+/// Configuration for Reciprocal Rank Fusion
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RrfConfig {
+    /// RRF constant K (default: 60, standard value from original paper).
+    /// Higher K reduces the impact of high-ranked documents.
+    pub k_constant: u32,
+    /// Which signals to use (default: all three)
+    pub signals: Vec<RetrievalSignal>,
+    /// Max BFS depth for graph traversal signal (default: 3)
+    pub max_traversal_depth: u32,
+    /// Optional edge type filter for graph traversal
+    pub traversal_edge_type: Option<String>,
+    /// Optional community scope (restrict results to this community)
+    pub community_id: Option<u64>,
+}
+
+impl Default for RrfConfig {
+    fn default() -> Self {
+        Self {
+            k_constant: 60,
+            signals: vec![
+                RetrievalSignal::Bm25,
+                RetrievalSignal::Vector,
+                RetrievalSignal::GraphTraversal,
+            ],
+            max_traversal_depth: 3,
+            traversal_edge_type: None,
+            community_id: None,
+        }
+    }
+}
+
 /// Supported document formats for ingestion
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DocumentFormat {
@@ -8614,6 +8654,17 @@ impl<'a> ReadTransaction<'a> {
         )
     }
 
+    pub fn hybrid_rag_retrieve_rrf(
+        &self,
+        query_embedding: &[f32],
+        query_text: &str,
+        k: usize,
+        config: &RrfConfig,
+    ) -> Result<Vec<RagResult>, DbError> {
+        self.db
+            .hybrid_rag_retrieve_rrf_at(query_embedding, query_text, k, config, self.snapshot_txn_id)
+    }
+
     pub fn out_degree_stats(&self) -> Result<OutDegreeStats, DbError> {
         self.db.out_degree_stats_at(self.snapshot_txn_id)
     }
@@ -9223,6 +9274,17 @@ impl<'a> ReadSnapshot<'a> {
             community_id,
             self.snapshot_txn_id,
         )
+    }
+
+    pub fn hybrid_rag_retrieve_rrf(
+        &self,
+        query_embedding: &[f32],
+        query_text: &str,
+        k: usize,
+        config: &RrfConfig,
+    ) -> Result<Vec<RagResult>, DbError> {
+        self.guard
+            .hybrid_rag_retrieve_rrf_at(query_embedding, query_text, k, config, self.snapshot_txn_id)
     }
 
     pub fn out_degree_stats(&self) -> Result<OutDegreeStats, DbError> {
@@ -12558,6 +12620,22 @@ impl Database {
             k,
             alpha,
             community_id,
+            self.current_snapshot_txn_id(),
+        )
+    }
+
+    pub fn hybrid_rag_retrieve_rrf(
+        &self,
+        query_embedding: &[f32],
+        query_text: &str,
+        k: usize,
+        config: &RrfConfig,
+    ) -> Result<Vec<RagResult>, DbError> {
+        self.hybrid_rag_retrieve_rrf_at(
+            query_embedding,
+            query_text,
+            k,
+            config,
             self.current_snapshot_txn_id(),
         )
     }
@@ -19297,6 +19375,305 @@ impl Database {
         Ok(out)
     }
 
+    /// Find anchor nodes for a query by searching node properties via full-text index.
+    /// Falls back to scanning node string properties for substring matches.
+    fn entity_link_at(
+        &self,
+        query_text: &str,
+        max_anchors: usize,
+        prefilter: Option<&RoaringBitmap>,
+        snapshot_txn_id: u64,
+    ) -> Result<Vec<u64>, DbError> {
+        if query_text.trim().is_empty() || max_anchors == 0 {
+            return Ok(Vec::new());
+        }
+
+        // Try full-text search first
+        let text_index_name = self
+            .meta
+            .fulltext_index_catalog
+            .iter()
+            .next()
+            .map(|def| def.name.clone());
+
+        if let Some(index_name) = text_index_name {
+            let results = self
+                .fulltext_query_nodes(&index_name, query_text, max_anchors, prefilter)
+                .unwrap_or_default();
+            if !results.is_empty() {
+                return Ok(results.into_iter().map(|(node_id, _)| node_id).collect());
+            }
+        }
+
+        // Fallback: scan node properties for string values containing query text
+        let query_lower = query_text.to_lowercase();
+        let mut matches = Vec::new();
+        for node_id in 0..self.node_count() {
+            if !self.is_node_visible_at(node_id, snapshot_txn_id) {
+                continue;
+            }
+            if let Some(filter) = prefilter {
+                if let Ok(bitmap_id) = u32::try_from(node_id) {
+                    if !filter.contains(bitmap_id) {
+                        continue;
+                    }
+                }
+            }
+            if let Ok(props) = self.node_properties_at(node_id, snapshot_txn_id) {
+                for value in props.values() {
+                    if let PropertyValue::String(text) = value {
+                        if text.to_lowercase().contains(&query_lower) {
+                            matches.push(node_id);
+                            break;
+                        }
+                    }
+                }
+            }
+            if matches.len() >= max_anchors {
+                break;
+            }
+        }
+
+        Ok(matches)
+    }
+
+    /// Graph traversal retrieval: BFS from anchor nodes with distance-decay scoring.
+    /// Nodes closer to anchors score higher: score = 1.0 / (1.0 + distance).
+    fn graph_traversal_retrieve_at(
+        &self,
+        anchor_nodes: &[u64],
+        max_depth: u32,
+        max_results: usize,
+        edge_type: Option<&str>,
+        prefilter: Option<&RoaringBitmap>,
+        snapshot_txn_id: u64,
+    ) -> Result<Vec<(u64, f32)>, DbError> {
+        if anchor_nodes.is_empty() || max_results == 0 {
+            return Ok(Vec::new());
+        }
+
+        let mut visited = BTreeMap::<u64, u32>::new(); // node_id → min distance
+        let mut queue = VecDeque::new();
+
+        // Seed with anchor nodes at distance 0
+        for &anchor in anchor_nodes {
+            if self.is_node_visible_at(anchor, snapshot_txn_id) {
+                let passes_prefilter = prefilter
+                    .map(|f| {
+                        u32::try_from(anchor)
+                            .map(|bid| f.contains(bid))
+                            .unwrap_or(false)
+                    })
+                    .unwrap_or(true);
+                if passes_prefilter {
+                    visited.insert(anchor, 0);
+                    queue.push_back((anchor, 0u32));
+                }
+            }
+        }
+
+        // BFS with depth limit — visit neighbors via edge_records for edge-type awareness
+        while let Some((node_id, depth)) = queue.pop_front() {
+            if depth >= max_depth {
+                continue;
+            }
+            for (edge_id, record) in self.edge_records.iter().enumerate() {
+                let edge_id = edge_id as u64;
+                // Check this edge involves node_id as src or dst
+                let neighbor = if record.src == node_id {
+                    record.dst
+                } else if record.dst == node_id {
+                    record.src
+                } else {
+                    continue;
+                };
+                if !self.is_edge_visible_at(edge_id, snapshot_txn_id) {
+                    continue;
+                }
+                if !self.is_node_visible_at(neighbor, snapshot_txn_id) {
+                    continue;
+                }
+                // Edge type filter
+                if let Some(et) = edge_type {
+                    let et_value = self.edge_type_at(edge_id, snapshot_txn_id)?;
+                    if et_value.as_deref() != Some(et) {
+                        continue;
+                    }
+                }
+                // Prefilter on neighbor
+                if let Some(filter) = prefilter {
+                    let passes = u32::try_from(neighbor)
+                        .map(|bid| filter.contains(bid))
+                        .unwrap_or(false);
+                    if !passes {
+                        continue;
+                    }
+                }
+
+                let new_depth = depth + 1;
+                if !visited.contains_key(&neighbor) || visited[&neighbor] > new_depth {
+                    visited.insert(neighbor, new_depth);
+                    queue.push_back((neighbor, new_depth));
+                }
+            }
+        }
+
+        // Convert distances to scores: score = 1.0 / (1.0 + distance)
+        // Anchors get 1.0, 1-hop gets 0.5, 2-hop gets 0.33, etc.
+        let mut results: Vec<(u64, f32)> = visited
+            .into_iter()
+            .map(|(nid, dist)| (nid, 1.0 / (1.0 + dist as f32)))
+            .collect();
+        results.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+        results.truncate(max_results);
+        Ok(results)
+    }
+
+    /// Reciprocal Rank Fusion: combines ranked lists from multiple signals.
+    /// RRF score for a document = sum over lists of 1 / (K + rank + 1).
+    /// Three-signal hybrid retrieval with Reciprocal Rank Fusion.
+    fn hybrid_rag_retrieve_rrf_at(
+        &self,
+        query_embedding: &[f32],
+        query_text: &str,
+        k: usize,
+        config: &RrfConfig,
+        snapshot_txn_id: u64,
+    ) -> Result<Vec<RagResult>, DbError> {
+        if k == 0 {
+            return Ok(Vec::new());
+        }
+
+        // Build community map and prefilter if needed
+        let needs_community_map = config.community_id.is_some()
+            || config.signals.contains(&RetrievalSignal::GraphTraversal);
+        let community_by_node = if needs_community_map {
+            Some(
+                self.community_leiden_at(None, 1.0, snapshot_txn_id)?
+                    .into_iter()
+                    .collect::<BTreeMap<_, _>>(),
+            )
+        } else {
+            None
+        };
+
+        let prefilter: Option<RoaringBitmap> = if let Some(target_community) = config.community_id
+        {
+            let cmap = community_by_node.as_ref().unwrap();
+            let mut bitmap = RoaringBitmap::new();
+            for (node_id, cid) in cmap {
+                if *cid == target_community {
+                    if let Ok(bid) = u32::try_from(*node_id) {
+                        bitmap.insert(bid);
+                    }
+                }
+            }
+            if bitmap.is_empty() {
+                return Ok(Vec::new());
+            }
+            Some(bitmap)
+        } else {
+            None
+        };
+
+        let fetch_limit = k.saturating_mul(32).max(256);
+        let mut ranked_lists: Vec<Vec<(u64, f32)>> = Vec::new();
+
+        // Signal 1: BM25 via Tantivy full-text
+        if config.signals.contains(&RetrievalSignal::Bm25) && !query_text.trim().is_empty() {
+            if let Some(text_index_name) = self
+                .meta
+                .fulltext_index_catalog
+                .iter()
+                .next()
+                .map(|def| def.name.clone())
+            {
+                let text_results = self
+                    .fulltext_query_nodes(
+                        &text_index_name,
+                        query_text,
+                        fetch_limit,
+                        prefilter.as_ref(),
+                    )
+                    .unwrap_or_default();
+                ranked_lists.push(text_results);
+            }
+        }
+
+        // Signal 2: Vector similarity via instant-distance ANN
+        if config.signals.contains(&RetrievalSignal::Vector) && !query_embedding.is_empty() {
+            if let Some(vector_index_name) = self
+                .meta
+                .vector_index_catalog
+                .iter()
+                .next()
+                .map(|def| def.name.clone())
+            {
+                let vector_results = self
+                    .vector_query_nodes(
+                        &vector_index_name,
+                        query_embedding,
+                        fetch_limit,
+                        None,
+                        prefilter.as_ref(),
+                    )
+                    .unwrap_or_default();
+                // Distances are lower-is-better; convert to scores for RRF ordering
+                let scored: Vec<(u64, f32)> = vector_results
+                    .into_iter()
+                    .map(|(node_id, dist)| {
+                        let dist = if dist.is_finite() { dist.max(0.0) } else { f32::MAX };
+                        (node_id, 1.0 / (1.0 + dist))
+                    })
+                    .collect();
+                ranked_lists.push(scored);
+            }
+        }
+
+        // Signal 3: Graph traversal via entity linking and BFS
+        if config.signals.contains(&RetrievalSignal::GraphTraversal)
+            && !query_text.trim().is_empty()
+        {
+            let anchors = self.entity_link_at(
+                query_text,
+                10,
+                prefilter.as_ref(),
+                snapshot_txn_id,
+            )?;
+            if !anchors.is_empty() {
+                let graph_results = self.graph_traversal_retrieve_at(
+                    &anchors,
+                    config.max_traversal_depth,
+                    fetch_limit,
+                    config.traversal_edge_type.as_deref(),
+                    prefilter.as_ref(),
+                    snapshot_txn_id,
+                )?;
+                ranked_lists.push(graph_results);
+            }
+        }
+
+        if ranked_lists.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Fuse ranked lists with RRF
+        let fused = rrf_fuse(&ranked_lists, config.k_constant, k);
+
+        // Attach community IDs to results
+        let community_map = community_by_node.unwrap_or_default();
+        let results = fused
+            .into_iter()
+            .map(|(node_id, score)| RagResult {
+                node_id,
+                score,
+                community_id: community_map.get(&node_id).copied(),
+            })
+            .collect();
+
+        Ok(results)
+    }
+
     fn edge_matches_temporal_filter(
         &self,
         edge_id: u64,
@@ -21345,6 +21722,27 @@ fn write_all_at(file: &File, mut buf: &[u8], mut offset: u64) -> Result<(), DbEr
         buf = &buf[written..];
     }
     Ok(())
+}
+
+/// Reciprocal Rank Fusion: combines ranked lists from multiple signals.
+/// For each document, RRF score = sum over lists of 1 / (K + rank + 1).
+/// Documents appearing in multiple lists accumulate higher scores.
+pub(crate) fn rrf_fuse(
+    ranked_lists: &[Vec<(u64, f32)>],
+    k_constant: u32,
+    total_k: usize,
+) -> Vec<(u64, f32)> {
+    let mut scores = BTreeMap::<u64, f32>::new();
+    for ranked_list in ranked_lists {
+        for (rank, (node_id, _original_score)) in ranked_list.iter().enumerate() {
+            let rrf_score = 1.0 / (k_constant as f32 + rank as f32 + 1.0);
+            *scores.entry(*node_id).or_insert(0.0) += rrf_score;
+        }
+    }
+    let mut results: Vec<(u64, f32)> = scores.into_iter().collect();
+    results.sort_by(|a, b| b.1.total_cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+    results.truncate(total_k);
+    results
 }
 
 #[cfg(test)]
@@ -39971,5 +40369,171 @@ Body text here.
         );
 
         cleanup_db_artifacts(&path);
+    }
+
+    #[test]
+    fn test_rrf_fusion_basic() {
+        // Two ranked lists with overlapping results
+        let list_a = vec![(1u64, 0.9f32), (2, 0.8), (3, 0.7)];
+        let list_b = vec![(2u64, 0.95f32), (3, 0.85), (4, 0.75)];
+
+        let fused = rrf_fuse(&[list_a, list_b], 60, 10);
+
+        // Node 2 RRF = 1/(60+1+1) + 1/(60+0+1) = 1/62 + 1/61 ≈ 0.0325
+        // Node 3 RRF = 1/(60+2+1) + 1/(60+1+1) = 1/63 + 1/62 ≈ 0.0320
+        // Node 1 RRF = 1/(60+0+1) = 1/61 ≈ 0.0164
+        // Node 4 RRF = 1/(60+2+1) = 1/63 ≈ 0.0159
+        assert!(!fused.is_empty());
+        assert_eq!(fused[0].0, 2, "Node 2 should rank highest (in both lists)");
+        assert_eq!(fused[1].0, 3, "Node 3 should rank second (in both lists)");
+
+        let score_2 = fused.iter().find(|(id, _)| *id == 2).unwrap().1;
+        let score_1 = fused.iter().find(|(id, _)| *id == 1).unwrap().1;
+        assert!(
+            score_2 > score_1,
+            "Node appearing in both lists should score higher"
+        );
+    }
+
+    #[test]
+    fn test_rrf_fusion_single_list() {
+        let list = vec![(10u64, 1.0f32), (20, 0.5), (30, 0.1)];
+        let fused = rrf_fuse(&[list], 60, 2);
+        assert_eq!(fused.len(), 2, "Should respect k limit");
+        assert_eq!(fused[0].0, 10);
+        assert_eq!(fused[1].0, 20);
+    }
+
+    #[test]
+    fn test_rrf_fusion_empty_lists() {
+        let fused = rrf_fuse(&[], 60, 10);
+        assert!(fused.is_empty(), "Empty input should return empty");
+
+        let fused = rrf_fuse(&[vec![]], 60, 10);
+        assert!(fused.is_empty(), "List of empty list should return empty");
+    }
+
+    #[test]
+    fn test_hybrid_rrf_retrieve_bm25_and_vector() {
+        let path = temp_db_path("rrf-hybrid");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init");
+
+        let n0 = db
+            .create_node_with(
+                &["Document".to_string()],
+                &PropertyMap::from([
+                    (
+                        "content".to_string(),
+                        PropertyValue::String("machine learning algorithms".to_string()),
+                    ),
+                    (
+                        "embedding".to_string(),
+                        PropertyValue::Vector(vec![1.0, 0.0, 0.0]),
+                    ),
+                ]),
+            )
+            .expect("create n0");
+        let _n1 = db
+            .create_node_with(
+                &["Document".to_string()],
+                &PropertyMap::from([
+                    (
+                        "content".to_string(),
+                        PropertyValue::String("deep learning neural networks".to_string()),
+                    ),
+                    (
+                        "embedding".to_string(),
+                        PropertyValue::Vector(vec![0.9, 0.1, 0.0]),
+                    ),
+                ]),
+            )
+            .expect("create n1");
+        let _n2 = db
+            .create_node_with(
+                &["Document".to_string()],
+                &PropertyMap::from([
+                    (
+                        "content".to_string(),
+                        PropertyValue::String("graph database traversal".to_string()),
+                    ),
+                    (
+                        "embedding".to_string(),
+                        PropertyValue::Vector(vec![0.0, 0.0, 1.0]),
+                    ),
+                ]),
+            )
+            .expect("create n2");
+
+        db.add_typed_edge(n0, _n1, "RELATED", &PropertyMap::new())
+            .expect("add edge");
+        db.add_typed_edge(_n1, _n2, "RELATED", &PropertyMap::new())
+            .expect("add edge");
+
+        db.create_fulltext_index(
+            "content_idx",
+            Some("Document"),
+            &["content".to_string()],
+        )
+        .expect("create fulltext index");
+        db.create_vector_index(
+            "vec_idx",
+            Some("Document"),
+            "embedding",
+            3,
+            VectorDistanceMetric::Cosine,
+        )
+        .expect("create vector index");
+
+        // BM25-only: should find 'machine learning' in node 0
+        let bm25_config = RrfConfig {
+            signals: vec![RetrievalSignal::Bm25],
+            ..RrfConfig::default()
+        };
+        let results = db
+            .hybrid_rag_retrieve_rrf(&[0.0; 3], "machine learning", 10, &bm25_config)
+            .expect("bm25-only rrf retrieve");
+        assert!(!results.is_empty(), "BM25-only should find results");
+        assert_eq!(
+            results[0].node_id, n0,
+            "Node 0 should rank highest for 'machine learning'"
+        );
+
+        // All three signals
+        let full_config = RrfConfig::default();
+        let results = db
+            .hybrid_rag_retrieve_rrf(&[1.0, 0.0, 0.0], "machine learning", 10, &full_config)
+            .expect("full rrf retrieve");
+        assert!(!results.is_empty(), "Full three-signal hybrid should find results");
+
+        // k=0 returns empty
+        let empty = db
+            .hybrid_rag_retrieve_rrf(&[1.0, 0.0, 0.0], "machine learning", 0, &full_config)
+            .expect("k=0 should return empty");
+        assert!(empty.is_empty(), "k=0 should yield empty results");
+
+        cleanup_db_artifacts(&path);
+    }
+
+    #[test]
+    fn test_rrf_k_constant_effect() {
+        // With k=0, rank-0 item gets score 1.0/(0+0+1) = 1.0
+        // With k=60, rank-0 item gets score 1.0/(60+0+1) ≈ 0.016
+        // Smaller k amplifies rank differences
+        let list = vec![(1u64, 1.0f32), (2, 0.5f32)];
+
+        let fused_small_k = rrf_fuse(&[list.clone()], 1, 10);
+        let fused_large_k = rrf_fuse(&[list], 100, 10);
+
+        // Both should rank item 1 first
+        assert_eq!(fused_small_k[0].0, 1);
+        assert_eq!(fused_large_k[0].0, 1);
+
+        // The score difference between rank 0 and rank 1 should be larger with small k
+        let diff_small = fused_small_k[0].1 - fused_small_k[1].1;
+        let diff_large = fused_large_k[0].1 - fused_large_k[1].1;
+        assert!(
+            diff_small > diff_large,
+            "Smaller k should amplify rank differences"
+        );
     }
 }
