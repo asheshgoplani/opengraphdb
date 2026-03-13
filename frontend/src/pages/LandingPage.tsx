@@ -9,6 +9,10 @@ const DemoSection = lazy(() =>
   import('@/components/demo/DemoSection').then((m) => ({ default: m.DemoSection }))
 )
 
+const HowItWorksSection = lazy(() =>
+  import('@/components/demo/HowItWorksSection').then((m) => ({ default: m.HowItWorksSection }))
+)
+
 export default function LandingPage() {
   const year = new Date().getFullYear()
 
@@ -21,6 +25,9 @@ export default function LandingPage() {
         <ShowcaseSection />
         <Suspense fallback={<div className="py-20 sm:py-24" />}>
           <DemoSection />
+        </Suspense>
+        <Suspense fallback={<div className="bg-muted/30 py-20 sm:py-24" />}>
+          <HowItWorksSection />
         </Suspense>
         <FeaturesSection />
         <GettingStartedSection />

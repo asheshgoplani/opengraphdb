@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react'
+import { Link } from 'react-router-dom'
+import { Settings } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDemoChat } from '@/hooks/useDemoChat'
 import { useDemoStore } from '@/stores/demo'
@@ -97,6 +99,15 @@ export function DemoSection() {
               disabled={isLoading}
               placeholder={`Ask about ${activeDatasetName}...`}
             />
+
+            {/* Settings upgrade path */}
+            <Link
+              to="/app"
+              className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground/60 transition-colors hover:text-muted-foreground"
+            >
+              <Settings className="h-3 w-3" />
+              Want better results? Use your own API key
+            </Link>
           </div>
 
           {/* Right: Graph canvas */}

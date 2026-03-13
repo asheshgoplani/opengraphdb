@@ -14,14 +14,14 @@ import type { ChatMessage } from '@/lib/ai/providers'
 // Rolling window pairs for demo context
 const DEMO_WINDOW_PAIRS = 4
 
-// Characters streamed per tick for typewriter effect
-const TYPEWRITER_CHUNK_SIZE = 4
-const TYPEWRITER_DELAY_MS = 12
+// Target ~60 chars/sec via requestAnimationFrame batching (16ms/frame * 4 chars = 64 chars/sec)
+const TYPEWRITER_CHARS_PER_FRAME = 4
 
 export function useDemoChat() {
   const providerRef = useRef<ChatProvider | null>(null)
   const providerInitializedRef = useRef(false)
   const abortControllerRef = useRef<AbortController | null>(null)
+  const typewriterRafRef = useRef<number | null>(null)
 
   const aiProvider = useSettingsStore((s) => s.aiProvider)
   const aiApiKey = useSettingsStore((s) => s.aiApiKey)
@@ -54,6 +54,14 @@ export function useDemoChat() {
     providerInitializedRef.current = false
   }, [aiProvider, aiApiKey, aiModel, aiBaseUrl])
 
+  // Cancel any pending RAF typewriter tick
+  function cancelTypewriterRaf() {
+    if (typewriterRafRef.current !== null) {
+      cancelAnimationFrame(typewriterRafRef.current)
+      typewriterRafRef.current = null
+    }
+  }
+
   async function ensureProvider(): Promise<ChatProvider | null> {
     if (!providerRef.current) {
       providerRef.current = await createProvider(effectiveProvider, {
@@ -78,7 +86,7 @@ export function useDemoChat() {
     return provider
   }
 
-  // Typewriter effect: stream pre-computed text character-by-character
+  // Typewriter effect using requestAnimationFrame for smooth ~60 chars/sec output
   function streamTypewriter(
     assistantId: string,
     text: string,
@@ -94,19 +102,27 @@ export function useDemoChat() {
         }
 
         if (pos >= text.length) {
+          typewriterRafRef.current = null
           resolve()
           return
         }
 
-        const chunk = text.slice(pos, pos + TYPEWRITER_CHUNK_SIZE)
+        const chunk = text.slice(pos, pos + TYPEWRITER_CHARS_PER_FRAME)
         appendToMessage(assistantId, chunk)
-        pos += TYPEWRITER_CHUNK_SIZE
+        pos += TYPEWRITER_CHARS_PER_FRAME
 
-        setTimeout(tick, TYPEWRITER_DELAY_MS)
+        typewriterRafRef.current = requestAnimationFrame(tick)
       }
 
-      tick()
+      typewriterRafRef.current = requestAnimationFrame(tick)
     })
+  }
+
+  // Compute adaptive step delay based on node count to keep total animation 2-4 seconds
+  function adaptiveStepDelay(nodeCount: number): number {
+    if (nodeCount < 15) return 120
+    if (nodeCount <= 30) return 80
+    return 50
   }
 
   // Start simulated trace animation from a list of node IDs
@@ -117,9 +133,11 @@ export function useDemoChat() {
     setTrace([], 1)
     setIsTraceAnimating(true)
 
+    const stepDelayMs = adaptiveStepDelay(nodeIds.length)
+
     runSimulatedTrace({
       nodeIds,
-      stepDelayMs: 80,
+      stepDelayMs,
       signal,
       onStep: (step) => {
         advanceTrace(step.nodeId, step.stepIndex)
@@ -132,9 +150,11 @@ export function useDemoChat() {
 
   const sendQuestion = useCallback(
     async (text: string): Promise<void> => {
-      if (!text.trim()) return
+      const trimmed = text.trim()
+      if (!trimmed) return
 
-      // Abort any in-flight work
+      // Abort any in-flight work (typewriter RAF + previous AbortController)
+      cancelTypewriterRaf()
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
@@ -144,13 +164,13 @@ export function useDemoChat() {
       // Pre-computed fast path: check if this is a suggested question
       const questions = DEMO_QUESTIONS[activeDataset]
       const matchedQuestion = questions.find(
-        (q) => q.text.trim().toLowerCase() === text.trim().toLowerCase()
+        (q) => q.text.trim().toLowerCase() === trimmed.toLowerCase()
       )
 
       if (matchedQuestion) {
         const response = getDemoResponse(matchedQuestion.id)
         if (response) {
-          addUserMessage(text)
+          addUserMessage(trimmed)
           const assistantId = startAssistantMessage()
 
           const fullText = `${response.nlAnswer}\n\n\`\`\`cypher\n${response.cypher}\n\`\`\``
@@ -167,7 +187,7 @@ export function useDemoChat() {
       }
 
       // Live AI fallback for custom questions
-      addUserMessage(text)
+      addUserMessage(trimmed)
       setIsLoading(true)
 
       try {
@@ -181,9 +201,10 @@ export function useDemoChat() {
 
         if (provider === null) {
           const fallbackId = startAssistantMessage()
+          // Friendly WebGPU unavailability message for custom questions
           const fallbackMsg =
             effectiveProvider === 'webllm'
-              ? "Your browser doesn't support local AI (WebGPU required). Configure an API key in Settings to use the assistant."
+              ? "For custom questions, you'll need a browser with WebGPU support or an API key. Try the suggested questions above for instant results!"
               : 'Failed to initialize AI provider. Please check your settings.'
           appendToMessage(fallbackId, fallbackMsg)
           finalizeMessage(fallbackId)
@@ -204,7 +225,7 @@ export function useDemoChat() {
         const providerMessages: ChatMessage[] = [
           systemMessage,
           ...historyMessages,
-          { role: 'user', content: text },
+          { role: 'user', content: trimmed },
         ]
 
         const assistantId = startAssistantMessage()
@@ -255,15 +276,17 @@ export function useDemoChat() {
 
   const setActiveDataset = useCallback(
     (key: DatasetKey) => {
-      // Abort any in-flight animation or request
+      // Abort any in-flight animation, typewriter RAF, or request
+      cancelTypewriterRaf()
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
         abortControllerRef.current = null
       }
+      setIsLoading(false)
       clearTrace()
       storeSetActiveDataset(key)
     },
-    [clearTrace, storeSetActiveDataset]
+    [clearTrace, setIsLoading, storeSetActiveDataset]
   )
 
   const isReady = effectiveProvider !== 'webllm' ? aiApiKey.trim() !== '' : true

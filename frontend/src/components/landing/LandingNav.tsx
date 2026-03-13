@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 
 const SECTION_LINKS = [
   { href: '#demo', label: 'Demo' },
+  { href: '#how-it-works', label: 'How It Works' },
   { href: '#features', label: 'Features' },
   { href: '#get-started', label: 'Get Started' },
 ]
