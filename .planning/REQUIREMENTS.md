@@ -102,12 +102,12 @@ Requirements for Milestone v2.0. Each maps to roadmap phases 10-13.
 
 ### AI Demo Experience
 
-- [ ] **DEMO-AI-01**: Landing page features "Talk to Your Knowledge Graph" section with NL input and live responses
-- [ ] **DEMO-AI-02**: Demo works against pre-loaded famous datasets with no setup required
+- [x] **DEMO-AI-01**: Landing page features "Talk to Your Knowledge Graph" section with NL input and live responses
+- [x] **DEMO-AI-02**: Demo works against pre-loaded famous datasets with no setup required
 - [ ] **DEMO-AI-03**: Each AI response shows generated Cypher, query trace animation, and NL answer
-- [ ] **DEMO-AI-04**: Demo includes "How it works" explainer showing MCP + Skills + RAG pipeline visually
+- [x] **DEMO-AI-04**: Demo includes "How it works" explainer showing MCP + Skills + RAG pipeline visually
 - [ ] **DEMO-AI-05**: Response latency under 5 seconds for typical questions (streaming for longer)
-- [ ] **DEMO-AI-06**: Works with free default model, option to use own API keys for better models
+- [x] **DEMO-AI-06**: Works with free default model, option to use own API keys for better models
 
 ## Future Requirements
 
@@ -173,12 +173,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | RAG-03 | Phase 12 | Complete (12-02) |
 | RAG-04 | Phase 12 | Complete (12-03) |
 | RAG-05 | Phase 12 | Complete (12-04) |
-| DEMO-AI-01 | Phase 13 | Pending |
-| DEMO-AI-02 | Phase 13 | Pending |
+| DEMO-AI-01 | Phase 13 | Complete |
+| DEMO-AI-02 | Phase 13 | Complete |
 | DEMO-AI-03 | Phase 13 | Pending |
-| DEMO-AI-04 | Phase 13 | Pending |
+| DEMO-AI-04 | Phase 13 | Complete |
 | DEMO-AI-05 | Phase 13 | Pending |
-| DEMO-AI-06 | Phase 13 | Pending |
+| DEMO-AI-06 | Phase 13 | Complete |
 
 **Coverage:**
 - v2 requirements: 24 total

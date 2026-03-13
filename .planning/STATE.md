@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-13T05:43:07Z"
+last_updated: "2026-03-13T06:09:57.849Z"
 progress:
   total_phases: 14
   completed_phases: 12
   total_plans: 46
-  completed_plans: 42
+  completed_plans: 44
 ---
 
 # Project State
@@ -22,17 +22,17 @@ See: .planning/PROJECT.md (updated 2026-03-12)
 
 ## Current Position
 
-Phase: 13 (AI Demo Experience) — Not started
-Plan: 13-01 next
-Status: Phase 12 complete (all 5 plans done); Leiden + RRF + document ingestion + RAG API/HTTP/MCP + benchmark suite
-Last activity: 2026-03-13 — Phase 12 Plan 05 executed: RAG benchmark dataset (30 Q&A), criterion harness, accuracy test, RESULTS.md
+Phase: 13 (AI Demo Experience) — In progress (1/3 done)
+Plan: 13-02 next
+Status: Phase 13 Plan 01 complete; demo data layer (24 questions, pre-computed responses, useDemoChat, demo store)
+Last activity: 2026-03-13 — Phase 13 Plan 01 executed: DEMO_QUESTIONS/DEMO_RESPONSES, useDemoChat hook, demo store, trace utility
 
 ```
-Milestone 2 Progress: [########  ] 3/4 phases complete
+Milestone 2 Progress: [#########  ] 3.3/4 phases complete
 Phase 10: [3/3] Complete — npm MCP server docs, integration tests, publish-ready package
 Phase 11: [5/5] Complete — 4 skills, eval framework, README, publish-ready package
 Phase 12: [5/5] Complete — Leiden, RRF hybrid RAG, document ingestion, RAG API+MCP, benchmark suite
-Phase 13: [ ] Not started
+Phase 13: [1/3] In Progress — demo data layer done; UI components and integration remaining
 ```
 
 ## Performance Metrics
@@ -59,6 +59,7 @@ Phase 13: [ ] Not started
 | 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
 | 12. Graph-Native RAG Engine | 5/5 | Complete | 2026-03-13 |
 | 13. AI Demo Experience | 0/3 | Not started | — |
+| Phase 13-ai-demo-experience P01 | 7 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -167,6 +168,9 @@ Recent decisions affecting current work:
 - [Phase 12-05]: fake_embed() character-frequency vectors for reproducible benchmarks without external embedding model; EMBED_DIMS=64
 - [Phase 12-05]: Non-degradation threshold 0.8x for hybrid vs vector-only MRR; fake embeddings make vector signal noise so only gross degradation should fail
 - [Phase 12-05]: ogdb-core in [dependencies] not [dev-dependencies] in ogdb-bench so bench binary and integration tests share same crate resolution
+- [Phase 13-ai-demo-experience]: DEMO_RESPONSES uses Map<string, DemoResponse> keyed by questionId for O(1) lookup
+- [Phase 13-ai-demo-experience]: Demo store has no persist middleware — demo state is ephemeral, no localStorage needed
+- [Phase 13-ai-demo-experience]: buildDemoResponse sorts traceNodeIds by edge degree for expanding-outward graph animation
 
 ### Pending Todos
 
