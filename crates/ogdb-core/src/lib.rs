@@ -1493,6 +1493,33 @@ pub struct IngestResult {
     pub vector_indexed: bool,
 }
 
+/// Result of drilling into a community
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum DrillResult {
+    /// Community has sub-communities at a finer granularity
+    SubCommunities(Vec<CommunitySummary>),
+    /// Community is a leaf; these are its member nodes
+    Members(Vec<NodeSummary>),
+}
+
+/// Summary of a graph node for RAG navigation
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeSummary {
+    pub node_id: u64,
+    pub labels: Vec<String>,
+    pub properties: BTreeMap<String, PropertyValue>,
+}
+
+/// RAG result enriched with node metadata for LLM consumption
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnrichedRagResult {
+    pub node_id: u64,
+    pub score: f32,
+    pub community_id: Option<u64>,
+    pub labels: Vec<String>,
+    pub properties: BTreeMap<String, PropertyValue>,
+}
+
 /// Internal: a parsed section from a document
 #[derive(Debug, Clone)]
 struct ParsedSection {
@@ -9343,6 +9370,97 @@ impl<'a> ReadSnapshot<'a> {
     pub fn find_nodes_by_label(&self, label: &str) -> Vec<u64> {
         self.guard
             .find_nodes_by_label_at(label, self.snapshot_txn_id)
+    }
+
+    /// Browse top-level graph communities with summaries.
+    /// This is the PageIndex-style "table of contents" view.
+    /// Returns communities sorted by node_count descending.
+    pub fn browse_communities(
+        &self,
+        resolutions: Option<&[f64]>,
+    ) -> Result<Vec<CommunitySummary>, DbError> {
+        let default_resolutions = [1.0, 0.5];
+        let resolutions = resolutions.unwrap_or(&default_resolutions);
+
+        let hierarchy = self.build_community_hierarchy(resolutions, None)?;
+        let mut top = hierarchy
+            .top_level()
+            .into_iter()
+            .cloned()
+            .collect::<Vec<_>>();
+        top.sort_by(|a, b| b.node_count.cmp(&a.node_count));
+        Ok(top)
+    }
+
+    /// Drill into a specific community, returning its sub-communities
+    /// (if it has children) or its member nodes (if it's a leaf).
+    pub fn drill_into_community(
+        &self,
+        community_id: u64,
+        resolutions: Option<&[f64]>,
+    ) -> Result<DrillResult, DbError> {
+        let default_resolutions = [1.0, 0.5];
+        let resolutions = resolutions.unwrap_or(&default_resolutions);
+
+        let hierarchy = self.build_community_hierarchy(resolutions, None)?;
+
+        let children = hierarchy.children_of(community_id);
+        if !children.is_empty() {
+            return Ok(DrillResult::SubCommunities(
+                children.into_iter().cloned().collect(),
+            ));
+        }
+
+        let member_ids = hierarchy.members_of(community_id);
+        let mut members = Vec::new();
+        for &node_id in member_ids {
+            let labels = self.node_labels(node_id).unwrap_or_default();
+            let props = self.node_properties(node_id).unwrap_or_default();
+            members.push(NodeSummary {
+                node_id,
+                labels,
+                properties: props,
+            });
+        }
+
+        Ok(DrillResult::Members(members))
+    }
+
+    /// Hybrid search combining BM25, vector, and graph traversal via RRF.
+    /// Returns enriched results with node properties for LLM context.
+    pub fn rag_hybrid_search(
+        &self,
+        query_text: &str,
+        query_embedding: Option<&[f32]>,
+        k: usize,
+        community_id: Option<u64>,
+    ) -> Result<Vec<EnrichedRagResult>, DbError> {
+        let empty_embedding: Vec<f32> = Vec::new();
+        let embedding = query_embedding.unwrap_or(&empty_embedding);
+
+        let mut config = RrfConfig::default();
+        config.community_id = community_id;
+
+        if embedding.is_empty() {
+            config.signals.retain(|s| *s != RetrievalSignal::Vector);
+        }
+
+        let results = self.hybrid_rag_retrieve_rrf(embedding, query_text, k, &config)?;
+
+        let mut enriched = Vec::new();
+        for result in results {
+            let labels = self.node_labels(result.node_id).unwrap_or_default();
+            let properties = self.node_properties(result.node_id).unwrap_or_default();
+            enriched.push(EnrichedRagResult {
+                node_id: result.node_id,
+                score: result.score,
+                community_id: result.community_id,
+                labels,
+                properties,
+            });
+        }
+
+        Ok(enriched)
     }
 }
 
