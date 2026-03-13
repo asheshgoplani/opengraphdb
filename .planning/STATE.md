@@ -3,12 +3,12 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: unknown
-last_updated: "2026-03-13T00:50:00Z"
+last_updated: "2026-03-13T01:33:18Z"
 progress:
   total_phases: 14
   completed_phases: 11
   total_plans: 46
-  completed_plans: 40
+  completed_plans: 41
 ---
 
 # Project State
@@ -18,20 +18,20 @@ progress:
 See: .planning/PROJECT.md (updated 2026-03-12)
 
 **Core value:** AI-first graph database where developers install skills to work with graph data through natural language, and visitors can talk to knowledge graphs live on the website
-**Current focus:** Milestone v2.0 — Phase 11 complete, ready for Phase 12 (Graph-Native RAG Engine)
+**Current focus:** Milestone v2.0 — Phase 12 Plan 04 complete; RAG API, HTTP endpoints, and MCP tools complete
 
 ## Current Position
 
-Phase: 12 (Graph-Native RAG Engine) — In progress (4/5 plans done)
-Plan: 04 next
-Status: Phase 12 Plans 01-04 complete; Leiden algorithm + RRF hybrid retrieval + document ingestion pipeline + (02 just finished); next is Phase 12 Plan 05
-Last activity: 2026-03-13 — Phase 12 Plan 02 executed: RRF three-signal hybrid retrieval, entity linking, graph traversal BFS scoring, 5 tests pass
+Phase: 12 (Graph-Native RAG Engine) — In progress (5/5 plans done, awaiting plan 05 if any)
+Plan: 05 next (or phase 12 complete)
+Status: Phase 12 Plans 01-04 all complete; Leiden + RRF + document ingestion + RAG API/HTTP/MCP tools done
+Last activity: 2026-03-13 — Phase 12 Plan 04 executed: RAG navigation API, 4 HTTP endpoints, 4 MCP tools, 4 integration tests
 
 ```
-Milestone 2 Progress: [#####     ] 2/4 phases complete
+Milestone 2 Progress: [######    ] 2/4 phases in progress
 Phase 10: [3/3] Complete — npm MCP server docs, integration tests, publish-ready package
 Phase 11: [5/5] Complete — 4 skills, eval framework, README, publish-ready package
-Phase 12: [4/5] In progress — Leiden, RRF hybrid RAG, document ingestion, and more
+Phase 12: [4/4] In progress (plan 05 TBD) — Leiden, RRF hybrid RAG, document ingestion, RAG API+MCP
 Phase 13: [ ] Not started
 ```
 
@@ -57,7 +57,7 @@ Phase 13: [ ] Not started
 | 9. AI Knowledge Graph Assistant | 3/3 | Complete | 2026-03-03 |
 | 10. MCP Server for OpenGraphDB | 3/3 | Complete | 2026-03-12 |
 | 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
-| 12. Graph-Native RAG Engine | 4/5 | In progress | — |
+| 12. Graph-Native RAG Engine | 4/4 | In progress | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |
 
 ## Accumulated Context
@@ -158,6 +158,11 @@ Recent decisions affecting current work:
 - [Phase 12-02]: Graph traversal iterates edge_records directly for edge-type filtering (consistent with collect_undirected_neighbors_at)
 - [Phase 12-02]: community_leiden_at called lazily only when graph traversal signal active or community_id filter specified
 - [Phase 12-02]: Existing hybrid_rag_retrieve (alpha-blending) preserved unchanged for backward compatibility
+- [Phase 12-04]: HTTP endpoints for RAG placed in ogdb-cli/src/lib.rs (dispatch_http_request), not ogdb-core — HTTP server lives in CLI crate
+- [Phase 12-04]: NodeSummary and EnrichedRagResult use BTreeMap<String, PropertyValue> (PropertyMap) to match codebase types
+- [Phase 12-04]: rag_results_to_json uses property_value_to_export_json (CLI-private) for consistent property serialization
+- [Phase 12-04]: ingest_document HTTP endpoint uses shared_db.with_write(|db| db.ingest_document(...)) — method is on Database not ReadSnapshot
+- [Phase 12-04]: 4 MCP tools registered in @opengraphdb/mcp bringing total to 9 tools (browse_communities, drill_into_community, hybrid_search, ingest_document)
 
 ### Pending Todos
 
@@ -170,5 +175,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-03-13
-Stopped at: Completed 12-02-PLAN.md — RRF three-signal hybrid retrieval with entity linking and graph traversal BFS scoring, 5 tests pass
-Resume at: Phase 12 Plan 04 (note: plan 02 was executed out of order; state represents plan 02 + 03 both complete)
+Stopped at: Completed 12-04-PLAN.md — RAG navigation API, 4 HTTP endpoints (/rag/communities, /rag/drill, /rag/search, /rag/ingest), 4 MCP tools registered
+Resume at: Phase 12 Plan 05 (if exists) or Phase 13
