@@ -144,6 +144,8 @@ export function useDemoChat() {
       },
       onComplete: () => {
         setIsTraceAnimating(false)
+        // Clear trace glow after a brief pause so users see the final state
+        setTimeout(() => clearTrace(), 2000)
       },
     })
   }
