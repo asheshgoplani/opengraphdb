@@ -1,6 +1,7 @@
 use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use ogdb_core::{
-    Database, DbError, ExportEdge, ExportNode, Header, PropertyMap, PropertyValue, QueryResult,
+    Database, DbError, DocumentFormat, EnrichedRagResult, ExportEdge, ExportNode, Header,
+    IngestConfig, PropertyMap, PropertyValue, QueryResult,
     SharedDatabase, ShortestPathOptions, VectorDistanceMetric, WriteConcurrencyMode,
 };
 use oxrdf::{BlankNode, GraphName, Literal, NamedNode, NamedOrBlankNode, Quad, Term};
@@ -3663,6 +3664,68 @@ fn parse_bearer_token(value: &str) -> Option<&str> {
     Some(token)
 }
 
+/// Convert EnrichedRagResult list to a JSON Value for HTTP responses.
+/// PropertyValue is serialized via property_value_to_json for consistent representation.
+fn rag_results_to_json(results: &[EnrichedRagResult]) -> Value {
+    serde_json::Value::Array(
+        results
+            .iter()
+            .map(|r| {
+                let properties: serde_json::Map<String, Value> = r
+                    .properties
+                    .iter()
+                    .map(|(k, v)| (k.clone(), property_value_to_export_json(v)))
+                    .collect();
+                serde_json::json!({
+                    "node_id": r.node_id,
+                    "score": r.score,
+                    "community_id": r.community_id,
+                    "labels": r.labels,
+                    "properties": properties,
+                })
+            })
+            .collect(),
+    )
+}
+
+/// Minimal base64 decoder (standard alphabet).
+fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
+    const TABLE: &[u8; 64] =
+        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut lookup = [255u8; 256];
+    for (i, &c) in TABLE.iter().enumerate() {
+        lookup[c as usize] = i as u8;
+    }
+
+    let cleaned: String = input
+        .chars()
+        .filter(|&c| c != '\n' && c != '\r' && c != ' ')
+        .collect();
+    let bytes = cleaned.as_bytes();
+    let mut output = Vec::with_capacity(bytes.len() * 3 / 4);
+    let mut buf = 0u32;
+    let mut bits = 0u32;
+
+    for &b in bytes {
+        if b == b'=' {
+            break;
+        }
+        let val = lookup[b as usize];
+        if val == 255 {
+            return Err(format!("invalid base64 character: {}", b as char));
+        }
+        buf = (buf << 6) | val as u32;
+        bits += 6;
+        if bits >= 8 {
+            bits -= 8;
+            output.push((buf >> bits) as u8);
+            buf &= (1 << bits) - 1;
+        }
+    }
+
+    Ok(output)
+}
+
 fn render_prometheus_metrics(snapshot: &ogdb_core::ReadSnapshot<'_>) -> Result<String, CliError> {
     let metrics = snapshot.metrics()?;
     let query_count = HTTP_QUERY_COUNT.load(Ordering::Relaxed);
@@ -4221,6 +4284,118 @@ fn dispatch_http_request(
                     .collect::<Vec<_>>(),
             });
             Ok(http_json_response(200, "OK", payload))
+        }
+        ("POST", "/rag/communities") => {
+            let resolutions: Option<Vec<f64>> = if request.body.is_empty() {
+                None
+            } else {
+                let body: Value = serde_json::from_slice(&request.body)
+                    .map_err(|e| CliError::Runtime(format!("invalid json: {e}")))?;
+                body.get("resolutions")
+                    .and_then(|v| serde_json::from_value(v.clone()).ok())
+            };
+            let snapshot = shared_db.read_snapshot()?;
+            match snapshot.browse_communities(resolutions.as_deref()) {
+                Ok(communities) => {
+                    let payload = serde_json::to_value(&communities)
+                        .map_err(|e| CliError::Runtime(format!("serialize error: {e}")))?;
+                    Ok(http_json_response(200, "OK", payload))
+                }
+                Err(e) => Ok(http_error(400, "Bad Request", e.to_string())),
+            }
+        }
+        ("POST", "/rag/drill") => {
+            let body: Value = serde_json::from_slice(&request.body)
+                .map_err(|e| CliError::Runtime(format!("invalid json: {e}")))?;
+            let community_id = body
+                .get("community_id")
+                .and_then(|v| v.as_u64())
+                .ok_or_else(|| CliError::Runtime("community_id required".to_string()))?;
+            let resolutions: Option<Vec<f64>> = body
+                .get("resolutions")
+                .and_then(|v| serde_json::from_value(v.clone()).ok());
+            let snapshot = shared_db.read_snapshot()?;
+            match snapshot.drill_into_community(community_id, resolutions.as_deref()) {
+                Ok(result) => {
+                    let payload = serde_json::to_value(&result)
+                        .map_err(|e| CliError::Runtime(format!("serialize error: {e}")))?;
+                    Ok(http_json_response(200, "OK", payload))
+                }
+                Err(e) => Ok(http_error(400, "Bad Request", e.to_string())),
+            }
+        }
+        ("POST", "/rag/search") => {
+            let body: Value = serde_json::from_slice(&request.body)
+                .map_err(|e| CliError::Runtime(format!("invalid json: {e}")))?;
+            let query_text = body
+                .get("query")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let embedding: Option<Vec<f32>> = body
+                .get("embedding")
+                .and_then(|v| serde_json::from_value(v.clone()).ok());
+            let k = body
+                .get("k")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(10) as usize;
+            let community_id = body.get("community_id").and_then(|v| v.as_u64());
+            let snapshot = shared_db.read_snapshot()?;
+            match snapshot.rag_hybrid_search(query_text, embedding.as_deref(), k, community_id) {
+                Ok(results) => {
+                    let payload = rag_results_to_json(&results);
+                    Ok(http_json_response(200, "OK", payload))
+                }
+                Err(e) => Ok(http_error(400, "Bad Request", e.to_string())),
+            }
+        }
+        ("POST", "/rag/ingest") => {
+            let body: Value = serde_json::from_slice(&request.body)
+                .map_err(|e| CliError::Runtime(format!("invalid json: {e}")))?;
+            let title = body
+                .get("title")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
+            if title.is_empty() {
+                return Ok(http_error(400, "Bad Request", "title is required"));
+            }
+            let format_str = body
+                .get("format")
+                .and_then(|v| v.as_str())
+                .unwrap_or("PlainText");
+            let format = match format_str {
+                "Pdf" | "pdf" | "PDF" => DocumentFormat::Pdf,
+                "Markdown" | "markdown" | "md" => DocumentFormat::Markdown,
+                _ => DocumentFormat::PlainText,
+            };
+            let data: Vec<u8> = if let Some(b64) = body.get("content_base64").and_then(|v| v.as_str()) {
+                match base64_decode(b64) {
+                    Ok(bytes) => bytes,
+                    Err(msg) => return Ok(http_error(400, "Bad Request", format!("invalid base64: {msg}"))),
+                }
+            } else if let Some(text) = body.get("content").and_then(|v| v.as_str()) {
+                text.as_bytes().to_vec()
+            } else {
+                return Ok(http_error(400, "Bad Request", "content or content_base64 required"));
+            };
+            let source_uri = body
+                .get("source_uri")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let config = IngestConfig {
+                title,
+                format,
+                source_uri,
+                ..IngestConfig::default()
+            };
+            match shared_db.with_write(|db| db.ingest_document(&data, &config)) {
+                Ok(result) => {
+                    let payload = serde_json::to_value(&result)
+                        .map_err(|e| CliError::Runtime(format!("serialize error: {e}")))?;
+                    Ok(http_json_response(200, "OK", payload))
+                }
+                Err(e) => Ok(http_error(400, "Bad Request", e.to_string())),
+            }
         }
         ("GET", _) | ("POST", _) => Ok(http_error(
             404,
