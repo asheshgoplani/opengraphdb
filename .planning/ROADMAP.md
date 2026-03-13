@@ -225,8 +225,8 @@ Decimal phases appear between their surrounding integers in numeric order.
   6. Benchmark on a standard dataset (FinanceBench or equivalent) shows measurable improvement over pure vector RAG
 **Plans**: 5 plans
   - [x] 12-01-PLAN.md — Leiden community detection algorithm and hierarchical community index with LLM-summary callbacks
-  - [ ] 12-02-PLAN.md — Hybrid retrieval pipeline with RRF fusion: BM25 + vector + graph traversal (entity linking + BFS)
-  - [ ] 12-03-PLAN.md — Document ingestion pipeline: PDF (lopdf) + Markdown (pulldown-cmark) → graph + text + vector indexes
+  - [x] 12-02-PLAN.md — Hybrid retrieval pipeline with RRF fusion: BM25 + vector + graph traversal (entity linking + BFS)
+  - [x] 12-03-PLAN.md — Document ingestion pipeline: PDF (lopdf) + Markdown (pulldown-cmark) → graph + text + vector indexes
   - [ ] 12-04-PLAN.md — RAG API methods and HTTP endpoints: browse_communities, drill_into_community, hybrid_search, ingest_document
   - [ ] 12-05-PLAN.md — RAG benchmark suite: 30 Q&A dataset, 4-strategy comparison, accuracy metrics
 
@@ -265,5 +265,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 →
 | **Milestone 2: AI-First** | | | |
 | 10. MCP Server for OpenGraphDB | 4/3 | Complete    | 2026-03-12 |
 | 11. Developer Skills & CLI | 5/5 | Complete | 2026-03-12 |
-| 12. Graph-Native RAG Engine | 0/5 | Planning | — |
+| 12. Graph-Native RAG Engine | 3/5 | In progress | — |
 | 13. AI Demo Experience | 0/3 | Not started | — |

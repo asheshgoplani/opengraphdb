@@ -96,8 +96,8 @@ Requirements for Milestone v2.0. Each maps to roadmap phases 10-13.
 
 - [x] **RAG-01**: LLM can browse communities, drill into clusters, and follow relationships via MCP tools (PageIndex-style navigation)
 - [x] **RAG-02**: Leiden community detection produces hierarchical clusters with LLM-generated summaries at each level
-- [ ] **RAG-03**: Hybrid retrieval pipeline combines BM25, vector, and graph traversal results via Reciprocal Rank Fusion
-- [ ] **RAG-04**: Document ingestion pipeline converts PDF/Markdown into graph structure with text and vector indexes
+- [x] **RAG-03**: Hybrid retrieval pipeline combines BM25, vector, and graph traversal results via Reciprocal Rank Fusion
+- [x] **RAG-04**: Document ingestion pipeline converts PDF/Markdown into graph structure with text and vector indexes
 - [ ] **RAG-05**: MCP tools expose full RAG pipeline: browse_communities, drill_into_community, hybrid_search, ingest_document
 
 ### AI Demo Experience
@@ -170,8 +170,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SKILL-07 | Phase 11 | Complete (11-04) |
 | RAG-01 | Phase 12 | Complete (12-01) |
 | RAG-02 | Phase 12 | Complete (12-01) |
-| RAG-03 | Phase 12 | Pending |
-| RAG-04 | Phase 12 | Pending |
+| RAG-03 | Phase 12 | Complete (12-02) |
+| RAG-04 | Phase 12 | Complete (12-03) |
 | RAG-05 | Phase 12 | Pending |
 | DEMO-AI-01 | Phase 13 | Pending |
 | DEMO-AI-02 | Phase 13 | Pending |
