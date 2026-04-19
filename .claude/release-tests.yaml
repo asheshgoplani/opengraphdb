@@ -1,0 +1,69 @@
+# OpenGraphDB — Release Regression Test Manifest
+#
+# This file lists every test that was added to fix a specific bug. Every release
+# cut (phase 8 of the conductor's 8-phase TDD pipeline) MUST run all tests below
+# and go green before the tag + GitHub release is published.
+#
+# Manifest-source drift is a failure: if a test named here doesn't exist or fails
+# to compile, that's worse than no manifest — the CI release gate depends on this
+# file being honest.
+#
+# Bootstrapped 2026-04-19 as part of fix/write-perf. Append new entries for every
+# future bug fix (invariant 3 of the claude-conductor skill).
+#
+# Schema:
+#   tests:
+#     - id:       short-kebab-id unique across the file
+#       task:     fix-<task-id> that added this regression guard
+#       crate:    which cargo workspace crate the test lives in
+#       test:     the rust test target name (matches --test flag)
+#       function: the specific #[test] function name(s); empty list means all in file
+#       command:  exact cargo invocation to run just this test
+#       purpose:  one-line description of what this guards against
+#       added:    YYYY-MM-DD
+
+tests:
+  - id: write-perf-single-op-under-2ms
+    task: fix-write-perf
+    crate: ogdb-core
+    test: write_perf_single_op_under_2ms
+    function: [single_create_node_p50_under_2ms]
+    command: "cargo test --release -p ogdb-core --test write_perf_single_op_under_2ms"
+    purpose: "Guards against sync_meta-per-op regression. Asserts p50 create_node latency under 2ms."
+    added: 2026-04-19
+
+  - id: write-perf-1k-under-1s
+    task: fix-write-perf
+    crate: ogdb-core
+    test: write_perf_1k_under_1s
+    function: []
+    command: "cargo test --release -p ogdb-core --test write_perf_1k_under_1s"
+    purpose: "Asserts bulk 1K-node insert completes in <1s. Direct coverage of the 10K-import perf story."
+    added: 2026-04-19
+
+  - id: meta-json-no-growth-on-writes
+    task: fix-write-perf
+    crate: ogdb-core
+    test: meta_json_no_growth_on_writes
+    function: []
+    command: "cargo test --release -p ogdb-core --test meta_json_no_growth_on_writes"
+    purpose: "Asserts meta.json on-disk size does not grow O(N) with write load. Catches reintroduction of per-op sidecar rewrites."
+    added: 2026-04-19
+
+  - id: wal-replay-preserves-committed-labels
+    task: fix-write-perf
+    crate: ogdb-core
+    test: wal_replay_preserves_committed_labels_across_simulated_power_loss
+    function: []
+    command: "cargo test --release -p ogdb-core --test wal_replay_preserves_committed_labels_across_simulated_power_loss"
+    purpose: "Codifies the post-deferred-sync durability contract (graceful close + WAL replay preserves committed data)."
+    added: 2026-04-19
+
+  - id: write-throughput-regression
+    task: fix-write-perf
+    crate: ogdb-bench
+    test: write_throughput_regression
+    function: [create_nodes_throughput_above_10k_elems_per_sec]
+    command: "cargo test --release -p ogdb-bench --test write_throughput_regression"
+    purpose: "Asserts create_nodes throughput >=7500 elem/s post-fix (235x baseline). Threshold calibrated against ext4 6ms fsync floor; see .planning/fix-write-perf/PLAN.md D7."
+    added: 2026-04-19
