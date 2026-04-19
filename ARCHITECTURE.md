@@ -71,17 +71,32 @@ This avoids multi-location property updates and keeps label filtering fast.
 
 Authoritative state:
 
-- `mydb.ogdb` (main data file)
-- `mydb.ogdb-wal` (WAL sidecar)
+- `mydb.ogdb-wal` (WAL sidecar) — fsynced at commit; sole durability barrier for committed transactions
+- `mydb.ogdb` (main data file, header + edge records) — written at commit, fsynced opportunistically; recoverable from WAL
+- `mydb.ogdb-props` (node property data pages) — written at commit, fsynced opportunistically; recoverable from WAL
 
-Derived/rebuildable state:
+Commit-time persistence matrix (post-`fix-write-perf`, 2026-04-19):
 
-- `mydb.ogdb.vecindex` (vector index)
-- `mydb.ogdb.ftindex/` (full-text index)
+| File                                  | Persistence                                                                 | Recovery source on crash            |
+|---------------------------------------|-----------------------------------------------------------------------------|-------------------------------------|
+| `mydb.ogdb-wal`                       | `fdatasync` at commit (write-ahead)                                         | N/A — durability barrier itself     |
+| `mydb.ogdb` (header + edge pages)     | Write-only at commit (no fsync); fsync at `Database::checkpoint`            | WAL replay rebuilds header/edge state |
+| `mydb.ogdb-props` (row pages)         | Write-only at commit (no fsync); fsync at `Database::checkpoint`            | WAL replay re-allocates rows        |
+| `mydb.ogdb-meta.json`                 | Write-only at commit boundary (no fsync); was per-op pre-fix                | Rebuildable from WAL replay (node ids only; labels/props best-effort) |
+| `mydb.ogdb-props-meta.json`           | Write-only at commit boundary (no fsync); was per-op pre-fix                | Rebuildable from WAL replay         |
+| `mydb.ogdb-props-free-list.json`      | Write-only at commit boundary (no fsync) when dirty                         | Rebuildable from props file scan    |
+| `mydb.ogdb-csr.json`                  | Written at checkpoint                                                       | Rebuildable from edge pages         |
+
+Derived/rebuildable state (no on-disk durability requirement):
+
+- `mydb.ogdb.vecindex` (vector index) — refreshed opportunistically at commit, rebuildable from node data
+- `mydb.ogdb.ftindex/` (full-text index) — rebuildable from node data
 
 Rules:
 
-- `.ogdb` + `.ogdb-wal` define correctness.
+- `mydb.ogdb-wal` is the **only** commit-time durability barrier. All other on-disk state reflects post-commit kernel-page-cache writes whose bytes are reconstructible from the WAL on next open.
+- A graceful close (`drop Database`) followed by `Database::open` in the same OS session observes committed labels, properties, edge metadata, and row mappings because the Linux page cache is coherent across processes on the same filesystem.
+- A **hard power failure** that wipes the kernel page cache before writeback may drop labels/properties for any transaction committed since the last `Database::checkpoint`, because the WAL record vocabulary currently carries only node/edge identifiers — not labels or properties. Node/edge existence and counts are always recoverable via WAL replay. Applications that require full committed-state durability after hard power loss should call `Database::checkpoint` at appropriate intervals (or rely on a future `WAL_RECORD_CREATE_NODE_V2` extension tracked in `.planning/fix-write-perf/PLAN.md` §5.c).
 - Vector and FTS artifacts are rebuildable from graph state.
 - Backup semantics are checkpoint + copy of main DB (plus optional sidecar copy/rebuild).
 
