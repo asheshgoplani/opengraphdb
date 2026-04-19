@@ -67,3 +67,12 @@ tests:
     command: "cargo test --release -p ogdb-bench --test write_throughput_regression"
     purpose: "Asserts create_nodes throughput >=7500 elem/s post-fix (235x baseline). Threshold calibrated against ext4 6ms fsync floor; see .planning/fix-write-perf/PLAN.md D7."
     added: 2026-04-19
+
+  - id: demo-datasets-canonical-names
+    task: fix-demo-seed
+    crate: ogdb-cli
+    test: demo_datasets_seed
+    function: [datasets_fixture_canonical_names_smoke_test]
+    command: "cargo test --release -p ogdb-cli --test demo_datasets_seed"
+    purpose: "Bidirectional smoke guard — asserts datasets/ contains the current canonical set (movielens/airroutes/got/wikidata) and does NOT contain the deleted Phase-06 fixtures. Catches re-drift in either direction."
+    added: 2026-04-19
