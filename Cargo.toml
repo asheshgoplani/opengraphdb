@@ -5,6 +5,7 @@ members = [
   "crates/ogdb-cli",
   "crates/ogdb-e2e",
   "crates/ogdb-bench",
+  "crates/ogdb-eval",
   "crates/ogdb-tck",
   "crates/ogdb-ffi",
   "crates/ogdb-python",
