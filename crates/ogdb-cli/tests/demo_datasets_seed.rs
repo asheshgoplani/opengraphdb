@@ -747,6 +747,43 @@ fn social_and_fraud_datasets_meet_domain_constraints() {
 }
 
 #[test]
+fn datasets_fixture_canonical_names_smoke_test() {
+    // Regression guard for fixture drift. Phase 07 replaced the phase-06 synthetic
+    // datasets (movies.json/social.json/fraud.json) with the real-world quartet
+    // (movielens/airroutes/got/wikidata). This test locks the contract that
+    // scripts/seed-demo.sh already enforces, independent of dataset schema.
+    let datasets_dir = repo_root().join("datasets");
+    let canonical = ["movielens.json", "airroutes.json", "got.json", "wikidata.json"];
+    let stale = ["movies.json", "social.json", "fraud.json"];
+
+    for name in canonical {
+        let path = datasets_dir.join(name);
+        assert!(
+            path.exists(),
+            "canonical dataset missing: datasets/{name} — has scripts/seed-demo.sh been regenerated?"
+        );
+        let dataset = read_dataset(&path);
+        assert!(
+            !nodes(&dataset).is_empty(),
+            "datasets/{name} must contain at least one node"
+        );
+        assert!(
+            !edges(&dataset).is_empty(),
+            "datasets/{name} must contain at least one edge"
+        );
+    }
+
+    for name in stale {
+        let path = datasets_dir.join(name);
+        assert!(
+            !path.exists(),
+            "stale phase-06 fixture re-introduced: datasets/{name} — canonical names are {:?}",
+            canonical
+        );
+    }
+}
+
+#[test]
 fn seed_demo_script_is_executable_and_idempotent() {
     let root = repo_root();
     let script_path = root.join("scripts/seed-demo.sh");
