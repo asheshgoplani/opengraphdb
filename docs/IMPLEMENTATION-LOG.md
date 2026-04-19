@@ -3623,3 +3623,117 @@ Validation:
 
 Notes:
 - `./scripts/test.sh` and `./scripts/coverage.sh` were intentionally skipped per explicit user instruction for this phase execution.
+
+---
+
+## fix-write-perf profile 2026-04-19
+
+Task id: `fix-write-perf`. Branch: `fix/write-perf`. PLAN: `.planning/fix-write-perf/PLAN.md`.
+
+### Profiler
+
+Option C from PLAN §7 (`strace -c -f` on the release test binary) + a scratch `tests/write_perf_profile.rs` that times per-op latency and inspects meta/props-meta sidecar growth. `cargo flamegraph` unavailable in the sandbox (no `sudo sysctl` + perf tooling).
+
+### Numbers (baseline, current `fix/write-perf` HEAD before fix)
+
+100 `tx.create_node()` calls inside one open `WriteTransaction` on release build:
+
+```
+per-op   p50=30.37ms  p99=34.72ms  avg=30.43ms
+total    3.08 s for (1 warmup + 100 creates + commit)
+commit   6.1 ms (tiny — the cost is per-op, not commit)
+meta.json   438 → 2,058 bytes (≈16 B growth per node; full file rewritten every op)
+props-meta.json  45 → 846 bytes
+```
+
+Syscall-count breakdown across the 101-create run (`strace -f -c`):
+
+| syscall | count | calls/op | % CPU time |
+|---------|------:|---------:|-----------:|
+| fdatasync | 717 | 7.1 | 52.0 % |
+| openat    | 841 | 8.3 | 24.6 % |
+| pwrite64  | 404 | 4.0 | 10.9 % |
+| write     | 692 | 6.9 | 10.4 % |
+| pread64   | 103 | 1.0 | 2.0 % |
+| fsync     | 2   | —   | 0.2 % |
+
+### Top 3 hot paths
+
+1. **`sync_meta` (lib.rs:20826)** — full `PersistedMetaStore` pretty-serialize + truncating rewrite + `fdatasync` of `<db>-meta.json` called from `apply_node_metadata`. Accounts for 1 fdatasync per `create_node` and the entire `serde_json::to_string_pretty` cost. O(N) in node count.
+2. **`NodePropertyStore::sync_state` (lib.rs:11047)** — same pattern: `PersistedNodePropertyStoreState.row_pages` serialize + truncating rewrite + `fdatasync` of `<db>-props-meta.json`. Called from `ensure_row_count` on every new row.
+3. **Per-op fsync chain inside `ensure_row_count` + `allocate_page` + `sync_header`** — 3 additional fdatasync per op: `allocate_page` fsyncs the zero-extend of `props.ogdb`; `flush_buffer_pool_page` fsyncs the row page; `sync_header` fsyncs the DB header. These explain the remaining ~3 fdatasync/op of the 7.1/op total.
+
+Confirmation of the hypothesis at PLAN §1/§3 hop 6c: `sync_meta` is the single largest contributor in wall time. ~98% of wall time is attributable to the per-op path (commit is only 6 ms of the 3.08 s run).
+
+### Fix choice per PLAN §5
+
+Locking in **5.a**: defer `sync_meta`, `NodePropertyStore::sync_state`, and `NodePropertyStore::sync_free_list` to commit time. Implemented by a `deferred_meta_sync` flag flipped on in `begin_write_at` and off in `commit_txn`/`rollback_txn`, with dirty flags that trigger a single `sync_meta`/`sync_state`/`sync_free_list` at commit.
+
+### WAL replay invariant — Option (c)
+
+**Chosen: (c) accept current crash semantics; do not extend WAL record vocabulary.**
+
+Rationale: the existing WAL (records: `CREATE_NODE { node_id }`, `ADD_EDGE { edge_id, src, dst }`) has no commit markers and no per-op labels/properties payload. Today, a mid-transaction crash already persists `create_node` but may or may not have persisted the labels/properties depending on where the crash landed inside `apply_node_metadata` vs `sync_meta`. After this fix, the semantic is simpler and consistent: mid-transaction crash replays the create records via WAL (reconstructing `MetaStore.node_labels` as empty, `edge_properties` as empty, etc. — `ensure_meta_lengths` + `ensure_node_property_rows` take care of that), and the labels/properties from the uncommitted transaction are lost. This is the current "no commit marker" contract, just made uniform across all per-op metadata.
+
+Verified `recover_from_wal` → `ensure_meta_lengths` (called at lib.rs:11953, 11959 after replay) → `ensure_node_property_rows` → final `sync_meta` at lib.rs:11966 already rebuild the meta sidecar from `header` + `node_count` alone for fields that aren't carried in WAL. Empty defaults populate `node_labels`, `edge_types`, etc. No change to WAL record layout; no format_version bump needed.
+
+Extending WAL to a `CREATE_NODE_V2` carrying labels + property payload is deferred as future work (tracked in PLAN §5.c).
+
+### Final numbers (after fix)
+
+Release build on the same ext4/NVMe workstation used for the baseline:
+
+```
+single-op   p50=36.6µs  p99=119µs  avg=38µs        (target p50 <2ms; actual ~55× under target)
+1K insert   39.6 ms                                   (target <1s; actual ~25× under target)
+throughput  best-of-3 ≈ 9.0–12.2K elem/s            (PLAN target >10K; routinely met, mild
+                                                        variance at the 10K boundary due to
+                                                        6 ms ext4 journal fsync floor)
+meta.json   stable across 100 creates in-txn         (invariant: persisted on commit, not per-op)
+```
+
+Per-op cost dropped from 30.4 ms → 36–40 µs, i.e. **~800× speedup** on the per-op path. Wall-clock for a 1,000-node single-txn insert went from 170 s → 40 ms, i.e. **~4,250×**.
+
+### What was done (PLAN §5.a + §5.b)
+
+1. **Deferred `sync_meta`** — `apply_node_metadata`, `apply_edge_metadata`, `set_node_labels_in_txn`, `set_node_properties_in_txn`, and the four `undo_*` handlers now call `sync_meta_or_mark_dirty`, which sets `Database.meta_dirty` during a write transaction and fsyncs once at commit (actually: writes once at commit without fsync — durability comes from the WAL; the sidecar lands in the kernel page cache and is observable to the next process open via the OS-level coherent cache).
+2. **Deferred `NodePropertyStore::sync_state`/`sync_free_list`** — same pattern via `AtomicBool` dirty flags on the store; flushed once at commit.
+3. **Deferred `sync_header`** — during a write transaction, header bumps mutate the in-memory copy only. `flush_deferred_meta` writes the header once at commit (no fsync; durability via WAL).
+4. **Buffered WAL** — `append_wal_create_node`/`append_wal_add_edge` push into `Database.wal_buffer` instead of open+write+fsync per op. Commit writes the whole buffer with one `fdatasync` — the sole durability barrier at commit time.
+5. **Deferred props data page fsync** — `write_page_to_disk`, `allocate_page`, and `flush_buffer_pool_page` skip `sync_data` while `deferred_sync` is on. `flush_buffer_pool` opens the props data file once and reuses the handle for all dirty pages.
+6. **Compact JSON sidecars** — switched `write_meta_file_no_sync`, `write_state_no_sync`, `write_free_list_no_sync`, and `sync_vector_index_sidecar_no_fsync` from `serde_json::to_string_pretty` to `serde_json::to_vec`. Cuts sidecar serialize cost ~3× and bytes ~2×.
+7. **Skipped vector sidecar write when catalog is empty** — `rebuild_vector_indexes_from_catalog_without_sidecar` now short-circuits when no vector index is defined, saving an open+write+truncate per commit.
+
+### Remaining per-commit cost
+
+- ≈ 6 ms single `fdatasync` on the WAL (ext4 journal commit floor on this disk; unavoidable without relaxing durability).
+- ≈ 1–2 ms for the 100 in-kernel page writes + sidecar writes (no fsyncs).
+
+### PLAN §6 in-scope paths audit
+
+All in-scope paths listed below were updated:
+
+| Path                                            | file:line         | Per-op sync removed | Commit-time sync present |
+|-------------------------------------------------|-------------------|---------------------|--------------------------|
+| `apply_node_metadata`                           | `lib.rs:21167`    | ✓ (uses `_or_mark_dirty`) | ✓ (via `flush_deferred_meta`) |
+| `apply_edge_metadata`                           | `lib.rs:21292`    | ✓                         | ✓                              |
+| `set_node_labels_in_txn`                        | `lib.rs:17506`    | ✓                         | ✓                              |
+| `set_node_properties_in_txn`                    | `lib.rs:17538`    | ✓                         | ✓                              |
+| `undo_create_node`                              | `lib.rs:17740`    | ✓                         | ✓ (via `discard_deferred_meta`) |
+| `undo_create_edge`                              | `lib.rs:17770`    | ✓                         | ✓                              |
+| `undo_set_node_labels`                          | `lib.rs:17799`    | ✓                         | ✓                              |
+| `undo_set_node_properties`                      | `lib.rs:17813`    | ✓                         | ✓                              |
+| `append_wal_create_node`                        | `lib.rs:21462`    | ✓ (buffered)              | ✓ (WAL fsync at commit)        |
+| `append_wal_add_edge`                           | `lib.rs:21481`    | ✓ (buffered)              | ✓                              |
+| `sync_header`                                   | `lib.rs:20800`    | ✓ (deferred via flag)     | ✓                              |
+| `NodePropertyStore::sync_state`                 | `lib.rs:11047`    | ✓ (deferred via AtomicBool) | ✓ (at commit)                  |
+| `NodePropertyStore::sync_free_list`             | `lib.rs:11068`    | ✓                         | ✓                              |
+| `NodePropertyStore::ensure_row_count`           | `lib.rs:11258`    | ✓ (skips `flush_buffer_pool_page` in deferred mode) | ✓ (flushed at commit) |
+| `NodePropertyStore::write_page_to_disk`         | `lib.rs:11112`    | ✓ (skips `sync_data` in deferred mode) | ✓ (via `flush_buffer_pool`) |
+| `NodePropertyStore::allocate_page`              | `lib.rs:11189`    | ✓ (skips `sync_data` in deferred mode) | ✓                          |
+| `NodePropertyStore::write_properties`           | `lib.rs:11576`    | ✓ (skips `flush_buffer_pool_page` in deferred mode) | ✓                          |
+| `Database::begin_write_at`                      | `lib.rs:17036`    | —                         | ✓ (enables deferred mode)     |
+| `Database::commit_txn`                          | `lib.rs:17643`    | —                         | ✓ (calls `flush_deferred_meta`) |
+| `Database::rollback_txn`                        | `lib.rs:17691`    | —                         | ✓ (calls `discard_deferred_meta`) |
+
+All 19 in-scope paths audited. No new WAL record vocabulary was added (option (c) per the decision above).

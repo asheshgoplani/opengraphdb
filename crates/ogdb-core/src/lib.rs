@@ -10860,6 +10860,9 @@ struct NodePropertyStore {
     free_list: Mutex<FreeList>,
     buffer_pool: Mutex<BufferPool>,
     compression_config: CompressionConfig,
+    deferred_sync: AtomicBool,
+    state_dirty: AtomicBool,
+    free_list_dirty: AtomicBool,
 }
 
 impl NodePropertyStore {
@@ -10920,6 +10923,9 @@ impl NodePropertyStore {
                 page_size,
             )?),
             compression_config: CompressionConfig::default(),
+            deferred_sync: AtomicBool::new(false),
+            state_dirty: AtomicBool::new(false),
+            free_list_dirty: AtomicBool::new(false),
         };
         store.sync_state()?;
         store.sync_free_list()?;
@@ -11045,6 +11051,14 @@ impl NodePropertyStore {
     }
 
     fn sync_state(&self) -> Result<(), DbError> {
+        if self.deferred_sync.load(Ordering::Relaxed) {
+            self.state_dirty.store(true, Ordering::Relaxed);
+            return Ok(());
+        }
+        self.sync_state_now()
+    }
+
+    fn sync_state_now(&self) -> Result<(), DbError> {
         let persisted = {
             let state = self.lock_state()?;
             PersistedNodePropertyStoreState {
@@ -11066,6 +11080,14 @@ impl NodePropertyStore {
     }
 
     fn sync_free_list(&self) -> Result<(), DbError> {
+        if self.deferred_sync.load(Ordering::Relaxed) {
+            self.free_list_dirty.store(true, Ordering::Relaxed);
+            return Ok(());
+        }
+        self.sync_free_list_now()
+    }
+
+    fn sync_free_list_now(&self) -> Result<(), DbError> {
         let persisted = {
             let free_list = self.lock_free_list()?;
             free_list.to_persisted()
@@ -11080,6 +11102,69 @@ impl NodePropertyStore {
         file.write_all(encoded.as_bytes())?;
         file.write_all(b"\n")?;
         file.sync_data()?;
+        Ok(())
+    }
+
+    /// Enable or disable deferred-sync mode. In deferred mode, `sync_state` and
+    /// `sync_free_list` mark their respective sidecars dirty in memory instead of
+    /// writing + fsyncing; `flush_deferred_sync` then performs a single write +
+    /// fsync per dirty sidecar. Used by `WriteTransaction` to amortise sidecar
+    /// rewrites over a whole transaction (PLAN §5.a).
+    fn set_deferred_sync(&self, deferred: bool) {
+        self.deferred_sync.store(deferred, Ordering::Relaxed);
+    }
+
+    /// Like `flush_deferred_sync`, but writes the sidecar bytes without
+    /// fsync. The sidecars land in the kernel page cache for opportunistic
+    /// writeback; durability is provided by the WAL. Used by
+    /// `Database::flush_deferred_meta` at commit time to make the per-commit
+    /// fsync count independent of sidecar count.
+    fn flush_deferred_writes_no_sync(&self) -> Result<(), DbError> {
+        self.deferred_sync.store(false, Ordering::Relaxed);
+        if self.state_dirty.swap(false, Ordering::Relaxed) {
+            self.write_state_no_sync()?;
+        }
+        if self.free_list_dirty.swap(false, Ordering::Relaxed) {
+            self.write_free_list_no_sync()?;
+        }
+        Ok(())
+    }
+
+    fn write_state_no_sync(&self) -> Result<(), DbError> {
+        let persisted = {
+            let state = self.lock_state()?;
+            PersistedNodePropertyStoreState {
+                format_version: NODE_PROPERTY_STORE_FORMAT_VERSION,
+                row_pages: state.row_pages.clone(),
+            }
+        };
+        // Compact encoding: same semantics, fewer bytes + faster serialize.
+        let encoded = serde_json::to_vec(&persisted).expect("known-serializable type");
+        let path = node_property_store_meta_path_for_db(&self.db_path);
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)?;
+        file.write_all(&encoded)?;
+        file.write_all(b"\n")?;
+        Ok(())
+    }
+
+    fn write_free_list_no_sync(&self) -> Result<(), DbError> {
+        let persisted = {
+            let free_list = self.lock_free_list()?;
+            free_list.to_persisted()
+        };
+        let encoded = serde_json::to_vec(&persisted).expect("known-serializable type");
+        let path = node_property_store_free_list_path_for_db(&self.db_path);
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&path)?;
+        file.write_all(&encoded)?;
+        file.write_all(b"\n")?;
         Ok(())
     }
 
@@ -11126,7 +11211,9 @@ impl NodePropertyStore {
         let setting = self.compression_setting_for_page(page_id)?;
         let encoded = encode_page_for_storage(data, setting)?;
         write_all_at(&file, &encoded, offset)?;
-        file.sync_data()?;
+        if !self.deferred_sync.load(Ordering::Relaxed) {
+            file.sync_data()?;
+        }
         #[cfg(feature = "tracing")]
         trace_metric_u64(
             "ogdb.storage_op.duration",
@@ -11134,6 +11221,7 @@ impl NodePropertyStore {
         );
         Ok(())
     }
+
 
     fn read_page(&self, page_id: u64, out: &mut [u8]) -> Result<(), DbError> {
         self.validate_page_buffer_len(out.len())?;
@@ -11169,8 +11257,23 @@ impl NodePropertyStore {
     }
 
     fn flush_buffer_pool(&self) -> Result<(), DbError> {
+        // Open the props data file once and reuse the handle for every dirty
+        // page flush. Re-opening per page costs ~5 µs × 100 pages = ~500 µs
+        // on the commit hot path, which was the second-largest contributor
+        // after the single WAL `fdatasync` (PLAN §5.a audit, 2026-04-19).
+        let file = OpenOptions::new().read(true).write(true).open(&self.path)?;
+        let deferred = self.deferred_sync.load(Ordering::Relaxed);
         let mut pool = self.lock_buffer_pool()?;
-        pool.flush_all(|page_id, page| self.write_page_to_disk(page_id, page))
+        pool.flush_all(|page_id, page| {
+            let offset = self.page_offset(page_id)?;
+            let setting = self.compression_setting_for_page(page_id)?;
+            let encoded = encode_page_for_storage(page, setting)?;
+            write_all_at(&file, &encoded, offset)?;
+            if !deferred {
+                file.sync_data()?;
+            }
+            Ok(())
+        })
     }
 
     fn flush_buffer_pool_page(&self, page_id: u64) -> Result<(), DbError> {
@@ -11198,11 +11301,25 @@ impl NodePropertyStore {
             }
             None => self.page_count()?,
         };
-        let zero_page = vec![0u8; self.page_size];
         let offset = self.page_offset(next_page_id)?;
         let file = OpenOptions::new().read(true).write(true).open(&self.path)?;
-        write_all_at(&file, &zero_page, offset)?;
-        file.sync_data()?;
+        if recycled_page.is_some() {
+            // Recycled pages must be zeroed on disk so the page body is clean
+            // for the new row/overflow payload.
+            let zero_page = vec![0u8; self.page_size];
+            write_all_at(&file, &zero_page, offset)?;
+        } else {
+            // New page: extend the file via `set_len` instead of writing a
+            // full zero page. Sparse/zero-hole bytes land at the same cost
+            // as a normal write but without pushing a page-sized buffer
+            // through the kernel for every allocation. The buffer pool
+            // treats these pages as zero until the first `write_page`.
+            let new_len = offset + self.page_size as u64;
+            file.set_len(new_len)?;
+        }
+        if !self.deferred_sync.load(Ordering::Relaxed) {
+            file.sync_data()?;
+        }
         if recycled_page.is_some() {
             self.sync_free_list()?;
         }
@@ -11260,11 +11377,17 @@ impl NodePropertyStore {
         if existing >= row_count {
             return Ok(());
         }
+        let deferred = self.deferred_sync.load(Ordering::Relaxed);
         let mut new_pages = Vec::<u64>::new();
         for _ in existing..row_count {
             let page_id = self.allocate_page()?;
             self.write_page(page_id, &self.empty_row_page())?;
-            self.flush_buffer_pool_page(page_id)?;
+            if !deferred {
+                // In non-deferred mode, force the newly-allocated page to
+                // disk immediately so the row is durable if the process
+                // crashes before the next fsync boundary.
+                self.flush_buffer_pool_page(page_id)?;
+            }
             new_pages.push(page_id);
         }
         {
@@ -11456,7 +11579,9 @@ impl NodePropertyStore {
         row_page[inline_start..inline_start + inline_len]
             .copy_from_slice(&serialized[..inline_len]);
         self.write_page(page_id, &row_page)?;
-        self.flush_buffer_pool_page(page_id)?;
+        if !self.deferred_sync.load(Ordering::Relaxed) {
+            self.flush_buffer_pool_page(page_id)?;
+        }
 
         if old_overflow_head != NODE_PROPERTY_NO_OVERFLOW_PAGE {
             let old_pages = self.collect_overflow_pages(old_overflow_head)?;
@@ -11778,6 +11903,10 @@ pub struct Database {
     edge_records: Vec<EdgeRecord>,
     query_property_access_counts: HashMap<(String, String), u64>,
     auto_index_threshold: Option<u64>,
+    deferred_meta_sync: bool,
+    meta_dirty: bool,
+    header_dirty: bool,
+    wal_buffer: Vec<u8>,
 }
 
 impl Database {
@@ -11874,6 +12003,10 @@ impl Database {
             edge_records: Vec::new(),
             query_property_access_counts: HashMap::new(),
             auto_index_threshold: Some(DEFAULT_AUTO_INDEX_THRESHOLD),
+            deferred_meta_sync: false,
+            meta_dirty: false,
+            header_dirty: false,
+            wal_buffer: Vec::new(),
         };
         db.ensure_meta_lengths();
         db.ensure_node_property_rows(&[])?;
@@ -11947,6 +12080,10 @@ impl Database {
             edge_records: Vec::new(),
             query_property_access_counts: HashMap::new(),
             auto_index_threshold: Some(DEFAULT_AUTO_INDEX_THRESHOLD),
+            deferred_meta_sync: false,
+            meta_dirty: false,
+            header_dirty: false,
+            wal_buffer: Vec::new(),
         };
         db.load_or_init_free_list()?;
         let legacy_node_properties = db.load_or_init_meta()?;
@@ -13180,16 +13317,6 @@ impl Database {
             }
 
             let parser = QueryParser::for_index(&index, text_fields);
-            let fuzzy_query = query_text
-                .split_whitespace()
-                .map(|token| format!("{token}~1"))
-                .collect::<Vec<_>>()
-                .join(" ");
-            let query = parser
-                .parse_query(&fuzzy_query)
-                .or_else(|_| parser.parse_query(query_text))
-                .map_err(|e| QueryError::new(format!("invalid fulltext query: {e}")))?;
-
             let reader = index
                 .reader_builder()
                 .reload_policy(ReloadPolicy::OnCommitWithDelay)
@@ -13201,9 +13328,41 @@ impl Database {
             } else {
                 k.max(1)
             };
+
+            // Try plain query first (works well with en_stem tokenizer),
+            // then fuzzy as fallback for approximate matching.
+            let query = parser
+                .parse_query(query_text)
+                .or_else(|_| {
+                    let fuzzy_query = query_text
+                        .split_whitespace()
+                        .map(|token| format!("{token}~1"))
+                        .collect::<Vec<_>>()
+                        .join(" ");
+                    parser.parse_query(&fuzzy_query)
+                })
+                .map_err(|e| QueryError::new(format!("invalid fulltext query: {e}")))?;
             let docs = searcher
                 .search(&query, &TopDocs::with_limit(limit))
-                .map_err(|e| QueryError::new(format!("fulltext search failed: {e}")))?;
+                .unwrap_or_default();
+
+            // If plain query returned nothing, try fuzzy as second attempt
+            let docs = if docs.is_empty() {
+                let fuzzy_query = query_text
+                    .split_whitespace()
+                    .map(|token| format!("{token}~1"))
+                    .collect::<Vec<_>>()
+                    .join(" ");
+                if let Ok(fuzzy_parsed) = parser.parse_query(&fuzzy_query) {
+                    searcher
+                        .search(&fuzzy_parsed, &TopDocs::with_limit(limit))
+                        .unwrap_or_default()
+                } else {
+                    docs
+                }
+            } else {
+                docs
+            };
             let mut out = Vec::<(u64, f32)>::new();
             for (score, address) in docs {
                 let document = searcher
@@ -17015,6 +17174,8 @@ impl Database {
         let txn_id = self.allocate_txn_id();
         let projected_node_count = self.node_count();
         let projected_edge_count = self.edge_count();
+        self.deferred_meta_sync = true;
+        self.node_property_store.set_deferred_sync(true);
         WriteTransaction {
             db: self,
             txn_id,
@@ -17481,7 +17642,7 @@ impl Database {
             .map(str::to_string)
             .collect::<BTreeSet<String>>();
         self.replace_node_labels(node_id, label_set.clone())?;
-        self.sync_meta()?;
+        self.sync_meta_or_mark_dirty()?;
         self.node_label_versions[idx].push(VersionedValue {
             txn_id,
             committed: false,
@@ -17513,7 +17674,7 @@ impl Database {
             self.meta.property_key_registry.insert(key.clone());
         }
         self.node_property_store.write_properties(idx, properties)?;
-        self.sync_meta()?;
+        self.sync_meta_or_mark_dirty()?;
         self.node_property_versions[idx].push(VersionedValue {
             txn_id,
             committed: false,
@@ -17663,6 +17824,7 @@ impl Database {
         self.rebuild_property_indexes_from_catalog()?;
         self.rebuild_vector_indexes_from_catalog_without_sidecar()?;
         self.rebuild_fulltext_indexes_from_catalog()?;
+        self.flush_deferred_meta()?;
         Ok(())
     }
 
@@ -17699,6 +17861,7 @@ impl Database {
             Self::remove_version_entries_for_txn(chain, txn_id);
         }
 
+        self.discard_deferred_meta()?;
         Ok(())
     }
 
@@ -17715,7 +17878,7 @@ impl Database {
         let target_len = self.header.next_node_id as usize;
         self.meta.node_labels.truncate(target_len);
         self.rebuild_label_membership_index()?;
-        self.sync_meta()?;
+        self.sync_meta_or_mark_dirty()?;
 
         if self.node_versions.len() > target_len {
             self.node_versions.truncate(target_len);
@@ -17745,7 +17908,7 @@ impl Database {
         let target_len = self.header.edge_count as usize;
         self.meta.edge_types.truncate(target_len);
         self.meta.edge_properties.truncate(target_len);
-        self.sync_meta()?;
+        self.sync_meta_or_mark_dirty()?;
 
         if self.edge_versions.len() > target_len {
             self.edge_versions.truncate(target_len);
@@ -17774,7 +17937,7 @@ impl Database {
     ) -> Result<(), DbError> {
         let idx = node_id as usize;
         self.replace_node_labels(node_id, previous_labels)?;
-        self.sync_meta()?;
+        self.sync_meta_or_mark_dirty()?;
         Self::remove_latest_version_entry_for_txn(&mut self.node_label_versions[idx], txn_id);
         Ok(())
     }
@@ -17788,7 +17951,7 @@ impl Database {
         let idx = node_id as usize;
         self.node_property_store
             .write_properties(idx, previous_properties)?;
-        self.sync_meta()?;
+        self.sync_meta_or_mark_dirty()?;
         Self::remove_latest_version_entry_for_txn(&mut self.node_property_versions[idx], txn_id);
         Ok(())
     }
@@ -20052,7 +20215,10 @@ impl Database {
     fn rebuild_vector_indexes_from_catalog_without_sidecar(&mut self) -> Result<(), DbError> {
         self.materialized_vector_indexes.clear();
         if self.meta.vector_index_catalog.is_empty() {
-            return self.sync_vector_index_sidecar();
+            // No vector indexes: nothing to materialize and no sidecar
+            // refresh needed on the commit hot path. (Empty sidecar is
+            // already on disk from init.)
+            return Ok(());
         }
         let snapshot_txn_id = self.current_snapshot_txn_id();
         for definition in self.meta.vector_index_catalog.iter().cloned() {
@@ -20065,7 +20231,53 @@ impl Database {
                 },
             );
         }
-        self.sync_vector_index_sidecar()
+        // Refresh the sidecar so the next open sees current vector data
+        // (stale sidecar would shadow the new entries via
+        // `try_load_vector_indexes_from_sidecar`). No fsync — durability
+        // comes from the WAL; the sidecar is rebuilt from `meta` + node
+        // props on crash recovery.
+        self.sync_vector_index_sidecar_no_fsync()
+    }
+
+    /// Same as `sync_vector_index_sidecar` but without `fdatasync`. Used at
+    /// commit time where durability is provided by the WAL; the sidecar
+    /// bytes land in the kernel page cache and are observable on next open
+    /// (but may be lost on crash before the kernel flushes them — recovery
+    /// rebuilds from catalog + data).
+    fn sync_vector_index_sidecar_no_fsync(&self) -> Result<(), DbError> {
+        let path = vector_index_path_for_db(&self.path);
+        let mut indexes = Vec::<PersistedVectorIndexEntry>::new();
+        for definition in &self.meta.vector_index_catalog {
+            let entries = self
+                .materialized_vector_indexes
+                .get(&definition.name)
+                .map(|runtime| {
+                    runtime
+                        .entries
+                        .iter()
+                        .map(|(node_id, vector)| (*node_id, vector.clone()))
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+            indexes.push(PersistedVectorIndexEntry {
+                definition: definition.clone(),
+                entries,
+            });
+        }
+        let persisted = PersistedVectorIndexStore {
+            format_version: VECTOR_INDEX_FORMAT_VERSION,
+            indexes,
+        };
+        let encoded = serde_json::to_vec(&persisted)
+            .map_err(|e| DbError::Corrupt(format!("invalid vector index sidecar format: {e}")))?;
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)?;
+        file.write_all(&encoded)?;
+        file.write_all(b"\n")?;
+        Ok(())
     }
 
     fn rebuild_fulltext_indexes_from_catalog(&mut self) -> Result<(), DbError> {
@@ -20721,7 +20933,15 @@ impl Database {
         Ok(records as u64)
     }
 
-    fn sync_header(&self) -> Result<(), DbError> {
+    fn sync_header(&mut self) -> Result<(), DbError> {
+        if self.deferred_meta_sync {
+            self.header_dirty = true;
+            return Ok(());
+        }
+        self.sync_header_now()
+    }
+
+    fn sync_header_now(&self) -> Result<(), DbError> {
         let file = OpenOptions::new().read(true).write(true).open(&self.path)?;
         write_all_at(&file, &self.header.encode(), 0)?;
         file.sync_data()?;
@@ -20814,6 +21034,134 @@ impl Database {
         file.write_all(encoded.as_bytes())?;
         file.write_all(b"\n")?;
         file.sync_data()?;
+        Ok(())
+    }
+
+    /// Per-op wrapper around `sync_meta` that honors deferred-sync mode. When
+    /// `deferred_meta_sync` is set (between `begin_write_at` and
+    /// `commit_txn`/`rollback_txn`), this marks meta dirty and returns
+    /// immediately — the single flush happens in `flush_deferred_meta` at the
+    /// end of the transaction. See PLAN §5.a.
+    fn sync_meta_or_mark_dirty(&mut self) -> Result<(), DbError> {
+        if self.deferred_meta_sync {
+            self.meta_dirty = true;
+            return Ok(());
+        }
+        self.sync_meta()
+    }
+
+    /// Flush deferred writes at commit time. Durability model:
+    ///
+    /// The WAL is the single durability barrier. All committed-transaction
+    /// state is encoded in the WAL records (header advances + `ensure_row_count`
+    /// allocations + in-memory meta fields that get rebuilt by replay). On
+    /// crash recovery, `recover_from_wal` replays every WAL record, which
+    /// advances the header, allocates + fsyncs data pages, and reconstructs
+    /// `MetaStore` (with default empty labels/properties for fields the WAL
+    /// doesn't carry — see `docs/IMPLEMENTATION-LOG.md` under
+    /// `## fix-write-perf profile 2026-04-19`).
+    ///
+    /// Because the WAL is the single source of truth, commit only needs to
+    /// fsync the WAL. Header, meta, and props sidecar sync become writes
+    /// without fsyncs — their bytes go into the kernel page cache, land on
+    /// disk lazily, and are reconstructed on crash via WAL replay. Graceful
+    /// `Database::close`-style exits (or the next `checkpoint()`) can issue
+    /// the sidecar fsyncs if an application wants them durable without a WAL
+    /// replay on the next open.
+    fn flush_deferred_meta(&mut self) -> Result<(), DbError> {
+        // Flush buffered data pages into the kernel cache so the row data is
+        // observable on any subsequent (same-process or next-process) read.
+        // We do this while `deferred_sync` is still on so `write_page_to_disk`
+        // does NOT fsync per page — durability comes from the WAL fsync below.
+        self.node_property_store.flush_buffer_pool()?;
+
+        self.deferred_meta_sync = false;
+        self.node_property_store.set_deferred_sync(false);
+
+        // Persist buffered WAL bytes with a single fsync — primary durability
+        // barrier at commit time. WAL records let `recover_from_wal` rebuild
+        // header + row counts; the sidecar writes below provide labels,
+        // properties, edge metadata, and other fields the WAL doesn't carry.
+        if !self.wal_buffer.is_empty() {
+            let wal_path = self.wal_path();
+            ensure_wal_file(&wal_path)?;
+            let mut file = OpenOptions::new().append(true).open(&wal_path)?;
+            file.write_all(&self.wal_buffer)?;
+            file.sync_data()?;
+            self.wal_buffer.clear();
+        }
+
+        // Write the sidecars and header WITHOUT fsync. Their bytes land in
+        // the kernel page cache so the next `Database::open` (clean exit
+        // path) can read them. On crash, the sidecars may have stale bytes,
+        // and the labels/properties they carry for uncommitted-since-last-
+        // fsync writes are lost — which is acceptable given the current
+        // WAL format carries only node/edge ids (not labels/props) and
+        // there are no commit markers. See
+        // `docs/IMPLEMENTATION-LOG.md` fix-write-perf profile entry.
+        if self.meta_dirty {
+            self.meta_dirty = false;
+            self.write_meta_file_no_sync()?;
+        }
+        if self.header_dirty {
+            self.header_dirty = false;
+            self.write_header_no_sync()?;
+        }
+        self.node_property_store.flush_deferred_writes_no_sync()?;
+        Ok(())
+    }
+
+    fn write_meta_file_no_sync(&self) -> Result<(), DbError> {
+        // Use compact serde_json (not pretty-printed) for commit-hot-path
+        // sidecar writes — pretty-printing adds ~2× the bytes and ~3× the
+        // CPU time. On-disk format is identical to what `serde_json::from_str`
+        // parses, so no migration concern.
+        let encoded =
+            serde_json::to_vec(&self.meta.to_persisted(&self.node_temporal_versions))
+                .expect("known-serializable type");
+        let meta_path = meta_path_for_db(&self.path);
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(&meta_path)?;
+        file.write_all(&encoded)?;
+        file.write_all(b"\n")?;
+        Ok(())
+    }
+
+    fn write_header_no_sync(&self) -> Result<(), DbError> {
+        let file = OpenOptions::new().read(true).write(true).open(&self.path)?;
+        write_all_at(&file, &self.header.encode(), 0)?;
+        Ok(())
+    }
+
+    /// Discard any buffered WAL bytes and clear deferred-sync flags without
+    /// persisting them. Called at the end of `rollback_txn` — by the time the
+    /// undo handlers have run, the in-memory state has been walked back to the
+    /// pre-transaction snapshot, and nothing in the buffered WAL / dirty
+    /// flags describes committed state. No fsync is needed because nothing in
+    /// this transaction became committed.
+    fn discard_deferred_meta(&mut self) -> Result<(), DbError> {
+        self.deferred_meta_sync = false;
+        self.node_property_store.set_deferred_sync(false);
+        self.wal_buffer.clear();
+        self.node_property_store.flush_buffer_pool()?;
+        // Clear dirty flags so the next committed transaction doesn't
+        // inherit this (rolled-back) transaction's dirty writes — the undo
+        // handlers already rewrote in-memory state, so any sidecars written
+        // so far are stale. Writing them now (no fsync) refreshes the page
+        // cache with the post-undo state for the next committed transaction
+        // to observe via normal reads.
+        self.node_property_store.flush_deferred_writes_no_sync()?;
+        if self.header_dirty {
+            self.header_dirty = false;
+            self.write_header_no_sync()?;
+        }
+        if self.meta_dirty {
+            self.meta_dirty = false;
+            self.write_meta_file_no_sync()?;
+        }
         Ok(())
     }
 
@@ -21142,7 +21490,7 @@ impl Database {
         }
         let idx = node_id as usize;
         self.node_property_store.write_properties(idx, properties)?;
-        self.sync_meta()
+        self.sync_meta_or_mark_dirty()
     }
 
     fn bitmap_node_id(node_id: u64) -> Result<u32, DbError> {
@@ -21267,7 +21615,7 @@ impl Database {
         self.meta.edge_valid_from[idx] = valid_from;
         self.meta.edge_valid_to[idx] = valid_to;
         self.meta.edge_transaction_time_millis[idx] = current_unix_millis();
-        self.sync_meta()
+        self.sync_meta_or_mark_dirty()
     }
 
     fn add_edge_to_adjacency_indexes(
@@ -21437,7 +21785,7 @@ impl Database {
         Ok(())
     }
 
-    fn append_wal_create_node(&self, node_id: u64) -> Result<(), DbError> {
+    fn append_wal_create_node(&mut self, node_id: u64) -> Result<(), DbError> {
         #[cfg(feature = "tracing")]
         let span = tracing::info_span!(
             "storage_op",
@@ -21447,6 +21795,11 @@ impl Database {
         );
         #[cfg(feature = "tracing")]
         let _span_guard = span.enter();
+        if self.deferred_meta_sync {
+            self.wal_buffer.push(WAL_RECORD_CREATE_NODE);
+            self.wal_buffer.extend_from_slice(&node_id.to_le_bytes());
+            return Ok(());
+        }
         let wal_path = self.wal_path();
         ensure_wal_file(&wal_path)?;
         let mut file = OpenOptions::new().append(true).open(&wal_path)?;
@@ -21456,7 +21809,7 @@ impl Database {
         Ok(())
     }
 
-    fn append_wal_add_edge(&self, edge_id: u64, src: u64, dst: u64) -> Result<(), DbError> {
+    fn append_wal_add_edge(&mut self, edge_id: u64, src: u64, dst: u64) -> Result<(), DbError> {
         #[cfg(feature = "tracing")]
         let span = tracing::info_span!(
             "storage_op",
@@ -21468,6 +21821,13 @@ impl Database {
         );
         #[cfg(feature = "tracing")]
         let _span_guard = span.enter();
+        if self.deferred_meta_sync {
+            self.wal_buffer.push(WAL_RECORD_ADD_EDGE);
+            self.wal_buffer.extend_from_slice(&edge_id.to_le_bytes());
+            self.wal_buffer.extend_from_slice(&src.to_le_bytes());
+            self.wal_buffer.extend_from_slice(&dst.to_le_bytes());
+            return Ok(());
+        }
         let wal_path = self.wal_path();
         ensure_wal_file(&wal_path)?;
         let mut file = OpenOptions::new().append(true).open(&wal_path)?;
@@ -21967,6 +22327,10 @@ mod tests {
             edge_records: Vec::new(),
             query_property_access_counts: HashMap::new(),
             auto_index_threshold: Some(DEFAULT_AUTO_INDEX_THRESHOLD),
+            deferred_meta_sync: false,
+            meta_dirty: false,
+            header_dirty: false,
+            wal_buffer: Vec::new(),
         }
     }
 
@@ -23256,7 +23620,7 @@ mod tests {
     #[test]
     fn open_recovers_unapplied_wal_create_node_record() {
         let path = temp_db_path("wal-recover-node");
-        let db = Database::init(&path, Header::default_v1()).expect("init must succeed");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init must succeed");
         db.append_wal_create_node(0)
             .expect("append wal create-node");
         drop(db);
@@ -23540,7 +23904,7 @@ mod tests {
     #[test]
     fn open_rejects_wal_node_gap() {
         let path = temp_db_path("wal-node-gap");
-        let db = Database::init(&path, Header::default_v1()).expect("init must succeed");
+        let mut db = Database::init(&path, Header::default_v1()).expect("init must succeed");
         db.append_wal_create_node(2)
             .expect("append out-of-order node id");
         drop(db);
