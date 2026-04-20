@@ -1,13 +1,12 @@
 //! OpenGraphDB evaluator harness — closed-loop measurement across graph-DB
 //! benchmarks, scaling probes, and UI/UX. See
 //! `.planning/evaluator-harness/PLAN.md` for full architecture.
-//!
-//! Phase 2 (RED-TDD): this crate exposes the public API surface as
-//! `unimplemented!()` stubs. Tests in `tests/` exercise the contract and
-//! panic at runtime. Phase 3+ replaces stubs with real impls.
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::collections::BTreeMap;
+use std::fs::OpenOptions;
+use std::io::{BufRead, BufReader, Write};
 use std::path::Path;
 
 pub const SCHEMA_VERSION: &str = "1.0";
@@ -58,15 +57,22 @@ pub struct Metric {
 }
 
 impl EvaluationRun {
-    /// Deserialize an EvaluationRun from a JSON string. Phase-3 impl must
-    /// reject missing `schema_version` fields.
-    pub fn from_json(_s: &str) -> Result<Self, EvalError> {
-        unimplemented!("phase 3 — see .planning/evaluator-harness/PLAN.md Task 3.1");
+    /// Deserialize an EvaluationRun from a JSON string. Rejects malformed
+    /// JSON and input missing the required `schema_version` field (enforced
+    /// by serde since the field has no `#[serde(default)]`).
+    pub fn from_json(s: &str) -> Result<Self, EvalError> {
+        let run: EvaluationRun = serde_json::from_str(s)?;
+        if run.schema_version.is_empty() {
+            return Err(EvalError::InvalidSchema(
+                "schema_version must not be empty".into(),
+            ));
+        }
+        Ok(run)
     }
 
     /// Serialize to a JSON string.
     pub fn to_json(&self) -> Result<String, EvalError> {
-        unimplemented!("phase 3 — see .planning/evaluator-harness/PLAN.md Task 3.1");
+        Ok(serde_json::to_string(self)?)
     }
 }
 
@@ -119,18 +125,83 @@ pub enum RegressionEvent {
 }
 
 pub struct DiffEngine {
-    _threshold: Threshold,
+    threshold: Threshold,
 }
 
 impl DiffEngine {
     pub fn new(threshold: Threshold) -> Self {
-        Self { _threshold: threshold }
+        Self { threshold }
     }
 
     /// Compare `current` against `baseline` and emit one event per metric
     /// that crossed the threshold. Pure function; no I/O.
-    pub fn diff(&self, _baseline: &EvaluationRun, _current: &EvaluationRun) -> Vec<RegressionEvent> {
-        unimplemented!("phase 3 — see .planning/evaluator-harness/PLAN.md Task 3.2");
+    pub fn diff(&self, baseline: &EvaluationRun, current: &EvaluationRun) -> Vec<RegressionEvent> {
+        let mut events = Vec::new();
+        for (name, base_metric) in &baseline.metrics {
+            let Some(curr_metric) = current.metrics.get(name) else {
+                continue;
+            };
+            let baseline_value = base_metric.value;
+            let current_value = curr_metric.value;
+            if baseline_value == 0.0 {
+                continue;
+            }
+
+            let delta = current_value - baseline_value;
+            let magnitude = (delta / baseline_value).abs();
+            let threshold = category_threshold(name, base_metric.higher_is_better, &self.threshold);
+
+            if magnitude < threshold {
+                continue;
+            }
+
+            let is_regression = if base_metric.higher_is_better {
+                current_value < baseline_value
+            } else {
+                current_value > baseline_value
+            };
+
+            if is_regression {
+                events.push(RegressionEvent::Regression {
+                    metric: name.clone(),
+                    magnitude,
+                    severity: severity_for(magnitude, threshold),
+                    baseline_value,
+                    current_value,
+                });
+            } else {
+                events.push(RegressionEvent::Improvement {
+                    metric: name.clone(),
+                    magnitude,
+                    baseline_value,
+                    current_value,
+                });
+            }
+        }
+        events
+    }
+}
+
+fn category_threshold(metric_name: &str, higher_is_better: bool, th: &Threshold) -> f64 {
+    let n = metric_name.to_ascii_lowercase();
+    if n.contains("ndcg") || n.contains("recall") || n.contains("mrr") || n.contains("precision") {
+        th.quality_pct
+    } else if n.contains("tti") || n.contains("lcp") || n.contains("fcp") {
+        th.tti_pct
+    } else if higher_is_better {
+        th.throughput_pct
+    } else {
+        th.latency_pct
+    }
+}
+
+fn severity_for(magnitude: f64, threshold: f64) -> Severity {
+    if magnitude >= threshold * 3.0 {
+        Severity::Critical
+    } else if magnitude >= threshold * 2.0 {
+        Severity::Major
+    } else {
+        Severity::Minor
     }
 }
 
@@ -141,12 +212,30 @@ impl DiffEngine {
 pub struct JsonlHistory;
 
 impl JsonlHistory {
-    pub fn append(_run: &EvaluationRun, _path: &Path) -> Result<(), EvalError> {
-        unimplemented!("phase 3 — see .planning/evaluator-harness/PLAN.md Task 3.3");
+    pub fn append(run: &EvaluationRun, path: &Path) -> Result<(), EvalError> {
+        let mut file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)?;
+        let line = serde_json::to_string(run)?;
+        file.write_all(line.as_bytes())?;
+        file.write_all(b"\n")?;
+        Ok(())
     }
 
-    pub fn read_all(_path: &Path) -> Result<Vec<EvaluationRun>, EvalError> {
-        unimplemented!("phase 3 — see .planning/evaluator-harness/PLAN.md Task 3.3");
+    pub fn read_all(path: &Path) -> Result<Vec<EvaluationRun>, EvalError> {
+        let file = OpenOptions::new().read(true).open(path)?;
+        let reader = BufReader::new(file);
+        let mut runs = Vec::new();
+        for line in reader.lines() {
+            let line = line?;
+            if line.trim().is_empty() {
+                continue;
+            }
+            let run: EvaluationRun = serde_json::from_str(&line)?;
+            runs.push(run);
+        }
+        Ok(runs)
     }
 }
 
@@ -159,9 +248,65 @@ pub struct LdbcSubmission;
 impl LdbcSubmission {
     /// Render an EvaluationRun as an LDBC SNB audit-report-compatible JSON
     /// value. See PLAN.md "Cross-Vendor Comparison Layer".
-    pub fn from_run(_run: &EvaluationRun) -> Result<serde_json::Value, EvalError> {
-        unimplemented!("phase 3 — see .planning/evaluator-harness/PLAN.md Task 3.4");
+    pub fn from_run(run: &EvaluationRun) -> Result<serde_json::Value, EvalError> {
+        let throughput_qps = run
+            .metrics
+            .get("qps")
+            .map(|m| m.value)
+            .unwrap_or(0.0);
+
+        let p50 = run.metrics.get("p50_us").map(|m| m.value);
+        let p95 = run.metrics.get("p95_us").map(|m| m.value);
+        let p99 = run.metrics.get("p99_us").map(|m| m.value);
+
+        if let (Some(p50), Some(p95), Some(p99)) = (p50, p95, p99) {
+            if !(p50 < p95 && p95 < p99) {
+                return Err(EvalError::InvalidSchema(format!(
+                    "percentiles must satisfy p50 < p95 < p99; got {p50}/{p95}/{p99}"
+                )));
+            }
+        }
+
+        let scale_factor = parse_scale_factor(&run.dataset);
+
+        let mut percentiles = serde_json::Map::new();
+        if let Some(v) = p50 {
+            percentiles.insert("p50_us".into(), json!(v));
+        }
+        if let Some(v) = p95 {
+            percentiles.insert("p95_us".into(), json!(v));
+        }
+        if let Some(v) = p99 {
+            percentiles.insert("p99_us".into(), json!(v));
+        }
+
+        Ok(json!({
+            "sut_name": "OpenGraphDB",
+            "sut_version": run.binary.version,
+            "sut_vendor": "OpenGraphDB",
+            "scale_factor": scale_factor,
+            "run_date": run.timestamp_utc,
+            "throughput_qps": throughput_qps,
+            "percentiles": serde_json::Value::Object(percentiles),
+            "hardware": {
+                "os": run.platform.os,
+                "arch": run.platform.arch,
+                "cpu_model": run.platform.cpu_model,
+                "ram_gb": run.platform.ram_gb,
+            },
+            "certification_status": "self-reported",
+            "suite": run.suite,
+            "subsuite": run.subsuite,
+            "git_sha": run.git_sha,
+        }))
     }
+}
+
+fn parse_scale_factor(dataset: &str) -> f64 {
+    let lower = dataset.to_ascii_lowercase();
+    let stripped = lower.strip_prefix("sf").unwrap_or(&lower);
+    let normalised = stripped.replace('_', ".");
+    normalised.parse::<f64>().unwrap_or(0.0)
 }
 
 // ---------------------------------------------------------------------------
