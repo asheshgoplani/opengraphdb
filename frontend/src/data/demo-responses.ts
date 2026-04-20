@@ -72,14 +72,12 @@ function filterMlTopRated(data: GraphData): GraphData {
       .map((n) => n.id)
   )
   const genreIds = new Set<string | number>()
-  const links = data.links.filter((l) => {
+  data.links.forEach((l) => {
     const src = toNodeId(l.source)
     const tgt = toNodeId(l.target)
     if (topMovieIds.has(src) && l.type === 'IN_GENRE') {
       genreIds.add(tgt)
-      return true
     }
-    return false
   })
   const nodeIds = new Set([...topMovieIds, ...genreIds])
   return buildSubgraphFromNodeIds(data, nodeIds)
@@ -148,11 +146,6 @@ function filterMlComedyDrama(data: GraphData): GraphData {
       movieIds.add(toNodeId(l.source))
     }
   })
-  // Keep only movies with multiple genre matches
-  const links = data.links.filter(
-    (l) => l.type === 'IN_GENRE' && genreNodeIds.has(toNodeId(l.target)) && movieIds.has(toNodeId(l.source))
-  )
-  const nodeIds = new Set([...genreNodeIds, ...movieIds])
   // Limit to 30 nodes
   const limitedMovieIds = [...movieIds].slice(0, 22)
   const limitedNodeIds = new Set([...genreNodeIds, ...limitedMovieIds])
@@ -340,7 +333,6 @@ function filterGotStark(data: GraphData): GraphData {
 }
 
 function filterGotHouses(data: GraphData): GraphData {
-  const majorHouses = new Set(['Stark', 'Lannister', 'Targaryen', 'Baratheon', 'Tyrell'])
   const houseReps: string[] = [
     'got-jon', 'got-san', 'got-ary', 'got-ned', 'got-rob',   // Stark
     'got-tyr', 'got-cer', 'got-jai',                          // Lannister
@@ -418,9 +410,6 @@ function filterWdLaureates(data: GraphData): GraphData {
   })
   // Cap at 25 laureates
   const limitedLaureateIds = new Set([...laureateIds].slice(0, 25))
-  const links = data.links.filter(
-    (l) => l.type === 'WON_PRIZE_IN' && limitedLaureateIds.has(toNodeId(l.source)) && categoryIds.has(toNodeId(l.target))
-  )
   const nodeIds = new Set([...categoryIds, ...limitedLaureateIds])
   return buildSubgraphFromNodeIds(data, nodeIds)
 }
@@ -448,9 +437,6 @@ function filterWdCountries(data: GraphData): GraphData {
       laureateIds.add(toNodeId(l.source))
     }
   })
-  const links = data.links.filter(
-    (l) => l.type === 'BORN_IN' && countryIds.has(toNodeId(l.target)) && laureateIds.has(toNodeId(l.source))
-  )
   const nodeIds = new Set([...countryIds, ...laureateIds])
   return buildSubgraphFromNodeIds(data, nodeIds)
 }
@@ -465,9 +451,6 @@ function filterWdInstitutions(data: GraphData): GraphData {
       laureateIds.add(toNodeId(l.source))
     }
   })
-  const links = data.links.filter(
-    (l) => l.type === 'AFFILIATED_WITH' && institutionIds.has(toNodeId(l.target)) && laureateIds.has(toNodeId(l.source))
-  )
   const nodeIds = new Set([...institutionIds, ...laureateIds])
   return buildSubgraphFromNodeIds(data, nodeIds)
 }
@@ -475,9 +458,6 @@ function filterWdInstitutions(data: GraphData): GraphData {
 function filterWdMultiWinner(data: GraphData): GraphData {
   // Linus Pauling won both Physics(Chemistry) and Peace
   const multiWinnerIds = new Set<string | number>(['wd-l-9', 'wd-l-36', 'wd-l-6'])
-  const categoryIds = new Set<string | number>(
-    data.nodes.filter((n) => n.labels.includes('Category')).map((n) => n.id)
-  )
   const links = data.links.filter(
     (l) => (l.type === 'WON_PRIZE_IN' && multiWinnerIds.has(toNodeId(l.source))) ||
            (l.type === 'BORN_IN' && multiWinnerIds.has(toNodeId(l.source)))

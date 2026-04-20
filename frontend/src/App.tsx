@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { AppShell } from '@/components/layout/AppShell'
 import { PropertyPanel } from '@/components/layout/PropertyPanel'
+import { StatusBar } from '@/components/layout/StatusBar'
 import { CypherEditorPanel } from '@/components/query/CypherEditorPanel'
 import { QueryError } from '@/components/query/QueryError'
 import { ResultsView } from '@/components/results/ResultsView'
@@ -24,6 +25,10 @@ function App() {
 
   const nodeCount = graphData?.nodes.length ?? 0
   const edgeCount = graphData?.links.length ?? 0
+  const labelCount = useMemo(() => {
+    if (!graphData) return 0
+    return new Set(graphData.nodes.flatMap((n) => n.labels)).size
+  }, [graphData])
   const isLimited = nodeCount >= resultLimit || edgeCount >= resultLimit
   const showDisconnected = !isConnected && !healthLoading && !graphData
 
@@ -55,6 +60,13 @@ function App() {
       </div>
 
       <PropertyPanel graphData={graphData} />
+      <StatusBar
+        nodeCount={nodeCount}
+        edgeCount={edgeCount}
+        labelCount={labelCount}
+        datasetLabel={graphData ? 'query result' : isConnected ? 'ready' : 'disconnected'}
+        isLive={isConnected}
+      />
     </AppShell>
   )
 }
