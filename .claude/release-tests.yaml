@@ -94,3 +94,39 @@ tests:
     command: "cargo test --release -p ogdb-core --lib wcoj_cost_comparison_two_expand_chain_terminates_under_5s"
     purpose: "Isolated cost-function guard — detect_wcoj_candidate + estimate_wcoj_cost + estimate_binary_chain_cost must terminate in <5s with finite costs and WCOJ strictly beating binary-chain on the fixture."
     added: 2026-04-20
+
+  - id: evaluator-schema-roundtrip
+    task: evaluator-harness
+    crate: ogdb-eval
+    test: schema_roundtrip
+    function: []
+    command: "cargo test --release -p ogdb-eval --test schema_roundtrip"
+    purpose: "Asserts EvaluationRun serde roundtrip preserves all fields and enforces schema_version for forward-compat."
+    added: 2026-04-20
+
+  - id: evaluator-diff-engine
+    task: evaluator-harness
+    crate: ogdb-eval
+    test: diff_engine
+    function: []
+    command: "cargo test --release -p ogdb-eval --test diff_engine"
+    purpose: "Asserts DiffEngine emits REGRESSION / IMPROVEMENT events at the per-metric thresholds (5% throughput / 10% p99 latency / 3% NDCG / 20% TTI). Core of the closed-loop."
+    added: 2026-04-20
+
+  - id: evaluator-history-append
+    task: evaluator-harness
+    crate: ogdb-eval
+    test: history_append
+    function: []
+    command: "cargo test --release -p ogdb-eval --test history_append"
+    purpose: "Asserts JsonlHistory is append-only, readable even if an entry is truncated, and preserves insertion order."
+    added: 2026-04-20
+
+  - id: evaluator-ldbc-submission
+    task: evaluator-harness
+    crate: ogdb-eval
+    test: ldbc_submission
+    function: []
+    command: "cargo test --release -p ogdb-eval --test ldbc_submission"
+    purpose: "Asserts the LDBC-submission exporter emits a format compatible with LDBC audit submission rules (so OpenGraphDB numbers can later be published vs Neo4j/Memgraph/Nebula)."
+    added: 2026-04-20
