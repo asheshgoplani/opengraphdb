@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import type { GraphData, GraphEdge, GraphNode } from '@/types/graph'
+import { GRAPH_THEME, paintGraphNode } from '@/graph/theme'
 import { useSectionInView } from './useSectionInView'
 
 const QUERY = `MATCH (p:Person)-[:KNOWS]->(f)-[:WORKS_AT]->(c:Company)
@@ -25,7 +26,6 @@ function tokenize(line: string): string[] {
   return line.split(/(\s+|[(){}[\],.:;\->])/).filter(Boolean)
 }
 
-const PALETTE = ['#7AA2FF', '#A78BFA', '#34D399', '#F472B6']
 
 const RESULT: GraphData = {
   nodes: [
@@ -44,12 +44,6 @@ const RESULT: GraphData = {
     { id: 'w2', source: 'sam', target: 'helix', type: 'WORKS_AT', properties: {} },
     { id: 'w3', source: 'rio', target: 'innotrade', type: 'WORKS_AT', properties: {} },
   ],
-}
-
-function colorForLabel(label?: string): string {
-  if (label === 'Company') return PALETTE[2]
-  if (label === 'Person') return PALETTE[0]
-  return PALETTE[3]
 }
 
 function useTypingLoop(text: string, enabled: boolean) {
@@ -196,48 +190,57 @@ export function SampleQueryPanel() {
 
           <div
             ref={containerRef}
-            className={`relative min-h-[260px] bg-[hsl(240,30%,5%)] transition-opacity duration-700 ${
+            className={`relative min-h-[260px] transition-opacity duration-700 ${
               showResult ? 'opacity-100' : 'opacity-30'
             }`}
+            style={{ backgroundColor: GRAPH_THEME.bg }}
             aria-label="Result graph preview"
           >
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_60%_70%_at_50%_50%,hsla(226,85%,60%,0.12),transparent_70%)]" />
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{
+                backgroundImage: `radial-gradient(circle at center, ${GRAPH_THEME.gridDot} 1px, transparent 1px)`,
+                backgroundSize: `${GRAPH_THEME.gridSize}px ${GRAPH_THEME.gridSize}px`,
+              }}
+            />
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{ backgroundImage: GRAPH_THEME.vignette }}
+            />
             <ForceGraph2D<GraphNode, GraphEdge>
               graphData={RESULT}
               width={dim.width}
               height={dim.height}
               backgroundColor="rgba(0,0,0,0)"
               nodeRelSize={1}
-              linkWidth={0.9}
-              linkColor={() => 'rgba(148, 163, 255, 0.35)'}
+              linkWidth={0.8}
+              linkCurvature={GRAPH_THEME.edgeCurvature}
+              linkColor={() => GRAPH_THEME.edge}
               linkDirectionalArrowLength={4}
               linkDirectionalArrowRelPos={0.92}
-              linkDirectionalArrowColor={() => 'rgba(148, 163, 255, 0.55)'}
+              linkDirectionalArrowColor={() => GRAPH_THEME.edgeArrow}
+              linkDirectionalParticles={reducedMotion ? 0 : 1}
+              linkDirectionalParticleSpeed={GRAPH_THEME.particleSpeed}
+              linkDirectionalParticleColor={() => GRAPH_THEME.particleColor}
+              linkDirectionalParticleWidth={1.3}
               linkLabel={(link) => (link as GraphEdge).type}
               nodeLabel={(node) => (node as GraphNode).label ?? String((node as GraphNode).id)}
-              nodeCanvasObject={(node, ctx) => {
+              nodeCanvasObject={(node, ctx, scale) => {
                 const x = node.x ?? 0
                 const y = node.y ?? 0
-                const color = colorForLabel((node as GraphNode).labels?.[0])
-                ctx.save()
-                ctx.shadowColor = color
-                ctx.shadowBlur = 14
-                ctx.beginPath()
-                ctx.arc(x, y, 6, 0, 2 * Math.PI)
-                ctx.fillStyle = color
-                ctx.fill()
-                ctx.shadowBlur = 0
-                ctx.font = '500 11px Inter, system-ui, sans-serif'
-                ctx.fillStyle = 'rgba(255,255,255,0.85)'
-                ctx.textAlign = 'center'
-                ctx.textBaseline = 'top'
-                ctx.fillText((node as GraphNode).label ?? '', x, y + 9)
-                ctx.restore()
+                const n = node as GraphNode
+                paintGraphNode(ctx, x, y, {
+                  label: n.labels?.[0],
+                  displayText: n.label,
+                  degree: 2,
+                  globalScale: scale,
+                  state: 'default',
+                })
               }}
               nodeCanvasObjectMode={() => 'replace'}
               cooldownTime={reducedMotion ? 1500 : 8000}
-              d3AlphaDecay={reducedMotion ? 0.05 : 0.02}
-              d3VelocityDecay={0.25}
+              d3AlphaDecay={reducedMotion ? 0.05 : GRAPH_THEME.alphaDecay}
+              d3VelocityDecay={GRAPH_THEME.velocityDecay}
               enableNodeDrag={false}
               enableZoomInteraction={false}
               enablePanInteraction={false}

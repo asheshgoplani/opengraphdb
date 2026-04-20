@@ -5,6 +5,8 @@ import type { GraphData, GraphNode, GraphEdge } from '@/types/graph'
 import { useGraphStore } from '@/stores/graph'
 import { useGraphColors } from './useGraphColors'
 import { paintNode } from './NodeRenderer'
+import { GRAPH_THEME, paintGraphNode } from '@/graph/theme'
+import { GraphEmptyState } from './GraphEmptyState'
 import { GraphLegend } from './GraphLegend'
 import { GeoCanvas } from './GeoCanvas'
 import { useTraceAnimation } from './useTraceAnimation'
@@ -35,15 +37,23 @@ function getNodeCoordinate(node: GraphEdge['source']): { x: number; y: number } 
 const getLinkNodeId = (n: GraphNode | string | number): string | number =>
   typeof n === 'object' && n !== null ? n.id : n
 
+function toDisplayText(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim().length > 0) return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return undefined
+}
+
 export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
   const colors = useGraphColors()
   const selectNode = useGraphStore((s) => s.selectNode)
   const selectEdge = useGraphStore((s) => s.selectEdge)
   const clearSelection = useGraphStore((s) => s.clearSelection)
+  const selectedNodeId = useGraphStore((s) => s.selectedNodeId)
   const trace = useGraphStore((s) => s.trace)
   const containerRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphEdge> | undefined>(undefined)
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | number | null>(null)
   useTraceAnimation()
 
   const uniqueLabels = useMemo(() => {
@@ -96,7 +106,6 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
     return ids
   }, [trace?.traversedNodeIds, graphData.links])
 
-  // Handle container resize
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
@@ -112,22 +121,50 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
     return () => observer.disconnect()
   }, [])
 
-  // Force a consistent link length once graph data is set.
   useEffect(() => {
-    const linkForce = graphRef.current?.d3Force('link') as
+    if (!graphRef.current) return
+    const linkForce = graphRef.current.d3Force('link') as
       | { distance?: (distance: number) => unknown }
       | undefined
-    if (linkForce?.distance) {
-      linkForce.distance(60)
-      graphRef.current?.d3ReheatSimulation()
-    }
+    const chargeForce = graphRef.current.d3Force('charge') as
+      | { strength?: (strength: number) => unknown }
+      | undefined
+    if (linkForce?.distance) linkForce.distance(GRAPH_THEME.linkDistanceBase)
+    if (chargeForce?.strength) chargeForce.strength(GRAPH_THEME.chargeStrength)
+    graphRef.current.d3ReheatSimulation()
   }, [graphData])
 
   const nodeCanvasObject = useCallback(
     (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      paintNode(node, ctx, globalScale, colors, labelIndex, connectionCounts, traceRenderState)
+      // Trace mode: keep the existing trace-aware renderer for fidelity
+      if (traceRenderState) {
+        paintNode(node, ctx, globalScale, colors, labelIndex, connectionCounts, traceRenderState)
+        return
+      }
+      const x = node.x ?? 0
+      const y = node.y ?? 0
+      const display =
+        toDisplayText((node.properties as Record<string, unknown> | undefined)?.name) ??
+        toDisplayText((node.properties as Record<string, unknown> | undefined)?.title) ??
+        node.label ??
+        node.labels?.[0] ??
+        String(node.id)
+      const degree = connectionCounts.get(node.id) ?? 0
+      const state =
+        selectedNodeId === node.id
+          ? 'selected'
+          : hoveredNodeId === node.id
+            ? 'hover'
+            : 'default'
+      paintGraphNode(ctx, x, y, {
+        label: node.labels?.[0],
+        displayText: display,
+        degree,
+        globalScale,
+        state,
+      })
     },
-    [colors, labelIndex, connectionCounts, traceRenderState]
+    [traceRenderState, colors, labelIndex, connectionCounts, hoveredNodeId, selectedNodeId]
   )
 
   const linkCanvasObject = useCallback(
@@ -145,23 +182,23 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
       const fontSize = Math.max(10 / globalScale, 3)
 
       ctx.save()
-      ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`
+      ctx.font = `500 ${fontSize}px "Fraunces", Georgia, serif`
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
 
       const textWidth = ctx.measureText(link.type).width
-      ctx.fillStyle = colors.edgeLabelBg
+      ctx.fillStyle = GRAPH_THEME.edgeLabelBg
       ctx.fillRect(
-        textPos.x - textWidth / 2 - 2,
-        textPos.y - fontSize / 2 - 1,
-        textWidth + 4,
-        fontSize + 2
+        textPos.x - textWidth / 2 - 3,
+        textPos.y - fontSize / 2 - 1.5,
+        textWidth + 6,
+        fontSize + 3
       )
-      ctx.fillStyle = colors.edgeLabel
+      ctx.fillStyle = GRAPH_THEME.edgeLabel
       ctx.fillText(link.type, textPos.x, textPos.y)
       ctx.restore()
     },
-    [colors.edgeLabel, colors.edgeLabelBg]
+    []
   )
 
   const handleNodeClick = useCallback(
@@ -170,6 +207,13 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
     },
     [selectNode]
   )
+
+  const handleNodeHover = useCallback((node: GraphNode | null) => {
+    setHoveredNodeId(node?.id ?? null)
+    if (typeof document !== 'undefined') {
+      document.body.style.cursor = node ? 'pointer' : ''
+    }
+  }, [])
 
   const handleLinkClick = useCallback(
     (link: GraphEdge) => {
@@ -182,11 +226,14 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
     clearSelection()
   }, [clearSelection])
 
-  // Memoize graph data to prevent simulation restarts
   const stableData = useMemo(() => graphData, [graphData])
 
   if (isGeographic) {
     return <GeoCanvas graphData={graphData} />
+  }
+
+  if (graphData.nodes.length === 0) {
+    return <GraphEmptyState />
   }
 
   return (
@@ -194,10 +241,14 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          backgroundColor: colors.bg,
-          backgroundImage: `radial-gradient(circle, ${colors.gridDot} 1px, transparent 1px)`,
-          backgroundSize: '30px 30px',
+          backgroundColor: GRAPH_THEME.bg,
+          backgroundImage: `radial-gradient(circle at center, ${GRAPH_THEME.gridDot} 1px, transparent 1px)`,
+          backgroundSize: `${GRAPH_THEME.gridSize}px ${GRAPH_THEME.gridSize}px`,
         }}
+      />
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ backgroundImage: GRAPH_THEME.vignette }}
       />
       <ForceGraph2D
         ref={graphRef}
@@ -207,27 +258,43 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
         backgroundColor="transparent"
         nodeCanvasObject={nodeCanvasObject}
         nodeCanvasObjectMode={() => 'replace'}
-        linkColor={() => colors.edge}
-        linkCurvature={0.18}
+        linkColor={(link: GraphEdge) =>
+          hoveredNodeId &&
+          (getNodeId(link.source) === hoveredNodeId || getNodeId(link.target) === hoveredNodeId)
+            ? GRAPH_THEME.edgeHover
+            : GRAPH_THEME.edge
+        }
+        linkCurvature={GRAPH_THEME.edgeCurvature}
+        linkWidth={(link: GraphEdge) =>
+          hoveredNodeId &&
+          (getNodeId(link.source) === hoveredNodeId || getNodeId(link.target) === hoveredNodeId)
+            ? 1.4
+            : 0.7
+        }
         linkDirectionalArrowLength={5}
-        linkDirectionalArrowColor={() => colors.edge}
-        linkDirectionalArrowRelPos={1}
-        linkDirectionalParticles={(link: GraphEdge) => traceEdgeIds.has(link.id) ? 3 : 0}
-        linkDirectionalParticleColor={() => colors.traceGlow}
-        linkDirectionalParticleSpeed={0.008}
-        linkDirectionalParticleWidth={2}
+        linkDirectionalArrowColor={() => GRAPH_THEME.edgeArrow}
+        linkDirectionalArrowRelPos={0.95}
+        linkDirectionalParticles={(link: GraphEdge) => (traceEdgeIds.has(link.id) ? 3 : 1)}
+        linkDirectionalParticleColor={(link: GraphEdge) =>
+          traceEdgeIds.has(link.id) ? colors.traceGlow : GRAPH_THEME.particleColor
+        }
+        linkDirectionalParticleSpeed={GRAPH_THEME.particleSpeed}
+        linkDirectionalParticleWidth={(link: GraphEdge) =>
+          traceEdgeIds.has(link.id) ? 2.4 : 1.4
+        }
         linkLabel={(link: GraphEdge) => link.type}
         linkCanvasObject={linkCanvasObject}
         linkCanvasObjectMode={() => 'after'}
         onNodeClick={handleNodeClick}
+        onNodeHover={handleNodeHover}
         onLinkClick={handleLinkClick}
         onBackgroundClick={handleBackgroundClick}
         enableNodeDrag={true}
         enableZoomInteraction={true}
         nodeRelSize={1}
-        d3AlphaDecay={0.015}
-        d3VelocityDecay={0.25}
-        cooldownTicks={150}
+        d3AlphaDecay={GRAPH_THEME.alphaDecay}
+        d3VelocityDecay={GRAPH_THEME.velocityDecay}
+        cooldownTicks={GRAPH_THEME.cooldownTicks}
         autoPauseRedraw={true}
       />
       <GraphLegend labels={uniqueLabels} labelIndex={labelIndex} />

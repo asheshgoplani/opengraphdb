@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import type { GraphData, GraphEdge, GraphNode } from '@/types/graph'
+import { GRAPH_THEME } from '@/graph/theme'
 
 const PALETTE = ['#7AA2FF', '#8B5CF6', '#22D3EE', '#F472B6', '#34D399', '#FBBF24']
 
@@ -90,11 +91,11 @@ export function HeroGraphBackground() {
         backgroundColor="rgba(0,0,0,0)"
         nodeRelSize={1}
         linkWidth={0.6}
-        linkColor={() => 'rgba(148, 163, 255, 0.28)'}
+        linkColor={() => GRAPH_THEME.edge}
         linkDirectionalParticles={reducedMotion ? 0 : 1}
         linkDirectionalParticleWidth={1.4}
-        linkDirectionalParticleSpeed={0.004}
-        linkDirectionalParticleColor={() => 'rgba(180, 200, 255, 0.55)'}
+        linkDirectionalParticleSpeed={GRAPH_THEME.particleSpeed}
+        linkDirectionalParticleColor={() => GRAPH_THEME.particleColor}
         nodeCanvasObject={(node, ctx) => {
           const x = node.x ?? 0
           const y = node.y ?? 0
