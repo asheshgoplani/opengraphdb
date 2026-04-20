@@ -39733,6 +39733,148 @@ mod tests {
         cleanup_db_artifacts(&path);
     }
 
+    // RED guard for fix/wcoj-deadlock: the full body of
+    // wcoj_two_expand_chain_can_select_wcoj_when_cost_is_lower MUST finish
+    // inside 30s. If WCOJ planning/execution ever regresses into an infinite
+    // loop (the workspace hang reported in eval-opengraphdb FINAL REPORT),
+    // this test fails deterministically instead of hanging CI.
+    #[test]
+    fn wcoj_two_expand_chain_completes_under_30s_guard() {
+        let (tx, rx) = mpsc::channel::<()>();
+        let worker = thread::Builder::new()
+            .name("wcoj-two-expand-chain-guard".to_string())
+            .spawn(move || {
+                let path = temp_db_path("wcoj-two-expand-guard");
+                let mut db = Database::init(&path, Header::default_v1()).expect("init");
+                let nodes = (0..6)
+                    .map(|_| db.create_node().expect("node"))
+                    .collect::<Vec<_>>();
+                for i in 0..nodes.len() {
+                    for j in 0..nodes.len() {
+                        if i != j {
+                            db.add_typed_edge(nodes[i], nodes[j], "R", &PropertyMap::new())
+                                .expect("edge");
+                            if (i + j) % 2 == 0 {
+                                db.add_typed_edge(nodes[i], nodes[j], "S", &PropertyMap::new())
+                                    .expect("edge");
+                            }
+                        }
+                    }
+                }
+                let logical = LogicalPlan::Expand {
+                    input: Box::new(LogicalPlan::Expand {
+                        input: Box::new(LogicalPlan::Scan {
+                            label: None,
+                            variable: Some("a".to_string()),
+                        }),
+                        from: "a".to_string(),
+                        edge_type: Some("R".to_string()),
+                        direction: RelationshipDirection::LeftToRight,
+                        to: Some("b".to_string()),
+                        edge_variable: None,
+                        temporal_filter: None,
+                    }),
+                    from: "b".to_string(),
+                    edge_type: Some("S".to_string()),
+                    direction: RelationshipDirection::LeftToRight,
+                    to: Some("c".to_string()),
+                    edge_variable: None,
+                    temporal_filter: None,
+                };
+                let physical = build_physical_plan(&db, &logical).expect("physical");
+                assert!(matches!(physical, PhysicalPlan::PhysicalWcojJoin { .. }));
+                let result = db
+                    .query("MATCH (a)-[:R]->(b)-[:S]->(c) RETURN a, b, c")
+                    .expect("query");
+                assert!(result.row_count() > 0);
+                cleanup_db_artifacts(&path);
+                let _ = tx.send(());
+            })
+            .expect("spawn wcoj guard worker");
+        match rx.recv_timeout(Duration::from_secs(30)) {
+            Ok(()) => {
+                let _ = worker.join();
+            }
+            Err(_) => panic!(
+                "wcoj_two_expand_chain did not finish within 30s — WCOJ planner/executor deadlock regression"
+            ),
+        }
+    }
+
+    // RED guard for fix/wcoj-deadlock: the pure cost-comparison path
+    // (detect_wcoj_candidate + estimate_wcoj_cost + estimate_binary_chain_cost)
+    // MUST finish inside 5s for the symmetric two-expand chain that the
+    // FINAL REPORT named as hanging. Guards against infinite recursion or
+    // symmetric-cost tie-break loops inside the cost comparison itself.
+    #[test]
+    fn wcoj_cost_comparison_two_expand_chain_terminates_under_5s() {
+        let (tx, rx) = mpsc::channel::<(u64, f64, u64, f64, bool)>();
+        let worker = thread::Builder::new()
+            .name("wcoj-cost-compare-guard".to_string())
+            .spawn(move || {
+                let path = temp_db_path("wcoj-cost-compare-guard");
+                let mut db = Database::init(&path, Header::default_v1()).expect("init");
+                let nodes = (0..6)
+                    .map(|_| db.create_node().expect("node"))
+                    .collect::<Vec<_>>();
+                for i in 0..nodes.len() {
+                    for j in 0..nodes.len() {
+                        if i != j {
+                            db.add_typed_edge(nodes[i], nodes[j], "R", &PropertyMap::new())
+                                .expect("edge");
+                            if (i + j) % 2 == 0 {
+                                db.add_typed_edge(nodes[i], nodes[j], "S", &PropertyMap::new())
+                                    .expect("edge");
+                            }
+                        }
+                    }
+                }
+                let logical = LogicalPlan::Expand {
+                    input: Box::new(LogicalPlan::Expand {
+                        input: Box::new(LogicalPlan::Scan {
+                            label: None,
+                            variable: Some("a".to_string()),
+                        }),
+                        from: "a".to_string(),
+                        edge_type: Some("R".to_string()),
+                        direction: RelationshipDirection::LeftToRight,
+                        to: Some("b".to_string()),
+                        edge_variable: None,
+                        temporal_filter: None,
+                    }),
+                    from: "b".to_string(),
+                    edge_type: Some("S".to_string()),
+                    direction: RelationshipDirection::LeftToRight,
+                    to: Some("c".to_string()),
+                    edge_variable: None,
+                    temporal_filter: None,
+                };
+                let candidate = detect_wcoj_candidate(&logical).expect("candidate");
+                let (wcoj_rows, wcoj_cost) = estimate_wcoj_cost(&db, &candidate);
+                let (bin_rows, bin_cost) = estimate_binary_chain_cost(&db, &candidate);
+                let wcoj_wins = wcoj_cost < bin_cost;
+                cleanup_db_artifacts(&path);
+                let _ = tx.send((wcoj_rows, wcoj_cost, bin_rows, bin_cost, wcoj_wins));
+            })
+            .expect("spawn wcoj cost guard worker");
+        match rx.recv_timeout(Duration::from_secs(5)) {
+            Ok((_wcoj_rows, wcoj_cost, _bin_rows, bin_cost, wcoj_wins)) => {
+                let _ = worker.join();
+                assert!(
+                    wcoj_cost.is_finite() && bin_cost.is_finite(),
+                    "cost estimates must be finite (got wcoj={wcoj_cost} binary={bin_cost})"
+                );
+                assert!(
+                    wcoj_wins,
+                    "symmetric two-expand chain must prefer WCOJ (wcoj={wcoj_cost} >= binary={bin_cost}); if this changes, the selection test regresses"
+                );
+            }
+            Err(_) => panic!(
+                "WCOJ cost comparison did not terminate within 5s — infinite loop / recursion regression in detect_wcoj_candidate | estimate_wcoj_cost | estimate_binary_chain_cost"
+            ),
+        }
+    }
+
     #[test]
     fn factor_tree_materialize_single_group() {
         let tree = FactorTree {
