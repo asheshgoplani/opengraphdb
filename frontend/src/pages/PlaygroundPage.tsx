@@ -192,18 +192,37 @@ export default function PlaygroundPage() {
 
   const isGeographic = DATASETS[activeDataset]?.meta.isGeographic ?? false
 
+  const activeDatasetName = DATASETS[activeDataset]?.meta.name ?? activeDataset
+
   return (
-    <div className="flex h-screen flex-col bg-background text-foreground">
-      <header className="border-b bg-card/80 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-4 py-2">
-          <div className="flex items-center gap-3">
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/" className="inline-flex items-center gap-1">
+    <div className="dark flex h-screen flex-col bg-[hsl(240,28%,7%)] text-foreground">
+      <header className="border-b border-white/10 bg-[hsl(240,28%,8%)]/85 backdrop-blur-md">
+        <div className="flex items-center justify-between gap-4 px-5 py-3">
+          <div className="flex min-w-0 items-center gap-4">
+            <Button asChild variant="ghost" size="sm" className="text-white/70 hover:bg-white/5 hover:text-white">
+              <Link to="/" className="inline-flex items-center gap-1.5">
                 <ArrowLeft className="h-4 w-4" />
                 Back
               </Link>
             </Button>
-            <h1 className="text-base font-semibold">Playground</h1>
+            <div className="hidden h-5 w-px bg-white/10 sm:block" aria-hidden="true" />
+            <nav
+              aria-label="Breadcrumb"
+              className="flex min-w-0 items-baseline gap-2 truncate font-display text-sm tracking-tight text-white/55"
+            >
+              <span className="text-white/40">opengraphdb</span>
+              <span aria-hidden="true" className="text-white/25">/</span>
+              <Link
+                to="/playground"
+                className="text-white/70 transition-colors hover:text-white"
+              >
+                playground
+              </Link>
+              <span aria-hidden="true" className="text-white/25">/</span>
+              <span className="truncate text-base font-medium text-white sm:text-lg">
+                {activeDatasetName}
+              </span>
+            </nav>
           </div>
           <div className="flex items-center gap-2">
             <LiveModeToggle isLive={isLiveMode} onChange={handleModeChange} disabled={isLiveLoading} />
@@ -211,7 +230,7 @@ export default function PlaygroundPage() {
               <Button
                 variant={isTraceMode ? 'default' : 'outline'}
                 size="sm"
-                className={isTraceMode ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 hover:bg-cyan-500/30' : ''}
+                className={isTraceMode ? 'bg-cyan-500/25 text-cyan-200 border-cyan-400/40 hover:bg-cyan-500/35' : 'border-white/15 bg-white/5 text-white/80 hover:bg-white/10'}
                 onClick={() => setIsTraceMode(!isTraceMode)}
               >
                 <Zap className="h-3.5 w-3.5 mr-1" />
@@ -221,6 +240,7 @@ export default function PlaygroundPage() {
             <Button
               variant="ghost"
               size="sm"
+              className="text-white/70 hover:bg-white/5 hover:text-white"
               onClick={() => setIsAIOpen(!isAIOpen)}
               title="AI Assistant"
             >
@@ -234,7 +254,7 @@ export default function PlaygroundPage() {
       <AIChatPanel onRunQuery={runCypherFromAI} onSendMessage={sendMessage} />
 
       <div className="flex flex-1 overflow-hidden">
-        <aside className="hidden w-[320px] shrink-0 space-y-4 overflow-y-auto border-r bg-muted/20 p-4 md:block">
+        <aside className="hidden w-[320px] shrink-0 space-y-4 overflow-y-auto border-r border-white/10 bg-white/[0.02] p-4 md:block">
           <DatasetSwitcher activeDataset={activeDataset} onSwitch={handleDatasetSwitch} />
           <div>
             <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
@@ -323,7 +343,10 @@ export default function PlaygroundPage() {
             />
           </div>
 
-          <main className="relative min-h-0 flex-1 overflow-hidden">
+          <main
+            aria-label="Result graph canvas"
+            className="relative min-h-0 flex-1 overflow-hidden"
+          >
             <GraphCanvas graphData={graphData} isGeographic={isGeographic} />
             {isLiveLoading ? (
               <div className="absolute inset-0 flex items-center justify-center bg-background/60 backdrop-blur-sm">
@@ -347,6 +370,35 @@ export default function PlaygroundPage() {
           </main>
         </div>
       </div>
+
+      <footer
+        aria-label="Status bar"
+        className="flex shrink-0 items-center justify-between gap-3 border-t border-white/10 bg-[hsl(240,28%,8%)]/85 px-4 py-1.5 text-[11px] uppercase tracking-[0.16em] text-white/55 backdrop-blur-md"
+      >
+        <div className="flex items-center gap-3">
+          <span className="inline-flex items-center gap-1.5">
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                isLiveMode ? 'bg-emerald-400 shadow-[0_0_6px] shadow-emerald-400' : 'bg-sky-400'
+              }`}
+            />
+            {isLiveMode ? 'live' : 'sample'}
+          </span>
+          <span aria-hidden="true" className="text-white/20">·</span>
+          <span>{graphData.nodes.length.toLocaleString()} nodes</span>
+          <span aria-hidden="true" className="text-white/20">·</span>
+          <span>{graphData.links.length.toLocaleString()} edges</span>
+          <span aria-hidden="true" className="text-white/20">·</span>
+          <span>{labelCount} labels</span>
+        </div>
+        <div className="hidden items-center gap-3 sm:flex">
+          <span className="font-mono text-white/40 normal-case tracking-normal">
+            {activeQueryKey}
+          </span>
+          <span aria-hidden="true" className="text-white/20">·</span>
+          <span>last query {queryTimeMs}ms</span>
+        </div>
+      </footer>
     </div>
   )
 }

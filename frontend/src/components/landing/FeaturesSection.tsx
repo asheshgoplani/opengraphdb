@@ -1,80 +1,92 @@
 import { Bot, Database, Terminal, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useSectionInView } from './useSectionInView'
 
 const FEATURES = [
   {
-    title: 'Blazing Fast',
-    subtitle: 'Performance-first core',
-    description: 'Rust-native execution engine optimized for high-throughput graph workloads.',
+    title: 'Rust-native core',
+    description:
+      'Storage, MVCC, and traversals run in Rust — no JVM, no GC pauses, predictable latency from the first query.',
     icon: Zap,
   },
   {
-    title: 'Cypher-First',
-    subtitle: 'Query with confidence',
-    description: 'Use expressive Cypher queries with practical tooling built around developer flow.',
+    title: 'Cypher, with care',
+    description:
+      'A familiar surface tuned for ergonomics. Codebase-friendly grammar; openCypher TCK targeted from day one.',
     icon: Terminal,
   },
   {
-    title: 'AI-Ready',
-    subtitle: 'MCP toolchain support',
-    description: 'MCP-friendly interfaces make OpenGraphDB straightforward for agent integrations.',
+    title: 'Built for agents',
+    description:
+      'First-class MCP, machine-readable plans, and stable result shapes — graph as a primitive, not an afterthought.',
     icon: Bot,
   },
   {
-    title: 'Embeddable',
-    subtitle: 'Deploy your way',
-    description: 'Run as a server or embed directly with a compact operational footprint.',
+    title: 'Embed or serve',
+    description:
+      'A single binary you can ship inside the app, or run as a Bolt/HTTP server. Backups are file copies.',
     icon: Database,
   },
 ]
 
-const CARD_DELAY_CLASSES = ['animate-delay-100', 'animate-delay-200', 'animate-delay-300', 'animate-delay-400']
+const REVEAL_DELAY = ['', 'animate-delay-100', 'animate-delay-200', 'animate-delay-300']
 
 export function FeaturesSection() {
   const { ref, isInView } = useSectionInView<HTMLElement>()
 
   return (
-    <section id="features" ref={ref} className="scroll-mt-24 bg-muted/40 py-20 sm:py-24">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+    <section
+      id="features"
+      ref={ref}
+      className="scroll-mt-24 border-t border-border/60 bg-background py-24 sm:py-32"
+    >
+      <div className="mx-auto max-w-6xl px-6">
         <div
           className={cn(
-            'mx-auto mb-10 max-w-2xl space-y-3 text-center transition-all duration-700',
-            isInView ? 'animate-fade-in animate-fill-both' : 'opacity-0'
+            'mb-16 max-w-2xl',
+            isInView ? 'animate-reveal-up animate-fill-both' : 'opacity-0'
           )}
         >
-          <h2 className="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">Built for Performance</h2>
-          <p className="text-pretty text-base text-muted-foreground sm:text-lg">
-            Every component optimized for graph-native workloads.
+          <p className="mb-3 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            02 — What it is
           </p>
+          <h2 className="font-display text-balance text-4xl font-light leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+            A graph database that{' '}
+            <span className="italic text-muted-foreground">earns</span> its place
+            in the stack.
+          </h2>
         </div>
 
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-x-12 gap-y-14 sm:grid-cols-2 lg:gap-x-20">
           {FEATURES.map((feature, index) => {
             const Icon = feature.icon
             return (
-              <Card
+              <article
                 key={feature.title}
                 data-testid="feature-card"
                 className={cn(
-                  'h-full border-border/80 bg-card/95 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5',
+                  'group relative pl-16',
                   isInView
-                    ? `animate-slide-up animate-fill-both ${CARD_DELAY_CLASSES[index] ?? 'animate-delay-400'}`
-                    : 'translate-y-5 opacity-0'
+                    ? `animate-reveal-up animate-fill-both ${REVEAL_DELAY[index] ?? ''}`
+                    : 'opacity-0'
                 )}
               >
-                <CardHeader className="space-y-3 p-6">
-                  <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <CardTitle className="text-xl">{feature.title}</CardTitle>
-                  <CardDescription>{feature.subtitle}</CardDescription>
-                </CardHeader>
-                <CardContent className="p-6 pt-0 text-sm text-muted-foreground">
+                <span
+                  aria-hidden="true"
+                  className="font-display absolute -top-2 left-0 text-5xl font-light leading-none text-muted-foreground/35"
+                >
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-md border border-border/60 bg-card text-foreground/80">
+                  <Icon className="h-[18px] w-[18px]" aria-hidden="true" />
+                </div>
+                <h3 className="font-display text-2xl font-medium tracking-tight text-foreground">
+                  {feature.title}
+                </h3>
+                <p className="mt-3 max-w-md text-pretty text-base leading-relaxed text-muted-foreground">
                   {feature.description}
-                </CardContent>
-              </Card>
+                </p>
+              </article>
             )
           })}
         </div>

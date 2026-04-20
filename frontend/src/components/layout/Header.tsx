@@ -19,19 +19,24 @@ export function Header() {
 
   return (
     <>
-      <header className="border-b bg-card/80 backdrop-blur-sm">
-        <div className="flex h-14 items-center justify-between gap-3 px-3 sm:px-4">
-          <div className="flex min-w-0 items-center gap-2.5 sm:gap-3">
+      <header className="border-b border-white/10 bg-[hsl(240,28%,8%)]/85 backdrop-blur-md">
+        <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-5">
+          <div className="flex min-w-0 items-center gap-3">
             <Link
               to="/"
-              className="inline-flex items-center gap-2 text-base font-semibold tracking-tight transition-colors hover:text-foreground/80 sm:text-lg"
+              className="inline-flex items-center gap-2 text-base font-semibold tracking-tight text-white transition-colors hover:text-white/80"
             >
-              <span className="rounded-md bg-primary/15 p-1 text-primary">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-white">
                 <Share2 className="h-4 w-4" />
               </span>
-              OpenGraphDB
+              <span className="font-display text-lg font-medium tracking-tight">
+                OpenGraphDB
+              </span>
             </Link>
-            <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 text-[11px] font-medium">
+            <Badge
+              variant="secondary"
+              className="rounded-full border-white/15 bg-white/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-white/70"
+            >
               Explorer
             </Badge>
           </div>

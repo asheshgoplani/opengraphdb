@@ -1,9 +1,11 @@
 import { lazy, Suspense } from 'react'
 import { LandingNav } from '@/components/landing/LandingNav'
 import { HeroSection } from '@/components/landing/HeroSection'
+import { SampleQueryPanel } from '@/components/landing/SampleQueryPanel'
 import { ShowcaseSection } from '@/components/landing/ShowcaseSection'
 import { FeaturesSection } from '@/components/landing/FeaturesSection'
 import { GettingStartedSection } from '@/components/landing/GettingStartedSection'
+import { BenchmarkStrip } from '@/components/landing/BenchmarkStrip'
 
 const DemoSection = lazy(() =>
   import('@/components/demo/DemoSection').then((m) => ({ default: m.DemoSection }))
@@ -22,6 +24,7 @@ export default function LandingPage() {
 
       <main>
         <HeroSection />
+        <SampleQueryPanel />
         <ShowcaseSection />
         <Suspense fallback={<div className="py-20 sm:py-24" />}>
           <DemoSection />
@@ -31,12 +34,17 @@ export default function LandingPage() {
         </Suspense>
         <FeaturesSection />
         <GettingStartedSection />
+        <BenchmarkStrip />
       </main>
 
-      <footer className="border-t border-border/80 py-10">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 sm:flex-row sm:px-6">
-          <p className="text-sm text-muted-foreground">&copy; {year} OpenGraphDB</p>
-          <p className="text-sm text-muted-foreground">Built for graph-native workloads.</p>
+      <footer className="border-t border-border/80 bg-background py-12">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-3 px-4 sm:flex-row sm:px-6">
+          <p className="font-display text-sm text-muted-foreground">
+            &copy; {year} OpenGraphDB
+          </p>
+          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+            Built for graph-native workloads
+          </p>
         </div>
       </footer>
     </div>

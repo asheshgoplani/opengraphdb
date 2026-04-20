@@ -1,25 +1,29 @@
 import { useCallback, useState } from 'react'
-import { Check, Copy } from 'lucide-react'
+import { ArrowRight, Check, Copy } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useSectionInView } from './useSectionInView'
 
 const STEPS = [
   {
-    title: 'Install OpenGraphDB',
+    title: 'Install',
+    summary: 'A single binary, vendored as a crate.',
     command: 'cargo install opengraphdb',
   },
   {
-    title: 'Start the Server',
-    command: 'opengraphdb serve --port 8080',
+    title: 'Serve',
+    summary: 'Bolt + HTTP + MCP, all on one process.',
+    command: 'opengraphdb serve --http --mcp',
   },
   {
-    title: 'Query Your Graph',
+    title: 'Query',
+    summary: 'Open the playground and traverse.',
     command: 'MATCH (n) RETURN n LIMIT 25',
   },
 ]
 
-const STEP_DELAY_CLASSES = ['animate-delay-100', 'animate-delay-200', 'animate-delay-300']
+const REVEAL_DELAY = ['animate-delay-100', 'animate-delay-200', 'animate-delay-300']
 
 export function GettingStartedSection() {
   const { ref, isInView } = useSectionInView<HTMLElement>()
@@ -29,69 +33,101 @@ export function GettingStartedSection() {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
       return
     }
-
     await navigator.clipboard.writeText(command)
     setCopiedIndex(index)
-
     window.setTimeout(() => {
       setCopiedIndex((current) => (current === index ? null : current))
     }, 2000)
   }, [])
 
   return (
-    <section id="get-started" ref={ref} className="scroll-mt-24 py-20 sm:py-24">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6">
+    <section
+      id="get-started"
+      ref={ref}
+      className="scroll-mt-24 border-t border-border/60 bg-muted/40 py-24 sm:py-32"
+    >
+      <div className="mx-auto max-w-5xl px-6">
         <div
           className={cn(
-            'mb-8 space-y-3 text-center transition-all duration-700',
-            isInView ? 'animate-fade-in animate-fill-both' : 'opacity-0'
+            'mb-16 max-w-2xl',
+            isInView ? 'animate-reveal-up animate-fill-both' : 'opacity-0'
           )}
         >
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Getting Started</h2>
-          <p className="text-base text-muted-foreground sm:text-lg">Go from install to first Cypher query in minutes.</p>
+          <p className="mb-3 text-xs uppercase tracking-[0.22em] text-muted-foreground">
+            03 — How it works
+          </p>
+          <h2 className="font-display text-balance text-4xl font-light leading-[1.05] tracking-tight text-foreground sm:text-5xl">
+            Three commands to a living graph.
+          </h2>
         </div>
 
-        <div className="space-y-4">
+        <ol className="space-y-5">
           {STEPS.map((step, index) => {
             const isCopied = copiedIndex === index
-
             return (
-              <article
+              <li
                 key={step.title}
                 className={cn(
-                  'rounded-xl border border-border/80 bg-card/95 p-5 shadow-sm transition-all duration-700',
-                  'border-l-4 border-l-primary/70',
+                  'group relative grid grid-cols-[3.5rem_1fr] gap-x-5 rounded-2xl border border-border/60 bg-card/95 p-6 shadow-sm transition-all duration-200 hover:-translate-y-px hover:shadow-md sm:grid-cols-[4rem_1fr_minmax(0,2.5fr)] sm:items-center sm:gap-x-8',
                   isInView
-                    ? `animate-slide-up animate-fill-both ${STEP_DELAY_CLASSES[index] ?? 'animate-delay-300'}`
-                    : 'translate-y-5 opacity-0'
+                    ? `animate-reveal-up animate-fill-both ${REVEAL_DELAY[index] ?? ''}`
+                    : 'opacity-0'
                 )}
               >
-                <div className="mb-3 flex items-center gap-3">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-sm font-medium text-primary-foreground">
-                    {index + 1}
-                  </span>
-                  <p className="text-base font-semibold">{step.title}</p>
+                <span
+                  aria-hidden="true"
+                  className="font-display text-4xl font-light leading-none text-muted-foreground/40 sm:text-5xl"
+                >
+                  {String(index + 1).padStart(2, '0')}
+                </span>
+                <div className="col-span-2 space-y-1 sm:col-span-1">
+                  <h3 className="font-display text-2xl font-medium tracking-tight text-foreground">
+                    {step.title}
+                  </h3>
+                  <p className="text-sm leading-relaxed text-muted-foreground">
+                    {step.summary}
+                  </p>
                 </div>
-
-                <div className="relative overflow-hidden rounded-xl bg-slate-950 px-4 py-3 text-slate-50">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="absolute right-2 top-2 h-8 gap-1.5 rounded-md px-2 text-xs text-slate-200 hover:bg-slate-800 hover:text-white"
-                    onClick={() => {
-                      void copyCommand(step.command, index)
-                    }}
-                  >
-                    {isCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                    {isCopied ? 'Copied' : 'Copy'}
-                  </Button>
-                  <pre className="overflow-x-auto pr-14 text-sm leading-relaxed">
-                    <code>{step.command}</code>
-                  </pre>
+                <div className="col-span-2 sm:col-span-1">
+                  <div className="relative overflow-hidden rounded-lg bg-slate-950 px-4 py-3 text-slate-50 shadow-inner">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      aria-label={isCopied ? 'Copied' : `Copy ${step.title.toLowerCase()} command`}
+                      className="absolute right-1.5 top-1.5 h-7 gap-1 rounded-md px-2 text-[11px] text-slate-300 hover:bg-slate-800 hover:text-white"
+                      onClick={() => {
+                        void copyCommand(step.command, index)
+                      }}
+                    >
+                      {isCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {isCopied ? 'Copied' : 'Copy'}
+                    </Button>
+                    <pre className="overflow-x-auto pr-16 font-mono text-[13px] leading-relaxed">
+                      <code>{step.command}</code>
+                    </pre>
+                  </div>
                 </div>
-              </article>
+              </li>
             )
           })}
+        </ol>
+
+        <div
+          className={cn(
+            'mt-12 flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between',
+            isInView ? 'animate-reveal-up animate-delay-300 animate-fill-both' : 'opacity-0'
+          )}
+        >
+          <p className="max-w-md text-sm text-muted-foreground">
+            Or skip the install — open the in-browser playground and start
+            traversing the bundled datasets in seconds.
+          </p>
+          <Button asChild size="lg" className="group">
+            <Link to="/playground">
+              Open the playground
+              <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+            </Link>
+          </Button>
         </div>
       </div>
     </section>

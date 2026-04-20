@@ -11,6 +11,10 @@ export default {
   		}
   	},
   	extend: {
+  		fontFamily: {
+  			sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'sans-serif'],
+  			serif: ['Fraunces', 'Source Serif 4', 'Georgia', 'Times New Roman', 'serif']
+  		},
   		colors: {
   			border: 'hsl(var(--border))',
   			input: 'hsl(var(--input))',
@@ -113,6 +117,24 @@ export default {
   				'100%': {
   					backgroundPosition: '-200% 0'
   				}
+  			},
+  			revealUp: {
+  				'0%': {
+  					opacity: '0',
+  					transform: 'translateY(28px)'
+  				},
+  				'100%': {
+  					opacity: '1',
+  					transform: 'translateY(0)'
+  				}
+  			},
+  			heroShimmer: {
+  				'0%, 100%': {
+  					opacity: '0.55'
+  				},
+  				'50%': {
+  					opacity: '0.85'
+  				}
   			}
   		},
   		animation: {
@@ -122,7 +144,9 @@ export default {
   			'slide-up': 'slideUp 0.5s ease-out',
   			'slide-in': 'slideIn 0.5s ease-out',
   			'scale-in': 'scaleIn 0.3s ease-out',
-  			'flow': 'flow 2s ease-in-out infinite'
+  			'flow': 'flow 2s ease-in-out infinite',
+  			'reveal-up': 'revealUp 0.9s cubic-bezier(0.22, 1, 0.36, 1) both',
+  			'hero-shimmer': 'heroShimmer 6s ease-in-out infinite'
   		}
   	}
   },

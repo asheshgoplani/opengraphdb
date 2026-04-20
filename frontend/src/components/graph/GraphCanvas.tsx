@@ -1,49 +1,28 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import ForceGraph2D from 'react-force-graph-2d'
-import type { ForceGraphMethods } from 'react-force-graph-2d'
-import type { GraphData, GraphNode, GraphEdge } from '@/types/graph'
+import { useCallback, useMemo, useState } from 'react'
+import type { GraphData, GraphNode } from '@/types/graph'
 import { useGraphStore } from '@/stores/graph'
-import { useGraphColors } from './useGraphColors'
-import { paintNode } from './NodeRenderer'
+import { GRAPH_THEME } from '@/graph/theme'
+import { GraphEmptyState } from './GraphEmptyState'
 import { GraphLegend } from './GraphLegend'
 import { GeoCanvas } from './GeoCanvas'
 import { useTraceAnimation } from './useTraceAnimation'
 import { TraceControls } from './TraceControls'
+import { CosmosCanvas } from '@/graph/cosmos/CosmosCanvas'
 
 interface GraphCanvasProps {
   graphData: GraphData
   isGeographic?: boolean
 }
 
-function getNodeId(node: GraphEdge['source']): string | number | null {
-  if (typeof node === 'object' && node !== null && (typeof node.id === 'string' || typeof node.id === 'number')) {
-    return node.id
-  }
-  if (typeof node === 'string' || typeof node === 'number') {
-    return node
-  }
-  return null
-}
-
-function getNodeCoordinate(node: GraphEdge['source']): { x: number; y: number } | null {
-  if (typeof node === 'object' && node !== null && typeof node.x === 'number' && typeof node.y === 'number') {
-    return { x: node.x, y: node.y }
-  }
-  return null
-}
-
 const getLinkNodeId = (n: GraphNode | string | number): string | number =>
   typeof n === 'object' && n !== null ? n.id : n
 
 export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
-  const colors = useGraphColors()
   const selectNode = useGraphStore((s) => s.selectNode)
-  const selectEdge = useGraphStore((s) => s.selectEdge)
   const clearSelection = useGraphStore((s) => s.clearSelection)
+  const selectedNodeId = useGraphStore((s) => s.selectedNodeId)
   const trace = useGraphStore((s) => s.trace)
-  const containerRef = useRef<HTMLDivElement>(null)
-  const graphRef = useRef<ForceGraphMethods<GraphNode, GraphEdge> | undefined>(undefined)
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 })
+  const [hoveredNodeId, setHoveredNodeId] = useState<string | number | null>(null)
   useTraceAnimation()
 
   const uniqueLabels = useMemo(() => {
@@ -63,25 +42,8 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
     return labels
   }, [uniqueLabels])
 
-  const connectionCounts = useMemo(() => {
-    const counts = new Map<string | number, number>()
-    for (const link of graphData.links) {
-      const sourceId = getNodeId(link.source)
-      const targetId = getNodeId(link.target)
-      if (sourceId !== null) counts.set(sourceId, (counts.get(sourceId) ?? 0) + 1)
-      if (targetId !== null) counts.set(targetId, (counts.get(targetId) ?? 0) + 1)
-    }
-    return counts
-  }, [graphData.links])
-
-  const traceRenderState = useMemo(() => {
-    if (!trace) return null
-    return {
-      activeNodeId: trace.activeNodeId,
-      traversedNodeIds: trace.traversedNodeIds,
-      isPlaying: trace.isPlaying,
-    }
-  }, [trace?.activeNodeId, trace?.traversedNodeIds, trace?.isPlaying])
+  const traceNodeIds = trace?.traversedNodeIds
+  const traceActiveNodeId = trace?.activeNodeId ?? null
 
   const traceEdgeIds = useMemo(() => {
     if (!trace || trace.traversedNodeIds.size < 2) return new Set<string | number>()
@@ -96,74 +58,6 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
     return ids
   }, [trace?.traversedNodeIds, graphData.links])
 
-  // Handle container resize
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect
-        setDimensions({ width: Math.floor(width), height: Math.floor(height) })
-      }
-    })
-
-    observer.observe(container)
-    return () => observer.disconnect()
-  }, [])
-
-  // Force a consistent link length once graph data is set.
-  useEffect(() => {
-    const linkForce = graphRef.current?.d3Force('link') as
-      | { distance?: (distance: number) => unknown }
-      | undefined
-    if (linkForce?.distance) {
-      linkForce.distance(60)
-      graphRef.current?.d3ReheatSimulation()
-    }
-  }, [graphData])
-
-  const nodeCanvasObject = useCallback(
-    (node: GraphNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      paintNode(node, ctx, globalScale, colors, labelIndex, connectionCounts, traceRenderState)
-    },
-    [colors, labelIndex, connectionCounts, traceRenderState]
-  )
-
-  const linkCanvasObject = useCallback(
-    (link: GraphEdge, ctx: CanvasRenderingContext2D, globalScale: number) => {
-      if (globalScale < 0.5) return
-
-      const source = getNodeCoordinate(link.source)
-      const target = getNodeCoordinate(link.target)
-      if (!source || !target || !link.type) return
-
-      const textPos = {
-        x: source.x + (target.x - source.x) * 0.5,
-        y: source.y + (target.y - source.y) * 0.5,
-      }
-      const fontSize = Math.max(10 / globalScale, 3)
-
-      ctx.save()
-      ctx.font = `${fontSize}px system-ui, -apple-system, sans-serif`
-      ctx.textAlign = 'center'
-      ctx.textBaseline = 'middle'
-
-      const textWidth = ctx.measureText(link.type).width
-      ctx.fillStyle = colors.edgeLabelBg
-      ctx.fillRect(
-        textPos.x - textWidth / 2 - 2,
-        textPos.y - fontSize / 2 - 1,
-        textWidth + 4,
-        fontSize + 2
-      )
-      ctx.fillStyle = colors.edgeLabel
-      ctx.fillText(link.type, textPos.x, textPos.y)
-      ctx.restore()
-    },
-    [colors.edgeLabel, colors.edgeLabelBg]
-  )
-
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
       selectNode(node.id)
@@ -171,64 +65,49 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
     [selectNode]
   )
 
-  const handleLinkClick = useCallback(
-    (link: GraphEdge) => {
-      selectEdge(link.id)
-    },
-    [selectEdge]
-  )
+  const handleNodeHover = useCallback((node: GraphNode | null) => {
+    setHoveredNodeId(node?.id ?? null)
+    if (typeof document !== 'undefined') {
+      document.body.style.cursor = node ? 'pointer' : ''
+    }
+  }, [])
 
   const handleBackgroundClick = useCallback(() => {
     clearSelection()
   }, [clearSelection])
 
-  // Memoize graph data to prevent simulation restarts
-  const stableData = useMemo(() => graphData, [graphData])
-
   if (isGeographic) {
     return <GeoCanvas graphData={graphData} />
   }
 
+  if (graphData.nodes.length === 0) {
+    return <GraphEmptyState />
+  }
+
   return (
-    <div ref={containerRef} className="relative h-full w-full">
+    <div className="relative h-full w-full">
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          backgroundColor: colors.bg,
-          backgroundImage: `radial-gradient(circle, ${colors.gridDot} 1px, transparent 1px)`,
-          backgroundSize: '30px 30px',
+          backgroundColor: GRAPH_THEME.bg,
+          backgroundImage: `radial-gradient(circle at center, ${GRAPH_THEME.gridDot} 1px, transparent 1px)`,
+          backgroundSize: `${GRAPH_THEME.gridSize}px ${GRAPH_THEME.gridSize}px`,
         }}
       />
-      <ForceGraph2D
-        ref={graphRef}
-        graphData={stableData}
-        width={dimensions.width}
-        height={dimensions.height}
-        backgroundColor="transparent"
-        nodeCanvasObject={nodeCanvasObject}
-        nodeCanvasObjectMode={() => 'replace'}
-        linkColor={() => colors.edge}
-        linkCurvature={0.18}
-        linkDirectionalArrowLength={5}
-        linkDirectionalArrowColor={() => colors.edge}
-        linkDirectionalArrowRelPos={1}
-        linkDirectionalParticles={(link: GraphEdge) => traceEdgeIds.has(link.id) ? 3 : 0}
-        linkDirectionalParticleColor={() => colors.traceGlow}
-        linkDirectionalParticleSpeed={0.008}
-        linkDirectionalParticleWidth={2}
-        linkLabel={(link: GraphEdge) => link.type}
-        linkCanvasObject={linkCanvasObject}
-        linkCanvasObjectMode={() => 'after'}
+      <div
+        className="pointer-events-none absolute inset-0"
+        style={{ backgroundImage: GRAPH_THEME.vignette }}
+      />
+      <CosmosCanvas
+        graphData={graphData}
         onNodeClick={handleNodeClick}
-        onLinkClick={handleLinkClick}
+        onNodeHover={handleNodeHover}
         onBackgroundClick={handleBackgroundClick}
-        enableNodeDrag={true}
-        enableZoomInteraction={true}
-        nodeRelSize={1}
-        d3AlphaDecay={0.015}
-        d3VelocityDecay={0.25}
-        cooldownTicks={150}
-        autoPauseRedraw={true}
+        hoveredNodeId={hoveredNodeId}
+        selectedNodeId={selectedNodeId}
+        traceActiveNodeId={traceActiveNodeId}
+        traceNodeIds={traceNodeIds}
+        traceEdgeIds={traceEdgeIds}
       />
       <GraphLegend labels={uniqueLabels} labelIndex={labelIndex} />
       <TraceControls />

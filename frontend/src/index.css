@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -29,6 +31,25 @@
 
   .glass {
     @apply bg-background/80 backdrop-blur-md;
+  }
+
+  .font-display {
+    font-family: 'Fraunces', 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    font-feature-settings: 'ss01', 'ss02';
+    letter-spacing: -0.025em;
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .text-pretty {
+    text-wrap: pretty;
+  }
+
+  .hero-radial-mask {
+    -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, black 35%, transparent 80%);
+    mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, black 35%, transparent 80%);
   }
 }
 
