@@ -76,3 +76,21 @@ tests:
     command: "cargo test --release -p ogdb-cli --test demo_datasets_seed"
     purpose: "Bidirectional smoke guard — asserts datasets/ contains the current canonical set (movielens/airroutes/got/wikidata) and does NOT contain the deleted Phase-06 fixtures. Catches re-drift in either direction."
     added: 2026-04-19
+
+  - id: wcoj-two-expand-chain-under-30s
+    task: fix-wcoj-deadlock
+    crate: ogdb-core
+    test: lib
+    function: [wcoj_two_expand_chain_completes_under_30s_guard]
+    command: "cargo test --release -p ogdb-core --lib wcoj_two_expand_chain_completes_under_30s_guard"
+    purpose: "Defensive regression guard — WCOJ planning+execution on the symmetric two-expand-chain fixture must complete in <30s. Catches future deadlocks or runaway recursion in the planner or executor."
+    added: 2026-04-20
+
+  - id: wcoj-cost-comparison-under-5s
+    task: fix-wcoj-deadlock
+    crate: ogdb-core
+    test: lib
+    function: [wcoj_cost_comparison_two_expand_chain_terminates_under_5s]
+    command: "cargo test --release -p ogdb-core --lib wcoj_cost_comparison_two_expand_chain_terminates_under_5s"
+    purpose: "Isolated cost-function guard — detect_wcoj_candidate + estimate_wcoj_cost + estimate_binary_chain_cost must terminate in <5s with finite costs and WCOJ strictly beating binary-chain on the fixture."
+    added: 2026-04-20
