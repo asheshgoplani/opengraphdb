@@ -130,3 +130,48 @@ tests:
     command: "cargo test --release -p ogdb-eval --test ldbc_submission"
     purpose: "Asserts the LDBC-submission exporter emits a format compatible with LDBC audit submission rules (so OpenGraphDB numbers can later be published vs Neo4j/Memgraph/Nebula)."
     added: 2026-04-20
+
+  - id: playground-mcp-gallery-e2e
+    task: playground-premium
+    crate: frontend
+    test: e2e/mcp-gallery
+    function: []
+    command: "cd frontend && npx playwright test e2e/mcp-gallery.spec.ts"
+    purpose: "Playwright e2e — /playground exposes 5 real MCP tool cards + 6 coming-soon cards; perf strip shows live parse/plan/execute/total cells."
+    added: 2026-04-20
+
+  - id: playground-semantic-search-e2e
+    task: playground-premium
+    crate: frontend
+    test: e2e/semantic-search
+    function: []
+    command: "cd frontend && npx playwright test e2e/semantic-search.spec.ts"
+    purpose: "Playwright e2e — Semantic tab exposes 3 modes (Full-text/Vector/Hybrid RRF); hits glow cyan on cosmos.gl canvas; score breakdown sidebar visible."
+    added: 2026-04-20
+
+  - id: playground-schema-browser-e2e
+    task: playground-premium
+    crate: frontend
+    test: e2e/schema-browser
+    function: []
+    command: "cd frontend && npx playwright test e2e/schema-browser.spec.ts"
+    purpose: "Playwright e2e — SchemaBrowser tree renders labels + edges + properties; RDFDropzone accepts ttl drop; ontology mode toggles size boost on owl:Class nodes."
+    added: 2026-04-20
+
+  - id: playground-temporal-slider-e2e
+    task: playground-premium
+    crate: frontend
+    test: e2e/temporal-slider
+    function: []
+    command: "cd frontend && npx playwright test e2e/temporal-slider.spec.ts"
+    purpose: "Playwright e2e — Temporal tab exposes horizontal time slider; dragging back reduces visible node count; compact-history button shows before/after diff."
+    added: 2026-04-20
+
+  - id: playground-polish-cohesion-e2e
+    task: playground-premium
+    crate: frontend
+    test: e2e/polish-cohesion
+    function: []
+    command: "cd frontend && npx playwright test e2e/polish-cohesion.spec.ts"
+    purpose: "Playwright e2e — panel mounts use shared framer-motion preset; all panels have designed empty/loading/error states; Fraunces+Inter typography cohesion; mobile responsive."
+    added: 2026-04-20
