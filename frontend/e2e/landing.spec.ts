@@ -21,7 +21,7 @@ test.describe('Landing Page Visual Coverage', () => {
     const showcaseSection = page.locator('#use-cases')
     await showcaseSection.scrollIntoViewIfNeeded()
     await expect(showcaseSection).toBeVisible()
-    await expect(page.getByTestId('showcase-card')).toHaveCount(3)
+    await expect(page.getByTestId('showcase-card')).toHaveCount(4)
     await page.screenshot({ path: 'e2e/screenshots/landing-showcase-light.png', fullPage: false })
 
     const featuresSection = page.locator('#features')

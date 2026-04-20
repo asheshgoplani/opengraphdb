@@ -16,8 +16,9 @@ export function QueryCard({ query, isActive, resultCount, onClick }: QueryCardPr
       type="button"
       data-testid="query-card"
       className={cn(
-        'w-full cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-colors',
+        'w-full cursor-pointer rounded-lg border px-3 py-2.5 text-left',
         'flex flex-col gap-1',
+        'transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5',
         isActive
           ? 'border-primary bg-primary/5'
           : 'border-border hover:border-primary/50 hover:bg-accent/50'

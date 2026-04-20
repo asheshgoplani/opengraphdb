@@ -17,7 +17,10 @@ export function ConnectionBadge({ queryTimeMs, isLive = false, liveError = null 
   const label = liveError ? 'Error' : isLive ? 'Live' : 'Sample Data'
 
   return (
-    <div className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground">
+    <div
+      data-testid="connection-badge"
+      className="flex items-center gap-2 rounded-full border px-3 py-1 text-xs text-muted-foreground transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
+    >
       <span className="relative flex h-2 w-2">
         {liveError ? null : (
           <span

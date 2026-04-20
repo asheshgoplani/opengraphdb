@@ -22,6 +22,13 @@ interface GraphState {
   advanceTrace: (nodeId: string | number, stepIndex: number) => void
   clearTrace: () => void
   setTraceSpeed: (speed: number) => void
+  semanticHighlights: Set<string | number>
+  semanticHoverId: string | number | null
+  setSemanticHighlights: (ids: Iterable<string | number>) => void
+  setSemanticHoverId: (id: string | number | null) => void
+  clearSemanticHighlights: () => void
+  timeCutoff: number | null
+  setTimeCutoff: (cutoff: number | null) => void
 }
 
 export const useGraphStore = create<GraphState>()((set) => ({
@@ -63,4 +70,12 @@ export const useGraphStore = create<GraphState>()((set) => ({
       if (!state.trace) return state
       return { trace: { ...state.trace, speedMultiplier: speed } }
     }),
+  semanticHighlights: new Set<string | number>(),
+  semanticHoverId: null,
+  setSemanticHighlights: (ids) => set({ semanticHighlights: new Set(ids) }),
+  setSemanticHoverId: (id) => set({ semanticHoverId: id }),
+  clearSemanticHighlights: () =>
+    set({ semanticHighlights: new Set<string | number>(), semanticHoverId: null }),
+  timeCutoff: null,
+  setTimeCutoff: (cutoff) => set({ timeCutoff: cutoff }),
 }))

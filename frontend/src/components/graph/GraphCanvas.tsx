@@ -12,16 +12,19 @@ import { CosmosCanvas } from '@/graph/cosmos/CosmosCanvas'
 interface GraphCanvasProps {
   graphData: GraphData
   isGeographic?: boolean
+  ontologyMode?: boolean
 }
 
 const getLinkNodeId = (n: GraphNode | string | number): string | number =>
   typeof n === 'object' && n !== null ? n.id : n
 
-export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
+export function GraphCanvas({ graphData, isGeographic, ontologyMode }: GraphCanvasProps) {
   const selectNode = useGraphStore((s) => s.selectNode)
   const clearSelection = useGraphStore((s) => s.clearSelection)
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId)
   const trace = useGraphStore((s) => s.trace)
+  const semanticHighlights = useGraphStore((s) => s.semanticHighlights)
+  const semanticHoverId = useGraphStore((s) => s.semanticHoverId)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | number | null>(null)
   useTraceAnimation()
 
@@ -108,6 +111,9 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
         traceActiveNodeId={traceActiveNodeId}
         traceNodeIds={traceNodeIds}
         traceEdgeIds={traceEdgeIds}
+        semanticHighlights={semanticHighlights}
+        semanticHoverId={semanticHoverId}
+        ontologyMode={ontologyMode}
       />
       <GraphLegend labels={uniqueLabels} labelIndex={labelIndex} />
       <TraceControls />

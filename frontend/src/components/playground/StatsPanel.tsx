@@ -20,8 +20,11 @@ function StatItem({ label, value }: StatItemProps) {
 
 export function StatsPanel({ nodeCount, edgeCount, labelCount }: StatsPanelProps) {
   return (
-    <section className="rounded-lg border bg-muted/30 px-3 py-2">
-      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+    <section
+      data-testid="stats-panel"
+      className="rounded-lg border bg-muted/30 px-3 py-2 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
+    >
+      <p className="mb-2 font-serif text-[13px] leading-none tracking-tight text-foreground">
         Active Result
       </p>
       <div className="grid grid-cols-3 gap-2">

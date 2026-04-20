@@ -21,6 +21,20 @@ interface CosmosCanvasProps {
   traceActiveNodeId?: string | number | null
   traceNodeIds?: Set<string | number>
   traceEdgeIds?: Set<string | number>
+  semanticHighlights?: Set<string | number>
+  semanticHoverId?: string | number | null
+  ontologyMode?: boolean
+}
+
+const SEMANTIC_HIT_COLOR: Rgba = [34, 211, 238, 1]
+const SEMANTIC_HOVER_COLOR: Rgba = [103, 232, 249, 1]
+
+function ontologyBoost(node: GraphNode): number {
+  const primary = node.labels?.[0] ?? ''
+  if (/^(Class|owl:Class|rdfs:Class)$/i.test(primary)) return 2.4
+  if (/Property$/i.test(primary)) return 0.65
+  if (/^(Datatype|Literal)$/i.test(primary)) return 0.55
+  return 1
 }
 
 interface LabelItem {
@@ -68,6 +82,9 @@ export function CosmosCanvas({
   traceActiveNodeId,
   traceNodeIds,
   traceEdgeIds,
+  semanticHighlights,
+  semanticHoverId,
+  ontologyMode,
 }: CosmosCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<Graph | null>(null)
@@ -223,7 +240,8 @@ export function CosmosCanvas({
 
     const sizes = new Float32Array(nodes.length)
     nodes.forEach((n, i) => {
-      sizes[i] = radiusForDegree(degree.get(n.id) ?? 0) * 1.1
+      const base = radiusForDegree(degree.get(n.id) ?? 0) * 1.1
+      sizes[i] = ontologyMode ? base * ontologyBoost(n) : base
     })
 
     const colors = nodes.map((n) => colorForNode(n.labels, 1))
@@ -252,7 +270,7 @@ export function CosmosCanvas({
       }
     }, 800)
     return () => clearTimeout(fitTimer)
-  }, [nodes, linkIndexPairs, labelIndicesToShow, degree])
+  }, [nodes, linkIndexPairs, labelIndicesToShow, degree, ontologyMode])
 
   useEffect(() => {
     const g = graphRef.current
@@ -277,14 +295,20 @@ export function CosmosCanvas({
   useEffect(() => {
     const g = graphRef.current
     if (!g) return
-    const dim = traceNodeIds && traceNodeIds.size > 0
+    const tracing = traceNodeIds && traceNodeIds.size > 0
+    const hasSemantic = (semanticHighlights?.size ?? 0) > 0
     const pointColors = nodes.map((n) => {
       if (traceActiveNodeId === n.id) return [253, 224, 71, 1] as Rgba
       if (traceNodeIds?.has(n.id)) return lightColorForNode(n.labels, 1)
-      return colorForNode(n.labels, dim ? 0.3 : 1)
+      if (hasSemantic) {
+        if (semanticHoverId === n.id) return SEMANTIC_HOVER_COLOR
+        if (semanticHighlights?.has(n.id)) return SEMANTIC_HIT_COLOR
+        return colorForNode(n.labels, 0.22)
+      }
+      return colorForNode(n.labels, tracing ? 0.3 : 1)
     })
     g.setPointColors(flatRgba(pointColors))
-  }, [traceActiveNodeId, traceNodeIds, nodes])
+  }, [traceActiveNodeId, traceNodeIds, nodes, semanticHighlights, semanticHoverId, indexById])
 
   const renderedLabels = (() => {
     const g = graphRef.current
