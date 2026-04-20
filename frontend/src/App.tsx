@@ -6,13 +6,16 @@ import { QueryError } from '@/components/query/QueryError'
 import { ResultsView } from '@/components/results/ResultsView'
 import { ResultsBanner } from '@/components/results/ResultsBanner'
 import { ResultsEmptyState } from '@/components/results/ResultsEmptyState'
-import { useCypherQuery } from '@/api/queries'
+import { DisconnectedState } from '@/components/results/DisconnectedState'
+import { useCypherQuery, useHealthCheck } from '@/api/queries'
 import { transformQueryResponse } from '@/api/transform'
 import { useSettingsStore } from '@/stores/settings'
 
 function App() {
   const mutation = useCypherQuery()
   const resultLimit = useSettingsStore((s) => s.resultLimit)
+  const { data: health, isLoading: healthLoading } = useHealthCheck()
+  const isConnected = health?.connected === true
 
   const graphData = useMemo(() => {
     if (!mutation.data) return null
@@ -22,6 +25,7 @@ function App() {
   const nodeCount = graphData?.nodes.length ?? 0
   const edgeCount = graphData?.links.length ?? 0
   const isLimited = nodeCount >= resultLimit || edgeCount >= resultLimit
+  const showDisconnected = !isConnected && !healthLoading && !graphData
 
   return (
     <AppShell>
@@ -43,6 +47,8 @@ function App() {
             />
             <ResultsView graphData={graphData} />
           </div>
+        ) : showDisconnected ? (
+          <DisconnectedState />
         ) : (
           <ResultsEmptyState />
         )}
