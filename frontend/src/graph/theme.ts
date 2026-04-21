@@ -52,6 +52,43 @@ export const LABEL_PALETTE: Record<string, { core: string; light: string; deep: 
   House: { core: '#F87171', light: '#FECACA', deep: '#9C2A2A' },
   Character: { core: '#E879F9', light: '#F5C8FB', deep: '#86259A' },
   Item: { core: '#A3E635', light: '#D9F99D', deep: '#4D7A07' },
+  Season: { core: '#F59E0B', light: '#FCD34D', deep: '#78350F' },
+}
+
+// Per-edge-type palette. Keys are Cypher relationship type strings.
+// Colors are hex — consumers convert to RGBA.
+export const EDGE_PALETTE: Record<string, string> = {
+  KNOWS: '#22D3EE', // cyan
+  ACTED_IN: '#FBBF24', // amber
+  RATED: '#A78BFA', // purple
+  INTERACTS: '#F472B6', // rose
+  APPEARS_IN: '#94A3FF', // soft indigo
+  WORKS_AT: '#34D399', // emerald
+  LIVES_IN: '#FB923C', // orange
+  LIKES: '#F87171', // red
+  OWNS: '#E879F9', // fuchsia
+  NEAR: '#A3E635', // lime
+  ROUTE: '#22D3EE',
+  IN_GENRE: '#F472B6',
+  CONTAINS: '#7AA2FF',
+  WON_PRIZE_IN: '#FBBF24',
+  BORN_IN: '#34D399',
+  AFFILIATED_WITH: '#A78BFA',
+}
+
+const EDGE_FALLBACK = ['#94A3FF', '#22D3EE', '#F472B6', '#34D399', '#FBBF24', '#FB923C', '#A3E635', '#A78BFA']
+
+function hashString(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i += 1) h = (h * 31 + s.charCodeAt(i)) >>> 0
+  return h
+}
+
+export function paletteForEdgeType(type: string | undefined | null): string {
+  if (!type) return EDGE_FALLBACK[0]
+  const explicit = EDGE_PALETTE[type]
+  if (explicit) return explicit
+  return EDGE_FALLBACK[hashString(type) % EDGE_FALLBACK.length]
 }
 
 const FALLBACK_PALETTE: Array<{ core: string; light: string; deep: string }> = [

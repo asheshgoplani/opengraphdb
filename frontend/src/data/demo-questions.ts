@@ -40,4 +40,9 @@ export const DEMO_QUESTIONS: Record<DatasetKey, DemoQuestion[]> = {
     { id: 'wd-multi-winner', text: 'Are there laureates who won multiple prizes?', dataset: 'wikidata', category: 'insight' },
     { id: 'wd-women', text: 'Show female Nobel Prize winners', dataset: 'wikidata', category: 'explore' },
   ],
+  community: [
+    { id: 'cg-dense', text: 'Show the full community graph', dataset: 'community', category: 'popular' },
+    { id: 'cg-bridges', text: 'Which edges cross between clusters?', dataset: 'community', category: 'insight' },
+    { id: 'cg-hubs', text: 'Find the most connected nodes per cluster', dataset: 'community', category: 'explore' },
+  ],
 }

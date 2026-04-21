@@ -72,6 +72,22 @@ const DATASET_SCHEMAS: Record<DatasetKey, {
       },
     ],
   },
+  community: {
+    labels: 'Person, Character, City, Company',
+    relTypes: 'KNOWS, INTERACTS, NEAR, WORKS_AT, LIVES_IN, LIKES, OWNS, RATED',
+    props: 'name (string), cluster (string)',
+    sampleEntities: ['Ada 1', 'Arwen 1', 'Kyoto 1', 'Helix 1'],
+    examples: [
+      {
+        question: 'Show the hubs in each community.',
+        cypher: 'MATCH (n)-[r]-() RETURN n, count(r) AS degree ORDER BY degree DESC LIMIT 20',
+      },
+      {
+        question: 'Find edges bridging two clusters.',
+        cypher: 'MATCH (a)-[r]->(b) WHERE a.cluster <> b.cluster RETURN a, r, b LIMIT 50',
+      },
+    ],
+  },
 }
 
 export function buildDemoSystemPrompt(datasetKey: DatasetKey): string {
