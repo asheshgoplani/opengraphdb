@@ -40,9 +40,22 @@ export function HeroSection() {
 
       <HeroGraphBackground />
 
+      {/* Slice-13: radial dim band sitting behind the hero headline so the
+          italic "built for the way" line never competes with constellation
+          particles drifting through the same vertical strip. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-x-0 top-[32%] z-[5] h-[34vh]"
+        style={{
+          backgroundImage:
+            'radial-gradient(ellipse 62% 100% at 50% 50%, hsla(240, 40%, 4%, 0.58), hsla(240, 40%, 4%, 0.28) 55%, transparent 90%)',
+        }}
+      />
+
       <div
         ref={ref}
-        className="relative z-10 mx-auto flex min-h-[88vh] max-w-6xl flex-col items-center justify-center px-6 py-28 text-center sm:py-36"
+        data-testid="hero-content"
+        className="relative z-20 mx-auto flex min-h-[88vh] max-w-6xl flex-col items-center justify-center px-6 py-28 text-center sm:py-36"
       >
         <p
           className={`mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1 text-xs uppercase tracking-[0.18em] text-white/70 backdrop-blur ${

@@ -116,6 +116,11 @@ export function CosmosCanvas({
   const fitRafIdsRef = useRef<number[]>([])
   const fitTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const pendingDestroyRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Slice-13: stores the first non-trivial zoom cosmos settles on after
+  // fitView, so the zoom-LOD fades labels when the user zooms OUT below
+  // 60% of their initial framing rather than fighting cosmos's own fit
+  // (which often lands well below 0.6× absolute on large graphs).
+  const initialZoomRef = useRef<number | null>(null)
 
   const onNodeClickRef = useRef(onNodeClick)
   const onNodeHoverRef = useRef(onNodeHover)
@@ -306,9 +311,10 @@ export function CosmosCanvas({
       // during React's commit phase, before the browser has laid out /
       // paint-composited the host div; on SwiftShader-headless that sometimes
       // leaves regl without a usable GL context. Retrying on a later frame
-      // lets the layout settle.
+      // lets the layout settle. Slice-13: longer + more retries so the
+      // denser 8-cluster community graph still wins an init under headless.
       clearHost()
-      const delays = [16, 80, 250]
+      const delays = [16, 80, 250, 500, 900, 1400]
       const attempt = (i: number) => {
         if (graphRef.current) return
         if (!hostRef.current) return
@@ -653,27 +659,40 @@ export function CosmosCanvas({
     const labels: Array<React.ReactNode> = []
     const blooms: Array<React.ReactNode> = []
 
-    // Slice-12: low-degree labels fade out once the graph is dense so the
-    // canvas doesn't become a wall of text. Mid-range linearly interpolate.
-    //   degree < 2 AND nodes.length > 80 → opacity 0 (skip render)
-    //   degree === 2                    → 0.55
-    //   degree >= 5                     → 1.0
-    //   mid (3..4)                      → linear between 0.55 and 1.0
+    // Slice-13: zoom-level LOD. When cosmos's globalScale drops below 0.6×
+    // every non-emphasized label fades out (spec: "LOD fading below zoom
+    // 0.6×"). Retains the degree-based LOD for in-zoom cases so dense
+    // graphs don't become a wall of text.
     const dense = nodes.length > 80
     const degreeLodOpacity = (deg: number): number => {
       if (deg < 2) return dense ? 0 : 0.55
       if (deg >= 5) return 1
-      // map [2..5] → [0.55..1.0]
       return 0.55 + ((deg - 2) / 3) * 0.45
     }
+    let zoomScale = 1
+    try {
+      const z = g.getZoomLevel?.()
+      if (typeof z === 'number' && Number.isFinite(z) && z > 0) zoomScale = z
+    } catch {
+      /* older cosmos without getZoomLevel — keep zoomScale = 1 */
+    }
+    // Lock the baseline the first time cosmos reports a non-trivial zoom.
+    // Subsequent frames compare current zoom against that baseline so the
+    // threshold is semantic ("user zoomed out 60%") not absolute.
+    if (initialZoomRef.current == null && zoomScale > 0.05) {
+      initialZoomRef.current = zoomScale
+    }
+    const baseline = initialZoomRef.current ?? zoomScale
+    const zoomRatio = baseline > 0 ? zoomScale / baseline : 1
+    const zoomLodOpacity = zoomRatio < 0.6 ? Math.max(0, (zoomRatio - 0.3) / 0.3) : 1
 
-    // Slice-12: greedy label-collision rejection. For each label, estimate
-    // its bbox (rough: 7 px × glyph count horizontally, 14 px tall). If the
-    // new bbox overlaps any already-placed bbox with IoU ≥ 0.1, we skip
-    // the label (its bloom still renders). Labels are processed in the
-    // order of labelItems which is node-order; hub labels come via
-    // labelIndexSet. Rendering highest-degree first ensures hubs win ties.
+    // Slice-13: stricter greedy label-collision rejection. For each label,
+    // estimate its bbox (6.4 px × glyph count horizontally, fontSize tall),
+    // expand by an 8 px collision-padding halo on every side, and reject
+    // any candidate that hits IoU ≥ 0.05 against an already-placed label.
     const placedBoxes: Array<[number, number, number, number]> = []
+    const COLLISION_PAD = 8
+    const COLLISION_IOU = 0.05
     const rectIoU = (
       a: [number, number, number, number],
       b: [number, number, number, number],
@@ -736,30 +755,33 @@ export function CosmosCanvas({
       const isTraceActive = traceActiveNodeId === l.id
       const emphasize = isHovered || isSelected || isTraceActive
       const text = l.text.length > 26 ? l.text.slice(0, 23) + '…' : l.text
-      const lodOpacity = degreeLodOpacity(l.degree)
+      const lodOpacity = degreeLodOpacity(l.degree) * zoomLodOpacity
       if (lodOpacity <= 0 && !emphasize) continue
       const opacity = emphasize ? 1 : lodOpacity
-      // Slice-12: emphasized labels float ABOVE the node so they don't
-      // collide with outgoing edges; non-emphasized sit below with a bit
-      // more breathing room (was +6, now +8).
       const labelYOffset = emphasize ? -r - 12 : r + 8
-      // Degree-scaled font size for non-emphasized labels so hubs get
-      // larger type (up to 14 px). Emphasized: fixed 14 px.
-      const fontSize = emphasize
-        ? 14
-        : Math.min(14, Math.max(10, 10 + Math.log2(l.degree + 1) * 0.8))
+      // Slice-13: fixed 12 px Inter 500 for non-emphasized labels, 14 px for
+      // emphasized. Removes the degree-scaled font size; collision padding
+      // + zoom-LOD are now the primary density regulators.
+      const fontSize = emphasize ? 14 : 12
 
-      // Greedy collision rejection. Estimate label bbox (roughly 6.8 px
-      // per glyph horizontally × fontSize vertically with some padding).
-      const estW = Math.max(18, text.length * 6.8)
-      const estH = fontSize + 4
-      const bx = x - estW / 2 - 2
-      const by = y + labelYOffset - 2
-      const box: [number, number, number, number] = [bx, by, bx + estW + 4, by + estH + 4]
+      // Slice-13: label bbox expanded by COLLISION_PAD on each side so the
+      // rejection test enforces an 8 px breathing-room halo around every
+      // placed label (the new E2E gate measures IoU < 0.05 between any two
+      // labels).
+      const estW = Math.max(18, text.length * 6.4)
+      const estH = fontSize + 2
+      const bx = x - estW / 2 - COLLISION_PAD
+      const by = y + labelYOffset - COLLISION_PAD
+      const box: [number, number, number, number] = [
+        bx,
+        by,
+        bx + estW + COLLISION_PAD * 2,
+        by + estH + COLLISION_PAD * 2,
+      ]
       if (!emphasize) {
         let collides = false
         for (const placed of placedBoxes) {
-          if (rectIoU(box, placed) >= 0.1) {
+          if (rectIoU(box, placed) >= COLLISION_IOU) {
             collides = true
             break
           }
@@ -773,6 +795,7 @@ export function CosmosCanvas({
           key={String(l.id)}
           className="cosmos-label"
           data-degree={l.degree}
+          data-font-weight={emphasize ? 600 : 500}
           style={{
             transform: `translate3d(${x}px, ${y + labelYOffset}px, 0) translateX(-50%)`,
             fontWeight: emphasize ? 600 : 500,
@@ -811,15 +834,16 @@ export function CosmosCanvas({
             left: 0;
             white-space: nowrap;
             pointer-events: none;
-            font-family: "Fraunces", "Source Serif 4", Georgia, serif;
-            letter-spacing: 0.01em;
-            /* Slice-12: multi-layer black halo (spec: black 0.8 × 6-10 px
-               blur) so labels stay legible on the now-brighter backdrop. */
+            /* Slice-13: Inter 12/500 on non-emphasized, 14/600 on emphasized.
+               Navy halo (rgba(10,14,28,0.85)) at 3 px primary blur ensures
+               crisp readability over the gradient/bloom backdrop. */
+            font-family: "Inter", "Inter var", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            font-feature-settings: "ss01", "cv11";
+            letter-spacing: 0.005em;
             text-shadow:
-              0 0 3px rgba(0,0,0,0.95),
-              0 0 6px rgba(0,0,0,0.85),
-              0 0 10px rgba(0,0,0,0.75),
-              0 0 14px rgba(8,10,22,0.55);
+              0 0 3px rgba(10,14,28,0.85),
+              0 0 6px rgba(10,14,28,0.70),
+              0 0 10px rgba(10,14,28,0.45);
             will-change: transform;
           }
           .cosmos-bloom {
