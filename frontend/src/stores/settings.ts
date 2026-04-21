@@ -23,7 +23,7 @@ export const useSettingsStore = create<SettingsState>()(
   persist(
     (set) => ({
       serverUrl: 'http://localhost:8080',
-      theme: 'system',
+      theme: 'dark',
       resultLimit: 500,
       aiProvider: 'webllm',
       aiApiKey: '',
