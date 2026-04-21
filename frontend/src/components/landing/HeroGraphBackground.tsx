@@ -81,7 +81,9 @@ export function HeroGraphBackground() {
   return (
     <div
       ref={containerRef}
-      className="hero-radial-mask pointer-events-none absolute inset-0 opacity-[0.85] animate-hero-shimmer motion-reduce:animate-none motion-reduce:opacity-60"
+      data-testid="hero-graph-constellation"
+      className="hero-radial-mask pointer-events-none absolute inset-0 z-0 opacity-[0.78] animate-hero-shimmer motion-reduce:animate-none motion-reduce:opacity-55"
+      style={{ zIndex: 0 }}
       aria-hidden="true"
     >
       <ForceGraph2D<GraphNode, GraphEdge>

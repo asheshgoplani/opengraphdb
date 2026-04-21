@@ -1,10 +1,13 @@
 import type { GraphData, GraphEdge, GraphNode } from '@/types/graph'
 import type { GuidedQuery } from './datasets.js'
 
-// Synthetic 4-cluster graph to showcase the canvas at real density.
-// Clusters use distinct node labels and distinct edge types so the viewer
-// sees both label-color variety and edge-type palette variety.
-
+// Slice-13: 8-cluster graph so the node-core palette spans all 8 hue
+// buckets (0° / 45° / 90° / 135° / 180° / 225° / 270° / 315°). Each cluster
+// maps to a distinct label whose explicit entry in LABEL_PALETTE (see
+// graph/theme.ts) sits in a different hue bucket — Person/blue,
+// Character/magenta, City/orange, Company/green, Movie/purple,
+// Genre/pink, Country/amber, Airport/cyan — so a random pixel sample
+// across the canvas measurably populates 6+ hue buckets.
 const CLUSTERS = [
   {
     key: 'tech',
@@ -26,16 +29,40 @@ const CLUSTERS = [
     label: 'Company',
     seed: ['Helix', 'Nimbus', 'Tesseract', 'Lumen', 'Quill', 'Aster', 'Borealis', 'Vireo'],
   },
+  {
+    key: 'cinema',
+    label: 'Movie',
+    seed: ['Inception', 'Arrival', 'Dune', 'Blade', 'Tenet', 'Solaris', 'Gattaca', 'Primer'],
+  },
+  {
+    key: 'item',
+    label: 'Item',
+    seed: ['Artefact', 'Tome', 'Blade', 'Relic', 'Seal', 'Crown', 'Cipher', 'Key'],
+  },
+  {
+    key: 'nation',
+    label: 'Country',
+    seed: ['France', 'Iceland', 'Japan', 'Chile', 'Kenya', 'Spain', 'Nepal', 'Peru'],
+  },
+  {
+    key: 'airfield',
+    label: 'Airport',
+    seed: ['JFK', 'CDG', 'NRT', 'SFO', 'AMS', 'HND', 'LHR', 'GRU'],
+  },
 ] as const
 
-const NODES_PER_CLUSTER = 60
-const INTER_CLUSTER_BRIDGES = 20
+const NODES_PER_CLUSTER = 30
+const INTER_CLUSTER_BRIDGES = 28
 
 const INTRA_EDGE_TYPES: Record<string, string> = {
   tech: 'KNOWS',
   film: 'INTERACTS',
   geo: 'NEAR',
   biz: 'WORKS_AT',
+  cinema: 'APPEARS_IN',
+  item: 'IN_GENRE',
+  nation: 'CONTAINS',
+  airfield: 'ROUTE',
 }
 
 const BRIDGE_EDGE_TYPES = ['LIVES_IN', 'LIKES', 'OWNS', 'RATED']
@@ -193,7 +220,7 @@ export const COMMUNITY_QUERIES: GuidedQuery[] = [
   {
     key: 'all',
     label: 'All communities',
-    description: '4 clusters, dense intra-links, rare bridges',
+    description: '8 clusters, dense intra-links, rare bridges',
     cypher: 'MATCH (n)-[r]-() RETURN n, r LIMIT 2000',
     expectedResultCount: COMMUNITY_SAMPLE.nodes.length,
     filterFn: (data) => cloneGraphData(data),
@@ -204,7 +231,7 @@ export const COMMUNITY_QUERIES: GuidedQuery[] = [
     label: 'Tech community',
     description: 'Person-labelled nodes and their KNOWS edges',
     cypher: 'MATCH (p:Person)-[r:KNOWS]-(q:Person) RETURN p, r, q',
-    expectedResultCount: 60,
+    expectedResultCount: 30,
     filterFn: filterByClusterLabel('Person'),
     category: 'Explore',
   },
@@ -214,7 +241,7 @@ export const COMMUNITY_QUERIES: GuidedQuery[] = [
     description: 'Only the rare inter-cluster bridge edges',
     cypher:
       'MATCH (a)-[r:LIVES_IN|LIKES|OWNS|RATED]->(b) WHERE a.cluster <> b.cluster RETURN a, r, b',
-    expectedResultCount: 20,
+    expectedResultCount: 28,
     filterFn: filterBridgeEdges,
     category: 'Traverse',
   },

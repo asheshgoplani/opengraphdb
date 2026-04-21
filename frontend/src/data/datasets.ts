@@ -125,7 +125,7 @@ export const DATASETS: Record<DatasetKey, DatasetEntry> = {
     meta: buildDatasetMeta(
       'community',
       'Community Graph',
-      'Synthetic 4-cluster × 80-node network showing the canvas at real density with varied labels and edge types.',
+      'Synthetic 8-cluster × 30-node network showing the canvas at real density with eight distinct labels and varied edge types.',
       COMMUNITY_SAMPLE
     ),
   },
