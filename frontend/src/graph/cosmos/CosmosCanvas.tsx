@@ -229,13 +229,18 @@ export function CosmosCanvas({
     const g = graphRef.current
     if (!g) return
 
+    // Cosmos.gl expects positions in the positive [0, spaceSize] coordinate
+    // space. Negative positions leave the camera/zoom math in a degenerate
+    // state where points never become visible in headless WebGL envs.
     const positions = new Float32Array(nodes.length * 2)
     const R = 500
+    const CX = 2048
+    const CY = 2048
     nodes.forEach((_n, i) => {
       const angle = (i / Math.max(1, nodes.length)) * Math.PI * 2
       const r = R * (0.5 + ((i * 0.6180339887) % 1) * 0.5)
-      positions[i * 2] = Math.cos(angle) * r
-      positions[i * 2 + 1] = Math.sin(angle) * r
+      positions[i * 2] = CX + Math.cos(angle) * r
+      positions[i * 2 + 1] = CY + Math.sin(angle) * r
     })
 
     const sizes = new Float32Array(nodes.length)

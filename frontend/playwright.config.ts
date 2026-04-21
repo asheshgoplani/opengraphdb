@@ -16,7 +16,19 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: {
+        ...devices['Desktop Chrome'],
+        // SwiftShader is required for cosmos.gl / regl WebGL1 extensions
+        // (OES_texture_float, ANGLE_instanced_arrays) in headless chromium.
+        // Without these flags, regl init fails and the canvas stays black.
+        launchOptions: {
+          args: [
+            '--use-gl=swiftshader',
+            '--ignore-gpu-blocklist',
+            '--enable-unsafe-swiftshader',
+          ],
+        },
+      },
     },
   ],
   webServer: {
