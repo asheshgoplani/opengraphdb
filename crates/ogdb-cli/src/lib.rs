@@ -899,11 +899,15 @@ format_version={}
 page_size={}
 page_count={}
 node_count={}
-edge_count={}",
+edge_count={}
+total_nodes={}
+total_edges={}",
         db.path().display(),
         db.header().format_version,
         db.header().page_size,
         page_count,
+        db.node_count(),
+        db.edge_count(),
         db.node_count(),
         db.edge_count()
     ))
@@ -4091,6 +4095,7 @@ fn render_http_export_csv(nodes: &[ExportNode], edges: &[ExportEdge]) -> Result<
 
 fn dispatch_http_request(
     shared_db: &SharedDatabase,
+    db_path: &str,
     request: HttpRequestMessage,
 ) -> Result<HttpResponseMessage, CliError> {
     match (request.method.as_str(), request.path.as_str()) {
@@ -4213,6 +4218,34 @@ fn dispatch_http_request(
             };
             let result = apply_import_records(shared_db, records)?;
             Ok(http_json_response(200, "OK", result))
+        }
+        ("POST", path) if path == "/rdf/import" || path.starts_with("/rdf/import?") => {
+            if request.body.len() > RDF_IMPORT_MAX_BYTES {
+                return Ok(http_error(
+                    413,
+                    "Payload Too Large",
+                    format!(
+                        "rdf import body is {} bytes; limit is {} bytes",
+                        request.body.len(),
+                        RDF_IMPORT_MAX_BYTES
+                    ),
+                ));
+            }
+            let format = match resolve_rdf_format_from_http(&request) {
+                Ok(Some(format)) => format,
+                Ok(None) => {
+                    return Ok(http_error(
+                        415,
+                        "Unsupported Media Type",
+                        "rdf import requires ?format= query or Content-Type header (ttl, nt, xml, jsonld, nq)",
+                    ));
+                }
+                Err(message) => {
+                    return Ok(http_error(415, "Unsupported Media Type", message));
+                }
+            };
+            let base_uri = http_query_param(&request.path, "base_uri");
+            handle_http_rdf_import(shared_db, db_path, &request.body, format, base_uri.as_deref())
         }
         ("POST", "/export") => {
             let content_type = http_content_type(&request.headers);
@@ -4487,6 +4520,25 @@ fn handle_serve_http(
     bind_addr: &str,
     max_requests: Option<u64>,
 ) -> Result<String, CliError> {
+    if !Path::new(db_path).exists() {
+        if let Some(parent) = Path::new(db_path).parent() {
+            if !parent.as_os_str().is_empty() && !parent.exists() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    CliError::Runtime(format!(
+                        "failed to create database parent directory {}: {e}",
+                        parent.display()
+                    ))
+                })?;
+            }
+        }
+        let _ = SharedDatabase::init_with_write_mode(
+            db_path,
+            Header::default_v1(),
+            WriteConcurrencyMode::MultiWriter {
+                max_retries: SERVER_MULTI_WRITER_RETRIES,
+            },
+        )?;
+    }
     let shared_db = SharedDatabase::open_with_write_mode(
         db_path,
         WriteConcurrencyMode::MultiWriter {
@@ -4525,7 +4577,7 @@ fn handle_serve_http(
                 continue;
             }
 
-            let response = match dispatch_http_request(&shared_db, request) {
+            let response = match dispatch_http_request(&shared_db, db_path, request) {
                 Ok(response) => response,
                 Err(err) => http_error(500, "Internal Server Error", err.to_string()),
             };
@@ -4539,6 +4591,224 @@ fn handle_serve_http(
             }
         }
     }
+}
+
+const RDF_IMPORT_MAX_BYTES: usize = 128 * 1024 * 1024;
+const RDF_IMPORT_HTTP_BATCH: usize = 10_000;
+
+fn http_query_param(path: &str, key: &str) -> Option<String> {
+    let (_, query) = path.split_once('?')?;
+    for pair in query.split('&') {
+        let (k, v) = match pair.split_once('=') {
+            Some(parts) => parts,
+            None => continue,
+        };
+        if k.eq_ignore_ascii_case(key) {
+            return Some(http_decode_query_value(v));
+        }
+    }
+    None
+}
+
+fn http_decode_query_value(raw: &str) -> String {
+    let mut out = String::with_capacity(raw.len());
+    let bytes = raw.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'+' => {
+                out.push(' ');
+                i += 1;
+            }
+            b'%' if i + 2 < bytes.len() => {
+                let hi = (bytes[i + 1] as char).to_digit(16);
+                let lo = (bytes[i + 2] as char).to_digit(16);
+                match (hi, lo) {
+                    (Some(hi), Some(lo)) => {
+                        out.push(((hi * 16 + lo) as u8) as char);
+                        i += 3;
+                    }
+                    _ => {
+                        out.push('%');
+                        i += 1;
+                    }
+                }
+            }
+            c => {
+                out.push(c as char);
+                i += 1;
+            }
+        }
+    }
+    out
+}
+
+fn rdf_format_from_query_str(value: &str) -> Option<RdfImportFormatArg> {
+    match value.to_ascii_lowercase().as_str() {
+        "ttl" | "turtle" => Some(RdfImportFormatArg::Ttl),
+        "nt" | "ntriples" | "n-triples" => Some(RdfImportFormatArg::Nt),
+        "xml" | "rdf" | "rdfxml" | "rdf-xml" => Some(RdfImportFormatArg::Xml),
+        "jsonld" | "json-ld" | "json" => Some(RdfImportFormatArg::Jsonld),
+        "nq" | "nquads" | "n-quads" => Some(RdfImportFormatArg::Nq),
+        _ => None,
+    }
+}
+
+fn rdf_format_from_content_type(content_type: &str) -> Option<RdfImportFormatArg> {
+    match content_type {
+        "text/turtle" | "application/x-turtle" => Some(RdfImportFormatArg::Ttl),
+        "application/n-triples" | "text/plain" => Some(RdfImportFormatArg::Nt),
+        "application/rdf+xml" => Some(RdfImportFormatArg::Xml),
+        "application/ld+json" => Some(RdfImportFormatArg::Jsonld),
+        "application/n-quads" => Some(RdfImportFormatArg::Nq),
+        _ => None,
+    }
+}
+
+fn resolve_rdf_format_from_http(
+    request: &HttpRequestMessage,
+) -> Result<Option<RdfImportFormatArg>, String> {
+    if let Some(value) = http_query_param(&request.path, "format") {
+        return match rdf_format_from_query_str(&value) {
+            Some(format) => Ok(Some(format)),
+            None => Err(format!("unsupported rdf format: {value}")),
+        };
+    }
+    let content_type = http_content_type(&request.headers);
+    if content_type.is_empty() {
+        return Ok(None);
+    }
+    if let Some(format) = rdf_format_from_content_type(&content_type) {
+        return Ok(Some(format));
+    }
+    Err(format!("unsupported rdf content-type: {content_type}"))
+}
+
+struct RdfUploadTempfile {
+    path: std::path::PathBuf,
+}
+
+impl Drop for RdfUploadTempfile {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
+}
+
+fn write_rdf_body_to_tempfile(body: &[u8], ext: &str) -> Result<RdfUploadTempfile, CliError> {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_nanos() as u64)
+        .unwrap_or(0);
+    let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+    let pid = std::process::id() as u64;
+    let name = format!("ogdb-rdf-upload-{pid:x}-{nanos:x}-{counter:x}.{ext}");
+    let path = std::env::temp_dir().join(name);
+    let mut file = File::create(&path).map_err(|e| {
+        CliError::Runtime(format!(
+            "failed to stage rdf upload at {}: {e}",
+            path.display()
+        ))
+    })?;
+    file.write_all(body).map_err(|e| {
+        CliError::Runtime(format!(
+            "failed to write rdf upload at {}: {e}",
+            path.display()
+        ))
+    })?;
+    drop(file);
+    Ok(RdfUploadTempfile { path })
+}
+
+fn handle_http_rdf_import(
+    shared_db: &SharedDatabase,
+    db_path: &str,
+    body: &[u8],
+    format: RdfImportFormatArg,
+    base_uri: Option<&str>,
+) -> Result<HttpResponseMessage, CliError> {
+    let tmp = write_rdf_body_to_tempfile(body, format.as_str())?;
+    let tmp_path = tmp.path.to_string_lossy().into_owned();
+
+    let parsed = parse_rdf_into_plan(&tmp_path, format, base_uri, false, false);
+    let (plan, skipped_quads) = match parsed {
+        Ok(value) => value,
+        Err(CliError::Runtime(message)) => {
+            return Ok(http_error(400, "Bad Request", message));
+        }
+        Err(err) => return Err(err),
+    };
+
+    let schema_labels = plan.schema_labels.clone();
+    let schema_edge_types = plan.schema_edge_types.clone();
+    let schema_property_keys = plan.schema_property_keys.clone();
+    let prefixes = plan.prefixes.clone();
+    let label_uris = plan.label_uris.clone();
+    let predicate_uris = plan.predicate_uris.clone();
+    let records = plan.into_records();
+
+    let write_outcome = shared_db
+        .with_write(|db| -> Result<(ImportProgress, u64, u64), DbError> {
+            let mut batcher =
+                ImportBatcher::new_with_mode(db, RDF_IMPORT_HTTP_BATCH, false, true);
+            for record in records {
+                batcher.mark_processed();
+                batcher
+                    .push(record)
+                    .map_err(|e| DbError::InvalidArgument(e.to_string()))?;
+            }
+            let mut progress = batcher
+                .finish()
+                .map_err(|e| DbError::InvalidArgument(e.to_string()))?;
+            progress.skipped_records = progress.skipped_records.saturating_add(skipped_quads);
+            for label in &schema_labels {
+                db.register_schema_label(label)?;
+            }
+            for edge_type in &schema_edge_types {
+                db.register_schema_edge_type(edge_type)?;
+            }
+            for key in &schema_property_keys {
+                db.register_schema_property_key(key)?;
+            }
+            Ok((progress, db.node_count(), db.edge_count()))
+        })
+        .map_err(|e| CliError::Runtime(e.to_string()))?;
+
+    let (progress, total_nodes, total_edges) = write_outcome;
+
+    let mut rdf_meta = load_rdf_meta(db_path)?;
+    for (prefix, iri) in prefixes {
+        rdf_meta.prefixes.insert(prefix, iri);
+    }
+    for (label, iri) in label_uris {
+        rdf_meta.label_uris.insert(label, iri);
+    }
+    for (key, iri) in predicate_uris {
+        rdf_meta.predicate_uris.insert(key, iri);
+    }
+    rdf_meta.format_version = RDF_META_FORMAT_VERSION;
+    save_rdf_meta(db_path, &rdf_meta)?;
+
+    Ok(http_json_response(
+        200,
+        "OK",
+        serde_json::json!({
+            "ok": true,
+            "db_path": db_path,
+            "format": format.as_str(),
+            "processed_records": progress.processed_records,
+            "imported_nodes": progress.imported_nodes,
+            "imported_edges": progress.imported_edges,
+            "skipped_records": progress.skipped_records,
+            "committed_batches": progress.committed_batches,
+            "created_nodes": progress.created_nodes,
+            "total_nodes": total_nodes,
+            "total_edges": total_edges,
+            "warnings": [],
+        }),
+    ))
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -1,35 +1,75 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { FileUp, X, CheckCircle2, Database } from 'lucide-react'
+import { FileUp, X, CheckCircle2, Database, AlertTriangle } from 'lucide-react'
 import type { GraphData } from '@/types/graph'
 import { parseRDFText, triplesToGraphData, type ParsedRDF, type Triple } from '@/data/rdfParser'
+import {
+  rdfFormatFromFilename,
+  uploadRdf,
+  type ImportResponse,
+} from '@/lib/rdfClient'
+
+export type RDFImportSource =
+  | { kind: 'live'; filename: string; dbPath: string; response: ImportResponse }
+  | { kind: 'preview'; filename: string; reason: 'backend-down' | 'client-only' }
 
 export interface RDFDropzoneProps {
-  onImport: (graph: GraphData, source: { filename: string; tempDbPath: string }) => void
+  onImport: (graph: GraphData, source: RDFImportSource) => void
 }
 
 type State =
   | { phase: 'idle' }
   | { phase: 'dragging' }
   | { phase: 'parsing'; filename: string }
-  | { phase: 'preview'; filename: string; parsed: ParsedRDF }
+  | { phase: 'preview'; filename: string; parsed: ParsedRDF; rawText: string }
+  | { phase: 'uploading'; filename: string; parsed: ParsedRDF; rawText: string }
+  | {
+      phase: 'persisted'
+      filename: string
+      response: ImportResponse
+    }
+  | {
+      phase: 'preview-only'
+      filename: string
+      parsed: ParsedRDF
+      rawText: string
+      reason: 'backend-down'
+    }
   | { phase: 'error'; message: string }
 
-const ACCEPTED_EXTENSIONS = ['.ttl', '.nt', '.jsonld', '.nq', '.n3']
+const ACCEPTED_EXTENSIONS = ['.ttl', '.nt', '.jsonld', '.nq', '.n3', '.rdf', '.xml']
 
 function isRdfFile(name: string): boolean {
   const lower = name.toLowerCase()
   return ACCEPTED_EXTENSIONS.some((ext) => lower.endsWith(ext))
 }
 
-function tempDbPath(): string {
-  const slug = Math.random().toString(36).slice(2, 10)
-  return `/tmp/playground-${slug}.ogdb`
-}
-
 export function RDFDropzone({ onImport }: RDFDropzoneProps) {
   const [state, setState] = useState<State>({ phase: 'idle' })
   const dragCounter = useRef(0)
   const overlayRef = useRef<HTMLDivElement>(null)
+
+  const ingestFile = useCallback(async (file: File) => {
+    if (!isRdfFile(file.name)) {
+      setState({
+        phase: 'error',
+        message: `Unsupported file type. Try ${ACCEPTED_EXTENSIONS.join(', ')}`,
+      })
+      return
+    }
+    setState({ phase: 'parsing', filename: file.name })
+    try {
+      const text = await file.text()
+      const parsed = parseRDFText(text, file.name)
+      if (parsed.triples.length === 0) {
+        setState({ phase: 'error', message: 'No triples recognised in this file.' })
+        return
+      }
+      setState({ phase: 'preview', filename: file.name, parsed, rawText: text })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to parse RDF'
+      setState({ phase: 'error', message })
+    }
+  }, [])
 
   useEffect(() => {
     const handleEnter = (event: DragEvent) => {
@@ -67,30 +107,7 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
       document.body.removeEventListener('dragleave', handleLeave)
       document.body.removeEventListener('drop', handleDrop)
     }
-  }, [])
-
-  const ingestFile = useCallback(async (file: File) => {
-    if (!isRdfFile(file.name)) {
-      setState({
-        phase: 'error',
-        message: `Unsupported file type. Try ${ACCEPTED_EXTENSIONS.join(', ')}`,
-      })
-      return
-    }
-    setState({ phase: 'parsing', filename: file.name })
-    try {
-      const text = await file.text()
-      const parsed = parseRDFText(text, file.name)
-      if (parsed.triples.length === 0) {
-        setState({ phase: 'error', message: 'No triples recognised in this file.' })
-        return
-      }
-      setState({ phase: 'preview', filename: file.name, parsed })
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Failed to parse RDF'
-      setState({ phase: 'error', message })
-    }
-  }, [])
+  }, [ingestFile])
 
   const handlePickFile = useCallback(() => {
     const input = document.createElement('input')
@@ -103,11 +120,44 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
     input.click()
   }, [ingestFile])
 
-  const handleCommit = useCallback(() => {
+  const handleCommit = useCallback(async () => {
     if (state.phase !== 'preview') return
-    const graph = triplesToGraphData(state.parsed.triples)
-    onImport(graph, { filename: state.filename, tempDbPath: tempDbPath() })
-    setState({ phase: 'idle' })
+    const { filename, parsed, rawText } = state
+    setState({ phase: 'uploading', filename, parsed, rawText })
+
+    const fileForUpload = new File([rawText], filename, { type: 'text/turtle' })
+    const format = rdfFormatFromFilename(filename)
+
+    let outcome
+    try {
+      outcome = await uploadRdf(fileForUpload, format)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'rdf import failed'
+      setState({ phase: 'error', message })
+      return
+    }
+
+    if (outcome.kind === 'ok') {
+      const graph = triplesToGraphData(parsed.triples)
+      onImport(graph, {
+        kind: 'live',
+        filename,
+        dbPath: outcome.response.db_path,
+        response: outcome.response,
+      })
+      setState({ phase: 'persisted', filename, response: outcome.response })
+      return
+    }
+    if (outcome.kind === 'backend-down') {
+      const graph = triplesToGraphData(parsed.triples)
+      onImport(graph, { kind: 'preview', filename, reason: 'backend-down' })
+      setState({ phase: 'preview-only', filename, parsed, rawText, reason: 'backend-down' })
+      return
+    }
+    setState({
+      phase: 'error',
+      message: `server rejected import (${outcome.status}): ${outcome.message}`,
+    })
   }, [state, onImport])
 
   const handleDismiss = useCallback(() => {
@@ -159,6 +209,84 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
           <span className="font-mono text-[11px]">Parsing {state.filename}…</span>
         </div>
       </div>
+    )
+  }
+
+  if (state.phase === 'uploading') {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(240,28%,7%)]/80 backdrop-blur-md">
+        <div
+          data-testid="rdf-import-uploading"
+          className="flex items-center gap-3 rounded-lg border border-white/10 bg-card px-5 py-3 text-white/75"
+        >
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
+          <span className="font-mono text-[11px]">Writing {state.filename} to backend…</span>
+        </div>
+      </div>
+    )
+  }
+
+  if (state.phase === 'persisted') {
+    const response = state.response
+    return (
+      <section
+        data-testid="rdf-import-persisted"
+        className="rounded-lg border border-emerald-400/30 bg-emerald-500/5 px-3 py-2 text-[11px] text-emerald-100/90"
+      >
+        <div className="flex items-center gap-2">
+          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-300" />
+          <p className="font-serif text-[12px] text-white">
+            Persisted · <span className="text-white/70">{state.filename}</span>
+          </p>
+        </div>
+        <p className="mt-1 font-mono text-[9px] tracking-[0.16em] text-emerald-200/70">
+          <span className="uppercase">live db: </span>
+          <span data-testid="rdf-import-db-path" className="normal-case">
+            {response.db_path}
+          </span>
+        </p>
+        <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-emerald-200/70">
+          <span data-testid="rdf-import-count-total" className="normal-case">
+            {response.total_nodes.toLocaleString()} nodes · {response.total_edges.toLocaleString()} edges
+          </span>
+          {' '}· wrote {response.imported_nodes.toLocaleString()} n / {response.imported_edges.toLocaleString()} e
+        </p>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="mt-2 rounded border border-white/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white/60 hover:border-white/30 hover:text-white"
+        >
+          Dismiss
+        </button>
+      </section>
+    )
+  }
+
+  if (state.phase === 'preview-only') {
+    return (
+      <section
+        data-testid="rdf-import-preview-only"
+        className="rounded-lg border border-amber-400/40 bg-amber-500/10 px-3 py-2 text-[11px] text-amber-100"
+      >
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-3.5 w-3.5 text-amber-300" />
+          <p className="font-serif text-[12px] text-white">
+            Preview only · <span className="text-white/70">{state.filename}</span>
+          </p>
+        </div>
+        <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-amber-200/80">
+          not persisted — start{' '}
+          <code className="rounded bg-white/10 px-1 py-[1px] text-amber-100">ogdb serve --http</code>{' '}
+          to ingest for real
+        </p>
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="mt-2 rounded border border-white/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white/60 hover:border-white/30 hover:text-white"
+        >
+          Dismiss
+        </button>
+      </section>
     )
   }
 
@@ -229,7 +357,7 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
         <div className="flex items-center justify-between gap-3 border-t border-white/10 bg-white/5 px-5 py-3">
           <div className="flex items-center gap-1.5 font-mono text-[10px] text-white/55">
             <Database className="h-3 w-3 text-cyan-300" />
-            <span>Commits to temp .ogdb · preview only, not persisted</span>
+            <span>Commit posts to /api/rdf/import · falls back to preview if backend is down</span>
           </div>
           <div className="flex gap-2">
             <button
@@ -241,7 +369,9 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
             </button>
             <button
               type="button"
-              onClick={handleCommit}
+              onClick={() => {
+                void handleCommit()
+              }}
               data-testid="rdf-import-commit"
               className="rounded border border-cyan-400/50 bg-cyan-500/20 px-3 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-cyan-100 shadow-[0_0_10px_rgba(34,211,238,0.3)] hover:bg-cyan-500/30"
             >
