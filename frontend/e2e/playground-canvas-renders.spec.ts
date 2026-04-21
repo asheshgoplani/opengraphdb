@@ -10,19 +10,7 @@
  */
 
 import { expect, test } from '@playwright/test'
-
-type PngLib = {
-  sync: {
-    read: (buf: Buffer) => { width: number; height: number; data: Buffer }
-  }
-}
-
-function loadPng(): PngLib {
-  // pngjs is added as a devDependency in Phase 3 alongside the fix.
-  // Until then, this throw makes the test RED with a clear message.
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  return require('pngjs') as PngLib
-}
+import { PNG } from 'pngjs'
 
 test.describe('cosmos canvas — first-paint gate', () => {
   test('graph canvas has >5% non-background pixels within 3s of /playground load', async ({
@@ -54,11 +42,9 @@ test.describe('cosmos canvas — first-paint gate', () => {
     const THRESHOLD = 0.05
     let bestFraction = 0
 
-    const png = loadPng()
-
     while (Date.now() < DEADLINE) {
       const buf = await page.screenshot({ clip, type: 'png' })
-      const img = png.sync.read(buf)
+      const img = PNG.sync.read(buf)
 
       // "Background" for this viewport = the darkest corner pixel of the crop.
       // Cosmos's WebGL canvas has transparent bg; the radial-gradient div

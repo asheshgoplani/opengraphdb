@@ -90,6 +90,7 @@ export function CosmosCanvas({
   const graphRef = useRef<Graph | null>(null)
   const [, setFrameTick] = useState(0)
   const rafRef = useRef<number | null>(null)
+  const fitRafIdsRef = useRef<number[]>([])
 
   const onNodeClickRef = useRef(onNodeClick)
   const onNodeHoverRef = useRef(onNodeHover)
@@ -176,9 +177,8 @@ export function CosmosCanvas({
       simulationLinkSpring: 1,
       simulationFriction: 0.86,
       enableDrag: true,
-      fitViewOnInit: true,
+      fitViewOnInit: false,
       fitViewPadding: 0.22,
-      fitViewDelay: 350,
       spaceSize: 4096,
       attribution: '',
       onClick: (pointIndex?: number) => {
@@ -262,14 +262,27 @@ export function CosmosCanvas({
     g.trackPointPositionsByIndices(labelIndicesToShow)
     g.render()
     g.start()
-    const fitTimer = setTimeout(() => {
-      try {
-        g.fitView(600)
-      } catch {
-        /* no-op */
-      }
-    }, 800)
-    return () => clearTimeout(fitTimer)
+
+    fitRafIdsRef.current.forEach(cancelAnimationFrame)
+    fitRafIdsRef.current = []
+    if (nodes.length > 0) {
+      const positionPairs = Array.from(positions)
+      const id1 = requestAnimationFrame(() => {
+        const id2 = requestAnimationFrame(() => {
+          try {
+            g.fitViewByPointPositions(positionPairs, 400, 0.22)
+          } catch {
+            /* no-op */
+          }
+        })
+        fitRafIdsRef.current = [id2]
+      })
+      fitRafIdsRef.current = [id1]
+    }
+    return () => {
+      fitRafIdsRef.current.forEach(cancelAnimationFrame)
+      fitRafIdsRef.current = []
+    }
   }, [nodes, linkIndexPairs, labelIndicesToShow, degree, ontologyMode])
 
   useEffect(() => {
