@@ -184,3 +184,21 @@ tests:
     purpose: "Playwright e2e — MCPToolCard surfaces a visible source badge (live / preview / error) per invocation; stubbed 500 must not render a 'live' badge; stubbed 200 must not render preview/error. Guards against the ok:true-on-500 silent-fallback regression."
     added: 2026-04-21
     added: 2026-04-20
+
+  - id: cosmos-canvas-renders-e2e
+    task: fix-cosmos-canvas-race
+    crate: frontend
+    test: e2e/playground-canvas-renders
+    function: []
+    command: "cd frontend && xvfb-run -a npx playwright test e2e/playground-canvas-renders.spec.ts"
+    purpose: "Playwright pixel-asserting e2e — /playground graph canvas paints non-background pixels in its center region within 3 seconds of load. Guards against the fitView/setPointPositions race that left the canvas black for 14+ seconds."
+    added: 2026-04-21
+
+  - id: rdf-import-real-e2e
+    task: fix-rdf-import-fake
+    crate: frontend
+    test: e2e/rdf-import-real
+    function: []
+    command: "cd frontend && npx playwright test e2e/rdf-import-real.spec.ts"
+    purpose: "Playwright e2e — drag a .ttl onto RDFDropzone, POST hits ogdb serve /rdf/import, returned db_path is readable + totals match. Guards against the silent in-browser-only parse regression."
+    added: 2026-04-21
