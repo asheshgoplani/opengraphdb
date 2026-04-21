@@ -23,9 +23,14 @@ export default defineConfig({
         // SwiftShader is required for cosmos.gl / regl WebGL1 extensions
         // (OES_texture_float, ANGLE_instanced_arrays) in headless chromium.
         // Without these flags, regl init fails and the canvas stays black.
+        // `--use-angle=swiftshader` is the newer (Chromium 115+) flag that
+        // actually gets honored in recent headless builds; the old
+        // `--use-gl=swiftshader` remains as a fallback for older runners.
         launchOptions: {
           args: [
-            '--use-gl=swiftshader',
+            '--use-gl=angle',
+            '--use-angle=swiftshader',
+            '--enable-webgl',
             '--ignore-gpu-blocklist',
             '--enable-unsafe-swiftshader',
           ],

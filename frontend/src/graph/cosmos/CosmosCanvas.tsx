@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Graph, type GraphConfigInterface } from '@cosmos.gl/graph'
 import type { GraphData, GraphEdge, GraphNode } from '@/types/graph'
-import { GRAPH_THEME, radiusForDegree } from '@/graph/theme'
+import { GRAPH_THEME, paletteForLabel, radiusForDegree } from '@/graph/theme'
 import {
   colorForEdgeType,
   colorForNode,
@@ -101,6 +101,7 @@ export function CosmosCanvas({
   const rafRef = useRef<number | null>(null)
   const fitRafIdsRef = useRef<number[]>([])
   const fitTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const pendingDestroyRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const onNodeClickRef = useRef(onNodeClick)
   const onNodeHoverRef = useRef(onNodeHover)
@@ -165,7 +166,36 @@ export function CosmosCanvas({
   useLayoutEffect(() => {
     const host = hostRef.current
     if (!host) return
-    if (graphRef.current) return
+    // Cancel any deferred destroy scheduled by StrictMode's double-invoke
+    // cleanup so the live Graph is reused instead of being torn down and
+    // rebuilt (which breaks regl's WebGL context re-init in dev).
+    if (pendingDestroyRef.current) {
+      clearTimeout(pendingDestroyRef.current)
+      pendingDestroyRef.current = null
+    }
+    const existing = graphRef.current as unknown as (
+      | { _isDestroyed?: boolean }
+      | null
+    )
+    const existingDestroyed = !!existing?._isDestroyed
+    if (existing && !existingDestroyed) return
+    if (existing) {
+      // Previous Graph silently failed regl init. Cosmos appended a DOM
+      // fallback ("Sorry, …") and will not render. Clear that so a fresh
+      // Graph can take over, and fall through to re-create.
+      for (const child of Array.from(host.children)) {
+        if (
+          child instanceof HTMLDivElement &&
+          (child.textContent?.includes('Sorry') ?? false)
+        ) {
+          child.remove()
+        }
+        if (child instanceof HTMLCanvasElement) {
+          child.remove()
+        }
+      }
+      graphRef.current = null
+    }
 
     // Tuned to give 60–400 node graphs a wide, premium spread:
     //   - gravity low so nodes don't pile on the centre
@@ -229,7 +259,55 @@ export function CosmosCanvas({
       console.error('[cosmos] init failed', e)
       return
     }
-    graphRef.current = g
+    // Cosmos catches regl init failures internally, sets `_isDestroyed=true`,
+    // and appends a "Sorry, your device does not support …" fallback DIV.
+    // When we see that state we do NOT store the Graph — StrictMode's
+    // second-mount cycle (or our subsequent effects) will re-create on a
+    // fresh canvas element.
+    const checkAndStore = (candidate: Graph): boolean => {
+      if ((candidate as unknown as { _isDestroyed?: boolean })._isDestroyed) {
+        return false
+      }
+      graphRef.current = candidate
+      return true
+    }
+    const clearHost = () => {
+      if (!hostRef.current) return
+      for (const child of Array.from(hostRef.current.children)) {
+        child.remove()
+      }
+    }
+
+    if (!checkAndStore(g)) {
+      // Retry a few times with increasing delay. The first mount happens
+      // during React's commit phase, before the browser has laid out /
+      // paint-composited the host div; on SwiftShader-headless that sometimes
+      // leaves regl without a usable GL context. Retrying on a later frame
+      // lets the layout settle.
+      clearHost()
+      const delays = [16, 80, 250]
+      const attempt = (i: number) => {
+        if (graphRef.current) return
+        if (!hostRef.current) return
+        clearHost()
+        try {
+          const gN = new Graph(hostRef.current, config)
+          if (checkAndStore(gN)) {
+            setFrameTick((t) => (t + 1) % 1024)
+            return
+          }
+        } catch (e) {
+          console.error('[cosmos] retry', i, 'failed', e)
+        }
+        if (i + 1 < delays.length) {
+          const t = setTimeout(() => attempt(i + 1), delays[i + 1])
+          fitTimersRef.current.push(t)
+        }
+      }
+      const t = setTimeout(() => attempt(0), delays[0])
+      fitTimersRef.current.push(t)
+      return
+    }
 
     const loop = () => {
       setFrameTick((t) => (t + 1) % 1024)
@@ -239,12 +317,23 @@ export function CosmosCanvas({
 
     return () => {
       if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
-      try {
-        g.destroy()
-      } catch {
-        /* no-op */
-      }
-      graphRef.current = null
+      // Defer destroy by a tick so React StrictMode's synthetic unmount /
+      // re-mount (dev-only, fires back-to-back) can cancel the destroy. A
+      // genuine unmount (user navigates away) will fire the timeout and
+      // clean up the WebGL context.
+      if (pendingDestroyRef.current) clearTimeout(pendingDestroyRef.current)
+      pendingDestroyRef.current = setTimeout(() => {
+        const current = graphRef.current
+        if (current === g) {
+          try {
+            g.destroy()
+          } catch {
+            /* no-op */
+          }
+          graphRef.current = null
+        }
+        pendingDestroyRef.current = null
+      }, 200)
     }
   }, [])
 
@@ -462,35 +551,103 @@ export function CosmosCanvas({
     g.setPointColors(flatRgba(pointColors))
   }, [traceActiveNodeId, traceNodeIds, nodes, semanticHighlights, semanticHoverId, indexById])
 
-  const renderedLabels = (() => {
+  // Cosmos's built-in `spaceToScreenPosition` depends on internal camera
+  // state that doesn't consistently match the rendered WebGL projection
+  // under SwiftShader-headless (the camera's `scaleY` ends up mapping some
+  // space positions to y-values well outside canvas.clientHeight). We
+  // decouple the DOM label/bloom overlay by projecting positions directly
+  // from their bounding box into the canvas CSS area — the same box the
+  // render scripts use when they hand-tune the zoom, just done in JS. This
+  // keeps every overlay element inside the canvas no matter what cosmos's
+  // camera is up to.
+  const canvasEl = hostRef.current?.querySelector('canvas') ?? null
+  const cssW = canvasEl?.clientWidth ?? 0
+  const cssH = canvasEl?.clientHeight ?? 0
+
+  const { renderedLabels, renderedBlooms } = (() => {
     const g = graphRef.current
-    if (!g) return null
+    if (!g) return { renderedLabels: null, renderedBlooms: null }
+    if (cssW <= 0 || cssH <= 0) {
+      return { renderedLabels: null, renderedBlooms: null }
+    }
     const positions = g.getPointPositions?.()
-    if (!positions || positions.length === 0) return null
-    const zoom = g.getZoomLevel?.() ?? 1
-    if (zoom < 0.02) return null
-    const out: Array<React.ReactNode> = []
+    if (!positions || positions.length === 0) {
+      return { renderedLabels: null, renderedBlooms: null }
+    }
+
+    // Bounding box of all node positions in cosmos-space.
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity
+    let finiteCount = 0
+    for (let i = 0; i < positions.length; i += 2) {
+      const px = positions[i]
+      const py = positions[i + 1]
+      if (!Number.isFinite(px) || !Number.isFinite(py)) continue
+      if (px < minX) minX = px
+      if (px > maxX) maxX = px
+      if (py < minY) minY = py
+      if (py > maxY) maxY = py
+      finiteCount += 1
+    }
+    if (finiteCount < 2) {
+      return { renderedLabels: null, renderedBlooms: null }
+    }
+    const spanX = Math.max(1, maxX - minX)
+    const spanY = Math.max(1, maxY - minY)
+    const padding = 1.08 // leave a small margin so halos don't get clipped
+    const scale = Math.min(
+      cssW / (spanX * padding),
+      cssH / (spanY * padding)
+    )
+    const midX = (minX + maxX) / 2
+    const midY = (minY + maxY) / 2
+    const project = (sx: number, sy: number): [number, number] => [
+      cssW / 2 + (sx - midX) * scale,
+      cssH / 2 + (sy - midY) * scale,
+    ]
+
+    const labels: Array<React.ReactNode> = []
+    const blooms: Array<React.ReactNode> = []
+
     for (const l of labelItems) {
-      if (!labelIndexSet.has(l.index)) continue
       const sx = positions[l.index * 2]
       const sy = positions[l.index * 2 + 1]
       if (!Number.isFinite(sx) || !Number.isFinite(sy)) continue
-      let screen: [number, number]
-      try {
-        screen = g.spaceToScreenPosition([sx, sy])
-      } catch {
-        continue
-      }
-      const [x, y] = screen
+      const [x, y] = project(sx, sy)
       if (!Number.isFinite(x) || !Number.isFinite(y)) continue
+
+      const node = nodes[l.index]
+      const palette = paletteForLabel(node?.labels?.[0])
+      const r = radiusForDegree(l.degree)
+      // Bloom radius grows with degree so hubs stand out; the radial
+      // gradient feathers from the core hue to transparent, and the
+      // `drop-shadow` adds a further colored halo outside the disc.
+      const bloomR = Math.max(14, r * 2.4)
+      blooms.push(
+        <span
+          key={`bloom-${l.id}`}
+          className="cosmos-bloom"
+          aria-hidden="true"
+          style={{
+            transform: `translate3d(${x - bloomR}px, ${y - bloomR}px, 0)`,
+            width: `${bloomR * 2}px`,
+            height: `${bloomR * 2}px`,
+            background: `radial-gradient(circle, ${palette.core} 0%, ${palette.core}aa 18%, ${palette.deep}55 45%, transparent 72%)`,
+            filter: `drop-shadow(0 0 ${Math.round(bloomR * 0.55)}px ${palette.core})`,
+          }}
+        />,
+      )
+
+      if (!labelIndexSet.has(l.index)) continue
       const isHovered = hoveredNodeId === l.id
       const isSelected = selectedNodeId === l.id
       const isTraceActive = traceActiveNodeId === l.id
       const emphasize = isHovered || isSelected || isTraceActive
       const text = l.text.length > 26 ? l.text.slice(0, 23) + '…' : l.text
-      const r = radiusForDegree(l.degree)
-      const opacity = emphasize ? 1 : zoom < 0.35 ? 0.72 : 0.94
-      out.push(
+      const opacity = emphasize ? 1 : 0.94
+      labels.push(
         <span
           key={String(l.id)}
           className="cosmos-label"
@@ -506,11 +663,17 @@ export function CosmosCanvas({
         </span>,
       )
     }
-    return out
+    return { renderedLabels: labels, renderedBlooms: blooms }
   })()
 
   return (
     <div className="relative h-full w-full">
+      {/* Per-node colored bloom layer sits BEHIND the cosmos canvas so the
+          WebGL node core paints on top of its own halo. Tinted by label
+          palette so the ring pixels carry the same hue as the node. */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {renderedBlooms}
+      </div>
       <div
         ref={hostRef}
         className="absolute inset-0"
@@ -532,6 +695,16 @@ export function CosmosCanvas({
               0 0 2px rgba(0,0,0,0.95),
               0 0 8px rgba(0,0,0,0.7),
               0 0 14px rgba(8,10,22,0.55);
+            will-change: transform;
+          }
+          .cosmos-bloom {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border-radius: 9999px;
+            pointer-events: none;
+            mix-blend-mode: screen;
+            opacity: 0.85;
             will-change: transform;
           }
         `}</style>
