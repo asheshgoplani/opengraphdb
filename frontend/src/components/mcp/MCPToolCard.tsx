@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Loader2, Zap } from 'lucide-react'
+import { AlertCircle, Check, CircleDashed, Loader2, Zap } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { invokeMcpTool, type MCPInvokeResult } from '@/api/mcpClient'
 import type { MCPToolSpec } from './mcpTools'
@@ -68,21 +68,67 @@ export function MCPToolCard({ spec }: MCPToolCardProps) {
           data-testid="mcp-tool-result"
           className="mt-3 rounded-md border border-white/10 bg-black/30 p-2 font-mono text-[10.5px] leading-tight text-white/75"
         >
-          <div className="mb-1.5 flex items-center justify-between text-[9.5px] uppercase tracking-wider text-white/45">
-            <span>
-              {result.source === 'live' ? 'live' : 'preview'} · {result.elapsedMs}ms
-            </span>
-            {result.source === 'preview' && result.error && (
-              <span className="text-amber-300/70" title={result.error}>
-                offline
+          <header className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <SourceBadge source={result.source} elapsedMs={result.elapsedMs} />
+            {result.source !== 'live' && (
+              <span
+                data-testid="mcp-source-reason"
+                className="truncate text-[11px] font-normal normal-case tracking-normal text-white/55"
+                title={result.reason}
+              >
+                {result.reason}
               </span>
             )}
-          </div>
-          <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words">
-            {JSON.stringify(result.result, null, 2)}
-          </pre>
+          </header>
+          {result.source !== 'error' && (
+            <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-words">
+              {JSON.stringify(result.result, null, 2)}
+            </pre>
+          )}
         </div>
       )}
     </article>
+  )
+}
+
+interface SourceBadgeProps {
+  source: MCPInvokeResult['source']
+  elapsedMs: number
+}
+
+function SourceBadge({ source, elapsedMs }: SourceBadgeProps) {
+  if (source === 'live') {
+    return (
+      <span
+        data-testid="mcp-source-badge"
+        data-source="live"
+        className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-2 py-[3px] text-[12px] font-medium leading-none tracking-tight text-emerald-100"
+      >
+        <Check className="h-3 w-3" aria-hidden />
+        <span>Live · {elapsedMs}ms</span>
+      </span>
+    )
+  }
+  if (source === 'preview') {
+    return (
+      <span
+        data-testid="mcp-source-badge"
+        data-source="preview"
+        className="inline-flex items-center gap-1 rounded-full border border-amber-400/50 bg-amber-500/25 px-2 py-[3px] text-[12px] font-medium leading-none tracking-tight text-amber-50"
+      >
+        <CircleDashed className="h-3 w-3" aria-hidden />
+        <span>Preview · canned response</span>
+      </span>
+    )
+  }
+  return (
+    <span
+      data-testid="mcp-source-badge"
+      data-source="error"
+      className="inline-flex items-center gap-1 rounded-full border border-rose-400/50 bg-rose-500/25 px-2 py-[3px] text-[12px] font-medium leading-none tracking-tight text-rose-50"
+    >
+      <AlertCircle className="h-3 w-3" aria-hidden />
+      <span>Error · backend unreachable</span>
+    </span>
   )
 }

@@ -1,17 +1,15 @@
 export type MCPInvokeArgs = Record<string, unknown>
 
-export interface MCPInvokeResult {
-  tool: string
-  ok: boolean
-  source: 'live' | 'preview'
-  elapsedMs: number
-  result: unknown
-  error?: string
-}
+export type MCPInvokeResult =
+  | { source: 'live'; tool: string; elapsedMs: number; result: unknown }
+  | { source: 'preview'; tool: string; elapsedMs: number; result: unknown; reason: string }
+  | { source: 'error'; tool: string; elapsedMs: number; reason: string }
 
 // POSTs to a local dev proxy that spawns `opengraphdb mcp --request <json>`.
-// If the proxy / backend is unreachable, fall back to a preview response so the
-// gallery still demonstrates the JSON-RPC shape offline.
+// Three outcomes are surfaced verbatim so the UI can render an honest badge:
+//   - 2xx + JSON parse OK           → source: 'live'
+//   - fetch fails + preview given   → source: 'preview' (canned fallback, NOT a success)
+//   - fetch fails + no preview      → source: 'error'
 export async function invokeMcpTool(
   tool: string,
   args: MCPInvokeArgs,
@@ -29,21 +27,17 @@ export async function invokeMcpTool(
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const body = await res.json()
     return {
-      tool,
-      ok: true,
       source: 'live',
+      tool,
       elapsedMs: Math.round(performance.now() - start),
       result: body,
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    return {
-      tool,
-      ok: true,
-      source: 'preview',
-      elapsedMs: Math.round(performance.now() - start),
-      result: preview,
-      error: message,
+    const reason = err instanceof Error ? err.message : String(err)
+    const elapsedMs = Math.round(performance.now() - start)
+    if (preview !== null && preview !== undefined) {
+      return { source: 'preview', tool, elapsedMs, result: preview, reason }
     }
+    return { source: 'error', tool, elapsedMs, reason }
   }
 }

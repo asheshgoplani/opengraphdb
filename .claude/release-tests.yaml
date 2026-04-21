@@ -174,4 +174,13 @@ tests:
     function: []
     command: "cd frontend && npx playwright test e2e/polish-cohesion.spec.ts"
     purpose: "Playwright e2e — panel mounts use shared framer-motion preset; all panels have designed empty/loading/error states; Fraunces+Inter typography cohesion; mobile responsive."
+
+  - id: mcp-honest-preview-e2e
+    task: fix-mcp-silent-fake
+    crate: frontend
+    test: e2e/mcp-honest-preview
+    function: []
+    command: "cd frontend && npx playwright test e2e/mcp-honest-preview.spec.ts"
+    purpose: "Playwright e2e — MCPToolCard surfaces a visible source badge (live / preview / error) per invocation; stubbed 500 must not render a 'live' badge; stubbed 200 must not render preview/error. Guards against the ok:true-on-500 silent-fallback regression."
+    added: 2026-04-21
     added: 2026-04-20
