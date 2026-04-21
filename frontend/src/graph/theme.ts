@@ -72,28 +72,44 @@ export const LABEL_PALETTE: Record<string, { core: string; light: string; deep: 
   Season: { core: '#FFD23B', light: '#FFE99A', deep: '#8C6B0D' }, // ~50-55°
 }
 
-// Per-edge-type palette. Keys are Cypher relationship type strings.
-// Colors are hex — consumers convert to RGBA.
+// Slice-14: EDGE_PALETTE rebuilt with saturated anchors at 180° / 45° /
+// 270° / 135° (plus 0°, 90°, 225°, 315° fill) so 8 distinct types show ≥4
+// clearly different HSL hues when sampled at edge midpoints. Previous
+// palette clustered at pastels (94A3FF, A78BFA, F472B6) which blurred into
+// one purple family under the reduced bloom. New anchors are chosen to be
+// high-S, mid-L hex values that remain distinct at alpha 0.78.
 export const EDGE_PALETTE: Record<string, string> = {
-  KNOWS: '#22D3EE', // cyan
-  ACTED_IN: '#FBBF24', // amber
-  RATED: '#A78BFA', // purple
-  INTERACTS: '#F472B6', // rose
-  APPEARS_IN: '#94A3FF', // soft indigo
-  WORKS_AT: '#34D399', // emerald
-  LIVES_IN: '#FB923C', // orange
-  LIKES: '#F87171', // red
-  OWNS: '#E879F9', // fuchsia
-  NEAR: '#A3E635', // lime
-  ROUTE: '#22D3EE',
-  IN_GENRE: '#F472B6',
-  CONTAINS: '#7AA2FF',
-  WON_PRIZE_IN: '#FBBF24',
-  BORN_IN: '#34D399',
-  AFFILIATED_WITH: '#A78BFA',
+  KNOWS: '#06B6D4', // 187° cyan — primary cool anchor
+  ACTED_IN: '#F59E0B', // 38° amber — primary warm anchor
+  RATED: '#8B5CF6', // 258° purple — primary violet anchor
+  INTERACTS: '#10B981', // 152° green — primary mid anchor
+  APPEARS_IN: '#0EA5E9', // 199° sky — cool fill
+  WORKS_AT: '#22C55E', // 142° emerald — mid fill
+  LIVES_IN: '#F97316', // 21° orange — warm fill
+  LIKES: '#EF4444', // 0° red — hot fill
+  OWNS: '#D946EF', // 291° fuchsia — violet fill
+  NEAR: '#84CC16', // 84° lime — cool-warm fill
+  ROUTE: '#06B6D4',
+  IN_GENRE: '#EC4899', // 330° pink
+  CONTAINS: '#3B82F6', // 217° blue
+  WON_PRIZE_IN: '#F59E0B',
+  BORN_IN: '#22C55E',
+  AFFILIATED_WITH: '#8B5CF6',
+  SUBCLASS_OF: '#64748B', // slate — hierarchy muted
 }
 
-const EDGE_FALLBACK = ['#94A3FF', '#22D3EE', '#F472B6', '#34D399', '#FBBF24', '#FB923C', '#A3E635', '#A78BFA']
+// Slice-14: fallback anchors placed at 45° steps with saturation ≥ 70%
+// so a dataset with unknown edge types still shows 8 distinct hues.
+const EDGE_FALLBACK = [
+  '#EF4444', // 0° red
+  '#F59E0B', // 45° amber
+  '#84CC16', // 90° lime
+  '#10B981', // 135° green
+  '#06B6D4', // 180° cyan
+  '#3B82F6', // 225° blue
+  '#8B5CF6', // 270° purple
+  '#EC4899', // 315° pink
+]
 
 function hashString(s: string): number {
   let h = 0

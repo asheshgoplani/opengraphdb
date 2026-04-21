@@ -52,11 +52,13 @@ test('slice13 — MCP and Schema tabs render DIFFERENT main panels (≥30% pixel
   const schemaHTML = await schemaPanel.innerHTML()
   const schemaShot = await schemaPanel.screenshot()
 
-  // DOM markers prove each tab rendered its intended panel.
-  expect(schemaHTML).toContain('Schema browser')
+  // DOM markers prove each tab rendered its intended panel. Slice-14
+  // replaced the old `Schema browser` h2 with an `SCHEMA BROWSER` h1 in
+  // a header bar — match either form (case-insensitive).
+  expect(schemaHTML.toLowerCase()).toContain('schema browser')
   expect(schemaHTML).toMatch(/Labels|Edge types|Property keys/)
   expect(schemaHTML).not.toContain('MCP tool gallery')
-  expect(mcpHTML).not.toContain('Schema browser')
+  expect(mcpHTML.toLowerCase()).not.toContain('schema browser')
 
   // Byte-level pixel delta between the two panel screenshots. Both are
   // PNGs of identical dimensions, so a naive buffer diff is a conservative
