@@ -202,3 +202,12 @@ tests:
     command: "cd frontend && npx playwright test e2e/rdf-import-real.spec.ts"
     purpose: "Playwright e2e — drag a .ttl onto RDFDropzone, POST hits ogdb serve /rdf/import, returned db_path is readable + totals match. Guards against the silent in-browser-only parse regression."
     added: 2026-04-21
+
+  - id: premium-graph-quality-e2e
+    task: ux-slice10-premium-graph
+    crate: frontend
+    test: e2e/premium-graph-quality
+    function: []
+    command: "cd frontend && xvfb-run -a npx playwright test e2e/premium-graph-quality.spec.ts"
+    purpose: "Playwright pixel-asserting e2e — four strict premium-ness gates on /playground?dataset=community: visible edges, visible labels, center+corner density spread, multi-bucket color variety. Guards against slice-9-style monochrome clumped canvases."
+    added: 2026-04-21

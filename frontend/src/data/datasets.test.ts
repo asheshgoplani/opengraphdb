@@ -18,10 +18,10 @@ function getReferencedNodeIds(result: { links: Array<{ source: string | number |
 test('getDatasetList returns exactly movielens, airroutes, got, and wikidata with valid metadata', () => {
   const list = getDatasetList()
 
-  assert.equal(list.length, 4)
+  assert.equal(list.length, 5)
   assert.deepEqual(
     new Set(list.map((dataset) => dataset.key)),
-    new Set<DatasetKey>(['movielens', 'airroutes', 'got', 'wikidata'])
+    new Set<DatasetKey>(['movielens', 'airroutes', 'got', 'wikidata', 'community'])
   )
 
   for (const meta of list) {
@@ -48,7 +48,7 @@ test('getDatasetList node and link counts match the underlying dataset data', ()
 })
 
 test('every dataset has guided queries including all', () => {
-  const keys: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata']
+  const keys: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata', 'community']
 
   for (const key of keys) {
     const queries = getDatasetQueries(key)
@@ -58,7 +58,7 @@ test('every dataset has guided queries including all', () => {
 })
 
 test("runDatasetQuery('all') returns complete data with new references for all datasets", () => {
-  const keys: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata']
+  const keys: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata', 'community']
 
   for (const key of keys) {
     const source = DATASETS[key].data
@@ -78,7 +78,7 @@ test("runDatasetQuery('all') returns complete data with new references for all d
 })
 
 test('relationship-filtered queries return orphan-free connected subgraphs', () => {
-  const keys: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata']
+  const keys: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata', 'community']
 
   for (const key of keys) {
     const queries = getDatasetQueries(key).filter((query) => query.key !== 'all')
@@ -120,4 +120,8 @@ test('dataset labels include expected domain entities', () => {
   assert.ok(labelsByDataset.get('wikidata')?.has('Laureate'))
   assert.ok(labelsByDataset.get('wikidata')?.has('Category'))
   assert.ok(labelsByDataset.get('wikidata')?.has('Country'))
+
+  const communityLabels = labelsByDataset.get('community')
+  assert.ok(communityLabels)
+  assert.ok(communityLabels.size >= 4)
 })

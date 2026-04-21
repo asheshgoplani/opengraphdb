@@ -8,7 +8,9 @@ export default defineConfig({
   workers: 1,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: process.env.PLAYWRIGHT_PORT
+      ? `http://localhost:${process.env.PLAYWRIGHT_PORT}`
+      : 'http://localhost:5173',
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
     viewport: { width: 1280, height: 800 },
@@ -32,8 +34,8 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1 --port 5173',
-    url: 'http://localhost:5173',
+    command: `npm run dev -- --host 127.0.0.1 --port ${process.env.PLAYWRIGHT_PORT ?? 5173}`,
+    url: `http://localhost:${process.env.PLAYWRIGHT_PORT ?? 5173}`,
     reuseExistingServer: !process.env.CI,
     timeout: 30000,
   },

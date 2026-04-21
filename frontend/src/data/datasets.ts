@@ -4,6 +4,7 @@ import { MOVIELENS_SAMPLE, MOVIELENS_QUERIES } from './movieLensGraph.js'
 import { AIR_ROUTES_SAMPLE, AIR_ROUTES_QUERIES } from './airRoutesGraph.js'
 import { GOT_SAMPLE, GOT_QUERIES } from './gotGraph.js'
 import { WIKIDATA_SAMPLE, WIKIDATA_QUERIES } from './wikidataGraph.js'
+import { COMMUNITY_SAMPLE, COMMUNITY_QUERIES } from './communityGraph.js'
 
 export type { GraphQueryDescriptor }
 
@@ -18,7 +19,7 @@ export interface GuidedQuery {
   category?: 'Explore' | 'Traverse' | 'Analyze'
 }
 
-export type DatasetKey = 'movielens' | 'airroutes' | 'got' | 'wikidata'
+export type DatasetKey = 'movielens' | 'airroutes' | 'got' | 'wikidata' | 'community'
 
 export interface DatasetMeta {
   key: DatasetKey
@@ -116,6 +117,16 @@ export const DATASETS: Record<DatasetKey, DatasetEntry> = {
       'Nobel Prize Knowledge Graph',
       'Nobel Prize laureates connected to countries, institutions, and prize categories from the Nobel Prize Foundation API',
       WIKIDATA_SAMPLE
+    ),
+  },
+  community: {
+    data: COMMUNITY_SAMPLE,
+    queries: COMMUNITY_QUERIES,
+    meta: buildDatasetMeta(
+      'community',
+      'Community Graph',
+      'Synthetic 4-cluster × 80-node network showing the canvas at real density with varied labels and edge types.',
+      COMMUNITY_SAMPLE
     ),
   },
 }

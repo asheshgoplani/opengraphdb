@@ -41,7 +41,7 @@ import { useSettingsStore } from '@/stores/settings'
 import type { BackendQueryResponse } from '@/types/api'
 import type { GraphData } from '@/types/graph'
 
-const DATASET_KEYS: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata']
+const DATASET_KEYS: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata', 'community']
 export const QUERY_CATEGORIES = ['Explore', 'Traverse', 'Analyze'] as const
 type QueryCategory = (typeof QUERY_CATEGORIES)[number]
 

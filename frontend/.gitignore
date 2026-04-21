@@ -16,6 +16,9 @@ dist-ssr
 test-results/
 playwright-report/
 
+# Unit test compile output
+.test-dist/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
