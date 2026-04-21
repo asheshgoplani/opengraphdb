@@ -98,7 +98,8 @@ export default function PlaygroundPage() {
   const [importedGraph, setImportedGraph] = useState<{
     data: GraphData
     filename: string
-    tempDbPath: string
+    dbPath: string | null
+    source: 'live' | 'preview'
   } | null>(null)
   const isAIOpen = useAIChatStore((s) => s.isOpen)
   const setIsAIOpen = useAIChatStore((s) => s.setIsOpen)
@@ -396,7 +397,21 @@ export default function PlaygroundPage() {
           />
           <RDFDropzone
             onImport={(data, source) => {
-              setImportedGraph({ data, filename: source.filename, tempDbPath: source.tempDbPath })
+              if (source.kind === 'live') {
+                setImportedGraph({
+                  data,
+                  filename: source.filename,
+                  dbPath: source.dbPath,
+                  source: 'live',
+                })
+              } else {
+                setImportedGraph({
+                  data,
+                  filename: source.filename,
+                  dbPath: null,
+                  source: 'preview',
+                })
+              }
               setSchemaFilterLabel(null)
               const start = performance.now()
               setGraphData(data)
@@ -405,10 +420,20 @@ export default function PlaygroundPage() {
           />
           {importedGraph && (
             <section className="rounded-lg border border-cyan-400/30 bg-cyan-500/5 px-3 py-2 text-[11px] text-cyan-100/90">
-              <p className="font-serif text-[12px] text-white">Imported · {importedGraph.filename}</p>
-              <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-cyan-200/70">
-                temp db: {importedGraph.tempDbPath}
+              <p className="font-serif text-[12px] text-white">
+                {importedGraph.source === 'live' ? 'Persisted' : 'Preview only'} ·{' '}
+                {importedGraph.filename}
               </p>
+              {importedGraph.source === 'live' && importedGraph.dbPath && (
+                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-cyan-200/70">
+                  live db: {importedGraph.dbPath}
+                </p>
+              )}
+              {importedGraph.source === 'preview' && (
+                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-amber-200/80">
+                  not persisted — start <code>ogdb serve --http</code>
+                </p>
+              )}
               <button
                 type="button"
                 className="mt-2 rounded border border-white/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white/60 hover:border-white/30 hover:text-white"
