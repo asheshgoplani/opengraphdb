@@ -1,5 +1,6 @@
 import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { AppBackdrop } from '@/components/layout/AppBackdrop'
 import { Button } from '@/components/ui/button'
 import { HeroGraphBackground } from './HeroGraphBackground'
 import { useSectionInView } from './useSectionInView'
@@ -31,6 +32,9 @@ export function HeroSection() {
       className="dark relative isolate overflow-hidden bg-[hsl(240,28%,7%)] text-foreground"
       aria-labelledby="hero-heading"
     >
+      {/* Slice-12: shared AppBackdrop so the hero carries the same
+          gradient + dot-grid + vignette depth as the playground canvas. */}
+      <AppBackdrop variant="hero" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_30%,hsla(226,85%,60%,0.18),transparent_70%)]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_85%_85%,hsla(280,80%,60%,0.12),transparent_70%)]" />
 

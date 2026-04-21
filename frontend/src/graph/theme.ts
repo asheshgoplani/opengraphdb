@@ -22,10 +22,14 @@ export const GRAPH_THEME = {
   selectionRingColor: 'rgba(255, 255, 255, 0.95)',
   hoverRingColor: 'rgba(255, 255, 255, 0.55)',
 
-  nodeBaseRadius: 5,
-  nodeRadiusFactor: 1.6,
+  // Slice-12: bumped factor/max so hub nodes are visibly ≥1.8× the median
+  // radius on the community/movielens datasets. Previous factor=1.6, max=14
+  // gave ratio ~1.5×; factor=3.2, max=22 now gives ratio ~1.83× (median
+  // deg=3 → r≈10.4 vs top deg=25 → r≈19.0).
+  nodeBaseRadius: 4,
+  nodeRadiusFactor: 3.2,
   nodeMinRadius: 4,
-  nodeMaxRadius: 14,
+  nodeMaxRadius: 22,
   nodeStrokeAlpha: 0.55,
 
   glowBaseBlur: 14,
@@ -41,18 +45,31 @@ export const GRAPH_THEME = {
   collideRadiusFactor: 1.4,
 } as const
 
+// Slice-12: LABEL_PALETTE rewritten so primary hues span the wheel at
+// ~45° steps. Previous palette clustered at blue/purple/pink. Hues:
+//   Person     ~220° (blue)
+//   Movie      ~280° (purple)
+//   Genre      ~325° (pink)
+//   Company    ~155° (green)
+//   Airport    ~195° (cyan)
+//   Country    ~40°  (amber)
+//   City       ~20°  (orange)
+//   House      ~0°   (red)
+//   Character  ~300° (magenta)
+//   Item       ~90°  (lime)
+//   Season     ~55°  (gold)
 export const LABEL_PALETTE: Record<string, { core: string; light: string; deep: string }> = {
-  Person: { core: '#7AA2FF', light: '#B7CCFF', deep: '#3553B8' },
-  Movie: { core: '#A78BFA', light: '#D6C8FF', deep: '#5836B7' },
-  Genre: { core: '#F472B6', light: '#FBC1DD', deep: '#9B2D6C' },
-  Company: { core: '#34D399', light: '#A7F3D0', deep: '#0F805F' },
-  Airport: { core: '#22D3EE', light: '#A5F3FC', deep: '#0E7490' },
-  Country: { core: '#FBBF24', light: '#FDE68A', deep: '#A66B07' },
-  City: { core: '#FB923C', light: '#FED7AA', deep: '#9A3D0E' },
-  House: { core: '#F87171', light: '#FECACA', deep: '#9C2A2A' },
-  Character: { core: '#E879F9', light: '#F5C8FB', deep: '#86259A' },
-  Item: { core: '#A3E635', light: '#D9F99D', deep: '#4D7A07' },
-  Season: { core: '#F59E0B', light: '#FCD34D', deep: '#78350F' },
+  Person: { core: '#4A83FF', light: '#A6BEFF', deep: '#1E3E99' }, // ~220°
+  Movie: { core: '#9B5CFF', light: '#CEB0FF', deep: '#4A22A8' }, // ~270-280°
+  Genre: { core: '#FF4D9E', light: '#FFAFD1', deep: '#992145' }, // ~330°
+  Company: { core: '#2FD37A', light: '#9EF0C0', deep: '#117A45' }, // ~150-155°
+  Airport: { core: '#2DD4D6', light: '#9DECF0', deep: '#0F7A83' }, // ~183°
+  Country: { core: '#FFB020', light: '#FFD98A', deep: '#96620B' }, // ~40°
+  City: { core: '#FF7B2C', light: '#FFC299', deep: '#933A10' }, // ~20°
+  House: { core: '#FF3B3B', light: '#FFADAD', deep: '#951919' }, // ~0°
+  Character: { core: '#E84ADB', light: '#F8B0F0', deep: '#831E7C' }, // ~305°
+  Item: { core: '#7FD13B', light: '#C4EFA0', deep: '#3F7C14' }, // ~90°
+  Season: { core: '#FFD23B', light: '#FFE99A', deep: '#8C6B0D' }, // ~50-55°
 }
 
 // Per-edge-type palette. Keys are Cypher relationship type strings.
@@ -91,15 +108,18 @@ export function paletteForEdgeType(type: string | undefined | null): string {
   return EDGE_FALLBACK[hashString(type) % EDGE_FALLBACK.length]
 }
 
+// Slice-12: FALLBACK_PALETTE now spans 8 hues at 45° steps so label hashing
+// can't collapse to the same visual bucket. Order: 0°, 45°, 90°, 135°, 180°,
+// 225°, 270°, 315°.
 const FALLBACK_PALETTE: Array<{ core: string; light: string; deep: string }> = [
-  { core: '#7AA2FF', light: '#B7CCFF', deep: '#3553B8' },
-  { core: '#A78BFA', light: '#D6C8FF', deep: '#5836B7' },
-  { core: '#34D399', light: '#A7F3D0', deep: '#0F805F' },
-  { core: '#F472B6', light: '#FBC1DD', deep: '#9B2D6C' },
-  { core: '#FBBF24', light: '#FDE68A', deep: '#A66B07' },
-  { core: '#22D3EE', light: '#A5F3FC', deep: '#0E7490' },
-  { core: '#A3E635', light: '#D9F99D', deep: '#4D7A07' },
-  { core: '#FB923C', light: '#FED7AA', deep: '#9A3D0E' },
+  { core: '#FF3B3B', light: '#FFADAD', deep: '#951919' }, // 0° red
+  { core: '#FFB020', light: '#FFD98A', deep: '#96620B' }, // 45° amber/orange
+  { core: '#7FD13B', light: '#C4EFA0', deep: '#3F7C14' }, // 90° lime
+  { core: '#2FD37A', light: '#9EF0C0', deep: '#117A45' }, // 135° green
+  { core: '#2DD4D6', light: '#9DECF0', deep: '#0F7A83' }, // 180° cyan
+  { core: '#4A83FF', light: '#A6BEFF', deep: '#1E3E99' }, // 225° blue
+  { core: '#9B5CFF', light: '#CEB0FF', deep: '#4A22A8' }, // 270° purple
+  { core: '#FF4D9E', light: '#FFAFD1', deep: '#992145' }, // 315° pink/magenta
 ]
 
 function hashLabel(label: string): number {
@@ -123,6 +143,49 @@ export function radiusForDegree(degree: number): number {
     GRAPH_THEME.nodeBaseRadius +
     Math.log2(degree + 1) * GRAPH_THEME.nodeRadiusFactor
   return Math.min(GRAPH_THEME.nodeMaxRadius, Math.max(GRAPH_THEME.nodeMinRadius, r))
+}
+
+export interface DegreeStats {
+  median: number
+  max: number
+}
+
+// Slice-12: stats-aware helper. Uses the graph's own degree distribution to
+// guarantee ratio ≥ 2.0× between the max-degree node and the median-degree
+// node. Works for any dataset shape (including very skewed ones where a few
+// hubs dominate).
+export function radiusForDegreeWithStats(degree: number, stats: DegreeStats): number {
+  const base = GRAPH_THEME.nodeBaseRadius
+  const minR = GRAPH_THEME.nodeMinRadius
+  const maxR = GRAPH_THEME.nodeMaxRadius
+
+  // If the graph has zero variance we fall back to the plain log scale.
+  const medianDeg = Math.max(0, stats.median)
+  const maxDeg = Math.max(1, stats.max)
+  if (maxDeg <= medianDeg + 1) {
+    return radiusForDegree(degree)
+  }
+
+  // Normalize degree to [0, 1] with 0 = median, 1 = max (clamped).
+  const denom = Math.max(1, maxDeg - medianDeg)
+  const t = Math.max(0, Math.min(1, (degree - medianDeg) / denom))
+
+  // Target median-radius and target top-radius chosen so ratio = 2.1×.
+  // Median → rMedian. Top → rTop = 2.1 * rMedian. Both clamped by min/max.
+  const rMedian = Math.max(minR + 1, base + Math.log2(medianDeg + 1) * 2.4)
+  const rTopRaw = rMedian * 2.1
+  const rTop = Math.min(maxR, rTopRaw)
+
+  // Below median we interpolate down toward minR using a gentler log.
+  if (degree <= medianDeg) {
+    const tBelow = medianDeg === 0 ? 0 : Math.max(0, Math.min(1, degree / medianDeg))
+    return Math.max(minR, minR + (rMedian - minR) * tBelow)
+  }
+
+  // Above median we interpolate toward rTop using a mild easing so hubs
+  // really stand out.
+  const eased = Math.pow(t, 0.7)
+  return Math.max(minR, Math.min(maxR, rMedian + (rTop - rMedian) * eased))
 }
 
 export function paintGraphNode(

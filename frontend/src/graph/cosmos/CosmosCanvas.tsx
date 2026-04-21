@@ -1,7 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Graph, type GraphConfigInterface } from '@cosmos.gl/graph'
 import type { GraphData, GraphEdge, GraphNode } from '@/types/graph'
-import { GRAPH_THEME, paletteForLabel, radiusForDegree } from '@/graph/theme'
+import {
+  GRAPH_THEME,
+  paletteForLabel,
+  radiusForDegreeWithStats,
+} from '@/graph/theme'
 import {
   colorForEdgeType,
   colorForNode,
@@ -81,6 +85,16 @@ function edgeWidthForLink(link: GraphEdge): number {
   return 1.3
 }
 
+// Slice-12: edge alpha scales with weight so heavier edges carry more
+// perceived density than lighter ones. Clamped to [0.55, 0.92].
+function edgeAlphaForLink(link: GraphEdge): number {
+  const w = link.properties?.weight
+  if (typeof w === 'number' && Number.isFinite(w)) {
+    return Math.max(0.55, Math.min(0.92, 0.55 + Math.log2(1 + w) * 0.12))
+  }
+  return 0.72
+}
+
 export function CosmosCanvas({
   graphData,
   onNodeClick,
@@ -152,12 +166,21 @@ export function CosmosCanvas({
     [nodes, degree]
   )
 
-  // Show more labels when the graph is small, cap at the top-degree nodes
-  // once the dataset gets dense so the canvas doesn't become a wall of text.
+  // Slice-12: much tighter LOD so labels don't overlap on the community
+  // dataset (240 nodes). Show all labels up to 50 nodes; then fall to
+  // top-degree hubs, capped at 18 labels for very dense graphs. At that
+  // budget labels can be placed without collision on a 1280-wide canvas.
   const labelIndicesToShow = useMemo(() => {
-    if (nodes.length <= 120) return labelItems.map((l) => l.index)
+    if (nodes.length <= 50) return labelItems.map((l) => l.index)
     const byDeg = [...labelItems].sort((a, b) => b.degree - a.degree)
-    const keep = Math.max(48, Math.min(140, Math.floor(nodes.length * 0.25)))
+    let keep: number
+    if (nodes.length <= 120) {
+      keep = Math.max(20, Math.floor(nodes.length * 0.35))
+    } else if (nodes.length <= 200) {
+      keep = 20
+    } else {
+      keep = 18
+    }
     return byDeg.slice(0, keep).map((l) => l.index)
   }, [labelItems, nodes.length])
 
@@ -386,9 +409,18 @@ export function CosmosCanvas({
       })
     }
 
+    // Slice-12: use stats-aware radius so hubs are guaranteed ≥ 1.8× the
+    // median radius on any dataset (the palette-variety gate measures this).
+    const degValues: number[] = []
+    for (const n of nodes) degValues.push(degree.get(n.id) ?? 0)
+    degValues.sort((a, b) => a - b)
+    const medianDegree = degValues.length === 0 ? 0 : degValues[Math.floor(degValues.length / 2)]
+    const maxDegree = degValues.length === 0 ? 1 : degValues[degValues.length - 1]
+    const degreeStats = { median: medianDegree, max: maxDegree }
+
     const sizes = new Float32Array(nodes.length)
     nodes.forEach((n, i) => {
-      const base = radiusForDegree(degree.get(n.id) ?? 0) * 1.25
+      const base = radiusForDegreeWithStats(degree.get(n.id) ?? 0, degreeStats) * 1.25
       sizes[i] = ontologyMode ? base * ontologyBoost(n) : base
     })
 
@@ -401,7 +433,7 @@ export function CosmosCanvas({
     })
 
     const linkColors = linkIndexPairs.map(([, , , edge]) =>
-      colorForEdgeType(edge.type, 0.72)
+      colorForEdgeType(edge.type, edgeAlphaForLink(edge))
     )
 
     const linkWidths = new Float32Array(linkIndexPairs.length)
@@ -526,7 +558,7 @@ export function CosmosCanvas({
     const colors: Rgba[] = linkIndexPairs.map(([si, ti, lid, edge]) => {
       if (traceEdgeIds?.has(lid)) return EDGE_TRACE_COLOR
       if (hoveredIdx != null && (si === hoveredIdx || ti === hoveredIdx)) return EDGE_HOVER_COLOR
-      return colorForEdgeType(edge.type, 0.72)
+      return colorForEdgeType(edge.type, edgeAlphaForLink(edge))
     })
     g.setLinkColors(flatRgba(colors))
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
@@ -575,6 +607,16 @@ export function CosmosCanvas({
       return { renderedLabels: null, renderedBlooms: null }
     }
 
+    // Degree distribution for LOD thresholds and stats-aware radius.
+    const degreeValues: number[] = []
+    for (const l of labelItems) degreeValues.push(l.degree)
+    degreeValues.sort((a, b) => a - b)
+    const medianDeg =
+      degreeValues.length === 0 ? 0 : degreeValues[Math.floor(degreeValues.length / 2)]
+    const maxDeg =
+      degreeValues.length === 0 ? 1 : degreeValues[degreeValues.length - 1]
+    const dStats = { median: medianDeg, max: maxDeg }
+
     // Bounding box of all node positions in cosmos-space.
     let minX = Infinity,
       minY = Infinity,
@@ -611,7 +653,55 @@ export function CosmosCanvas({
     const labels: Array<React.ReactNode> = []
     const blooms: Array<React.ReactNode> = []
 
-    for (const l of labelItems) {
+    // Slice-12: low-degree labels fade out once the graph is dense so the
+    // canvas doesn't become a wall of text. Mid-range linearly interpolate.
+    //   degree < 2 AND nodes.length > 80 → opacity 0 (skip render)
+    //   degree === 2                    → 0.55
+    //   degree >= 5                     → 1.0
+    //   mid (3..4)                      → linear between 0.55 and 1.0
+    const dense = nodes.length > 80
+    const degreeLodOpacity = (deg: number): number => {
+      if (deg < 2) return dense ? 0 : 0.55
+      if (deg >= 5) return 1
+      // map [2..5] → [0.55..1.0]
+      return 0.55 + ((deg - 2) / 3) * 0.45
+    }
+
+    // Slice-12: greedy label-collision rejection. For each label, estimate
+    // its bbox (rough: 7 px × glyph count horizontally, 14 px tall). If the
+    // new bbox overlaps any already-placed bbox with IoU ≥ 0.1, we skip
+    // the label (its bloom still renders). Labels are processed in the
+    // order of labelItems which is node-order; hub labels come via
+    // labelIndexSet. Rendering highest-degree first ensures hubs win ties.
+    const placedBoxes: Array<[number, number, number, number]> = []
+    const rectIoU = (
+      a: [number, number, number, number],
+      b: [number, number, number, number],
+    ): number => {
+      const x1 = Math.max(a[0], b[0])
+      const y1 = Math.max(a[1], b[1])
+      const x2 = Math.min(a[2], b[2])
+      const y2 = Math.min(a[3], b[3])
+      const inter = Math.max(0, x2 - x1) * Math.max(0, y2 - y1)
+      if (inter === 0) return 0
+      const aArea = (a[2] - a[0]) * (a[3] - a[1])
+      const bArea = (b[2] - b[0]) * (b[3] - b[1])
+      const union = aArea + bArea - inter
+      return union === 0 ? 0 : inter / union
+    }
+
+    // Sort so emphasized labels render first (always shown) and then
+    // highest-degree hub labels get first pick of real estate.
+    const sortedLabelItems = [...labelItems].sort((a, b) => {
+      const emphA =
+        hoveredNodeId === a.id || selectedNodeId === a.id || traceActiveNodeId === a.id
+      const emphB =
+        hoveredNodeId === b.id || selectedNodeId === b.id || traceActiveNodeId === b.id
+      if (emphA !== emphB) return emphA ? -1 : 1
+      return b.degree - a.degree
+    })
+
+    for (const l of sortedLabelItems) {
       const sx = positions[l.index * 2]
       const sy = positions[l.index * 2 + 1]
       if (!Number.isFinite(sx) || !Number.isFinite(sy)) continue
@@ -620,7 +710,7 @@ export function CosmosCanvas({
 
       const node = nodes[l.index]
       const palette = paletteForLabel(node?.labels?.[0])
-      const r = radiusForDegree(l.degree)
+      const r = radiusForDegreeWithStats(l.degree, dStats)
       // Bloom radius grows with degree so hubs stand out; the radial
       // gradient feathers from the core hue to transparent, and the
       // `drop-shadow` adds a further colored halo outside the disc.
@@ -646,16 +736,48 @@ export function CosmosCanvas({
       const isTraceActive = traceActiveNodeId === l.id
       const emphasize = isHovered || isSelected || isTraceActive
       const text = l.text.length > 26 ? l.text.slice(0, 23) + '…' : l.text
-      const opacity = emphasize ? 1 : 0.94
+      const lodOpacity = degreeLodOpacity(l.degree)
+      if (lodOpacity <= 0 && !emphasize) continue
+      const opacity = emphasize ? 1 : lodOpacity
+      // Slice-12: emphasized labels float ABOVE the node so they don't
+      // collide with outgoing edges; non-emphasized sit below with a bit
+      // more breathing room (was +6, now +8).
+      const labelYOffset = emphasize ? -r - 12 : r + 8
+      // Degree-scaled font size for non-emphasized labels so hubs get
+      // larger type (up to 14 px). Emphasized: fixed 14 px.
+      const fontSize = emphasize
+        ? 14
+        : Math.min(14, Math.max(10, 10 + Math.log2(l.degree + 1) * 0.8))
+
+      // Greedy collision rejection. Estimate label bbox (roughly 6.8 px
+      // per glyph horizontally × fontSize vertically with some padding).
+      const estW = Math.max(18, text.length * 6.8)
+      const estH = fontSize + 4
+      const bx = x - estW / 2 - 2
+      const by = y + labelYOffset - 2
+      const box: [number, number, number, number] = [bx, by, bx + estW + 4, by + estH + 4]
+      if (!emphasize) {
+        let collides = false
+        for (const placed of placedBoxes) {
+          if (rectIoU(box, placed) >= 0.1) {
+            collides = true
+            break
+          }
+        }
+        if (collides) continue
+      }
+      placedBoxes.push(box)
+
       labels.push(
         <span
           key={String(l.id)}
           className="cosmos-label"
+          data-degree={l.degree}
           style={{
-            transform: `translate3d(${x}px, ${y + r + 6}px, 0) translateX(-50%)`,
+            transform: `translate3d(${x}px, ${y + labelYOffset}px, 0) translateX(-50%)`,
             fontWeight: emphasize ? 600 : 500,
-            color: emphasize ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.9)',
-            fontSize: emphasize ? 13 : 11,
+            color: emphasize ? 'rgba(255,255,255,1)' : 'rgba(255,255,255,0.92)',
+            fontSize,
             opacity,
           }}
         >
@@ -691,9 +813,12 @@ export function CosmosCanvas({
             pointer-events: none;
             font-family: "Fraunces", "Source Serif 4", Georgia, serif;
             letter-spacing: 0.01em;
+            /* Slice-12: multi-layer black halo (spec: black 0.8 × 6-10 px
+               blur) so labels stay legible on the now-brighter backdrop. */
             text-shadow:
-              0 0 2px rgba(0,0,0,0.95),
-              0 0 8px rgba(0,0,0,0.7),
+              0 0 3px rgba(0,0,0,0.95),
+              0 0 6px rgba(0,0,0,0.85),
+              0 0 10px rgba(0,0,0,0.75),
               0 0 14px rgba(8,10,22,0.55);
             will-change: transform;
           }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, ArrowLeft, Network, Search, Sparkles, Zap } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Database, Network, Search, Sparkles, Wrench, Zap } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiClient } from '@/api/client'
 import { transformLiveResponse, transformQueryResponse } from '@/api/transform'
@@ -89,7 +89,9 @@ export default function PlaygroundPage() {
   const [isTraceMode, setIsTraceMode] = useState(false)
   const [isPowerMode, setIsPowerMode] = useState(false)
   const [powerError, setPowerError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'graph' | 'semantic' | 'temporal'>('graph')
+  const [activeTab, setActiveTab] = useState<'graph' | 'semantic' | 'temporal' | 'schema' | 'mcp'>(
+    'graph',
+  )
   const timeCutoff = useGraphStore((s) => s.timeCutoff)
   const setTimeCutoff = useGraphStore((s) => s.setTimeCutoff)
   const [searchHits, setSearchHits] = useState<SearchHit[]>([])
@@ -519,6 +521,20 @@ export default function PlaygroundPage() {
                   : 'MovieLens or GoT only'
               }
             />
+            <TabPill
+              active={activeTab === 'schema'}
+              onClick={() => setActiveTab('schema')}
+              icon={Database}
+              label="Schema"
+              blurb="Labels · edges · properties"
+            />
+            <TabPill
+              active={activeTab === 'mcp'}
+              onClick={() => setActiveTab('mcp')}
+              icon={Wrench}
+              label="MCP"
+              blurb="Agent tool surface"
+            />
           </div>
 
           <AnimatePresence initial={false}>
@@ -561,6 +577,51 @@ export default function PlaygroundPage() {
                     isGeographic={isGeographic}
                     ontologyMode={ontologyMode}
                   />
+                </motion.div>
+              ) : activeTab === 'schema' ? (
+                <motion.div
+                  key="schema-main"
+                  initial={PANEL_MOTION.initial}
+                  animate={PANEL_MOTION.animate}
+                  exit={PANEL_MOTION.exit}
+                  transition={PANEL_TRANSITION}
+                  className="absolute inset-0 overflow-y-auto bg-background/60"
+                  data-testid="schema-main-panel"
+                >
+                  <div className="mx-auto max-w-3xl px-6 py-8">
+                    <h2 className="font-display text-2xl mb-4">Schema browser</h2>
+                    <p className="mb-6 text-[12px] leading-relaxed text-white/55">
+                      Explore the dataset's labels, relationships, and property keys. Click a
+                      label to filter the graph canvas; flip on Ontology to render
+                      rdfs:Class hubs and property-as-edge layouts.
+                    </p>
+                    <SchemaBrowser
+                      graphData={baseGraphData}
+                      selectedLabel={schemaFilterLabel}
+                      ontologyMode={ontologyMode}
+                      onSelectLabel={setSchemaFilterLabel}
+                      onToggleOntology={setOntologyMode}
+                    />
+                  </div>
+                </motion.div>
+              ) : activeTab === 'mcp' ? (
+                <motion.div
+                  key="mcp-main"
+                  initial={PANEL_MOTION.initial}
+                  animate={PANEL_MOTION.animate}
+                  exit={PANEL_MOTION.exit}
+                  transition={PANEL_TRANSITION}
+                  className="absolute inset-0 overflow-y-auto bg-background/60"
+                  data-testid="mcp-main-panel"
+                >
+                  <div className="mx-auto max-w-3xl px-6 py-8">
+                    <h2 className="font-display text-2xl mb-4">MCP tool gallery</h2>
+                    <p className="mb-6 text-[12px] leading-relaxed text-white/55">
+                      Model Context Protocol surface — every card here is a JSON-RPC tool any
+                      AI agent (Claude, Cursor, Copilot) can invoke against this database.
+                    </p>
+                    <MCPToolGallery />
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div
