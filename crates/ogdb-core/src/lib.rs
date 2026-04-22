@@ -47,6 +47,22 @@ const WAL_HEADER_SIZE: usize = 8;
 const WAL_MAGIC: [u8; WAL_HEADER_SIZE] = *b"OGWAL001";
 const WAL_RECORD_CREATE_NODE: u8 = 1;
 const WAL_RECORD_ADD_EDGE: u8 = 2;
+/// WAL v2 CREATE_NODE — carries the node's labels and property map in
+/// addition to its id. Introduced by audit finding 2.1 to close the
+/// deferred-sync durability gap where a power loss between WAL fsync and
+/// `meta.json` / property-store sidecar writeback could lose the
+/// labels/properties of a committed transaction. Replay of a v2 record
+/// prefers sidecar-loaded state when it is already populated (that state is
+/// authoritative for the most recent checkpointed session); it fills empty
+/// slots with the WAL payload so a power-loss-destroyed sidecar still
+/// recovers the committed labels+props.
+///
+/// On-disk format: `[tag=3][node_id:u64 LE][labels_len:u32 LE][labels_json
+/// (utf-8 JSON array of strings)][props_len:u32 LE][props_json (utf-8 JSON
+/// map)]`. The existing 8-byte WAL file magic `OGWAL001` is unchanged —
+/// v1 and v2 records coexist in the same WAL file and the record tag is
+/// the version marker.
+const WAL_RECORD_CREATE_NODE_V2: u8 = 3;
 const DELTA_COMPACTION_EDGE_THRESHOLD: usize = 256;
 const META_FORMAT_VERSION: u32 = 1;
 const FREE_LIST_FORMAT_VERSION: u32 = 1;
@@ -8491,11 +8507,11 @@ impl ActiveSnapshotRegistry {
         Ok(())
     }
 
-    fn unregister(&self, snapshot_txn_id: u64) {
+    fn unregister(&self, snapshot_txn_id: u64) -> Result<(), DbError> {
         let mut by_txn_id = self
             .by_txn_id
             .lock()
-            .expect("active snapshot registry lock");
+            .map_err(|_| lock_poisoned_error("active snapshot registry"))?;
         let mut remove = false;
         if let Some(count) = by_txn_id.get_mut(&snapshot_txn_id) {
             if *count <= 1 {
@@ -8507,15 +8523,17 @@ impl ActiveSnapshotRegistry {
         if remove {
             by_txn_id.remove(&snapshot_txn_id);
         }
+        Ok(())
     }
 
-    fn min_active_snapshot_txn_id(&self) -> Option<u64> {
-        self.by_txn_id
+    fn min_active_snapshot_txn_id(&self) -> Result<Option<u64>, DbError> {
+        Ok(self
+            .by_txn_id
             .lock()
-            .expect("active snapshot registry lock")
+            .map_err(|_| lock_poisoned_error("active snapshot registry"))?
             .keys()
             .next()
-            .copied()
+            .copied())
     }
 }
 
@@ -9471,7 +9489,20 @@ impl<'a> ReadSnapshot<'a> {
 
 impl Drop for ReadSnapshot<'_> {
     fn drop(&mut self) {
-        self.active_snapshots.unregister(self.snapshot_txn_id);
+        // Log-and-swallow: must never panic in Drop. Lock poisoning here means
+        // another thread crashed holding the registry mutex; the snapshot count
+        // leaks but nothing else is unsafe — the next register/unregister will
+        // surface the error to a caller that can handle it.
+        if let Err(err) = self.active_snapshots.unregister(self.snapshot_txn_id) {
+            #[cfg(feature = "tracing")]
+            tracing::error!(
+                snapshot_txn_id = self.snapshot_txn_id,
+                error = %err,
+                "ReadSnapshot::drop: active snapshot registry unregister failed"
+            );
+            #[cfg(not(feature = "tracing"))]
+            let _ = err;
+        }
     }
 }
 
@@ -9590,7 +9621,7 @@ impl SharedDatabase {
             .inner
             .write()
             .map_err(|_| lock_poisoned_error("write"))?;
-        guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id());
+        guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id()?);
         let result = writer(&mut guard);
         guard.set_version_gc_floor(None);
         let should_trigger_compaction = guard.take_background_compaction_request();
@@ -9607,7 +9638,7 @@ impl SharedDatabase {
         loop {
             match self.inner.try_write() {
                 Ok(mut guard) => {
-                    guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id());
+                    guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id()?);
                     let result = writer(&mut guard);
                     guard.set_version_gc_floor(None);
                     let should_trigger_compaction = guard.take_background_compaction_request();
@@ -9638,7 +9669,7 @@ impl SharedDatabase {
             .inner
             .write()
             .map_err(|_| lock_poisoned_error("write transaction"))?;
-        guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id());
+        guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id()?);
         let tx = match start_snapshot {
             Some(snapshot_txn_id) => guard.begin_write_at(snapshot_txn_id),
             None => guard.begin_write(),
@@ -9667,7 +9698,7 @@ impl SharedDatabase {
         loop {
             match self.inner.try_write() {
                 Ok(mut guard) => {
-                    guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id());
+                    guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id()?);
                     let tx = match start_snapshot {
                         Some(snapshot_txn_id) => guard.begin_write_at(snapshot_txn_id),
                         None => guard.begin_write(),
@@ -9724,7 +9755,7 @@ impl SharedDatabase {
                 .inner
                 .write()
                 .map_err(|_| lock_poisoned_error("write"))?;
-            guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id());
+            guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id()?);
             if guard.current_snapshot_txn_id() > start_snapshot_txn_id && attempts < max_retries {
                 guard.set_version_gc_floor(None);
                 drop(guard);
@@ -9758,7 +9789,7 @@ impl SharedDatabase {
                 .inner
                 .write()
                 .map_err(|_| lock_poisoned_error("write"))?;
-            guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id());
+            guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id()?);
             if guard.current_snapshot_txn_id() > start_snapshot_txn_id && attempts < max_retries {
                 guard.set_version_gc_floor(None);
                 drop(guard);
@@ -9952,7 +9983,7 @@ impl SharedDatabase {
                 .inner
                 .write()
                 .map_err(|_| lock_poisoned_error("write transaction"))?;
-            guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id());
+            guard.set_version_gc_floor(self.active_snapshots.min_active_snapshot_txn_id()?);
             let result = writer(guard.begin_write_at(start_snapshot_txn_id));
             guard.set_version_gc_floor(None);
             let should_trigger_compaction = guard.take_background_compaction_request();
@@ -9981,7 +10012,9 @@ impl SharedDatabase {
 
     #[cfg(test)]
     fn min_active_snapshot_txn_id_for_tests(&self) -> Option<u64> {
-        self.active_snapshots.min_active_snapshot_txn_id()
+        self.active_snapshots
+            .min_active_snapshot_txn_id()
+            .expect("active snapshot registry lock poisoned in test")
     }
 
     #[cfg(test)]
@@ -10090,7 +10123,7 @@ fn run_replication_sink(
         let mut guard = inner
             .write()
             .map_err(|_| lock_poisoned_error("replication sink write"))?;
-        guard.set_version_gc_floor(active_snapshots.min_active_snapshot_txn_id());
+        guard.set_version_gc_floor(active_snapshots.min_active_snapshot_txn_id()?);
         let apply = guard.apply_replication_wal_chunk(*lsn, &chunk);
         guard.set_version_gc_floor(None);
         let _ = guard.take_background_compaction_request();
@@ -17864,6 +17897,13 @@ impl Database {
             Self::remove_version_entries_for_txn(chain, txn_id);
         }
 
+        // Audit finding 3.1: `undo_set_node_labels` rewrites
+        // `meta.label_membership` but does not refresh the in-memory
+        // `label_projections` cache that index-backed label scans consult.
+        // Force an unconditional rebuild at rollback tail so readers cannot
+        // see stale projections for a rolled-back transaction.
+        self.rebuild_label_projections();
+
         self.discard_deferred_meta()?;
         Ok(())
     }
@@ -20844,11 +20884,15 @@ impl Database {
     }
 
     fn lock_buffer_pool(&self) -> Result<std::sync::MutexGuard<'_, BufferPool>, DbError> {
-        Ok(self.buffer_pool.lock().expect("buffer pool lock poisoned"))
+        self.buffer_pool
+            .lock()
+            .map_err(|_| DbError::Corrupt("database buffer pool lock poisoned".to_string()))
     }
 
     fn lock_free_list(&self) -> Result<std::sync::MutexGuard<'_, FreeList>, DbError> {
-        Ok(self.free_list.lock().expect("free list lock poisoned"))
+        self.free_list
+            .lock()
+            .map_err(|_| DbError::Corrupt("database free list lock poisoned".to_string()))
     }
 
     fn flush_buffer_pool(&self) -> Result<(), DbError> {
@@ -21058,13 +21102,17 @@ impl Database {
     /// Flush deferred writes at commit time. Durability model:
     ///
     /// The WAL is the single durability barrier. All committed-transaction
-    /// state is encoded in the WAL records (header advances + `ensure_row_count`
-    /// allocations + in-memory meta fields that get rebuilt by replay). On
-    /// crash recovery, `recover_from_wal` replays every WAL record, which
-    /// advances the header, allocates + fsyncs data pages, and reconstructs
-    /// `MetaStore` (with default empty labels/properties for fields the WAL
-    /// doesn't carry — see `docs/IMPLEMENTATION-LOG.md` under
-    /// `## fix-write-perf profile 2026-04-19`).
+    /// state is encoded in the WAL records. Since audit finding 2.1, the
+    /// WAL carries **labels and properties** on CREATE_NODE records
+    /// (upgraded in-flight to `WAL_RECORD_CREATE_NODE_V2` by
+    /// `upgrade_wal_buffer_to_v2` before the fsync). On crash recovery,
+    /// `recover_from_wal` replays every WAL record — advancing the header,
+    /// allocating + fsyncing data pages, and restoring labels / property
+    /// maps for every node committed in the tx. The v2 replay prefers
+    /// sidecar state when present (that state is authoritative for
+    /// post-create updates in subsequent transactions that are not
+    /// individually WAL-logged) and falls back to the v2 payload when the
+    /// sidecar was destroyed by a hard power loss.
     ///
     /// Because the WAL is the single source of truth, commit only needs to
     /// fsync the WAL. Header, meta, and props sidecar sync become writes
@@ -21073,6 +21121,16 @@ impl Database {
     /// `Database::close`-style exits (or the next `checkpoint()`) can issue
     /// the sidecar fsyncs if an application wants them durable without a WAL
     /// replay on the next open.
+    ///
+    /// Remaining durability limitation (scoped as follow-up work): nodes
+    /// that are modified after their creating tx — e.g., a later
+    /// `set_node_labels` or `set_node_properties` in a different tx — are
+    /// not individually WAL-logged. Their post-update state is reconstructed
+    /// via the meta sidecar on open; if a hard power loss destroys that
+    /// sidecar, the recovered labels / props fall back to the v2 WAL
+    /// snapshot taken at the node's original creation. This matches the
+    /// short-term durability window the audit flagged and is documented on
+    /// `SPEC.md` §4.3.
     fn flush_deferred_meta(&mut self) -> Result<(), DbError> {
         // Flush buffered data pages into the kernel cache so the row data is
         // observable on any subsequent (same-process or next-process) read.
@@ -21084,14 +21142,20 @@ impl Database {
         self.node_property_store.set_deferred_sync(false);
 
         // Persist buffered WAL bytes with a single fsync — primary durability
-        // barrier at commit time. WAL records let `recover_from_wal` rebuild
-        // header + row counts; the sidecar writes below provide labels,
-        // properties, edge metadata, and other fields the WAL doesn't carry.
+        // barrier at commit time. Audit finding 2.1: upgrade buffered v1
+        // `CREATE_NODE` records to v2 in-flight so the WAL carries the
+        // committing transaction's labels + properties. If a power loss
+        // destroys the sidecars before they're written back from the kernel
+        // page cache, `recover_from_wal` restores labels/props from the v2
+        // payload. Edge `ADD_EDGE` records pass through unchanged — edge
+        // metadata (type, properties) is carried by the sidecar; extending
+        // edges to a v2 record is tracked as follow-up work.
         if !self.wal_buffer.is_empty() {
+            let upgraded = self.upgrade_wal_buffer_to_v2()?;
             let wal_path = self.wal_path();
             ensure_wal_file(&wal_path)?;
             let mut file = OpenOptions::new().append(true).open(&wal_path)?;
-            file.write_all(&self.wal_buffer)?;
+            file.write_all(&upgraded)?;
             file.sync_data()?;
             self.wal_buffer.clear();
         }
@@ -21790,6 +21854,117 @@ impl Database {
         Ok(())
     }
 
+    /// Rewrite the deferred WAL buffer so every `WAL_RECORD_CREATE_NODE` (v1)
+    /// becomes a `WAL_RECORD_CREATE_NODE_V2` carrying the committing
+    /// transaction's labels and properties as seen in `self.meta` /
+    /// `self.node_property_store`. `WAL_RECORD_ADD_EDGE` records are copied
+    /// through unchanged. See audit finding 2.1.
+    fn upgrade_wal_buffer_to_v2(&self) -> Result<Vec<u8>, DbError> {
+        let bytes = &self.wal_buffer;
+        let mut out = Vec::<u8>::with_capacity(bytes.len() * 2);
+        let mut offset = 0;
+        while offset < bytes.len() {
+            let tag = bytes[offset];
+            offset += 1;
+            match tag {
+                WAL_RECORD_CREATE_NODE => {
+                    if bytes.len() - offset < 8 {
+                        return Err(DbError::Corrupt(
+                            "truncated CREATE_NODE in wal_buffer during v2 upgrade".to_string(),
+                        ));
+                    }
+                    let mut node_id_bytes = [0u8; 8];
+                    node_id_bytes.copy_from_slice(&bytes[offset..offset + 8]);
+                    offset += 8;
+                    let node_id = u64::from_le_bytes(node_id_bytes);
+
+                    let labels: Vec<String> = self
+                        .meta
+                        .node_labels
+                        .get(node_id as usize)
+                        .map(|set| set.iter().cloned().collect())
+                        .unwrap_or_default();
+                    let properties = self.node_properties(node_id).unwrap_or_default();
+
+                    let labels_json = serde_json::to_vec(&labels).map_err(|e| {
+                        DbError::Corrupt(format!("encode wal v2 labels for node {node_id}: {e}"))
+                    })?;
+                    let props_json = serde_json::to_vec(&properties).map_err(|e| {
+                        DbError::Corrupt(format!("encode wal v2 props for node {node_id}: {e}"))
+                    })?;
+                    let labels_len: u32 = u32::try_from(labels_json.len()).map_err(|_| {
+                        DbError::Corrupt(format!(
+                            "wal v2 labels payload exceeds u32 for node {node_id}"
+                        ))
+                    })?;
+                    let props_len: u32 = u32::try_from(props_json.len()).map_err(|_| {
+                        DbError::Corrupt(format!(
+                            "wal v2 props payload exceeds u32 for node {node_id}"
+                        ))
+                    })?;
+
+                    out.push(WAL_RECORD_CREATE_NODE_V2);
+                    out.extend_from_slice(&node_id.to_le_bytes());
+                    out.extend_from_slice(&labels_len.to_le_bytes());
+                    out.extend_from_slice(&labels_json);
+                    out.extend_from_slice(&props_len.to_le_bytes());
+                    out.extend_from_slice(&props_json);
+                }
+                WAL_RECORD_CREATE_NODE_V2 => {
+                    // Pre-upgraded record: copy through verbatim.
+                    if bytes.len() - offset < 8 {
+                        return Err(DbError::Corrupt(
+                            "truncated CREATE_NODE_V2 header in wal_buffer".to_string(),
+                        ));
+                    }
+                    let start = offset - 1;
+                    let node_id_end = offset + 8;
+                    if bytes.len() < node_id_end + 4 {
+                        return Err(DbError::Corrupt(
+                            "truncated CREATE_NODE_V2 labels_len in wal_buffer".to_string(),
+                        ));
+                    }
+                    let mut labels_len_bytes = [0u8; 4];
+                    labels_len_bytes.copy_from_slice(&bytes[node_id_end..node_id_end + 4]);
+                    let labels_len = u32::from_le_bytes(labels_len_bytes) as usize;
+                    let props_len_off = node_id_end + 4 + labels_len;
+                    if bytes.len() < props_len_off + 4 {
+                        return Err(DbError::Corrupt(
+                            "truncated CREATE_NODE_V2 props_len in wal_buffer".to_string(),
+                        ));
+                    }
+                    let mut props_len_bytes = [0u8; 4];
+                    props_len_bytes.copy_from_slice(&bytes[props_len_off..props_len_off + 4]);
+                    let props_len = u32::from_le_bytes(props_len_bytes) as usize;
+                    let end = props_len_off + 4 + props_len;
+                    if bytes.len() < end {
+                        return Err(DbError::Corrupt(
+                            "truncated CREATE_NODE_V2 payload in wal_buffer".to_string(),
+                        ));
+                    }
+                    out.extend_from_slice(&bytes[start..end]);
+                    offset = end;
+                }
+                WAL_RECORD_ADD_EDGE => {
+                    if bytes.len() - offset < 24 {
+                        return Err(DbError::Corrupt(
+                            "truncated ADD_EDGE in wal_buffer during v2 upgrade".to_string(),
+                        ));
+                    }
+                    out.push(WAL_RECORD_ADD_EDGE);
+                    out.extend_from_slice(&bytes[offset..offset + 24]);
+                    offset += 24;
+                }
+                other => {
+                    return Err(DbError::Corrupt(format!(
+                        "unexpected wal_buffer record tag during v2 upgrade: {other}"
+                    )));
+                }
+            }
+        }
+        Ok(out)
+    }
+
     fn append_wal_create_node(&mut self, node_id: u64) -> Result<(), DbError> {
         #[cfg(feature = "tracing")]
         let span = tracing::info_span!(
@@ -21901,6 +22076,66 @@ impl Database {
                     offset += 8;
                     self.replay_wal_create_node(u64::from_le_bytes(node_id))?;
                 }
+                WAL_RECORD_CREATE_NODE_V2 => {
+                    // Audit finding 2.1: v2 carries labels + property map in
+                    // addition to node_id so a sidecar-loss power failure
+                    // still recovers labels/props from the WAL.
+                    if bytes.len() - offset < 8 {
+                        break;
+                    }
+                    let mut node_id_bytes = [0u8; 8];
+                    node_id_bytes.copy_from_slice(&bytes[offset..offset + 8]);
+                    offset += 8;
+                    if bytes.len() - offset < 4 {
+                        break;
+                    }
+                    let mut labels_len_bytes = [0u8; 4];
+                    labels_len_bytes.copy_from_slice(&bytes[offset..offset + 4]);
+                    offset += 4;
+                    let labels_len = u32::from_le_bytes(labels_len_bytes) as usize;
+                    if bytes.len() - offset < labels_len {
+                        break;
+                    }
+                    let labels: Vec<String> = if labels_len == 0 {
+                        Vec::new()
+                    } else {
+                        serde_json::from_slice(&bytes[offset..offset + labels_len]).map_err(
+                            |e| {
+                                DbError::Corrupt(format!(
+                                    "wal v2 create_node: labels json decode failed: {e}"
+                                ))
+                            },
+                        )?
+                    };
+                    offset += labels_len;
+                    if bytes.len() - offset < 4 {
+                        break;
+                    }
+                    let mut props_len_bytes = [0u8; 4];
+                    props_len_bytes.copy_from_slice(&bytes[offset..offset + 4]);
+                    offset += 4;
+                    let props_len = u32::from_le_bytes(props_len_bytes) as usize;
+                    if bytes.len() - offset < props_len {
+                        break;
+                    }
+                    let properties: PropertyMap = if props_len == 0 {
+                        PropertyMap::new()
+                    } else {
+                        serde_json::from_slice(&bytes[offset..offset + props_len]).map_err(
+                            |e| {
+                                DbError::Corrupt(format!(
+                                    "wal v2 create_node: props json decode failed: {e}"
+                                ))
+                            },
+                        )?
+                    };
+                    offset += props_len;
+                    self.replay_wal_create_node_v2(
+                        u64::from_le_bytes(node_id_bytes),
+                        labels,
+                        properties,
+                    )?;
+                }
                 WAL_RECORD_ADD_EDGE => {
                     if bytes.len() - offset < 24 {
                         break;
@@ -21931,16 +22166,81 @@ impl Database {
     }
 
     fn replay_wal_create_node(&mut self, node_id: u64) -> Result<(), DbError> {
+        // Audit finding 2.2 — replay idempotency under interrupted recovery.
+        //
+        // The canonical case is `self.header.next_node_id == node_id`: apply
+        // the record normally. When `next_node_id > node_id`, the node has
+        // already been materialized on a prior (completed or interrupted)
+        // replay — skip idempotently.
+        //
+        // A `next_node_id < node_id` gap can appear if recovery itself
+        // crashed in the small window between `apply_create_node_with_id`
+        // advancing the in-memory header and `sync_header_now` persisting
+        // it, specifically if the next call then re-opened with a partially
+        // synced intermediate state. Rather than aborting with a hard
+        // `Corrupt` error (which makes the DB un-openable until manual
+        // WAL surgery), pad the gap by applying empty-label / empty-property
+        // records for the missing ids. The WAL records that carry the real
+        // labels+props for those ids (WAL v2, see finding 2.1) will replay
+        // after and overwrite the padded placeholders.
         if self.header.next_node_id > node_id {
             return Ok(());
         }
-        if self.header.next_node_id < node_id {
-            return Err(DbError::Corrupt(format!(
-                "wal node id gap: expected={}, got={node_id}",
-                self.header.next_node_id
-            )));
+        while self.header.next_node_id < node_id {
+            let pad_id = self.header.next_node_id;
+            self.apply_create_node_with_id(pad_id)?;
         }
         self.apply_create_node_with_id(node_id)
+    }
+
+    /// Audit finding 2.1: replay a WAL v2 CREATE_NODE that carries labels +
+    /// properties. Creates the node shell via `replay_wal_create_node` (which
+    /// is idempotent under finding 2.2's gap-tolerance fix), then populates
+    /// labels and properties.
+    ///
+    /// Sidecar-preference rule: if the meta sidecar (already loaded before
+    /// replay) has non-empty labels or properties for this node, those are
+    /// authoritative — they reflect any post-create updates that happened in
+    /// subsequent transactions that are not individually WAL-logged. The v2
+    /// payload only fills empty slots. This way:
+    ///
+    /// - Graceful close: sidecar current → v2 replay is a no-op beyond the
+    ///   node shell, same end-state as before v2.
+    /// - Power loss (sidecar empty / stale-but-parseable with empty slots):
+    ///   v2 fills the labels/props, closing the durability gap.
+    fn replay_wal_create_node_v2(
+        &mut self,
+        node_id: u64,
+        labels: Vec<String>,
+        properties: PropertyMap,
+    ) -> Result<(), DbError> {
+        self.replay_wal_create_node(node_id)?;
+        self.ensure_meta_lengths();
+        let idx = node_id as usize;
+
+        let sidecar_has_labels = self
+            .meta
+            .node_labels
+            .get(idx)
+            .map(|set| !set.is_empty())
+            .unwrap_or(false);
+        if !sidecar_has_labels && !labels.is_empty() {
+            let label_set: BTreeSet<String> = labels.into_iter().collect();
+            self.replace_node_labels(node_id, label_set)?;
+        }
+
+        let sidecar_has_props = self
+            .node_properties(node_id)
+            .map(|p| !p.is_empty())
+            .unwrap_or(false);
+        if !sidecar_has_props && !properties.is_empty() {
+            for key in properties.keys() {
+                self.meta.property_key_registry.insert(key.clone());
+            }
+            self.node_property_store.write_properties(idx, &properties)?;
+        }
+
+        Ok(())
     }
 
     fn replay_wal_add_edge(&mut self, edge_id: u64, src: u64, dst: u64) -> Result<(), DbError> {
@@ -23907,16 +24207,30 @@ mod tests {
     }
 
     #[test]
-    fn open_rejects_wal_node_gap() {
+    fn open_tolerates_wal_node_gap_by_padding() {
+        // Audit finding 2.2: a WAL node-id gap (previously a hard
+        // `Corrupt("wal node id gap …")` error) now pads the gap with
+        // empty-label placeholder nodes, making interrupted-recovery
+        // scenarios recoverable rather than leaving the DB unopenable.
         let path = temp_db_path("wal-node-gap");
         let mut db = Database::init(&path, Header::default_v1()).expect("init must succeed");
         db.append_wal_create_node(2)
             .expect("append out-of-order node id");
         drop(db);
 
-        let err = Database::open(&path).expect_err("wal node gap must fail");
-        assert!(matches!(err, DbError::Corrupt(_)));
-        assert!(err.to_string().contains("wal node id gap"));
+        let db = Database::open(&path)
+            .expect("gap-tolerant replay must now succeed (see audit finding 2.2)");
+        assert_eq!(
+            db.node_count(),
+            3,
+            "gap is padded with empty placeholder nodes 0 and 1, then node 2 is applied"
+        );
+        for id in 0..3u64 {
+            assert!(
+                db.node_labels(id).expect("node_labels").is_empty(),
+                "v1 WAL gap-fill produces empty labels for node {id}"
+            );
+        }
 
         fs::remove_file(&path).expect("cleanup db");
         fs::remove_file(wal_path_for_db(&path)).expect("cleanup wal");
@@ -28559,19 +28873,107 @@ mod tests {
     #[test]
     fn active_snapshot_registry_tracks_counts_and_ignores_unknown_unregistration() {
         let registry = ActiveSnapshotRegistry::default();
-        assert_eq!(registry.min_active_snapshot_txn_id(), None);
+        assert_eq!(
+            registry.min_active_snapshot_txn_id().expect("lock healthy"),
+            None
+        );
 
-        registry.unregister(99);
-        assert_eq!(registry.min_active_snapshot_txn_id(), None);
+        registry.unregister(99).expect("unregister unknown");
+        assert_eq!(
+            registry.min_active_snapshot_txn_id().expect("lock healthy"),
+            None
+        );
 
         registry.register(7).expect("register snapshot");
         registry.register(7).expect("register duplicate snapshot");
-        assert_eq!(registry.min_active_snapshot_txn_id(), Some(7));
+        assert_eq!(
+            registry.min_active_snapshot_txn_id().expect("lock healthy"),
+            Some(7)
+        );
 
-        registry.unregister(7);
-        assert_eq!(registry.min_active_snapshot_txn_id(), Some(7));
-        registry.unregister(7);
-        assert_eq!(registry.min_active_snapshot_txn_id(), None);
+        registry.unregister(7).expect("unregister once");
+        assert_eq!(
+            registry.min_active_snapshot_txn_id().expect("lock healthy"),
+            Some(7)
+        );
+        registry.unregister(7).expect("unregister again");
+        assert_eq!(
+            registry.min_active_snapshot_txn_id().expect("lock healthy"),
+            None
+        );
+    }
+
+    /// Regression test for audit finding 1.1: a poisoned registry lock must
+    /// surface as `DbError::Corrupt` from the sibling APIs, not as a panic.
+    /// `ReadSnapshot::drop` swallows the error instead of panicking — that path
+    /// is exercised indirectly by verifying `unregister` returns `Err` without
+    /// panicking when the lock is poisoned.
+    #[test]
+    fn active_snapshot_registry_apis_return_err_on_poisoned_lock() {
+        use std::sync::Arc;
+
+        let registry = Arc::new(ActiveSnapshotRegistry::default());
+        registry.register(42).expect("register snapshot");
+
+        // Poison the lock by panicking in another thread while holding it.
+        let registry_clone = Arc::clone(&registry);
+        let _ = std::thread::spawn(move || {
+            let _guard = registry_clone.by_txn_id.lock().expect("take lock");
+            panic!("deliberate panic to poison the mutex");
+        })
+        .join();
+
+        // All public APIs must now return Err, not panic.
+        assert!(
+            matches!(registry.register(1), Err(DbError::Corrupt(_))),
+            "register on poisoned lock should return Corrupt"
+        );
+        assert!(
+            matches!(registry.unregister(42), Err(DbError::Corrupt(_))),
+            "unregister on poisoned lock should return Corrupt"
+        );
+        assert!(
+            matches!(
+                registry.min_active_snapshot_txn_id(),
+                Err(DbError::Corrupt(_))
+            ),
+            "min_active_snapshot_txn_id on poisoned lock should return Corrupt"
+        );
+    }
+
+    /// Regression test for audit finding 1.2: `Database::lock_buffer_pool` and
+    /// `Database::lock_free_list` return `Result<_, DbError>` — they must
+    /// actually return `Err(DbError::Corrupt(_))` on a poisoned lock rather
+    /// than `.expect()`-panicking (the signature promises Err, not panic).
+    #[test]
+    fn database_lock_buffer_pool_and_free_list_return_err_on_poisoned_lock() {
+        let path = temp_db_path("database-lock-poison");
+        let db = Database::init(&path, Header::default_v1()).expect("init db");
+
+        // Poison the buffer_pool mutex by panicking while holding its guard.
+        // `catch_unwind` contains the panic but the Mutex still ends up poisoned.
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = db.buffer_pool.lock().expect("take buffer_pool lock");
+            panic!("deliberate panic to poison buffer_pool");
+        }));
+
+        assert!(
+            matches!(db.lock_buffer_pool(), Err(DbError::Corrupt(_))),
+            "Database::lock_buffer_pool on poisoned lock must return Corrupt, not panic"
+        );
+
+        // Poison free_list independently.
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = db.free_list.lock().expect("take free_list lock");
+            panic!("deliberate panic to poison free_list");
+        }));
+
+        assert!(
+            matches!(db.lock_free_list(), Err(DbError::Corrupt(_))),
+            "Database::lock_free_list on poisoned lock must return Corrupt, not panic"
+        );
+
+        cleanup_db_artifacts(&path);
     }
 
     #[test]
