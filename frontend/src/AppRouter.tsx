@@ -4,6 +4,7 @@ import App from './App'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const PlaygroundPage = lazy(() => import('./pages/PlaygroundPage'))
+const ClaimsPage = lazy(() => import('./pages/ClaimsPage'))
 
 export function AppRouter() {
   return (
@@ -17,6 +18,7 @@ export function AppRouter() {
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/playground" element={<PlaygroundPage />} />
+        <Route path="/claims" element={<ClaimsPage />} />
         <Route path="/app" element={<App />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

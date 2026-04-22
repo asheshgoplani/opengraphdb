@@ -1,0 +1,55 @@
+{
+  "sha": "19ce0f8",
+  "date": "2026-04-22T08:14:24Z",
+  "entries": [
+    {
+      "id": "playground-schema-browser-e2e",
+      "claim": "Playwright e2e \u2014 SchemaBrowser tree renders labels + edges + properties; RDFDropzone accepts ttl drop; ontology mode toggles size boost on owl:Class nodes.",
+      "status": "green",
+      "last_run": "2026-04-22T08:14:24Z",
+      "evidence": "e2e/schema-browser"
+    },
+    {
+      "id": "playground-polish-cohesion-e2e",
+      "claim": "Playwright e2e \u2014 panel mounts use shared framer-motion preset; all panels have designed empty/loading/error states; Fraunces+Inter typography cohesion; mobile responsive.",
+      "status": "green",
+      "last_run": "2026-04-22T08:14:24Z",
+      "evidence": "e2e/polish-cohesion"
+    },
+    {
+      "id": "claims-power-tab-real-cypher-e2e",
+      "claim": "Playwright e2e against real ogdb serve \u2014 Power mode executes MATCH (n) RETURN n LIMIT 10 through /api/query; QueryResultTable renders rows returned by the Rust engine; malformed Cypher surfaces a visible error. Guards against the Power-tab claim drifting back into client-side-only rendering.",
+      "status": "green",
+      "last_run": "2026-04-22T08:14:24Z",
+      "evidence": "e2e/claims/power-tab-real-cypher"
+    },
+    {
+      "id": "claims-schema-tab-real-backend-e2e",
+      "claim": "Playwright e2e against real ogdb serve \u2014 BackendSchemaStrip fires GET /api/schema on mount and renders labels+edge_types+property_keys counts that match the backend response; stubbed 500 surfaces a visible error state. Guards against silent fallback / client-side-only schema reporting.",
+      "status": "green",
+      "last_run": "2026-04-22T08:14:24Z",
+      "evidence": "e2e/claims/schema-tab-real-backend"
+    },
+    {
+      "id": "cosmos-canvas-renders-e2e",
+      "claim": "Playwright pixel-asserting e2e \u2014 /playground graph canvas paints non-background pixels in its center region within 3 seconds of load. Guards against the fitView/setPointPositions race that left the canvas black for 14+ seconds.",
+      "status": "green",
+      "last_run": "2026-04-22T08:14:24Z",
+      "evidence": "e2e/playground-canvas-renders"
+    },
+    {
+      "id": "rdf-import-real-e2e",
+      "claim": "Playwright e2e \u2014 drag a .ttl onto RDFDropzone, POST hits ogdb serve /rdf/import, returned db_path is readable + totals match. Guards against the silent in-browser-only parse regression.",
+      "status": "green",
+      "last_run": "2026-04-22T08:14:24Z",
+      "evidence": "e2e/rdf-import-real"
+    },
+    {
+      "id": "premium-graph-quality-e2e",
+      "claim": "Playwright pixel-asserting e2e \u2014 four strict premium-ness gates on /playground?dataset=community: visible edges, visible labels, center+corner density spread, multi-bucket color variety. Guards against slice-9-style monochrome clumped canvases.",
+      "status": "green",
+      "last_run": "2026-04-22T08:14:24Z",
+      "evidence": "e2e/premium-graph-quality"
+    }
+  ]
+}

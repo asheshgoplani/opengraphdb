@@ -2,6 +2,7 @@ import { ArrowRight } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { AppBackdrop } from '@/components/layout/AppBackdrop'
 import { Button } from '@/components/ui/button'
+import { ClaimsBadge } from './ClaimsBadge'
 import { HeroGraphBackground } from './HeroGraphBackground'
 import { useSectionInView } from './useSectionInView'
 
@@ -57,14 +58,17 @@ export function HeroSection() {
         data-testid="hero-content"
         className="relative z-20 mx-auto flex min-h-[88vh] max-w-6xl flex-col items-center justify-center px-6 py-28 text-center sm:py-36"
       >
-        <p
-          className={`mb-8 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1 text-xs uppercase tracking-[0.18em] text-white/70 backdrop-blur ${
+        <div
+          className={`mb-8 flex flex-wrap items-center justify-center gap-2 ${
             isInView ? 'animate-reveal-up' : 'opacity-0'
           }`}
         >
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px] shadow-emerald-400" />
-          v0.1 · open source · Apache-2.0 · single-file
-        </p>
+          <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3.5 py-1 text-xs uppercase tracking-[0.18em] text-white/70 backdrop-blur">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px] shadow-emerald-400" />
+            v0.1 · open source · Apache-2.0 · single-file
+          </p>
+          <ClaimsBadge />
+        </div>
 
         <h1
           id="hero-heading"
