@@ -83,8 +83,8 @@ export const DATASETS: Record<DatasetKey, DatasetEntry> = {
     queries: MOVIELENS_QUERIES,
     meta: buildDatasetMeta(
       'movielens',
-      'MovieLens 25M',
-      'Industry-standard movie recommendation dataset with 8,000 movies and genre classifications from GroupLens Research',
+      'MovieLens (sample)',
+      `In-browser sample: ${MOVIELENS_SAMPLE.nodes.length} nodes / ${MOVIELENS_SAMPLE.links.length} edges (Movie + Genre) — tiny slice of GroupLens MovieLens 25M. Full dataset is in datasets/movielens.json; import via the ogdb CLI, not the browser.`,
       MOVIELENS_SAMPLE
     ),
   },
@@ -93,8 +93,8 @@ export const DATASETS: Record<DatasetKey, DatasetEntry> = {
     queries: AIR_ROUTES_QUERIES,
     meta: buildDatasetMeta(
       'airroutes',
-      'Air Routes Network',
-      'Global airport network with 3,500 airports and 50,000 routes from Kelvin Lawrence\'s Practical Gremlin dataset',
+      'Air Routes (sample)',
+      `In-browser sample: ${AIR_ROUTES_SAMPLE.nodes.length} nodes / ${AIR_ROUTES_SAMPLE.links.length} edges (Airport + Country + Continent) — subset of Kelvin Lawrence's Practical Gremlin Air Routes dataset (full: ~3,500 airports / ~50,000 routes, not loaded in-browser).`,
       AIR_ROUTES_SAMPLE,
       true
     ),
@@ -104,8 +104,8 @@ export const DATASETS: Record<DatasetKey, DatasetEntry> = {
     queries: GOT_QUERIES,
     meta: buildDatasetMeta(
       'got',
-      'Game of Thrones',
-      'Character interaction network across 8 seasons with weighted relationships from Andrew Beveridge\'s research',
+      'Game of Thrones (sample)',
+      `In-browser sample: ${GOT_SAMPLE.nodes.length} nodes / ${GOT_SAMPLE.links.length} edges — character-interaction subgraph across 8 seasons from Andrew Beveridge's research.`,
       GOT_SAMPLE
     ),
   },
@@ -114,8 +114,8 @@ export const DATASETS: Record<DatasetKey, DatasetEntry> = {
     queries: WIKIDATA_QUERIES,
     meta: buildDatasetMeta(
       'wikidata',
-      'Nobel Prize Knowledge Graph',
-      'Nobel Prize laureates connected to countries, institutions, and prize categories from the Nobel Prize Foundation API',
+      'Nobel Prize (sample)',
+      `In-browser sample: ${WIKIDATA_SAMPLE.nodes.length} nodes / ${WIKIDATA_SAMPLE.links.length} edges — Nobel laureates linked to countries, institutions, and prize categories from the Nobel Prize API.`,
       WIKIDATA_SAMPLE
     ),
   },
@@ -124,8 +124,8 @@ export const DATASETS: Record<DatasetKey, DatasetEntry> = {
     queries: COMMUNITY_QUERIES,
     meta: buildDatasetMeta(
       'community',
-      'Community Graph',
-      'Synthetic 8-cluster × 30-node network showing the canvas at real density with eight distinct labels and varied edge types.',
+      'Community Graph (synthetic)',
+      `Synthetic canvas-density demo: ${COMMUNITY_SAMPLE.nodes.length} nodes / ${COMMUNITY_SAMPLE.links.length} edges across 8 clusters with 8 distinct labels and varied edge types. No backend equivalent.`,
       COMMUNITY_SAMPLE
     ),
   },

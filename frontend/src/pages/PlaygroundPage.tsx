@@ -90,11 +90,17 @@ export default function PlaygroundPage() {
   })
 
   const queries = useMemo(() => getDatasetQueries(activeDataset), [activeDataset])
-  const queriesByCategory = useMemo(() => groupQueriesByCategory(queries), [queries])
+  const visibleQueries = useMemo(
+    () => (isLiveMode ? queries.filter((query) => query.liveDescriptor) : queries),
+    [queries, isLiveMode],
+  )
+  const queriesByCategory = useMemo(() => groupQueriesByCategory(visibleQueries), [visibleQueries])
 
   const handleDatasetSwitch = (key: DatasetKey) => {
     setActiveDataset(key)
-    setActiveQueryKey('all')
+    const nextQueries = getDatasetQueries(key)
+    const nextKey = isLiveMode ? nextQueries.find((query) => query.liveDescriptor)?.key ?? 'all' : 'all'
+    setActiveQueryKey(nextKey)
     setLiveError(null)
     setIsLiveLoading(false)
     const start = performance.now()
@@ -107,11 +113,17 @@ export default function PlaygroundPage() {
     setIsLiveMode(nextLiveMode)
     setLiveError(null)
 
-    if (!nextLiveMode) {
-      const start = performance.now()
-      setGraphData(runDatasetQuery(activeDataset, activeQueryKey))
-      setQueryTimeMs(Math.max(0.05, +(performance.now() - start).toFixed(2)))
+    if (nextLiveMode) {
+      const liveQuery = queries.find((query) => query.liveDescriptor)
+      if (liveQuery && !queries.find((q) => q.key === activeQueryKey)?.liveDescriptor) {
+        setActiveQueryKey(liveQuery.key)
+      }
+      return
     }
+
+    const start = performance.now()
+    setGraphData(runDatasetQuery(activeDataset, activeQueryKey))
+    setQueryTimeMs(Math.max(0.05, +(performance.now() - start).toFixed(2)))
   }
 
   const handleQueryRun = async (queryKey: string) => {
@@ -225,35 +237,41 @@ export default function PlaygroundPage() {
               Guided Queries
             </p>
             <div className="space-y-3">
-              {QUERY_CATEGORIES.map((category) => {
-                const categoryQueries = queriesByCategory[category]
-                if (categoryQueries.length === 0) {
-                  return null
-                }
+              {visibleQueries.length === 0 ? (
+                <p className="rounded-md border border-dashed border-white/15 px-3 py-2 text-[11px] leading-snug text-white/55">
+                  No Cypher-backed queries for this dataset in Live mode. Switch to a dataset with backend queries, or turn Live mode off to use the static sample.
+                </p>
+              ) : (
+                QUERY_CATEGORIES.map((category) => {
+                  const categoryQueries = queriesByCategory[category]
+                  if (categoryQueries.length === 0) {
+                    return null
+                  }
 
-                return (
-                  <div key={category}>
-                    <p className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground first:mt-0">
-                      {category}
-                    </p>
-                    <div className="space-y-1.5">
-                      {categoryQueries.map((query) => (
-                        <QueryCard
-                          key={query.key}
-                          query={query}
-                          isActive={activeQueryKey === query.key}
-                          resultCount={
-                            activeQueryKey === query.key ? graphData.nodes.length : query.expectedResultCount
-                          }
-                          onClick={() => {
-                            void handleQueryRun(query.key)
-                          }}
-                        />
-                      ))}
+                  return (
+                    <div key={category}>
+                      <p className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground first:mt-0">
+                        {category}
+                      </p>
+                      <div className="space-y-1.5">
+                        {categoryQueries.map((query) => (
+                          <QueryCard
+                            key={query.key}
+                            query={query}
+                            isActive={activeQueryKey === query.key}
+                            resultCount={
+                              activeQueryKey === query.key ? graphData.nodes.length : query.expectedResultCount
+                            }
+                            onClick={() => {
+                              void handleQueryRun(query.key)
+                            }}
+                          />
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
+                  )
+                })
+              )}
             </div>
           </div>
           <StatsPanel
