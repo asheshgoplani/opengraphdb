@@ -8,6 +8,17 @@ vi.mock('react-force-graph-2d', () => ({
   default: () => React.createElement('div', { 'data-testid': 'force-graph' }),
 }))
 
+// @neo4j-cypher/react-codemirror ships an ESM entry with extensionless imports
+// (dist/src/index.js → './CypherEditor'), which Vite/browser bundlers resolve
+// but Node/vitest do not. The editor is not the subject of these layout tests,
+// so mock it with a stub that preserves the component contract.
+vi.mock('@neo4j-cypher/react-codemirror', () => ({
+  CypherEditor: () => React.createElement('div', { 'data-testid': 'cypher-editor-stub' }),
+  cypher: () => ({}),
+  darkThemeConstants: {},
+  lightThemeConstants: {},
+}))
+
 import { DatasetSwitcher } from '../src/components/playground/DatasetSwitcher'
 import { QueryCard } from '../src/components/playground/QueryCard'
 import { ConnectionBadge } from '../src/components/playground/ConnectionBadge'
@@ -56,14 +67,14 @@ describe('playground polish redesign', () => {
   })
 
   it('renders query card with description, cypher, result count, and active styles', () => {
-    const query = getDatasetQueries('social')[1]
+    const query = getDatasetQueries('movielens')[1]
     const html = renderToStaticMarkup(
       <QueryCard query={query} isActive={true} resultCount={query.expectedResultCount} onClick={() => {}} />
     )
 
     expect(html).toContain(query.label)
     expect(html).toContain(query.description)
-    expect(html).toContain('MATCH (a:User)-[:FOLLOWS]')
+    expect(html).toContain('MATCH (m:Movie)')
     expect(html).toContain(`${query.expectedResultCount} results`)
     expect(html).toContain('border-primary')
   })
@@ -99,7 +110,7 @@ describe('playground polish redesign', () => {
   })
 
   it('groups uncategorized queries under Explore for sidebar rendering', () => {
-    const query = getDatasetQueries('movies')[0]
+    const query = getDatasetQueries('movielens')[0]
     const grouped = groupQueriesByCategory([
       { ...query, key: 'uncategorized', category: undefined },
       { ...query, key: 'analyze', category: 'Analyze' },
@@ -121,8 +132,8 @@ describe('playground polish redesign', () => {
   })
 
   it('uses dataset search params for initial playground dataset and renders split-pane controls', () => {
-    const socialAll = runDatasetQuery('social', 'all')
-    const html = renderPlayground('/playground?dataset=social')
+    const movielensAll = runDatasetQuery('movielens', 'all')
+    const html = renderPlayground('/playground?dataset=movielens')
 
     expect(html).toContain('Playground')
     expect(html).toContain('Guided Queries')
@@ -131,10 +142,15 @@ describe('playground polish redesign', () => {
     expect(html).toContain('Sample Data')
     expect(html).toContain('Explore')
     expect(html).toContain('Traverse')
-    expect(html).toContain('Social Network')
-    expect(html).toContain(`${socialAll.nodes.length}`)
-    expect(html).toContain(`${socialAll.links.length}`)
+    expect(html).toContain('MovieLens')
+    expect(html).toContain(`${movielensAll.nodes.length}`)
+    expect(html).toContain(`${movielensAll.links.length}`)
     expect(html).toContain('w-[320px]')
-    expect(html).toContain('data-testid="force-graph"')
+    // Playground migrated from react-force-graph-2d to @cosmos.gl/graph. The
+    // graph canvas no longer carries a data-testid, so pin the status-bar
+    // footer and its node-count cell — both are rendered once CosmosCanvas
+    // mounts with a populated graph.
+    expect(html).toContain('data-testid="status-bar"')
+    expect(html).toContain('data-testid="footer-node-count"')
   })
 })

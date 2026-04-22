@@ -65,8 +65,8 @@ test.describe('F6 · schema tab renders GET /schema from real ogdb serve', () =>
     expect(schema.labels, 'real backend must surface "Person" label after TTL seed').toContain(
       'Person',
     )
-    expect(schema.edge_types, 'real backend must surface "knows" edge type after TTL seed').toContain(
-      'knows',
+    expect(schema.edge_types, 'real backend must surface "KNOWS" edge type after TTL seed').toContain(
+      'KNOWS',
     )
 
     // Capture outbound GET /api/schema so we can assert the UI really fetched it.
@@ -126,8 +126,8 @@ test.describe('F6 · schema tab renders GET /schema from real ogdb serve', () =>
     ).toContainText('Person')
     await expect(
       edgesStat,
-      'human-readable edge list must include "knows" as sampled from the real backend',
-    ).toContainText('knows')
+      'human-readable edge list must include "KNOWS" as sampled from the real backend',
+    ).toContainText('KNOWS')
     await expect(
       propsStat,
       'property_keys sample must include "name" (TTL seed wrote foaf:name)',
