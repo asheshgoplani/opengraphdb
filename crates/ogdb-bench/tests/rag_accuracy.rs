@@ -96,7 +96,7 @@ fn score_retrieval(
         let is_relevant = relevant_sections.iter().any(|section| {
             let section_hint = section
                 .split('#')
-                .last()
+                .next_back()
                 .unwrap_or(section)
                 .replace('-', " ")
                 .to_lowercase();
