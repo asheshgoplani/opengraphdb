@@ -1,10 +1,10 @@
 import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
-import App from './App'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const PlaygroundPage = lazy(() => import('./pages/PlaygroundPage'))
 const ClaimsPage = lazy(() => import('./pages/ClaimsPage'))
+const App = lazy(() => import('./App'))
 
 export function AppRouter() {
   return (

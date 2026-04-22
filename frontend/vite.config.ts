@@ -24,6 +24,9 @@ export default defineConfig({
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'graph-vendor': ['react-force-graph-2d'],
+          'cosmos-vendor': ['@cosmos.gl/graph'],
+          'codemirror-vendor': ['@neo4j-cypher/react-codemirror'],
+          'motion-vendor': ['framer-motion'],
           'tanstack-vendor': ['@tanstack/react-query', '@tanstack/react-table'],
           'state-vendor': ['zustand'],
         },
