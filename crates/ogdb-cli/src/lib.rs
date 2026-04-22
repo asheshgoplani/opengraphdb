@@ -3835,22 +3835,42 @@ fn read_http_request(stream: &mut TcpStream) -> Result<Option<HttpRequestMessage
     }))
 }
 
+// CORS headers emitted on every HTTP response. The backend is designed to be
+// reachable from browser playgrounds and notebooks served from arbitrary origins
+// (file://, localhost dev servers, static-site hosts), so we default to an open
+// allow-list. A future `--cors` flag can narrow this to a specific origin.
+const HTTP_CORS_HEADERS: &str = "Access-Control-Allow-Origin: *\r\n\
+     Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
+     Access-Control-Allow-Headers: Content-Type, Authorization\r\n";
+
 fn write_http_response(
     stream: &mut TcpStream,
     response: HttpResponseMessage,
 ) -> Result<(), CliError> {
     let header = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n{}\r\n",
         response.status,
         response.reason,
         response.content_type,
-        response.body.len()
+        response.body.len(),
+        HTTP_CORS_HEADERS,
     );
     let mut encoded = header.into_bytes();
     encoded.extend_from_slice(&response.body);
     io_runtime(stream.write_all(&encoded), "failed to write http response")?;
     io_runtime(stream.flush(), "failed to flush http response")?;
     Ok(())
+}
+
+fn http_preflight_response() -> HttpResponseMessage {
+    // Preflight body is empty; Content-Type is inert but emitted for uniformity
+    // with the rest of the response pipeline (avoids a special-case header writer).
+    HttpResponseMessage {
+        status: 204,
+        reason: "No Content",
+        content_type: "text/plain".to_string(),
+        body: Vec::new(),
+    }
 }
 
 fn parse_http_json_import_records(body: &[u8]) -> Result<Vec<ImportRecord>, CliError> {
@@ -4430,6 +4450,11 @@ fn dispatch_http_request(
                 Err(e) => Ok(http_error(400, "Bad Request", e.to_string())),
             }
         }
+        ("OPTIONS", _) => {
+            // CORS preflight — applies to every path, including unknown ones.
+            // Browsers require 2xx here before they will issue the actual request.
+            Ok(http_preflight_response())
+        }
         ("GET", _) | ("POST", _) => Ok(http_error(
             404,
             "Not Found",
@@ -4474,8 +4499,12 @@ fn handle_trace_sse(
         "anonymous".to_string()
     };
 
-    // Write SSE response headers immediately
-    let header = "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n\r\n";
+    // Write SSE response headers immediately. CORS headers mirror write_http_response
+    // so playground Live Mode can consume the stream from a non-backend origin.
+    let header = format!(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n{}\r\n",
+        HTTP_CORS_HEADERS,
+    );
     io_runtime(stream.write_all(header.as_bytes()), "failed to write SSE header")?;
     io_runtime(stream.flush(), "failed to flush SSE header")?;
 

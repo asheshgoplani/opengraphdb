@@ -202,3 +202,12 @@ tests:
     command: "cd frontend && xvfb-run -a npx playwright test e2e/premium-graph-quality.spec.ts"
     purpose: "Playwright pixel-asserting e2e — four strict premium-ness gates on /playground?dataset=community: visible edges, visible labels, center+corner density spread, multi-bucket color variety. Guards against slice-9-style monochrome clumped canvases."
     added: 2026-04-21
+
+  - id: http-cors-backend
+    task: fix-cors-backend
+    crate: ogdb-cli
+    test: http_cors
+    function: [http_response_carries_cors_headers_for_cross_origin_get, http_options_preflight_returns_204_with_full_cors_headers]
+    command: "cargo test -p ogdb-cli --test http_cors"
+    purpose: "Guards CRITICAL FIX #1 from the 2026-04-22 playground correctness audit — ogdb serve --http must emit Access-Control-Allow-Origin/Methods/Headers on every response and return 204 + full preflight triplet on OPTIONS. Catches re-drift that would break Live Mode / Power Mode / BackendSchemaStrip with 'Failed to fetch' from non-same-origin playgrounds."
+    added: 2026-04-22
