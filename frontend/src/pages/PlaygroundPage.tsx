@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, ArrowLeft, Database, Network, Search, Wrench, Zap } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Database, Network } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiClient } from '@/api/client'
-import { transformLiveResponse, transformQueryResponse } from '@/api/transform'
+import { transformLiveResponse } from '@/api/transform'
 import { GraphCanvas } from '@/components/graph/GraphCanvas'
 import { ConnectionBadge } from '@/components/playground/ConnectionBadge'
 import { DatasetSwitcher } from '@/components/playground/DatasetSwitcher'
@@ -13,18 +13,15 @@ import { PerfStrip } from '@/components/playground/PerfStrip'
 import { PowerModeToggle } from '@/components/playground/PowerModeToggle'
 import { QueryCard } from '@/components/playground/QueryCard'
 import { StatsPanel } from '@/components/playground/StatsPanel'
-import { SemanticSearchPanel } from '@/components/playground/SemanticSearchPanel'
-import { MCPToolGallery } from '@/components/mcp/MCPToolGallery'
+import { BackendSchemaStrip } from '@/components/playground/BackendSchemaStrip'
 import { SchemaBrowser } from '@/components/playground/SchemaBrowser'
 import { RDFDropzone } from '@/components/playground/RDFDropzone'
-import { TimeSlider } from '@/components/playground/TimeSlider'
 import { CypherEditorPanel } from '@/components/query/CypherEditorPanel'
+import { QueryResultTable } from '@/components/query/QueryResultTable'
 import { StatusBar } from '@/components/layout/StatusBar'
 import { PANEL_MOTION, PANEL_TRANSITION } from '@/components/ui/motion'
 import { PanelState } from '@/components/ui/PanelState'
-import { applyTimeCutoff, getTemporalRange, isTemporalDataset } from '@/data/temporal'
 import { cn } from '@/lib/utils'
-import type { SearchHit } from '@/data/semanticSearch'
 import { Button } from '@/components/ui/button'
 import {
   DATASETS,
@@ -33,7 +30,6 @@ import {
   type DatasetKey,
   type GuidedQuery,
 } from '@/data/datasets'
-import { useGraphStore } from '@/stores/graph'
 import { useSettingsStore } from '@/stores/settings'
 import type { BackendQueryResponse } from '@/types/api'
 import type { GraphData } from '@/types/graph'
@@ -77,21 +73,10 @@ export default function PlaygroundPage() {
   const [isLiveMode, setIsLiveMode] = useState(false)
   const [liveError, setLiveError] = useState<string | null>(null)
   const [isLiveLoading, setIsLiveLoading] = useState(false)
-  const setTrace = useGraphStore((s) => s.setTrace)
-  const advanceTrace = useGraphStore((s) => s.advanceTrace)
-  const setSemanticHighlights = useGraphStore((s) => s.setSemanticHighlights)
-  const setSemanticHoverId = useGraphStore((s) => s.setSemanticHoverId)
-  const clearSemanticHighlights = useGraphStore((s) => s.clearSemanticHighlights)
-  const selectNode = useGraphStore((s) => s.selectNode)
-  const [isTraceMode, setIsTraceMode] = useState(false)
   const [isPowerMode, setIsPowerMode] = useState(false)
   const [powerError, setPowerError] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'graph' | 'semantic' | 'temporal' | 'schema' | 'mcp'>(
-    'graph',
-  )
-  const timeCutoff = useGraphStore((s) => s.timeCutoff)
-  const setTimeCutoff = useGraphStore((s) => s.setTimeCutoff)
-  const [searchHits, setSearchHits] = useState<SearchHit[]>([])
+  const [powerResponse, setPowerResponse] = useState<BackendQueryResponse | null>(null)
+  const [activeTab, setActiveTab] = useState<'graph' | 'schema'>('graph')
   const [schemaFilterLabel, setSchemaFilterLabel] = useState<string | null>(null)
   const [ontologyMode, setOntologyMode] = useState(false)
   const [importedGraph, setImportedGraph] = useState<{
@@ -112,7 +97,6 @@ export default function PlaygroundPage() {
     setActiveQueryKey('all')
     setLiveError(null)
     setIsLiveLoading(false)
-    setTimeCutoff(null)
     const start = performance.now()
     setGraphData(runDatasetQuery(key, 'all'))
     setQueryTimeMs(Math.max(0.05, +(performance.now() - start).toFixed(2)))
@@ -130,50 +114,6 @@ export default function PlaygroundPage() {
     }
   }
 
-  const handleTraceQuery = async (queryKey: string) => {
-    const query = queries.find((q) => q.key === queryKey)
-    if (!query || !query.liveDescriptor) return
-
-    setIsLiveLoading(true)
-    setLiveError(null)
-    const start = performance.now()
-
-    try {
-      const collectedSteps: Array<{ nodeId: string | number; stepIndex: number }> = []
-
-      const response = await apiClient.queryWithTrace(
-        query.cypher,
-        (step) => {
-          collectedSteps.push(step)
-          if (collectedSteps.length === 1) {
-            setTrace([], 1)
-          }
-          advanceTrace(step.nodeId, step.stepIndex)
-        }
-      )
-
-      const nextGraphData = transformLiveResponse(
-        response as unknown as BackendQueryResponse,
-        query.liveDescriptor
-      )
-      setGraphData(nextGraphData)
-      setQueryTimeMs(Math.max(0.05, +(performance.now() - start).toFixed(2)))
-
-      if (collectedSteps.length > 0) {
-        setTrace(collectedSteps.map(s => ({
-          nodeId: s.nodeId,
-          stepIndex: s.stepIndex,
-        })))
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Trace query failed'
-      setLiveError(message)
-      setQueryTimeMs(0)
-    } finally {
-      setIsLiveLoading(false)
-    }
-  }
-
   const handleQueryRun = async (queryKey: string) => {
     if (isLiveLoading) {
       return
@@ -186,11 +126,6 @@ export default function PlaygroundPage() {
 
     setActiveQueryKey(queryKey)
     setLiveError(null)
-
-    if (isLiveMode && isTraceMode && query.liveDescriptor) {
-      await handleTraceQuery(queryKey)
-      return
-    }
 
     if (isLiveMode && query.liveDescriptor) {
       setIsLiveLoading(true)
@@ -232,16 +167,7 @@ export default function PlaygroundPage() {
     return { nodes, links }
   }, [baseGraphData, schemaFilterLabel])
 
-  const temporalRange = useMemo(
-    () => (importedGraph ? null : getTemporalRange(activeDataset, baseGraphData)),
-    [activeDataset, baseGraphData, importedGraph],
-  )
-
-  const displayedGraphData = useMemo(() => {
-    return applyTimeCutoff(schemaFilteredGraphData, activeDataset, timeCutoff)
-  }, [schemaFilteredGraphData, activeDataset, timeCutoff])
-
-  const totalGraphNodeCount = baseGraphData.nodes.length
+  const displayedGraphData = schemaFilteredGraphData
 
   const labelCount = useMemo(() => {
     return new Set(displayedGraphData.nodes.flatMap((node) => node.labels)).size
@@ -250,31 +176,6 @@ export default function PlaygroundPage() {
   const isGeographic = Boolean(
     DATASETS[activeDataset]?.meta.isGeographic && !schemaFilterLabel && !importedGraph,
   )
-  const highlightedIds = useMemo(
-    () => new Set(searchHits.map((hit) => hit.item.id)),
-    [searchHits],
-  )
-  const isSemanticTabAvailable = activeDataset === 'movielens'
-  const isTemporalTabAvailable = isTemporalDataset(activeDataset) && !importedGraph
-
-  useEffect(() => {
-    if (activeTab === 'semantic' && !isSemanticTabAvailable) {
-      setActiveTab('graph')
-    }
-  }, [activeTab, isSemanticTabAvailable])
-
-  useEffect(() => {
-    if (activeTab === 'semantic') return
-    clearSemanticHighlights()
-    setSearchHits((prev) => (prev.length === 0 ? prev : []))
-  }, [activeTab, clearSemanticHighlights])
-
-  useEffect(() => {
-    // Clear cutoff when leaving temporal view so other tabs see the unfiltered graph.
-    if (activeTab !== 'temporal' && timeCutoff != null) {
-      setTimeCutoff(null)
-    }
-  }, [activeTab, timeCutoff, setTimeCutoff])
 
   const handlePowerQuery = async (cypher: string) => {
     if (!cypher.trim()) return
@@ -282,26 +183,17 @@ export default function PlaygroundPage() {
     setIsLiveLoading(true)
     const start = performance.now()
     try {
-      const response = await apiClient.query(cypher)
-      const nextGraphData = transformQueryResponse(response)
-      setGraphData(nextGraphData)
+      const response = (await apiClient.query(cypher)) as unknown as BackendQueryResponse
+      setPowerResponse(response)
       setQueryTimeMs(Math.max(0.05, +(performance.now() - start).toFixed(2)))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Power-mode query failed'
       setPowerError(message)
       setLiveError(message)
+      setPowerResponse(null)
     } finally {
       setIsLiveLoading(false)
     }
-  }
-
-  const handleSearchResults = (hits: SearchHit[]) => {
-    setSearchHits(hits)
-    setSemanticHighlights(hits.map((hit) => hit.item.id))
-  }
-
-  const handleFocusHit = (id: string | number) => {
-    selectNode(id)
   }
 
   return (
@@ -320,17 +212,6 @@ export default function PlaygroundPage() {
           <div className="flex items-center gap-2">
             <PowerModeToggle isActive={isPowerMode} onToggle={setIsPowerMode} />
             <LiveModeToggle isLive={isLiveMode} onChange={handleModeChange} disabled={isLiveLoading} />
-            {isLiveMode && (
-              <Button
-                variant={isTraceMode ? 'default' : 'outline'}
-                size="sm"
-                className={isTraceMode ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 hover:bg-cyan-500/30' : ''}
-                onClick={() => setIsTraceMode(!isTraceMode)}
-              >
-                <Zap className="h-3.5 w-3.5 mr-1" />
-                Trace
-              </Button>
-            )}
             <ConnectionBadge queryTimeMs={queryTimeMs} isLive={isLiveMode} liveError={liveError} />
           </div>
         </div>
@@ -439,7 +320,6 @@ export default function PlaygroundPage() {
             onSelectLabel={setSchemaFilterLabel}
             onToggleOntology={setOntologyMode}
           />
-          <MCPToolGallery />
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col overflow-y-auto md:overflow-hidden">
@@ -452,6 +332,7 @@ export default function PlaygroundPage() {
                 exit={PANEL_MOTION.exit}
                 transition={PANEL_TRANSITION}
                 className="border-b border-white/10"
+                data-testid="power-mode-panel"
               >
                 <CypherEditorPanel
                   onRunQuery={(cypher) => {
@@ -459,11 +340,11 @@ export default function PlaygroundPage() {
                   }}
                   isRunning={isLiveLoading}
                 />
-                {powerError && (
-                  <div className="border-t border-red-500/20 bg-red-500/5 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.14em] text-red-300/85">
-                    power mode error · {powerError}
-                  </div>
-                )}
+                <QueryResultTable
+                  response={powerResponse}
+                  error={powerError}
+                  isLoading={isLiveLoading && !powerResponse}
+                />
               </motion.div>
             )}
           </AnimatePresence>
@@ -481,74 +362,19 @@ export default function PlaygroundPage() {
               blurb="Cypher traversals · canvas"
             />
             <TabPill
-              active={activeTab === 'semantic'}
-              onClick={() => isSemanticTabAvailable && setActiveTab('semantic')}
-              disabled={!isSemanticTabAvailable}
-              icon={Search}
-              label="Semantic"
-              blurb={
-                isSemanticTabAvailable
-                  ? 'Vector · full-text · hybrid RRF'
-                  : 'MovieLens only in this demo'
-              }
-            />
-            <TabPill
-              active={activeTab === 'temporal'}
-              onClick={() => isTemporalTabAvailable && setActiveTab('temporal')}
-              disabled={!isTemporalTabAvailable}
-              icon={Zap}
-              label="Temporal"
-              blurb={
-                isTemporalTabAvailable
-                  ? 'Time travel · valid_from · compact'
-                  : 'MovieLens or GoT only'
-              }
-            />
-            <TabPill
               active={activeTab === 'schema'}
               onClick={() => setActiveTab('schema')}
               icon={Database}
               label="Schema"
-              blurb="Labels · edges · properties"
-            />
-            <TabPill
-              active={activeTab === 'mcp'}
-              onClick={() => setActiveTab('mcp')}
-              icon={Wrench}
-              label="MCP"
-              blurb="Agent tool surface"
+              blurb="GET /schema · real backend"
             />
           </div>
 
-          <AnimatePresence initial={false}>
-            {activeTab === 'temporal' && (
-              <motion.div
-                key="temporal-slider"
-                initial={PANEL_MOTION.initial}
-                animate={PANEL_MOTION.animate}
-                exit={PANEL_MOTION.exit}
-                transition={PANEL_TRANSITION}
-                className="border-b border-white/10 bg-muted/15 px-3 py-2"
-              >
-                <TimeSlider
-                  range={temporalRange}
-                  cutoff={timeCutoff}
-                  onCutoffChange={setTimeCutoff}
-                  onReset={() => setTimeCutoff(null)}
-                  graph={baseGraphData}
-                  isLive={isLiveMode}
-                  visibleNodeCount={displayedGraphData.nodes.length}
-                  totalNodeCount={totalGraphNodeCount}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-
           <main className="relative min-h-[55vh] flex-1 overflow-hidden md:min-h-0">
             <AnimatePresence mode="wait" initial={false}>
-              {activeTab === 'graph' || activeTab === 'temporal' ? (
+              {activeTab === 'graph' ? (
                 <motion.div
-                  key={`canvas-${activeTab}`}
+                  key="canvas-graph"
                   initial={PANEL_MOTION.initial}
                   animate={PANEL_MOTION.animate}
                   exit={PANEL_MOTION.exit}
@@ -561,7 +387,7 @@ export default function PlaygroundPage() {
                     ontologyMode={ontologyMode}
                   />
                 </motion.div>
-              ) : activeTab === 'schema' ? (
+              ) : (
                 <motion.div
                   key="schema-main"
                   initial={PANEL_MOTION.initial}
@@ -572,11 +398,6 @@ export default function PlaygroundPage() {
                   data-testid="schema-main-panel"
                   data-schema-mode="active"
                   style={{
-                    // Slice-14: schema-mode tint on the whole main panel so
-                    // screenshot diffs show a clear visual delta vs the
-                    // graph/mcp tabs (which share bg-background/60). A faint
-                    // mint wash + strong header bar mean the reviewer can
-                    // see "this is schema" from across the room.
                     background:
                       'linear-gradient(180deg, rgba(100,255,180,0.03) 0%, rgba(100,255,180,0.015) 100%), hsla(240, 10%, 8%, 0.6)',
                   }}
@@ -604,10 +425,11 @@ export default function PlaygroundPage() {
                     </p>
                   </div>
                   <div className="mx-auto max-w-3xl px-6 py-8">
+                    <BackendSchemaStrip />
                     <p className="mb-6 text-[12px] leading-relaxed text-white/55">
-                      Explore the dataset's labels, relationships, and property keys. Click a
-                      label to filter the graph canvas; flip on Ontology to render
-                      rdfs:Class hubs and property-as-edge layouts.
+                      Above: labels + edge types + property keys fetched live from
+                      <code className="mx-1 rounded bg-white/10 px-1 py-0.5 text-[11px]">GET /schema</code>.
+                      Below: schema derived from the currently-visible graph, with label-filter + ontology toggles.
                     </p>
                     <SchemaBrowser
                       graphData={baseGraphData}
@@ -615,55 +437,6 @@ export default function PlaygroundPage() {
                       ontologyMode={ontologyMode}
                       onSelectLabel={setSchemaFilterLabel}
                       onToggleOntology={setOntologyMode}
-                    />
-                  </div>
-                </motion.div>
-              ) : activeTab === 'mcp' ? (
-                <motion.div
-                  key="mcp-main"
-                  initial={PANEL_MOTION.initial}
-                  animate={PANEL_MOTION.animate}
-                  exit={PANEL_MOTION.exit}
-                  transition={PANEL_TRANSITION}
-                  className="absolute inset-0 overflow-y-auto bg-background/60"
-                  data-testid="mcp-main-panel"
-                >
-                  <div className="mx-auto max-w-3xl px-6 py-8">
-                    <h2 className="font-display text-2xl mb-4">MCP tool gallery</h2>
-                    <p className="mb-6 text-[12px] leading-relaxed text-white/55">
-                      Model Context Protocol surface — every card here is a JSON-RPC tool any
-                      AI agent (Claude, Cursor, Copilot) can invoke against this database.
-                    </p>
-                    <MCPToolGallery />
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="semantic-split"
-                  initial={PANEL_MOTION.initial}
-                  animate={PANEL_MOTION.animate}
-                  exit={PANEL_MOTION.exit}
-                  transition={PANEL_TRANSITION}
-                  className="absolute inset-0 flex flex-col overflow-hidden md:flex-row"
-                >
-                  <div className="flex min-h-0 w-full min-w-0 flex-col border-b border-white/10 md:w-[55%] md:border-b-0 md:border-r">
-                    <SemanticSearchPanel
-                      highlightedIds={highlightedIds}
-                      onHoverHit={setSemanticHoverId}
-                      onFocusHit={handleFocusHit}
-                      onResultsChange={handleSearchResults}
-                    />
-                  </div>
-                  <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
-                    <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-cyan-200 shadow-[0_0_10px_rgba(34,211,238,0.25)] backdrop-blur-sm">
-                      {searchHits.length > 0
-                        ? `${searchHits.length} hit${searchHits.length === 1 ? '' : 's'} glowing on graph`
-                        : 'Graph overlay · cyan = retrieved'}
-                    </div>
-                    <GraphCanvas
-                      graphData={displayedGraphData}
-                      isGeographic={isGeographic}
-                      ontologyMode={ontologyMode}
                     />
                   </div>
                 </motion.div>
@@ -774,13 +547,6 @@ export default function PlaygroundPage() {
             labelCount={labelCount}
             datasetLabel={DATASETS[activeDataset]?.meta.name ?? activeDataset}
             isLive={isLiveMode}
-            timeCutoffLabel={
-              timeCutoff != null && temporalRange
-                ? temporalRange.unit === 'season'
-                  ? `S${timeCutoff}`
-                  : String(timeCutoff)
-                : null
-            }
           />
         </div>
       </div>

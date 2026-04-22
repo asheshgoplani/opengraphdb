@@ -131,23 +131,14 @@ tests:
     purpose: "Asserts the LDBC-submission exporter emits a format compatible with LDBC audit submission rules (so OpenGraphDB numbers can later be published vs Neo4j/Memgraph/Nebula)."
     added: 2026-04-20
 
-  - id: playground-mcp-gallery-e2e
-    task: playground-premium
-    crate: frontend
-    test: e2e/mcp-gallery
-    function: []
-    command: "cd frontend && npx playwright test e2e/mcp-gallery.spec.ts"
-    purpose: "Playwright e2e — /playground exposes 5 real MCP tool cards + 6 coming-soon cards; perf strip shows live parse/plan/execute/total cells."
-    added: 2026-04-20
-
-  - id: playground-semantic-search-e2e
-    task: playground-premium
-    crate: frontend
-    test: e2e/semantic-search
-    function: []
-    command: "cd frontend && npx playwright test e2e/semantic-search.spec.ts"
-    purpose: "Playwright e2e — Semantic tab exposes 3 modes (Full-text/Vector/Hybrid RRF); hits glow cyan on cosmos.gl canvas; score breakdown sidebar visible."
-    added: 2026-04-20
+  # Slice R3 removals (2026-04-22): the Semantic, Temporal, and MCP playground
+  # tabs could not be demonstrated end-to-end against `ogdb serve --http` with
+  # the endpoints that exist today — no backend /mcp/invoke, /query?as_of, or
+  # vector/FTS routes. Per the ruthless-trim policy in PLAN reposition R3, the
+  # tabs and their specs (playground-mcp-gallery-e2e, playground-semantic-search-e2e,
+  # playground-temporal-slider-e2e, mcp-honest-preview-e2e) were deleted rather
+  # than kept as fake-runtime proofs. Add them back the moment the backend
+  # exposes those endpoints and we can prove them for real.
 
   - id: playground-schema-browser-e2e
     task: playground-premium
@@ -158,15 +149,6 @@ tests:
     purpose: "Playwright e2e — SchemaBrowser tree renders labels + edges + properties; RDFDropzone accepts ttl drop; ontology mode toggles size boost on owl:Class nodes."
     added: 2026-04-20
 
-  - id: playground-temporal-slider-e2e
-    task: playground-premium
-    crate: frontend
-    test: e2e/temporal-slider
-    function: []
-    command: "cd frontend && npx playwright test e2e/temporal-slider.spec.ts"
-    purpose: "Playwright e2e — Temporal tab exposes horizontal time slider; dragging back reduces visible node count; compact-history button shows before/after diff."
-    added: 2026-04-20
-
   - id: playground-polish-cohesion-e2e
     task: playground-premium
     crate: frontend
@@ -174,16 +156,25 @@ tests:
     function: []
     command: "cd frontend && npx playwright test e2e/polish-cohesion.spec.ts"
     purpose: "Playwright e2e — panel mounts use shared framer-motion preset; all panels have designed empty/loading/error states; Fraunces+Inter typography cohesion; mobile responsive."
-
-  - id: mcp-honest-preview-e2e
-    task: fix-mcp-silent-fake
-    crate: frontend
-    test: e2e/mcp-honest-preview
-    function: []
-    command: "cd frontend && npx playwright test e2e/mcp-honest-preview.spec.ts"
-    purpose: "Playwright e2e — MCPToolCard surfaces a visible source badge (live / preview / error) per invocation; stubbed 500 must not render a 'live' badge; stubbed 200 must not render preview/error. Guards against the ok:true-on-500 silent-fallback regression."
-    added: 2026-04-21
     added: 2026-04-20
+
+  - id: claims-power-tab-real-cypher-e2e
+    task: reposition-r3
+    crate: frontend
+    test: e2e/claims/power-tab-real-cypher
+    function: []
+    command: "cd frontend && npx playwright test e2e/claims/power-tab-real-cypher.spec.ts"
+    purpose: "Playwright e2e against real ogdb serve — Power mode executes MATCH (n) RETURN n LIMIT 10 through /api/query; QueryResultTable renders rows returned by the Rust engine; malformed Cypher surfaces a visible error. Guards against the Power-tab claim drifting back into client-side-only rendering."
+    added: 2026-04-22
+
+  - id: claims-schema-tab-real-backend-e2e
+    task: reposition-r3
+    crate: frontend
+    test: e2e/claims/schema-tab-real-backend
+    function: []
+    command: "cd frontend && npx playwright test e2e/claims/schema-tab-real-backend.spec.ts"
+    purpose: "Playwright e2e against real ogdb serve — BackendSchemaStrip fires GET /api/schema on mount and renders labels+edge_types+property_keys counts that match the backend response; stubbed 500 surfaces a visible error state. Guards against silent fallback / client-side-only schema reporting."
+    added: 2026-04-22
 
   - id: cosmos-canvas-renders-e2e
     task: fix-cosmos-canvas-race
