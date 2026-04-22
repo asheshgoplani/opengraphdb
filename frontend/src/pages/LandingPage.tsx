@@ -4,6 +4,7 @@ import { SampleQueryPanel } from '@/components/landing/SampleQueryPanel'
 import { ShowcaseSection } from '@/components/landing/ShowcaseSection'
 import { FeaturesSection } from '@/components/landing/FeaturesSection'
 import { GettingStartedSection } from '@/components/landing/GettingStartedSection'
+import { AIIntegrationSection } from '@/components/landing/AIIntegrationSection'
 import { BenchmarkStrip } from '@/components/landing/BenchmarkStrip'
 
 export default function LandingPage() {
@@ -19,6 +20,7 @@ export default function LandingPage() {
         <ShowcaseSection />
         <FeaturesSection />
         <GettingStartedSection />
+        <AIIntegrationSection />
         <BenchmarkStrip />
       </main>
 
