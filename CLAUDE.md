@@ -4,7 +4,7 @@ This file provides implementation guidance for contributors working in this repo
 
 ## Project Status
 
-OpenGraphDB is pre-implementation. The architecture baseline is finalized and is documented in `ARCHITECTURE.md`.
+OpenGraphDB is implemented and test-gated at v0.2: core engine, Cypher, import/export, RDF, vector/FTS, server adapters (Bolt/HTTP/gRPC), MCP, and language bindings are all in place. The architecture baseline remains canonical and is documented in `ARCHITECTURE.md`.
 
 Authoritative document order:
 1. `ARCHITECTURE.md` (canonical decisions)
@@ -17,21 +17,17 @@ If there is a conflict, `ARCHITECTURE.md` wins.
 ## Workspace Setup
 
 ```bash
-# Initialize workspace (not done yet)
-cargo new --lib opengraphdb
-mkdir -p crates/{ogdb-core,ogdb-query,ogdb-import,ogdb-export,ogdb-cli,ogdb-vector,ogdb-text,ogdb-server,ogdb-algorithms,ogdb-temporal,ogdb-python,ogdb-node}
-
 # Build
 cargo build
 
 # Test
 cargo test
 
-# TCK (once wired)
+# TCK
 cargo test -p ogdb-tck
 
 # Benchmarks
-cargo bench
+cargo run --release -p ogdb-bench
 
 # Static checks
 cargo check --workspace
@@ -39,24 +35,25 @@ cargo clippy --workspace -- -D warnings
 cargo fmt --all
 ```
 
-## Crate Dependency Direction
+## Crate Layout
 
-Lower layers must not depend on upper layers.
+Current workspace has 10 crates. `ogdb-core` is intentionally a single ~41k-line library that contains storage, WAL, MVCC, indexes, catalog, Cypher parser/planner/executor, import/export, RDF, vector, full-text, temporal, and algorithms. Splitting `ogdb-core` into focused subcrates (`ogdb-query`, `ogdb-import`, `ogdb-export`, `ogdb-vector`, `ogdb-text`, `ogdb-temporal`, `ogdb-algorithms`) is on the roadmap but has not happened yet — until it does, the layered dependency direction below is an in-code convention within `ogdb-core`, not a crate boundary.
 
 ```
-ogdb-core        ← storage, WAL, MVCC, indexes, catalog
-ogdb-query       ← Cypher lexer/parser, planner, optimizer, executor
-ogdb-import      ← CSV/JSON/RDF import pipelines
-ogdb-export      ← JSON/CSV/RDF/Cypher export
-ogdb-vector      ← vector index integration
-ogdb-text        ← full-text index integration
-ogdb-temporal    ← temporal graph features
-ogdb-algorithms  ← graph algorithms
-ogdb-server      ← Bolt/HTTP/MCP server adapters
-ogdb-cli         ← CLI binary over all runtime crates
+ogdb-core        ← storage, WAL, MVCC, indexes, catalog, Cypher, import/export,
+                   RDF, vector, full-text, temporal, algorithms (monolith)
+ogdb-bolt        ← Bolt protocol server adapter over ogdb-core
+ogdb-cli         ← CLI binary (also exposes `ogdb serve` + MCP adapter)
+ogdb-ffi         ← C FFI shim over ogdb-core + ogdb-cli
 ogdb-python      ← PyO3 bindings
 ogdb-node        ← napi-rs bindings
+ogdb-tck         ← cucumber-backed openCypher TCK harness
+ogdb-bench       ← traversal/import benchmark harness + budget gates
+ogdb-eval        ← evaluator harness (closed-loop benchmark + scaling + UI measurement)
+ogdb-e2e         ← end-to-end integration test crate
 ```
+
+Lower layers must not depend on upper layers. When splitting `ogdb-core` eventually happens, the split targets are: `ogdb-query` (Cypher lexer/parser/planner/optimizer/executor), `ogdb-import` (CSV/JSON/RDF import), `ogdb-export` (JSON/CSV/RDF/Cypher export), `ogdb-vector`, `ogdb-text`, `ogdb-temporal`, `ogdb-algorithms`, and an `ogdb-server` housing Bolt/HTTP/MCP adapters (currently split across `ogdb-bolt` and code inside `ogdb-cli`).
 
 ## Locked Architecture Decisions
 
