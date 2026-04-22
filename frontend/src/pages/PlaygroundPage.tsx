@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { AlertCircle, ArrowLeft, Database, Network, Search, Sparkles, Wrench, Zap } from 'lucide-react'
+import { AlertCircle, ArrowLeft, Database, Network, Search, Wrench, Zap } from 'lucide-react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { ApiClient } from '@/api/client'
 import { transformLiveResponse, transformQueryResponse } from '@/api/transform'
@@ -26,9 +26,6 @@ import { applyTimeCutoff, getTemporalRange, isTemporalDataset } from '@/data/tem
 import { cn } from '@/lib/utils'
 import type { SearchHit } from '@/data/semanticSearch'
 import { Button } from '@/components/ui/button'
-import { AIChatPanel } from '@/components/ai/AIChatPanel'
-import { useAIChatStore } from '@/stores/ai-chat'
-import { useAIChat } from '@/hooks/useAIChat'
 import {
   DATASETS,
   getDatasetQueries,
@@ -103,10 +100,6 @@ export default function PlaygroundPage() {
     dbPath: string | null
     source: 'live' | 'preview'
   } | null>(null)
-  const isAIOpen = useAIChatStore((s) => s.isOpen)
-  const setIsAIOpen = useAIChatStore((s) => s.setIsOpen)
-  const { sendMessage, runCypherFromAI } = useAIChat()
-
   const liveQueryMutation = useMutation({
     mutationFn: (cypher: string) => apiClient.query(cypher),
   })
@@ -338,20 +331,10 @@ export default function PlaygroundPage() {
                 Trace
               </Button>
             )}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsAIOpen(!isAIOpen)}
-              title="AI Assistant"
-            >
-              <Sparkles className="h-3.5 w-3.5 mr-1" />
-              AI
-            </Button>
             <ConnectionBadge queryTimeMs={queryTimeMs} isLive={isLiveMode} liveError={liveError} />
           </div>
         </div>
       </header>
-      <AIChatPanel onRunQuery={runCypherFromAI} onSendMessage={sendMessage} />
 
       <div className="flex flex-1 overflow-hidden">
         <aside className="hidden w-[320px] shrink-0 space-y-4 overflow-y-auto border-r bg-muted/20 p-4 md:block">

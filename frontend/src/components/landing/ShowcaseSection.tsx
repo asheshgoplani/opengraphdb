@@ -29,7 +29,9 @@ export function ShowcaseSection() {
             Famous Graph Datasets
           </h2>
           <p className="text-pretty text-base text-muted-foreground sm:text-lg">
-            Explore the same industry-standard datasets used by Neo4j, TigerGraph, and Amazon Neptune. From movie recommendations to airport networks, these benchmarks demonstrate real graph database capabilities.
+            Standard graph-DB benchmark datasets — movie recommendations, airport
+            networks, literary networks, knowledge graphs — bundled so you can
+            drop them into the playground and run Cypher against the real engine.
           </p>
         </div>
 

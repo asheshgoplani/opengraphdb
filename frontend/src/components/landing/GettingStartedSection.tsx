@@ -8,18 +8,18 @@ import { useSectionInView } from './useSectionInView'
 const STEPS = [
   {
     title: 'Install',
-    summary: 'A single binary, vendored as a crate.',
-    command: 'cargo install opengraphdb',
+    summary: 'Build the ogdb binary from the workspace.',
+    command: 'cargo install --path crates/ogdb-cli',
   },
   {
     title: 'Serve',
-    summary: 'Bolt + HTTP + MCP, all on one process.',
-    command: 'opengraphdb serve --http --mcp',
+    summary: 'HTTP for apps; run `ogdb mcp` alongside for AI tools.',
+    command: 'ogdb serve --http --db data.ogdb',
   },
   {
-    title: 'Query',
-    summary: 'Open the playground and traverse.',
-    command: 'MATCH (n) RETURN n LIMIT 25',
+    title: 'Expose to AI',
+    summary: 'A JSON-RPC tool surface over stdio — point any MCP client at it.',
+    command: 'ogdb mcp --stdio --db data.ogdb',
   },
 ]
 
