@@ -211,3 +211,48 @@ tests:
     command: "cargo test -p ogdb-cli --test http_cors"
     purpose: "Guards CRITICAL FIX #1 from the 2026-04-22 playground correctness audit — ogdb serve --http must emit Access-Control-Allow-Origin/Methods/Headers on every response and return 204 + full preflight triplet on OPTIONS. Catches re-drift that would break Live Mode / Power Mode / BackendSchemaStrip with 'Failed to fetch' from non-same-origin playgrounds."
     added: 2026-04-22
+
+  - id: correctness-core-poisoned-lock-registry
+    task: fix-correctness-core
+    crate: ogdb-core
+    test: lib
+    function: [active_snapshot_registry_apis_return_err_on_poisoned_lock, database_lock_buffer_pool_and_free_list_return_err_on_poisoned_lock]
+    command: "cargo test -p ogdb-core --lib -- poisoned_lock"
+    purpose: "Guards audit findings 1.1 + 1.2 — ActiveSnapshotRegistry::{register,unregister,min_active_snapshot_txn_id} and Database::{lock_buffer_pool,lock_free_list} must return DbError::Corrupt on poisoned mutexes instead of panicking. ReadSnapshot::drop must swallow the error (never panic in Drop)."
+    added: 2026-04-22
+
+  - id: correctness-core-rollback-rebuilds-label-projections
+    task: fix-correctness-core
+    crate: ogdb-core
+    test: rollback_rebuilds_label_projections
+    function: [rollback_of_set_labels_refreshes_label_index_scan]
+    command: "cargo test -p ogdb-core --test rollback_rebuilds_label_projections"
+    purpose: "Guards audit finding 3.1 — rollback_txn must call rebuild_label_projections() unconditionally at the tail so the in-memory label_projections cache cannot return stale entries after undo_set_node_labels."
+    added: 2026-04-22
+
+  - id: correctness-core-si-phantom-read-caveat
+    task: fix-correctness-core
+    crate: ogdb-core
+    test: index_scan_phantom_read_caveat
+    function: [read_snapshot_find_nodes_by_label_is_snapshot_isolated, non_snapshot_database_find_nodes_by_label_reflects_current_state]
+    command: "cargo test -p ogdb-core --test index_scan_phantom_read_caveat -- --test-threads=1"
+    purpose: "Guards audit finding 2.3 — pins Snapshot Isolation semantics for ReadSnapshot::find_nodes_by_label (older snapshots must not see phantom labels added by later committed writers) and documents the caveat for the non-snapshot Database API. See SPEC.md §4.3."
+    added: 2026-04-22
+
+  - id: correctness-core-wal-replay-tolerates-gap
+    task: fix-correctness-core
+    crate: ogdb-core
+    test: wal_replay_tolerates_node_id_gap
+    function: [wal_replay_fills_node_id_gap_instead_of_erroring, wal_replay_is_idempotent_on_second_replay]
+    command: "cargo test -p ogdb-core --test wal_replay_tolerates_node_id_gap -- --test-threads=1"
+    purpose: "Guards audit finding 2.2 — WAL replay must pad a node-id gap with empty-label placeholders (the interrupted-recovery scenario) instead of hard-failing with Corrupt. Also pins the idempotent-replay invariant for repeated-replay recovery."
+    added: 2026-04-22
+
+  - id: correctness-core-wal-v2-durability
+    task: fix-correctness-core
+    crate: ogdb-core
+    test: wal_v2_recovers_labels_and_props_after_sidecar_loss
+    function: [hard_power_loss_destroys_sidecars_but_wal_v2_recovers_labels_and_props]
+    command: "cargo test -p ogdb-core --test wal_v2_recovers_labels_and_props_after_sidecar_loss -- --test-threads=1"
+    purpose: "Guards audit finding 2.1 — WAL_RECORD_CREATE_NODE_V2 must carry labels + property bytes and replay must restore them after a hard power loss that destroys meta.json / -props-meta.json sidecars. This closes the deferred-sync silent-data-loss window opened by fix-write-perf 2026-04-19."
+    added: 2026-04-22

@@ -76,6 +76,34 @@ OpenGraphDB is the "SQLite for graph databases": a single-binary, embeddable, hi
 | Execution | **Vectorized push-based** | Columnar batches through pipeline, CPU cache friendly |
 | Factorized processing | **Yes** | Compress intermediate results, avoid Cartesian explosion |
 
+#### Isolation level — Snapshot Isolation (non-serializable)
+
+OpenGraphDB implements **Snapshot Isolation (SI)**, not Serializable isolation.
+This matches PostgreSQL pre-SSI and MySQL InnoDB defaults.
+
+- Base row reads (`get_node_properties`, `node_labels`, neighbor traversal)
+  go through MVCC visibility via `can_see_version`, so a reader holding a
+  snapshot at `T` never sees a writer's uncommitted rows nor rows committed
+  after `T`.
+- **Known caveat (audit finding 2.3):** index-backed label and property
+  scans (`find_nodes_by_label`, property index lookups) are rebuilt at
+  commit time from the post-commit `MetaStore` and do not thread a
+  reader's `snapshot_txn_id` through the scan. A reader holding an older
+  snapshot can therefore observe phantom entries from a concurrently
+  committed writer when using an index scan, even though the equivalent
+  per-row read would not return that node.
+  - **Mitigation for SI-critical workloads:** replace `find_nodes_by_label(X)`
+    with a full scan + per-row `can_see_version` check, or use the row-level
+    `ReadSnapshot` APIs that filter visibility post-hoc.
+  - A regression test (`crates/ogdb-core/tests/index_scan_phantom_read_caveat.rs`)
+    pins this behavior so it cannot silently change without an explicit
+    contract update.
+- **Write-skew** is permitted (SI does not detect it). See `ARCHITECTURE.md`
+  MVCC section for the full semantics.
+
+A future `WriteConcurrencyMode::Serializable` could close both gaps via
+read-set tracking + index-aware SSI, but is tracked as separate work.
+
 ### 4.4 Data Model
 
 ```
