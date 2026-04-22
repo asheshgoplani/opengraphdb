@@ -1,12 +1,12 @@
 # OpenGraphDB
 
-**The single-file graph DB for Rust, Python, and Node. Embeddable. Cypher. MCP-ready. Apache 2.0.**
+**The single-file graph DB Rust devs reach for. Embeds in Rust, Python, and Node. Cypher. MCP-ready. Apache 2.0.**
 
 ---
 
-An embeddable graph database written in Rust. Single-file authoritative state plus WAL, Cypher queries, native vector search, and a built-in MCP server so AI tools can call the graph as a primitive.
+OpenGraphDB embeds in your Rust, Python, or Node app — or runs as a single `ogdb serve` process. Cypher queries, MVCC, WAL, and an MCP surface for AI tools. No JVM. No separate search index to keep in sync.
 
-> **Status: Pre-release — designing and building the foundation**
+> **Status: v0.2 — core engine, Cypher, import/export, server adapters, and MCP are implemented and test-gated**
 > **Architecture baseline:** See `ARCHITECTURE.md` for locked technical decisions
 
 ## The Idea
@@ -63,7 +63,7 @@ Implemented and covered by tests: WAL logging + recovery, `checkpoint`, `backup`
 Also implemented and covered by tests: RDF import/export (`ttl`, `nt`, `xml`, `jsonld`, `nq`) via `import-rdf`/`export-rdf`, ontology mapping (`owl:Class`, `owl:ObjectProperty`, `owl:DatatypeProperty`), `rdfs:subClassOf` hierarchy import, URI/prefix round-tripping, blank-node and named-graph handling, and `--schema-only`/`--base-uri` RDF options.
 Also implemented and covered by tests: SHACL Core subset validation via `validate-shacl`, including `sh:targetClass` (IRI local-name matching to graph labels) and `sh:property` constraints with `sh:minCount >= 1`.
 Also implemented: cucumber-backed openCypher TCK harness (`ogdb-tck`), crash/durability acceptance suite, benchmark gate harnesses in `ogdb-bench` (with dedicated strict threshold tests), optional `tracing` instrumentation (`query > plan > execute > storage_op`), and transparent LZ4/ZSTD page compression with legacy uncompressed-page readability.
-Remaining architecture backlog items are narrower: auto-indexing heuristics, WCOJ/factorized query execution, CLI `migrate`, temporal append-only compaction, and explicit memory/disk budget validation gates.
+Also implemented and covered by tests: auto-indexing heuristics (frequent `(label, property_key)` filter tracking + threshold-triggered B-tree index creation), worst-case-optimal join (WCOJ) + factorized expansion for multi-variable Cypher expand chains, `ogdb-cli migrate` (schema migration with `--dry-run` / all-or-nothing apply), append-only temporal node version chains with background compaction, and memory/disk budget validation gates (`<500MB` RSS + `<1GB` on-disk at 1M nodes + 5M edges). See `CHANGELOG.md` for the full list.
 
 ## What We're Going For
 
