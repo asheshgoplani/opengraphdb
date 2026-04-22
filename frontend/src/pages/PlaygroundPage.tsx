@@ -599,8 +599,8 @@ export default function PlaygroundPage() {
                   }}
                 >
                   <div
-                    data-testid="schema-header-bar"
-                    className="sticky top-0 z-10 border-b border-emerald-300/20 bg-gradient-to-r from-emerald-500/10 via-cyan-500/8 to-emerald-500/10 px-6 py-5 backdrop-blur-sm"
+                    data-testid="schema-browser-header"
+                    className="sticky top-0 z-20 border-b border-emerald-300/20 bg-gradient-to-r from-emerald-500/10 via-cyan-500/8 to-emerald-500/10 px-6 py-5 backdrop-blur-sm"
                   >
                     <h1
                       className="font-display tracking-tight text-emerald-50"
