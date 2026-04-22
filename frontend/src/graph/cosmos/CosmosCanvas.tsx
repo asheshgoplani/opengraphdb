@@ -143,8 +143,28 @@ export function CosmosCanvas({
 }: CosmosCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<Graph | null>(null)
-  const [, setFrameTick] = useState(0)
-  const rafRef = useRef<number | null>(null)
+  // R5: The old `setFrameTick` state rAF loop triggered a React re-render on
+  // every frame (~60 Hz) so the label/bloom IIFE rebuilt every span from
+  // scratch. That made zoom feel sluggish on real-GPU Macs (user report:
+  // "text seems to move slowly… not smooth"). Replaced with:
+  //   (a) a 4 Hz `positionEpoch` tick that re-drives collision/LOD decisions
+  //       inside the IIFE (so newly-settled cosmos positions still feed back
+  //       into which labels are shown), AND
+  //   (b) an imperative rAF loop that directly updates `style.transform` on
+  //       the existing label/bloom spans via refs — no React reconcile.
+  // Positions track cosmos's sim at 60 Hz; React work drops to 4 Hz.
+  const [positionEpoch, setPositionEpoch] = useState(0)
+  const positionRafRef = useRef<number | null>(null)
+  const labelElsRef = useRef<Map<string | number, HTMLSpanElement | null>>(new Map())
+  const bloomElsRef = useRef<Map<string | number, HTMLSpanElement | null>>(new Map())
+  // Cached per-label geometry so the hot rAF loop can reconstruct bloom /
+  // label offsets without consulting the React tree every frame.
+  const labelGeomRef = useRef<
+    Map<
+      string | number,
+      { radius: number; bloomR: number; labelYOffset: number; emphasize: boolean }
+    >
+  >(new Map())
   const fitRafIdsRef = useRef<number[]>([])
   const fitTimersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const pendingDestroyRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -358,7 +378,7 @@ export function CosmosCanvas({
         try {
           const gN = new Graph(hostRef.current, config)
           if (checkAndStore(gN)) {
-            setFrameTick((t) => (t + 1) % 1024)
+            setPositionEpoch((t) => (t + 1) % 1024)
             return
           }
         } catch (e) {
@@ -374,14 +394,21 @@ export function CosmosCanvas({
       return
     }
 
-    const loop = () => {
-      setFrameTick((t) => (t + 1) % 1024)
-      rafRef.current = requestAnimationFrame(loop)
+    // R5: 4 Hz (250 ms) re-driver for React-visible state only. This is NOT
+    // the label/bloom position loop — that runs imperatively at 60 Hz via
+    // `positionRafRef` below. The epoch tick exists so the collision/LOD
+    // decision in the render-body IIFE re-runs often enough that freshly-
+    // settled cosmos positions feed back into "which labels are shown", but
+    // not so often that the React reconciler burns the main thread during
+    // pan/zoom (the previous 60 Hz state tick was the headline cause of the
+    // reported jank).
+    const epochTick = () => {
+      setPositionEpoch((t) => (t + 1) % 1024)
     }
-    rafRef.current = requestAnimationFrame(loop)
+    const epochInterval = setInterval(epochTick, 250)
 
     return () => {
-      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current)
+      clearInterval(epochInterval)
       // Defer destroy by a tick so React StrictMode's synthetic unmount /
       // re-mount (dev-only, fires back-to-back) can cancel the destroy. A
       // genuine unmount (user navigates away) will fire the timeout and
@@ -638,6 +665,12 @@ export function CosmosCanvas({
   const cssW = canvasEl?.clientWidth ?? 0
   const cssH = canvasEl?.clientHeight ?? 0
 
+  // R5: positionEpoch referenced so useMemo captures it as a dependency.
+  // The re-compute frequency is 4 Hz (see the epochInterval in the init
+  // effect); between recomputes the per-frame positionRaf below handles
+  // actual pixel movement via `style.transform`.
+  void positionEpoch
+
   const { renderedLabels, renderedBlooms } = (() => {
     const g = graphRef.current
     if (!g) return { renderedLabels: null, renderedBlooms: null }
@@ -648,6 +681,15 @@ export function CosmosCanvas({
     if (!positions || positions.length === 0) {
       return { renderedLabels: null, renderedBlooms: null }
     }
+
+    // R5: rebuild the geometry cache used by the hot rAF loop. This runs
+    // only when React re-renders (4 Hz from epoch, or on interaction) —
+    // NOT every frame. The rAF loop reads this cache by id and never walks
+    // the React tree.
+    const nextGeom = new Map<
+      string | number,
+      { radius: number; bloomR: number; labelYOffset: number; emphasize: boolean }
+    >()
 
     // Degree distribution for LOD thresholds and stats-aware radius.
     const degreeValues: number[] = []
@@ -773,9 +815,14 @@ export function CosmosCanvas({
       // wash. Core node pixels stay saturated >0.5.
       const bloomR = Math.max(12, r * 2.0)
       const blurPx = Math.min(6, Math.max(4, Math.round(bloomR * 0.22)))
+      const bloomId = l.id
       blooms.push(
         <span
-          key={`bloom-${l.id}`}
+          key={`bloom-${bloomId}`}
+          ref={(el) => {
+            if (el) bloomElsRef.current.set(bloomId, el)
+            else bloomElsRef.current.delete(bloomId)
+          }}
           className="cosmos-bloom"
           aria-hidden="true"
           style={{
@@ -829,9 +876,19 @@ export function CosmosCanvas({
       }
       placedBoxes.push(box)
 
+      // R5: cache geometry keyed by id so the hot rAF loop can rebuild
+      // the transform offset without re-measuring text or re-computing
+      // emphasize state.
+      nextGeom.set(l.id, { radius: r, bloomR, labelYOffset, emphasize })
+
+      const labelId = l.id
       labels.push(
         <span
-          key={String(l.id)}
+          key={String(labelId)}
+          ref={(el) => {
+            if (el) labelElsRef.current.set(labelId, el)
+            else labelElsRef.current.delete(labelId)
+          }}
           className="cosmos-label"
           data-degree={l.degree}
           data-font-weight={emphasize ? 600 : 500}
@@ -847,8 +904,113 @@ export function CosmosCanvas({
         </span>,
       )
     }
+
+    // R5: also need geometry for non-label emphasized bloom-only nodes. The
+    // bloom loop above ran before the label filter, so for every bloom we
+    // already pushed we need a geom entry. Fill any gaps (blooms without a
+    // paired label) so the rAF loop can still position them.
+    for (const l of sortedLabelItems) {
+      if (nextGeom.has(l.id)) continue
+      const node = nodes[l.index]
+      void node
+      const r = radiusForDegreeWithStats(l.degree, dStats)
+      const bloomR = Math.max(12, r * 2.0)
+      const isHovered = hoveredNodeId === l.id
+      const isSelected = selectedNodeId === l.id
+      const isTraceActive = traceActiveNodeId === l.id
+      const emphasize = isHovered || isSelected || isTraceActive
+      const labelYOffset = emphasize ? -r - 12 : r + 8
+      nextGeom.set(l.id, { radius: r, bloomR, labelYOffset, emphasize })
+    }
+    labelGeomRef.current = nextGeom
     return { renderedLabels: labels, renderedBlooms: blooms }
   })()
+
+  // R5: 60 Hz imperative position loop. This is the pathway that kept the
+  // zoom feeling sluggish on real-GPU Macs: previously every frame triggered
+  // a React re-render which rebuilt every <span>. Now, between React
+  // re-renders (4 Hz or on interaction), this loop reads cosmos's live
+  // positions and updates `style.transform` on each already-mounted span
+  // via refs. No reconcile, no text measurement, no allocation in the hot
+  // path.
+  useEffect(() => {
+    const cancel = () => {
+      if (positionRafRef.current !== null) {
+        cancelAnimationFrame(positionRafRef.current)
+        positionRafRef.current = null
+      }
+    }
+    const tick = () => {
+      const g = graphRef.current
+      const host = hostRef.current
+      const canvasElLocal = host?.querySelector('canvas') as HTMLCanvasElement | null
+      if (!g || !canvasElLocal) {
+        positionRafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      const positions = g.getPointPositions?.()
+      const cssWLocal = canvasElLocal.clientWidth
+      const cssHLocal = canvasElLocal.clientHeight
+      if (!positions || positions.length === 0 || cssWLocal <= 0 || cssHLocal <= 0) {
+        positionRafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      let minXL = Infinity
+      let minYL = Infinity
+      let maxXL = -Infinity
+      let maxYL = -Infinity
+      let finiteCountL = 0
+      for (let i = 0; i < positions.length; i += 2) {
+        const px = positions[i]
+        const py = positions[i + 1]
+        if (!Number.isFinite(px) || !Number.isFinite(py)) continue
+        if (px < minXL) minXL = px
+        if (px > maxXL) maxXL = px
+        if (py < minYL) minYL = py
+        if (py > maxYL) maxYL = py
+        finiteCountL += 1
+      }
+      if (finiteCountL < 2) {
+        positionRafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      const spanXL = Math.max(1, maxXL - minXL)
+      const spanYL = Math.max(1, maxYL - minYL)
+      const paddingL = 1.08
+      const scaleL = Math.min(cssWLocal / (spanXL * paddingL), cssHLocal / (spanYL * paddingL))
+      const midXL = (minXL + maxXL) / 2
+      const midYL = (minYL + maxYL) / 2
+
+      // Iterate every node index — cheap O(n) float ops + O(bloom+label)
+      // string assignments. Map lookups keyed by id let us skip any
+      // element that isn't currently mounted (filtered by collision).
+      const geom = labelGeomRef.current
+      const blooms = bloomElsRef.current
+      const labels = labelElsRef.current
+      for (const [id, g2] of geom) {
+        // We need the index to read positions. Store-by-index lookup
+        // would be O(1) via indexById map.
+        const idx = indexById.get(id)
+        if (idx == null) continue
+        const sx = positions[idx * 2]
+        const sy = positions[idx * 2 + 1]
+        if (!Number.isFinite(sx) || !Number.isFinite(sy)) continue
+        const x = cssWLocal / 2 + (sx - midXL) * scaleL
+        const y = cssHLocal / 2 + (sy - midYL) * scaleL
+        const bEl = blooms.get(id)
+        if (bEl) {
+          bEl.style.transform = `translate3d(${x - g2.bloomR}px, ${y - g2.bloomR}px, 0)`
+        }
+        const lEl = labels.get(id)
+        if (lEl) {
+          lEl.style.transform = `translate3d(${x}px, ${y + g2.labelYOffset}px, 0) translateX(-50%)`
+        }
+      }
+      positionRafRef.current = requestAnimationFrame(tick)
+    }
+    positionRafRef.current = requestAnimationFrame(tick)
+    return cancel
+  }, [indexById])
 
   return (
     <div className="relative h-full w-full">
