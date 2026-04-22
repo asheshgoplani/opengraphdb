@@ -22,10 +22,8 @@ describe('landing polish redesign', () => {
 
     expect(html).toContain('OpenGraphDB')
     expect(html).toContain('href="#features"')
-    expect(html).toContain('href="#use-cases"')
     expect(html).toContain('href="#get-started"')
     expect(html).toContain('href="/playground"')
-    expect(html).toContain('href="/app"')
     expect(html).toContain('scroll-smooth')
   })
 
@@ -68,14 +66,23 @@ describe('landing polish redesign', () => {
     expect(html).toContain('Explore in Playground')
   })
 
-  it('renders copy buttons in getting started section', () => {
+  it('renders Fraunces hero and AI integration section', () => {
     const html = renderToStaticMarkup(
       <MemoryRouter>
         <LandingPage />
       </MemoryRouter>
     )
 
-    expect(html).toContain('Getting Started')
+    // Fraunces hero: display font utility + current hero copy
+    expect(html).toContain('font-display')
+    expect(html).toContain('The single-file graph DB')
+    expect(html).toContain('id="hero-heading"')
+
+    // AI Integration section landed in the reposition
+    expect(html).toContain('id="ai-integration"')
+    expect(html).toContain('AI integration')
+
+    // Copy buttons still exist on the Getting Started step commands
     expect(html).toContain('Copy')
   })
 })

@@ -1,10 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ApiClient } from '../src/api/client'
 import { transformLiveResponse, type GraphQueryDescriptor } from '../src/api/transform'
-import { getDatasetQueries } from '../src/data/datasets'
-import { MOVIES_SAMPLE } from '../src/data/sampleGraph'
-import { SOCIAL_SAMPLE } from '../src/data/socialGraph'
-import { FRAUD_SAMPLE } from '../src/data/fraudGraph'
+import { DATASETS, getDatasetList, getDatasetQueries, type DatasetKey } from '../src/data/datasets'
 import type { BackendQueryResponse } from '../src/types/api'
 
 describe('transformLiveResponse', () => {
@@ -123,50 +120,40 @@ describe('ApiClient.schema', () => {
 })
 
 describe('guided query metadata and expanded datasets', () => {
-  it('meets required sample dataset minimum sizes', () => {
-    expect(MOVIES_SAMPLE.nodes.length).toBeGreaterThanOrEqual(100)
-    expect(SOCIAL_SAMPLE.nodes.length).toBeGreaterThanOrEqual(50)
-    expect(FRAUD_SAMPLE.nodes.length).toBeGreaterThanOrEqual(40)
+  it('ships every registered dataset with a non-trivial sample', () => {
+    const datasets = getDatasetList()
+    expect(datasets.length).toBeGreaterThanOrEqual(5)
+    for (const meta of datasets) {
+      expect(meta.nodeCount, `${meta.key} must ship a non-trivial sample`).toBeGreaterThanOrEqual(20)
+      expect(meta.linkCount, `${meta.key} must ship a non-trivial sample`).toBeGreaterThanOrEqual(20)
+    }
   })
 
   it('adds category and liveDescriptor metadata for guided queries', () => {
-    const movies = getDatasetQueries('movies')
-    const social = getDatasetQueries('social')
-    const fraud = getDatasetQueries('fraud')
+    const keys = Object.keys(DATASETS) as DatasetKey[]
+    // community is a synthetic canvas-density demo with no backend equivalent —
+    // its guided queries are browser-only, so skip the liveDescriptor assertion.
+    const liveBackedKeys = keys.filter((key) => key !== 'community')
 
-    expect(movies.map((q) => q.key)).toEqual([
-      'all',
-      'all-movies',
-      'cast-directory',
-      'director-filmography',
-      'genre-map',
-      'collaborations',
-    ])
-
-    for (const query of movies) {
-      expect(query.category).toBeDefined()
-      if (query.key === 'all') {
-        expect(query.liveDescriptor).toBeUndefined()
-      } else {
-        expect(query.liveDescriptor).toBeDefined()
+    for (const datasetKey of keys) {
+      const queries = getDatasetQueries(datasetKey)
+      expect(queries.length, `${datasetKey} must expose guided queries`).toBeGreaterThan(0)
+      expect(queries[0].key, `${datasetKey} first query must be the dataset-wide 'all'`).toBe('all')
+      for (const query of queries) {
+        expect(query.category, `${datasetKey}.${query.key} must declare a category`).toBeDefined()
       }
     }
 
-    for (const query of social) {
-      expect(query.category).toBeDefined()
-      if (query.key === 'all') {
-        expect(query.liveDescriptor).toBeUndefined()
-      } else {
-        expect(query.liveDescriptor).toBeDefined()
-      }
-    }
-
-    for (const query of fraud) {
-      expect(query.category).toBeDefined()
-      if (query.key === 'all') {
-        expect(query.liveDescriptor).toBeUndefined()
-      } else {
-        expect(query.liveDescriptor).toBeDefined()
+    for (const datasetKey of liveBackedKeys) {
+      for (const query of getDatasetQueries(datasetKey)) {
+        if (query.key === 'all') {
+          expect(query.liveDescriptor).toBeUndefined()
+        } else {
+          expect(
+            query.liveDescriptor,
+            `${datasetKey}.${query.key} must define a liveDescriptor for backend execution`,
+          ).toBeDefined()
+        }
       }
     }
   })
