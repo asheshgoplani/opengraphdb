@@ -9,7 +9,7 @@ test.describe('Slice 7 screenshots', () => {
 
     const tree = page.getByRole('tree', { name: /Schema/i })
     const labelsGroup = tree.getByRole('treeitem', { name: /^Labels/i })
-    await labelsGroup.click()
+    await labelsGroup.waitFor()
     await page.waitForTimeout(300)
 
     await page.screenshot({

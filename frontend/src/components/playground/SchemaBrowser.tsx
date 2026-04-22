@@ -129,7 +129,7 @@ export function SchemaBrowser({
   onSelectLabel,
   onToggleOntology,
 }: SchemaBrowserProps) {
-  const [labelsOpen, setLabelsOpen] = useState(false)
+  const [labelsOpen, setLabelsOpen] = useState(true)
   const [edgesOpen, setEdgesOpen] = useState(true)
   const [propsOpen, setPropsOpen] = useState(false)
   const [expandedLabel, setExpandedLabel] = useState<string | null>(null)

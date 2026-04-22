@@ -5128,7 +5128,7 @@ impl RdfImportPlan {
     ) {
         let src = self.ensure_resource_node(subject, graph_name);
         let dst = self.ensure_resource_node(object, graph_name);
-        let edge_type = local_name_from_iri(predicate_uri);
+        let edge_type = edge_type_from_iri(predicate_uri);
         let mut properties = PropertyMap::new();
         properties.insert(
             "_uri".to_string(),
@@ -6162,6 +6162,42 @@ fn local_name_from_iri(iri: &str) -> String {
         .to_string()
 }
 
+fn edge_type_from_iri(iri: &str) -> String {
+    to_cypher_edge_case(&local_name_from_iri(iri))
+}
+
+fn to_cypher_edge_case(name: &str) -> String {
+    if name.is_empty() {
+        return String::new();
+    }
+    let chars: Vec<char> = name.chars().collect();
+    let mut result = String::new();
+    for (i, &ch) in chars.iter().enumerate() {
+        if !ch.is_alphanumeric() {
+            if !result.is_empty() && !result.ends_with('_') {
+                result.push('_');
+            }
+            continue;
+        }
+        if ch.is_ascii_uppercase() {
+            let prev = if i > 0 { chars.get(i - 1).copied() } else { None };
+            let next = chars.get(i + 1).copied();
+            let prev_lower_or_digit =
+                prev.is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
+            let prev_upper = prev.is_some_and(|c| c.is_ascii_uppercase());
+            let next_lower = next.is_some_and(|c| c.is_ascii_lowercase());
+            let boundary = prev_lower_or_digit || (prev_upper && next_lower);
+            if boundary && !result.is_empty() && !result.ends_with('_') {
+                result.push('_');
+            }
+            result.push(ch);
+        } else {
+            result.push(ch.to_ascii_uppercase());
+        }
+    }
+    result.trim_matches('_').to_string()
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeShapeConstraint {
     pub shape_id: String,
@@ -6429,7 +6465,7 @@ fn process_rdf_quad(plan: &mut RdfImportPlan, quad: Quad, schema_only: bool) {
             }
             if object_iri == OWL_OBJECT_PROPERTY_IRI {
                 if let RdfResourceKey::Named(subject_iri) = &subject_key {
-                    let edge_type = local_name_from_iri(subject_iri);
+                    let edge_type = edge_type_from_iri(subject_iri);
                     plan.add_schema_edge_type(&edge_type, subject_iri);
                 }
                 return;
@@ -11420,7 +11456,7 @@ ex:acme a schema:Organization ;
             .into_iter()
             .find(|edge| edge.src == john && edge.dst == acme)
             .expect("john worksAt acme edge");
-        assert_eq!(edge.edge_type.as_deref(), Some("worksAt"));
+        assert_eq!(edge.edge_type.as_deref(), Some("WORKS_AT"));
         assert_eq!(
             edge.properties.get("_uri"),
             Some(&PropertyValue::String(
@@ -11556,7 +11592,7 @@ _:b1 <http://schema.org/name> "Blanky" <http://example.com/g1> .
             .into_iter()
             .find(|edge| edge.src == john && edge.dst == blank)
             .expect("knows edge");
-        assert_eq!(knows_edge.edge_type.as_deref(), Some("knows"));
+        assert_eq!(knows_edge.edge_type.as_deref(), Some("KNOWS"));
         assert_eq!(
             knows_edge.properties.get("_uri"),
             Some(&PropertyValue::String(
@@ -11611,7 +11647,7 @@ ex:alice a ex:Employee ;
         let schema = db.schema_catalog();
         assert!(schema.labels.contains(&"Employee".to_string()));
         assert!(schema.labels.contains(&"Person".to_string()));
-        assert!(schema.edge_types.contains(&"worksAt".to_string()));
+        assert!(schema.edge_types.contains(&"WORKS_AT".to_string()));
         assert!(schema.property_keys.contains(&"name".to_string()));
 
         let alice_nodes = db.find_nodes_by_property(

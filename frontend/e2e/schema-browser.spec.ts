@@ -14,9 +14,8 @@ test.describe('Playground premium — S7 schema + ontology browser', () => {
 
     const labelsGroup = tree.getByRole('treeitem', { name: /^Labels/i })
     await expect(labelsGroup).toBeVisible()
-    await labelsGroup.click()
 
-    // After expand, individual label nodes should appear with counts
+    // Labels group is expanded by default — individual label nodes should appear with counts
     const labelNodes = tree.getByTestId('schema-label-node')
     await expect(labelNodes.first()).toBeVisible()
 
