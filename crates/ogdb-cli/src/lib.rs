@@ -15386,6 +15386,7 @@ ex:acme a schema:Organization ;
     fn http_dispatch_helpers_cover_remaining_paths() {
         let path = temp_db_path("http-dispatch-helpers");
         let shared = SharedDatabase::init(&path, Header::default_v1()).expect("init shared");
+        let db_path = path.to_str().expect("utf8 path");
         shared
             .with_write(|db| {
                 let alice = db
@@ -15436,6 +15437,7 @@ ex:acme a schema:Organization ;
 
         let metrics = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "GET".to_string(),
                 path: "/metrics".to_string(),
@@ -15449,6 +15451,7 @@ ex:acme a schema:Organization ;
 
         let ok_query = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/query".to_string(),
@@ -15464,6 +15467,7 @@ ex:acme a schema:Organization ;
 
         let prometheus = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "GET".to_string(),
                 path: "/metrics/prometheus".to_string(),
@@ -15481,6 +15485,7 @@ ex:acme a schema:Organization ;
 
         let unauthorized = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/query".to_string(),
@@ -15496,6 +15501,7 @@ ex:acme a schema:Organization ;
 
         let authorized = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/query".to_string(),
@@ -15511,6 +15517,7 @@ ex:acme a schema:Organization ;
 
         let bad_query = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/query".to_string(),
@@ -15526,6 +15533,7 @@ ex:acme a schema:Organization ;
 
         let unsupported_import = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/import".to_string(),
@@ -15541,6 +15549,7 @@ ex:acme a schema:Organization ;
 
         let unsupported_export = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/export".to_string(),
@@ -15553,6 +15562,7 @@ ex:acme a schema:Organization ;
 
         let export_json = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/export".to_string(),
@@ -15570,6 +15580,7 @@ ex:acme a schema:Organization ;
 
         let export_with_edges = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/export".to_string(),
@@ -15592,6 +15603,7 @@ ex:acme a schema:Organization ;
 
         let bad_export_payload = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/export".to_string(),
@@ -15606,6 +15618,7 @@ ex:acme a schema:Organization ;
 
         let unknown = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "GET".to_string(),
                 path: "/missing-endpoint".to_string(),
@@ -15618,6 +15631,7 @@ ex:acme a schema:Organization ;
 
         let method_not_allowed = dispatch_http_request(
             &shared,
+            db_path,
             HttpRequestMessage {
                 method: "PUT".to_string(),
                 path: "/health".to_string(),
