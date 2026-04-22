@@ -8,6 +8,23 @@ use std::net::{TcpListener, TcpStream};
 pub const BOLT_MAGIC: u32 = 0x6060_B017;
 pub const BOLT_VERSION_1: u32 = 1;
 
+// Cumulative per-message byte cap for chunked reassembly (audit 2026-04-22
+// F5.7). Pre-fix, `read_chunked_message` resized the payload buffer for every
+// chunk it received without checking the running total — an attacker could
+// stream `u16::MAX`-sized chunks and force the server to allocate multi-GB
+// buffers. The env var exists for tests that want to prove the cap fires
+// without streaming 100 MiB across localhost; production should leave it
+// unset.
+const BOLT_MAX_MESSAGE_BYTES_DEFAULT: usize = 100 * 1024 * 1024;
+
+fn bolt_max_message_bytes() -> usize {
+    std::env::var("OGDB_BOLT_MAX_MESSAGE_BYTES")
+        .ok()
+        .and_then(|v| v.parse::<usize>().ok())
+        .filter(|v| *v > 0)
+        .unwrap_or(BOLT_MAX_MESSAGE_BYTES_DEFAULT)
+}
+
 const MSG_INIT: u8 = 0x01;
 const MSG_RUN: u8 = 0x10;
 const MSG_PULL_ALL: u8 = 0x3F;
@@ -143,8 +160,18 @@ pub fn serve(
             if requests_processed >= max_requests {
                 break;
             }
-            let Some(payload) = read_chunked_message(&mut stream)? else {
-                break;
+            let payload = match read_chunked_message(&mut stream) {
+                Ok(Some(payload)) => payload,
+                Ok(None) => break,
+                Err(BoltError::Protocol(message)) => {
+                    // Malformed or oversized chunked message — reply with a
+                    // FAILURE and close only this connection. Pre-fix this
+                    // path `?`-bubbled up and killed the whole server loop,
+                    // turning a single bad client into an availability bug.
+                    let _ = send_failure(&mut stream, "OGDB.ProtocolError", message);
+                    break;
+                }
+                Err(other) => return Err(other),
             };
             if payload.is_empty() {
                 continue;
@@ -524,6 +551,7 @@ fn decode_message(payload: &[u8]) -> Result<PackStructure, BoltError> {
 }
 
 fn read_chunked_message(stream: &mut TcpStream) -> Result<Option<Vec<u8>>, BoltError> {
+    let max_bytes = bolt_max_message_bytes();
     let mut payload = Vec::<u8>::new();
     loop {
         let mut len_buf = [0u8; 2];
@@ -544,8 +572,16 @@ fn read_chunked_message(stream: &mut TcpStream) -> Result<Option<Vec<u8>>, BoltE
             }
             return Ok(Some(payload));
         }
+        // Enforce the cumulative byte cap BEFORE resize so an attacker cannot
+        // force `Vec::resize` to allocate unbounded memory.
         let start = payload.len();
-        payload.resize(start + len, 0);
+        let new_total = start.saturating_add(len);
+        if new_total > max_bytes {
+            return Err(BoltError::Protocol(format!(
+                "chunked message exceeds cap: {new_total} bytes > {max_bytes}"
+            )));
+        }
+        payload.resize(new_total, 0);
         stream.read_exact(&mut payload[start..])?;
     }
 }

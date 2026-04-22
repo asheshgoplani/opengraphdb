@@ -211,3 +211,21 @@ tests:
     command: "cargo test -p ogdb-cli --test http_cors"
     purpose: "Guards CRITICAL FIX #1 from the 2026-04-22 playground correctness audit — ogdb serve --http must emit Access-Control-Allow-Origin/Methods/Headers on every response and return 204 + full preflight triplet on OPTIONS. Catches re-drift that would break Live Mode / Power Mode / BackendSchemaStrip with 'Failed to fetch' from non-same-origin playgrounds."
     added: 2026-04-22
+
+  - id: http-security-hardening
+    task: fix-http-security
+    crate: ogdb-cli
+    test: http_security
+    function: [body_exceeds_max_request_bytes_returns_413, export_without_token_returns_401_when_users_are_registered, slow_loris_connection_is_closed_by_server_timeout, too_many_headers_returns_431, malformed_content_length_returns_400]
+    command: "cargo test -p ogdb-cli --test http_security"
+    purpose: "Guards area 5 findings from the 2026-04-22 core technical audit — body cap (5.1 CRITICAL), /export auth hoist (5.2 CRITICAL), TCP read/write timeouts (5.3 HIGH), header count/line caps (5.4 HIGH), malformed Content-Length returning 400 without panicking (5.6 HIGH). Catches any reopening of the remote-OOM / graph-exfiltration / slow-loris attack surfaces."
+    added: 2026-04-22
+
+  - id: bolt-size-cap
+    task: fix-http-security
+    crate: ogdb-bolt
+    test: bolt_size_cap
+    function: [bolt_chunked_message_exceeding_cap_is_rejected_without_killing_server]
+    command: "cargo test -p ogdb-bolt --test bolt_size_cap"
+    purpose: "Guards area 5.7 MED from the 2026-04-22 audit — chunked Bolt messages above BOLT_MAX_MESSAGE_BYTES (100 MiB default) must be rejected with a FAILURE + connection close, and must NOT tear down the server for other clients. Catches a reopening of the unbounded-reassembly OOM vector."
+    added: 2026-04-22
