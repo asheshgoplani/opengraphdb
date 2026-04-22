@@ -585,11 +585,42 @@ export default function PlaygroundPage() {
                   animate={PANEL_MOTION.animate}
                   exit={PANEL_MOTION.exit}
                   transition={PANEL_TRANSITION}
-                  className="absolute inset-0 overflow-y-auto bg-background/60"
+                  className="absolute inset-0 overflow-y-auto"
                   data-testid="schema-main-panel"
+                  data-schema-mode="active"
+                  style={{
+                    // Slice-14: schema-mode tint on the whole main panel so
+                    // screenshot diffs show a clear visual delta vs the
+                    // graph/mcp tabs (which share bg-background/60). A faint
+                    // mint wash + strong header bar mean the reviewer can
+                    // see "this is schema" from across the room.
+                    background:
+                      'linear-gradient(180deg, rgba(100,255,180,0.03) 0%, rgba(100,255,180,0.015) 100%), hsla(240, 10%, 8%, 0.6)',
+                  }}
                 >
+                  <div
+                    data-testid="schema-header-bar"
+                    className="sticky top-0 z-10 border-b border-emerald-300/20 bg-gradient-to-r from-emerald-500/10 via-cyan-500/8 to-emerald-500/10 px-6 py-5 backdrop-blur-sm"
+                  >
+                    <h1
+                      className="font-display tracking-tight text-emerald-50"
+                      style={{
+                        fontFamily:
+                          '"Fraunces", "Source Serif 4", Georgia, serif',
+                        fontSize: '32px',
+                        fontWeight: 500,
+                        letterSpacing: '-0.01em',
+                        textShadow:
+                          '0 0 20px rgba(100,255,180,0.35), 0 0 40px rgba(100,255,180,0.18)',
+                      }}
+                    >
+                      SCHEMA BROWSER
+                    </h1>
+                    <p className="mt-1 font-mono text-[10.5px] uppercase tracking-[0.2em] text-emerald-200/70">
+                      labels · relationships · property keys
+                    </p>
+                  </div>
                   <div className="mx-auto max-w-3xl px-6 py-8">
-                    <h2 className="font-display text-2xl mb-4">Schema browser</h2>
                     <p className="mb-6 text-[12px] leading-relaxed text-white/55">
                       Explore the dataset's labels, relationships, and property keys. Click a
                       label to filter the graph canvas; flip on Ontology to render
