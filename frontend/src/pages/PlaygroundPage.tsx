@@ -496,51 +496,6 @@ export default function PlaygroundPage() {
               )}
             </AnimatePresence>
           </main>
-          <div
-            data-testid="mobile-panels"
-            className="space-y-3 overflow-y-auto border-t border-white/10 bg-muted/15 p-3 md:hidden"
-          >
-            <DatasetSwitcher activeDataset={activeDataset} onSwitch={handleDatasetSwitch} />
-            <p className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
-              Guided Queries
-            </p>
-            <div className="space-y-2">
-              {QUERY_CATEGORIES.map((category) => {
-                const categoryQueries = queriesByCategory[category]
-                if (categoryQueries.length === 0) {
-                  return null
-                }
-
-                return (
-                  <div key={category}>
-                    <p className="mb-1 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-white/55">
-                      {category}
-                    </p>
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                      {categoryQueries.map((query) => (
-                        <Button
-                          key={query.key}
-                          variant={activeQueryKey === query.key ? 'default' : 'outline'}
-                          size="sm"
-                          className="shrink-0"
-                          onClick={() => {
-                            void handleQueryRun(query.key)
-                          }}
-                        >
-                          {query.label}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <StatsPanel
-              nodeCount={displayedGraphData.nodes.length}
-              edgeCount={displayedGraphData.links.length}
-              labelCount={labelCount}
-            />
-          </div>
           <StatusBar
             nodeCount={displayedGraphData.nodes.length}
             edgeCount={displayedGraphData.links.length}
