@@ -1,0 +1,71 @@
+# verify-claims
+#
+# CI gate for OpenGraphDB's landing-page claims. Runs scripts/verify-claims.sh
+# on every push to main and every PR targeting main. The script:
+#   - runs each frontend e2e spec listed in .claude/release-tests.yaml
+#   - writes frontend/public/claims-status.json with per-claim status
+#   - exits 1 if ANY entry is red, failing the workflow
+#
+# This file is the documented CI wiring for Slice R4. It is not strictly
+# required for the R4 slice to land locally — the verifier script + UI work
+# without it — but keeping it here means adopting the gate is a one-step
+# toggle ("enable Actions").
+
+name: verify-claims
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify-claims:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Set up Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Build ogdb-cli (release)
+        run: cargo build --release -p ogdb-cli
+
+      - name: Run claim verifier
+        run: bash scripts/verify-claims.sh
+        env:
+          CI: "1"
+
+      - name: Upload claims-status.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claims-status
+          path: frontend/public/claims-status.json

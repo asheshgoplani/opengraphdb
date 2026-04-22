@@ -1,4 +1,5 @@
 import { LandingNav } from '@/components/landing/LandingNav'
+import { ClaimsRedBanner } from '@/components/landing/ClaimsBadge'
 import { HeroSection } from '@/components/landing/HeroSection'
 import { SampleQueryPanel } from '@/components/landing/SampleQueryPanel'
 import { ShowcaseSection } from '@/components/landing/ShowcaseSection'
@@ -12,6 +13,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen scroll-smooth bg-background text-foreground">
+      <ClaimsRedBanner />
       <LandingNav />
 
       <main>
