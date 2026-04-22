@@ -5366,7 +5366,9 @@ struct JsonNodeRecord {
 
 #[derive(Debug, Deserialize)]
 struct JsonEdgeRecord {
+    #[serde(alias = "startNode")]
     src: u64,
+    #[serde(alias = "endNode")]
     dst: u64,
     #[serde(default, rename = "type", alias = "edge_type")]
     edge_type: Option<String>,
@@ -5384,7 +5386,9 @@ struct JsonGraphPayload {
 
 #[derive(Debug, Deserialize)]
 struct LegacyJsonEdgeRow {
+    #[serde(alias = "startNode")]
     src: u64,
+    #[serde(alias = "endNode")]
     dst: u64,
 }
 
@@ -5775,6 +5779,9 @@ fn json_properties_to_property_map(
 ) -> Result<PropertyMap, CliError> {
     let mut out = PropertyMap::new();
     for (key, value) in properties {
+        if value.is_null() {
+            continue;
+        }
         out.insert(key.clone(), json_value_to_property_value(value)?);
     }
     Ok(out)
