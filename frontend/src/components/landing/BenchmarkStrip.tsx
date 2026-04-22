@@ -3,19 +3,19 @@ import { useSectionInView } from './useSectionInView'
 
 const METRICS = [
   {
-    label: 'create_node',
-    value: '37µs',
-    foot: 'p50, single writer',
+    label: 'storage model',
+    value: 'CSR+delta',
+    foot: 'architecture-locked',
   },
   {
-    label: '1k node ingest',
-    value: '40ms',
-    foot: 'cold, MVCC',
+    label: 'compaction p95',
+    value: '< 55ms',
+    foot: '30% writes, synthetic',
   },
   {
-    label: '2-hop traversal',
-    value: '< 1ms',
-    foot: 'in-memory CSR',
+    label: 'engine bench',
+    value: 'pending',
+    foot: 'WAL-backed run, in progress',
   },
   {
     label: 'BEIR · LDBC',
@@ -42,7 +42,7 @@ export function BenchmarkStrip() {
         >
           <div className="max-w-sm">
             <p className="mb-2 text-[11px] uppercase tracking-[0.22em] text-muted-foreground">
-              Verified · in-tree benchmarks
+              Pre-implementation · storage-model gates
             </p>
             <h2
               id="benchmark-heading"
@@ -51,11 +51,13 @@ export function BenchmarkStrip() {
               Numbers we publish, not numbers we promise.
             </h2>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              Every figure here lives in
+              Today&apos;s published benchmarks live in
               <code className="ml-1 rounded bg-muted px-1.5 py-px font-mono text-[12px]">
-                benches/
+                crates/ogdb-bench
               </code>
-              {' '}and re-runs on every release tag.
+              {' '}and exercise the storage model under synthetic load. Engine-level
+              numbers — create, ingest, traversal — land alongside the WAL-backed
+              run and will be stamped to the build sha.
             </p>
           </div>
 
