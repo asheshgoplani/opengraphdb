@@ -6,61 +6,41 @@ import { SavedQueriesPanel } from '@/components/query/SavedQueriesPanel'
 import { ThemeToggle } from './ThemeToggle'
 import { SettingsDialog } from './SettingsDialog'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Share2, Sparkles } from 'lucide-react'
-import { useAIChatStore } from '@/stores/ai-chat'
-import { AIChatPanel } from '@/components/ai/AIChatPanel'
-import { useAIChat } from '@/hooks/useAIChat'
+import { Share2 } from 'lucide-react'
 
 export function Header() {
-  const isOpen = useAIChatStore((s) => s.isOpen)
-  const setIsOpen = useAIChatStore((s) => s.setIsOpen)
-  const { sendMessage, runCypherFromAI } = useAIChat()
-
   return (
-    <>
-      <header className="border-b border-white/10 bg-[hsl(240,28%,8%)]/85 backdrop-blur-md">
-        <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-5">
-          <div className="flex min-w-0 items-center gap-3">
-            <Link
-              to="/"
-              className="inline-flex items-center gap-2 text-base font-semibold tracking-tight text-white transition-colors hover:text-white/80"
-            >
-              <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-white">
-                <Share2 className="h-4 w-4" />
-              </span>
-              <span className="font-display text-lg font-medium tracking-tight">
-                OpenGraphDB
-              </span>
-            </Link>
-            <Badge
-              variant="secondary"
-              className="rounded-full border-white/15 bg-white/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-white/70"
-            >
-              Explorer
-            </Badge>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <ConnectionStatus />
-            <div className="hidden h-6 w-px bg-border md:block" aria-hidden="true" />
-            <SchemaPanel />
-            <QueryHistoryPanel />
-            <SavedQueriesPanel />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-9 w-9"
-              title="AI Assistant"
-              onClick={() => setIsOpen(!isOpen)}
-            >
-              <Sparkles className="h-4 w-4" />
-            </Button>
-            <ThemeToggle />
-            <SettingsDialog />
-          </div>
+    <header className="border-b border-white/10 bg-[hsl(240,28%,8%)]/85 backdrop-blur-md">
+      <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-5">
+        <div className="flex min-w-0 items-center gap-3">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-base font-semibold tracking-tight text-white transition-colors hover:text-white/80"
+          >
+            <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-white/10 text-white">
+              <Share2 className="h-4 w-4" />
+            </span>
+            <span className="font-display text-lg font-medium tracking-tight">
+              OpenGraphDB
+            </span>
+          </Link>
+          <Badge
+            variant="secondary"
+            className="rounded-full border-white/15 bg-white/10 px-2.5 py-0.5 text-[10px] font-medium uppercase tracking-[0.18em] text-white/70"
+          >
+            Explorer
+          </Badge>
         </div>
-      </header>
-      <AIChatPanel onRunQuery={runCypherFromAI} onSendMessage={sendMessage} />
-    </>
+        <div className="flex items-center gap-1.5">
+          <ConnectionStatus />
+          <div className="hidden h-6 w-px bg-border md:block" aria-hidden="true" />
+          <SchemaPanel />
+          <QueryHistoryPanel />
+          <SavedQueriesPanel />
+          <ThemeToggle />
+          <SettingsDialog />
+        </div>
+      </div>
+    </header>
   )
 }

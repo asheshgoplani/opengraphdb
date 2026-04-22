@@ -19,9 +19,9 @@ function GithubMark({ className }: { className?: string }) {
 }
 
 const STATS = [
-  { value: 'Rust', label: 'native core' },
-  { value: 'Cypher', label: 'first-class' },
-  { value: 'MCP', label: 'AI-ready' },
+  { value: 'Rust', label: 'single-binary core' },
+  { value: 'Cypher', label: 'openCypher TCK gated' },
+  { value: 'MCP', label: 'JSON-RPC tool surface' },
 ]
 
 export function HeroSection() {
@@ -63,7 +63,7 @@ export function HeroSection() {
           }`}
         >
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px] shadow-emerald-400" />
-          v0.1 · open source · graph-native
+          v0.1 · open source · Apache-2.0 · single-file
         </p>
 
         <h1
@@ -72,12 +72,12 @@ export function HeroSection() {
             isInView ? 'animate-reveal-up animate-delay-100 animate-fill-both' : 'opacity-0'
           }`}
         >
-          The graph database
+          The single-file graph DB
           <br />
-          <span className="italic text-white/85">built for the way</span>
+          <span className="italic text-white/85">Rust devs</span>
           <br />
           <span className="bg-gradient-to-r from-indigo-300 via-sky-300 to-emerald-300 bg-clip-text text-transparent">
-            knowledge actually moves.
+            reach for.
           </span>
         </h1>
 
@@ -86,8 +86,13 @@ export function HeroSection() {
             isInView ? 'animate-reveal-up animate-delay-200 animate-fill-both' : 'opacity-0'
           }`}
         >
-          OpenGraphDB pairs Rust storage with Cypher ergonomics, so traversals
-          feel instant and AI agents get a query surface that respects context.
+          OpenGraphDB embeds in your Rust, Python, or Node app — or runs as a
+          single{' '}
+          <code className="rounded bg-white/10 px-1.5 py-px font-mono text-[0.85em] text-white/85">
+            ogdb serve
+          </code>{' '}
+          process. Cypher queries, MVCC, WAL, and an MCP surface for AI tools.
+          No JVM. No separate search index to keep in sync.
         </p>
 
         <div

@@ -1,4 +1,3 @@
-import { lazy, Suspense } from 'react'
 import { LandingNav } from '@/components/landing/LandingNav'
 import { HeroSection } from '@/components/landing/HeroSection'
 import { SampleQueryPanel } from '@/components/landing/SampleQueryPanel'
@@ -6,14 +5,6 @@ import { ShowcaseSection } from '@/components/landing/ShowcaseSection'
 import { FeaturesSection } from '@/components/landing/FeaturesSection'
 import { GettingStartedSection } from '@/components/landing/GettingStartedSection'
 import { BenchmarkStrip } from '@/components/landing/BenchmarkStrip'
-
-const DemoSection = lazy(() =>
-  import('@/components/demo/DemoSection').then((m) => ({ default: m.DemoSection }))
-)
-
-const HowItWorksSection = lazy(() =>
-  import('@/components/demo/HowItWorksSection').then((m) => ({ default: m.HowItWorksSection }))
-)
 
 export default function LandingPage() {
   const year = new Date().getFullYear()
@@ -26,12 +17,6 @@ export default function LandingPage() {
         <HeroSection />
         <SampleQueryPanel />
         <ShowcaseSection />
-        <Suspense fallback={<div className="py-20 sm:py-24" />}>
-          <DemoSection />
-        </Suspense>
-        <Suspense fallback={<div className="bg-muted/30 py-20 sm:py-24" />}>
-          <HowItWorksSection />
-        </Suspense>
         <FeaturesSection />
         <GettingStartedSection />
         <BenchmarkStrip />

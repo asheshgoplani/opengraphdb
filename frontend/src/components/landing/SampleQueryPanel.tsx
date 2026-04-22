@@ -146,7 +146,7 @@ export function SampleQueryPanel() {
           </h2>
           <p className="mx-auto mt-5 max-w-xl text-pretty text-base text-white/55">
             Cypher with familiar ergonomics, executed against a Rust-native engine.
-            What you see is the same shape the playground returns.
+            Open the playground to run this query against the real backend.
           </p>
         </div>
 
@@ -246,7 +246,7 @@ export function SampleQueryPanel() {
               enablePanInteraction={false}
             />
             <div className="pointer-events-none absolute bottom-3 right-3 rounded-md border border-white/10 bg-black/30 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-white/55 backdrop-blur">
-              {RESULT.nodes.length} nodes · {RESULT.links.length} edges · 0.4ms
+              {RESULT.nodes.length} nodes · {RESULT.links.length} edges · illustrative
             </div>
           </div>
         </div>

@@ -4,28 +4,28 @@ import { useSectionInView } from './useSectionInView'
 
 const FEATURES = [
   {
-    title: 'Rust-native core',
+    title: 'Embedded or served — your call',
     description:
-      'Storage, MVCC, and traversals run in Rust — no JVM, no GC pauses, predictable latency from the first query.',
-    icon: Zap,
+      'Open a .ogdb file from your Rust, Python, or Node app — or run `ogdb serve --http` as a single process. Backups are file copies.',
+    icon: Database,
   },
   {
-    title: 'Cypher, with care',
+    title: 'Cypher, with TCK gating',
     description:
-      'A familiar surface tuned for ergonomics. Codebase-friendly grammar; openCypher TCK targeted from day one.',
+      'openCypher syntax you already know, validated against the openCypher TCK harness (crates/ogdb-tck) — not a dialect that drifts.',
     icon: Terminal,
   },
   {
-    title: 'Built for agents',
+    title: 'Graph + Vector + Full-text, one process',
     description:
-      'First-class MCP, machine-readable plans, and stable result shapes — graph as a primitive, not an afterthought.',
-    icon: Bot,
+      'Hybrid queries mix MATCH traversals with vector similarity (usearch) and full-text (tantivy) — no separate search store to sync.',
+    icon: Zap,
   },
   {
-    title: 'Embed or serve',
+    title: 'MCP server built-in',
     description:
-      'A single binary you can ship inside the app, or run as a Bolt/HTTP server. Backups are file copies.',
-    icon: Database,
+      '`ogdb mcp --stdio` exposes a JSON-RPC tool surface. Point Claude, Cursor, or Copilot at it — the graph becomes a primitive they call.',
+    icon: Bot,
   },
 ]
 

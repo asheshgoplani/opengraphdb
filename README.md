@@ -1,10 +1,10 @@
 # OpenGraphDB
 
-**The SQLite of graph databases. Embeddable, AI-native, Apache 2.0.**
+**The single-file graph DB for Rust, Python, and Node. Embeddable. Cypher. MCP-ready. Apache 2.0.**
 
 ---
 
-An embeddable graph database written in Rust. Single file, zero setup, Cypher queries, native vector search, and built-in MCP support for AI agents.
+An embeddable graph database written in Rust. Single-file authoritative state plus WAL, Cypher queries, native vector search, and a built-in MCP server so AI tools can call the graph as a primitive.
 
 > **Status: Pre-release — designing and building the foundation**
 > **Architecture baseline:** See `ARCHITECTURE.md` for locked technical decisions
