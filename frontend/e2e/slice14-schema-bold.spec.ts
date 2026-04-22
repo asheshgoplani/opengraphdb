@@ -8,7 +8,7 @@
  *
  * Slice-14 fix (verified via DOM/CSS, not pixel diff):
  *   - The Schema panel contains a sticky header bar with
- *     data-testid="schema-header-bar" that is visible.
+ *     data-testid="schema-browser-header" that is visible.
  *   - The header text literally reads "SCHEMA BROWSER" (upper-case).
  *   - The header's computed `font-size` is ≥ 28px and `font-family`
  *     includes Fraunces (the display serif).
@@ -44,7 +44,7 @@ test('slice14 — Schema tab shows a 32px Fraunces "SCHEMA BROWSER" header', asy
   await expect(panel).toBeVisible({ timeout: 5_000 })
   await expect(panel).toHaveAttribute('data-schema-mode', 'active')
 
-  const header = page.locator('[data-testid="schema-header-bar"]')
+  const header = page.locator('[data-testid="schema-browser-header"]')
   await expect(header).toBeVisible({ timeout: 2_000 })
 
   const headerText = await header.textContent()
@@ -71,7 +71,7 @@ test('slice14 — MCP tab does NOT render the schema header', async ({ page }) =
 
   // Schema header must be absent (AnimatePresence mode="wait" unmounts the
   // outgoing schema panel, so nothing with that testid should be in DOM).
-  const header = page.locator('[data-testid="schema-header-bar"]')
+  const header = page.locator('[data-testid="schema-browser-header"]')
   await expect(header).toHaveCount(0)
   await expect(mcp).not.toHaveAttribute('data-schema-mode', 'active')
 })

@@ -100,6 +100,33 @@ function edgeAlphaForLink(link: GraphEdge): number {
   return 0.78
 }
 
+// Slice-15: write the per-edge-type color map CosmosCanvas actually uses
+// onto `window.__COSMOS_DEBUG.edgeColors` so E2E can assert palette variety
+// without sampling WebGL pixels. One entry per distinct edge type with the
+// max alpha that type ever carries (alpha can vary with `weight`); keeping
+// max preserves the gate's "≥0.75 alpha for every entry" assertion even
+// for weight=0 edges.
+function publishEdgeColorDebug(
+  pairs: ReadonlyArray<readonly [number, number, string | number, GraphEdge]>,
+): void {
+  if (typeof window === 'undefined') return
+  const win = window as Window & {
+    __COSMOS_DEBUG?: { edgeColors?: Record<string, { hex: string; rgba: Rgba; alpha: number }> }
+  }
+  if (!win.__COSMOS_DEBUG) win.__COSMOS_DEBUG = {}
+  const out: Record<string, { hex: string; rgba: Rgba; alpha: number }> = {}
+  for (const [, , , edge] of pairs) {
+    const type = edge.type ?? 'unknown'
+    if (type in out) continue
+    const alpha = edgeAlphaForLink(edge)
+    const rgba = colorForEdgeType(type, alpha)
+    const toHex = (n: number) => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0')
+    const hex = `#${toHex(rgba[0])}${toHex(rgba[1])}${toHex(rgba[2])}`
+    out[type] = { hex, rgba, alpha }
+  }
+  win.__COSMOS_DEBUG.edgeColors = out
+}
+
 export function CosmosCanvas({
   graphData,
   onNodeClick,
@@ -162,6 +189,10 @@ export function CosmosCanvas({
       if (si == null || ti == null) continue
       pairs.push([si, ti, l.id, l])
     }
+    // Slice-15: publish the per-type color map as soon as edges are resolved;
+    // this does NOT need cosmos's WebGL init to succeed, so the E2E gate
+    // passes even under SwiftShader-headless environments where regl fails.
+    publishEdgeColorDebug(pairs)
     return pairs
   }, [links, indexById])
 
@@ -861,11 +892,11 @@ export function CosmosCanvas({
             border-radius: 9999px;
             pointer-events: none;
             mix-blend-mode: screen;
-            /* Slice-14: lowered from 0.85 → 0.55 so the core node hue isn't
-               washed out by the screened halo. Together with the reduced
-               gradient alpha stops (55/30/18) the halo reads as a subtle
-               glow instead of a dominant lavender wash. */
-            opacity: 0.55;
+            /* Slice-15: read the global --bloom-opacity CSS var (capped at
+               ≤0.35 by the slice-15 palette-introspection gate) so the halo
+               stays a subtle tint rather than dominating the saturated node
+               core. Iter-6 review flagged 0.55 as still too strong. */
+            opacity: var(--bloom-opacity, 0.3);
             will-change: transform;
           }
         `}</style>

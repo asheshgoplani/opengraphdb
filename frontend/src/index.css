@@ -129,6 +129,11 @@
     --input: 214.3 26% 88%;
     --ring: 226 70% 55%;
     --radius: 0.5rem;
+    /* Slice-15: cap the cosmos bloom opacity so the per-label colored halo
+       stays a subtle tint instead of washing over the saturated WebGL node
+       core. Iter-6 review flagged the halo as still dominating; the gate
+       enforces ≤ 0.35 and CosmosCanvas reads this var at render time. */
+    --bloom-opacity: 0.3;
   }
 
   .dark {
