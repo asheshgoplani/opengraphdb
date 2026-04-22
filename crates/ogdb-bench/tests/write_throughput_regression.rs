@@ -3,7 +3,7 @@
 //! Mirrors the `write_throughput/create_nodes` criterion bench in
 //! `crates/ogdb-bench/benches/operations.rs` but runs under `cargo test` so it
 //! participates in the normal TDD loop and CI. Asserts observed throughput
-//! > 10,000 elem/s across three independent 100-op batches; current baseline
+//! \> 10,000 elem/s across three independent 100-op batches; current baseline
 //! is ~32 elem/s. See `.planning/fix-write-perf/PLAN.md` §4.4.
 
 use std::env;

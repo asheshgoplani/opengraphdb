@@ -370,7 +370,7 @@ fn section_02_storage_engine() -> Result<(), Box<dyn Error>> {
     bp.read_page(2, &mut out)?;
     bp.read_page(1, &mut out)?;
     let after = bp.metrics()?;
-    assert!(after.buffer_pool_hits >= before.buffer_pool_hits + 1);
+    assert!(after.buffer_pool_hits > before.buffer_pool_hits);
     assert!(after.buffer_pool_misses >= before.buffer_pool_misses + 4);
 
     reopened.set_compression_config(CompressionConfig {

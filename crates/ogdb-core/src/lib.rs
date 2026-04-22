@@ -1454,6 +1454,7 @@ pub struct IngestConfig {
     pub format: DocumentFormat,
     /// Optional embedding callback: given text, returns embedding vector.
     /// If None, content nodes are added to text index only (no vector index).
+    #[allow(clippy::type_complexity)]
     pub embed_fn: Option<Box<dyn Fn(&str) -> Vec<f32> + Send + Sync>>,
     /// Vector dimensions (required if embed_fn is provided)
     pub embedding_dimensions: Option<usize>,
@@ -6329,10 +6330,10 @@ impl AggregateAccumulator {
             }
         }
         match self.function.name.to_ascii_uppercase().as_str() {
-            "COUNT" => {
-                if !matches!(value, RuntimeValue::Null) || self.function.arguments.is_empty() {
-                    self.count += 1;
-                }
+            "COUNT"
+                if !matches!(value, RuntimeValue::Null) || self.function.arguments.is_empty() =>
+            {
+                self.count += 1;
             }
             "SUM" => {
                 if let Some(number) = runtime_to_f64(&value) {
@@ -8654,6 +8655,7 @@ impl<'a> ReadTransaction<'a> {
             .build_community_summaries_at(resolution, self.snapshot_txn_id)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn build_community_hierarchy(
         &self,
         resolutions: &[f64],
@@ -9276,6 +9278,7 @@ impl<'a> ReadSnapshot<'a> {
             .build_community_summaries_at(resolution, self.snapshot_txn_id)
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn build_community_hierarchy(
         &self,
         resolutions: &[f64],
@@ -9388,7 +9391,7 @@ impl<'a> ReadSnapshot<'a> {
             .into_iter()
             .cloned()
             .collect::<Vec<_>>();
-        top.sort_by(|a, b| b.node_count.cmp(&a.node_count));
+        top.sort_by_key(|b| std::cmp::Reverse(b.node_count));
         Ok(top)
     }
 
@@ -9438,8 +9441,10 @@ impl<'a> ReadSnapshot<'a> {
         let empty_embedding: Vec<f32> = Vec::new();
         let embedding = query_embedding.unwrap_or(&empty_embedding);
 
-        let mut config = RrfConfig::default();
-        config.community_id = community_id;
+        let mut config = RrfConfig {
+            community_id,
+            ..RrfConfig::default()
+        };
 
         if embedding.is_empty() {
             config.signals.retain(|s| *s != RetrievalSignal::Vector);
@@ -11786,10 +11791,8 @@ fn parse_markdown_sections(text: &str) -> Result<Vec<ParsedSection>, DbError> {
                     current_content.push_str(&t);
                 }
             }
-            Event::SoftBreak | Event::HardBreak => {
-                if !in_heading {
-                    current_content.push('\n');
-                }
+            Event::SoftBreak | Event::HardBreak if !in_heading => {
+                current_content.push('\n');
             }
             Event::End(TagEnd::Paragraph) => {
                 current_content.push_str("\n\n");
@@ -14053,7 +14056,7 @@ impl Database {
             let mut rows = self
                 .community_label_propagation(edge_type.as_deref())
                 .map_err(QueryError::from)?;
-            rows.sort_by(|left, right| left.0.cmp(&right.0));
+            rows.sort_by_key(|left| left.0);
             return Ok(Some(QueryResult {
                 columns: vec!["nodeId".to_string(), "communityId".to_string()],
                 batches: vec![RecordBatch {
@@ -14097,7 +14100,7 @@ impl Database {
             let mut rows = self
                 .community_louvain(edge_type.as_deref())
                 .map_err(QueryError::from)?;
-            rows.sort_by(|left, right| left.0.cmp(&right.0));
+            rows.sort_by_key(|left| left.0);
             return Ok(Some(QueryResult {
                 columns: vec!["nodeId".to_string(), "communityId".to_string()],
                 batches: vec![RecordBatch {
@@ -15056,7 +15059,7 @@ impl Database {
                 };
                 // Record each scanned node into the trace
                 for &nid in &node_ids {
-                    trace.record_node(nid as u64);
+                    trace.record_node(nid);
                 }
                 for node_id in node_ids {
                     let mut row = BTreeMap::<String, RuntimeValue>::new();
@@ -18714,7 +18717,7 @@ impl Database {
                 edge_type: edge_type_value,
             });
         }
-        edges.sort_by(|left, right| left.edge_id.cmp(&right.edge_id));
+        edges.sort_by_key(|left| left.edge_id);
 
         Ok(Subgraph {
             center,
@@ -18965,7 +18968,7 @@ impl Database {
 
         let mut next_community_id = visible_nodes.iter().max().copied().unwrap_or(0) + 1;
 
-        for (_comm_id, member_nodes) in &community_members {
+        for member_nodes in community_members.values() {
             if member_nodes.len() <= 1 {
                 continue;
             }
@@ -19012,6 +19015,7 @@ impl Database {
             .collect())
     }
 
+    #[allow(clippy::type_complexity)]
     fn build_community_hierarchy_at(
         &self,
         resolutions: &[f64],
@@ -19124,7 +19128,7 @@ impl Database {
 
                 let mut top_properties: Vec<(String, u64)> =
                     property_counts.into_iter().collect();
-                top_properties.sort_by(|a, b| b.1.cmp(&a.1));
+                top_properties.sort_by_key(|b| std::cmp::Reverse(b.1));
                 top_properties.truncate(10);
 
                 // Generate description via callback or auto-generate structural description
@@ -19524,7 +19528,7 @@ impl Database {
                 description: String::new(),
             });
         }
-        out.sort_by(|left, right| left.community_id.cmp(&right.community_id));
+        out.sort_by_key(|left| left.community_id);
         Ok(out)
     }
 
@@ -20809,6 +20813,7 @@ impl Database {
         self.community_leiden_at(edge_type, resolution, self.current_snapshot_txn_id())
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn build_community_hierarchy(
         &self,
         resolutions: &[f64],
@@ -22513,10 +22518,10 @@ mod tests {
         }
     }
 
-    fn expect_binary_expr<'a>(
-        expr: &'a CypherExpression,
+    fn expect_binary_expr(
+        expr: &CypherExpression,
         expected: CypherBinaryOperator,
-    ) -> (&'a CypherExpression, &'a CypherExpression) {
+    ) -> (&CypherExpression, &CypherExpression) {
         match expr {
             CypherExpression::BinaryOp { left, op, right } if *op == expected => {
                 (left.as_ref(), right.as_ref())
@@ -22890,7 +22895,7 @@ mod tests {
         let mut db_missing =
             Database::init(&path_missing, Header::default_v1()).expect("init must succeed");
         let _ = db_missing.create_node().expect("create node");
-        let _ = db_missing
+        db_missing
             .set_node_labels(0, &["Person".to_string()])
             .expect("set labels");
         drop(db_missing);
@@ -23440,26 +23445,26 @@ mod tests {
         assert!(matches!(err, DbError::Corrupt(_)));
 
         let err = store
-            .read_page(row0, &mut vec![0u8; 63])
+            .read_page(row0, &mut [0u8; 63])
             .expect_err("wrong read buffer length must fail");
         assert!(matches!(err, DbError::InvalidArgument(_)));
         let err = store
-            .write_page(row0, &vec![0u8; 63])
+            .write_page(row0, &[0u8; 63])
             .expect_err("wrong write buffer length must fail");
         assert!(matches!(err, DbError::InvalidArgument(_)));
         let err = store
-            .read_page(999, &mut vec![0u8; 64])
+            .read_page(999, &mut [0u8; 64])
             .expect_err("out-of-bounds read must fail");
         assert!(matches!(err, DbError::PageOutOfBounds { .. }));
         let err = store
-            .write_page(999, &vec![0u8; 64])
+            .write_page(999, &[0u8; 64])
             .expect_err("out-of-bounds write must fail");
         assert!(matches!(err, DbError::PageOutOfBounds { .. }));
 
         let dirty_a = vec![0xAAu8; 64];
         store.write_page(row0, &dirty_a).expect("write dirty row0");
         store
-            .read_page(row1, &mut vec![0u8; 64])
+            .read_page(row1, &mut [0u8; 64])
             .expect("read row1 triggers eviction flush path");
         store.write_page(row0, &dirty_a).expect("write dirty row0");
         let dirty_b = vec![0xBBu8; 64];
@@ -28993,9 +28998,8 @@ mod tests {
         assert_eq!(success.profile.edge_count_before, 0);
         assert_eq!(success.profile.node_count_after, 2);
         assert_eq!(success.profile.edge_count_after, 1);
-        let (edge_id, profile_after_unwrap) = success.into_result().expect("success result");
+        let (edge_id, _profile_after_unwrap) = success.into_result().expect("success result");
         assert_eq!(edge_id, 0);
-        assert!(profile_after_unwrap.duration_micros <= u128::MAX);
 
         let failed = db.query_profiled("bad-add-edge", |inner| inner.add_edge(7, 8));
         assert!(!failed.profile.success);
@@ -29013,6 +29017,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::approx_constant)]
     fn cypher_lexer_tokenizes_keywords_literals_symbols_and_comments() {
         let tokens = lex_cypher(
             "MaTcH (n:Person)-[r:KNOWS*1..3]->(m) WHERE n.name =~ 'A.*' AND n.age >= 21 RETURN $param, 3.14, 7 // line\n/* block */",
@@ -31928,8 +31933,8 @@ mod tests {
             .expect("e0");
 
         let snapshot = db.current_snapshot_txn_id();
-        assert!(
-            db.expand_neighbors_for_node(
+        assert!(!db
+            .expand_neighbors_for_node(
                 n1,
                 RelationshipDirection::RightToLeft,
                 Some("KNOWS"),
@@ -31937,11 +31942,9 @@ mod tests {
                 snapshot
             )
             .expect("rtl")
-            .len()
-                >= 1
-        );
-        assert!(
-            db.expand_neighbors_for_node(
+            .is_empty());
+        assert!(!db
+            .expand_neighbors_for_node(
                 n0,
                 RelationshipDirection::Undirected,
                 None,
@@ -31949,9 +31952,7 @@ mod tests {
                 snapshot,
             )
             .expect("undir")
-            .len()
-                >= 1
-        );
+            .is_empty());
         assert!(db
             .expand_neighbors_for_node(
                 n0,
@@ -38995,6 +38996,7 @@ mod tests {
             .hybrid_rag_retrieve(&[1.0, 0.0], "alpha", 2, 0.5, None)
             .expect("read tx rag retrieve")
             .is_empty());
+        #[allow(clippy::drop_non_drop)]
         drop(tx);
         drop(db);
 
@@ -40727,7 +40729,7 @@ mod tests {
             .build_community_hierarchy(&[1.0], Some(&summarize))
             .expect("build hierarchy with callback");
 
-        for (_, comm) in &hierarchy.communities {
+        for comm in hierarchy.communities.values() {
             assert!(
                 comm.description.starts_with("Custom summary"),
                 "Community {} should use custom callback description, got: {}",
@@ -41145,7 +41147,7 @@ Body text here.
         // Smaller k amplifies rank differences
         let list = vec![(1u64, 1.0f32), (2, 0.5f32)];
 
-        let fused_small_k = rrf_fuse(&[list.clone()], 1, 10);
+        let fused_small_k = rrf_fuse(std::slice::from_ref(&list), 1, 10);
         let fused_large_k = rrf_fuse(&[list], 100, 10);
 
         // Both should rank item 1 first
@@ -41250,7 +41252,7 @@ Body text here.
         // Results may or may not be non-empty depending on tantivy indexing; the key check
         // is that the API runs without error and results have the expected fields.
         for r in &results {
-            assert!(r.node_id > 0 || r.node_id == 0); // node_id is always valid
+            // node_id is u64 so always valid
             assert!(r.score >= 0.0, "score must be non-negative");
         }
 
