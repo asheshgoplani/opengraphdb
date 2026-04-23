@@ -23,12 +23,53 @@ use std::io::{self, BufRead, BufReader, BufWriter, IsTerminal, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 pub const APP_NAME: &str = "opengraphdb";
 const SERVER_MULTI_WRITER_RETRIES: usize = 3;
 static HTTP_QUERY_COUNT: AtomicU64 = AtomicU64::new(0);
 static HTTP_QUERY_DURATION_MICROS: AtomicU64 = AtomicU64::new(0);
+
+// HTTP request-size / header caps. Pre-fix (audit 2026-04-22 area 5) a single
+// `Content-Length: 4000000000` would allocate 4 GB before any bounds check,
+// and a client could stream arbitrarily many / arbitrarily long headers into
+// the header HashMap. Keep the numbers conservative — tune via a CLI flag
+// only if a real workload demands it.
+const MAX_REQUEST_BODY_BYTES: usize = 10 * 1024 * 1024;
+const MAX_HEADER_COUNT: usize = 100;
+const MAX_HEADER_LINE: usize = 8192;
+// Per-connection read/write timeout in seconds. Blocks slow-loris clients
+// from pinning a connection indefinitely. The env var exists for tests that
+// need a tight bound without compiling a custom binary; production should
+// leave it unset.
+const HTTP_STREAM_TIMEOUT_SECS_DEFAULT: u64 = 30;
+
+fn http_stream_timeout() -> Duration {
+    let secs = std::env::var("OGDB_HTTP_STREAM_TIMEOUT_SECS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(HTTP_STREAM_TIMEOUT_SECS_DEFAULT);
+    Duration::from_secs(secs.max(1))
+}
+
+// Outcome of attempting to parse an HTTP request off the wire. Pre-fix,
+// `read_http_request` returned `Result<Option<HttpRequestMessage>, CliError>`
+// and propagated malformed client input as hard errors — which would kill
+// the serve loop via `?`. We now classify:
+//   * `Closed`    — client closed before sending anything useful (drop conn)
+//   * `Rejected`  — valid framing but caps exceeded / malformed — reply 4xx
+//                   and keep the server alive for the next connection
+//   * `Request`   — fully-parsed message ready for dispatch
+#[derive(Debug)]
+enum HttpReadOutcome {
+    Closed,
+    Rejected {
+        status: u16,
+        reason: &'static str,
+        detail: String,
+    },
+    Request(HttpRequestMessage),
+}
 
 #[derive(Debug, Clone, Parser)]
 #[command(name = APP_NAME, version, about = "OpenGraphDB CLI", after_long_help = "\
@@ -3764,45 +3805,89 @@ ogdb_wal_size_bytes {}
     ))
 }
 
-fn read_http_request(stream: &mut TcpStream) -> Result<Option<HttpRequestMessage>, CliError> {
+fn read_http_request(stream: &mut TcpStream) -> Result<HttpReadOutcome, CliError> {
     let reader_stream = io_runtime(stream.try_clone(), "failed to clone client stream")?;
     let mut reader = BufReader::new(reader_stream);
 
+    // Request line — cap to MAX_HEADER_LINE so a flood of bytes without CRLF
+    // cannot balloon the String allocation.
     let mut request_line = String::new();
     let bytes = io_runtime(
-        reader.read_line(&mut request_line),
+        (&mut reader)
+            .take((MAX_HEADER_LINE as u64) + 1)
+            .read_line(&mut request_line),
         "failed to read request line",
     )?;
     if bytes == 0 {
-        return Ok(None);
+        return Ok(HttpReadOutcome::Closed);
+    }
+    if !request_line.ends_with('\n') || request_line.len() > MAX_HEADER_LINE {
+        return Ok(HttpReadOutcome::Rejected {
+            status: 431,
+            reason: "Request Header Fields Too Large",
+            detail: format!("request line exceeds {MAX_HEADER_LINE} bytes"),
+        });
     }
     let request_line = request_line.trim_end_matches(['\r', '\n']);
     if request_line.is_empty() {
-        return Ok(None);
+        return Ok(HttpReadOutcome::Closed);
     }
 
     let mut request_parts = request_line.split_whitespace();
-    let method = request_parts
-        .next()
-        .ok_or_else(|| CliError::Runtime("invalid http request line".to_string()))?
-        .to_string();
-    let path = request_parts
-        .next()
-        .ok_or_else(|| CliError::Runtime("invalid http request line".to_string()))?
-        .to_string();
-    let _version = request_parts
-        .next()
-        .ok_or_else(|| CliError::Runtime("invalid http request line".to_string()))?;
+    let method = match request_parts.next() {
+        Some(value) => value.to_string(),
+        None => {
+            return Ok(HttpReadOutcome::Rejected {
+                status: 400,
+                reason: "Bad Request",
+                detail: "missing request method".to_string(),
+            });
+        }
+    };
+    let path = match request_parts.next() {
+        Some(value) => value.to_string(),
+        None => {
+            return Ok(HttpReadOutcome::Rejected {
+                status: 400,
+                reason: "Bad Request",
+                detail: "missing request target".to_string(),
+            });
+        }
+    };
+    if request_parts.next().is_none() {
+        return Ok(HttpReadOutcome::Rejected {
+            status: 400,
+            reason: "Bad Request",
+            detail: "missing HTTP version".to_string(),
+        });
+    }
 
     let mut headers = HashMap::<String, String>::new();
+    let mut header_count = 0usize;
     loop {
+        if header_count >= MAX_HEADER_COUNT {
+            return Ok(HttpReadOutcome::Rejected {
+                status: 431,
+                reason: "Request Header Fields Too Large",
+                detail: format!("header count exceeds {MAX_HEADER_COUNT}"),
+            });
+        }
         let mut line = String::new();
         let read = io_runtime(
-            reader.read_line(&mut line),
+            (&mut reader)
+                .take((MAX_HEADER_LINE as u64) + 1)
+                .read_line(&mut line),
             "failed to read request header line",
         )?;
         if read == 0 {
             break;
+        }
+        if !line.ends_with('\n') || line.len() > MAX_HEADER_LINE {
+            return Ok(HttpReadOutcome::Rejected {
+                status: 431,
+                reason: "Request Header Fields Too Large",
+                detail: format!("header line exceeds {MAX_HEADER_LINE} bytes"),
+            });
         }
         let trimmed = line.trim_end_matches(['\r', '\n']);
         if trimmed.is_empty() {
@@ -3811,23 +3896,37 @@ fn read_http_request(stream: &mut TcpStream) -> Result<Option<HttpRequestMessage
         if let Some((name, value)) = trimmed.split_once(':') {
             headers.insert(name.trim().to_ascii_lowercase(), value.trim().to_string());
         }
+        header_count += 1;
     }
 
-    let content_length = headers
-        .get("content-length")
-        .map(|value| {
-            value
-                .parse::<usize>()
-                .map_err(|_| CliError::Runtime("invalid Content-Length header".to_string()))
-        })
-        .transpose()?
-        .unwrap_or(0);
+    let content_length = match headers.get("content-length") {
+        Some(value) => match value.parse::<usize>() {
+            Ok(parsed) => parsed,
+            Err(_) => {
+                return Ok(HttpReadOutcome::Rejected {
+                    status: 400,
+                    reason: "Bad Request",
+                    detail: format!("invalid Content-Length header: {value}"),
+                });
+            }
+        },
+        None => 0,
+    };
+    if content_length > MAX_REQUEST_BODY_BYTES {
+        return Ok(HttpReadOutcome::Rejected {
+            status: 413,
+            reason: "Payload Too Large",
+            detail: format!(
+                "request body is {content_length} bytes; limit is {MAX_REQUEST_BODY_BYTES}"
+            ),
+        });
+    }
     let mut body = vec![0u8; content_length];
     if content_length > 0 {
         io_runtime(reader.read_exact(&mut body), "failed to read request body")?;
     }
 
-    Ok(Some(HttpRequestMessage {
+    Ok(HttpReadOutcome::Request(HttpRequestMessage {
         method,
         path,
         headers,
@@ -4113,11 +4212,89 @@ fn render_http_export_csv(nodes: &[ExportNode], edges: &[ExportEdge]) -> Result<
         .map_err(|e| CliError::Runtime(format!("failed to render export csv: {e}")))
 }
 
+// Outcome of the dispatch-prologue auth gate. `Allow` means the request may
+// proceed — per-route handlers still run their own fine-grained checks (e.g.
+// /query also maps the bearer token to a user for query_as_user). `Deny` is a
+// pre-formed 401 response the caller returns verbatim.
+enum AuthOutcome {
+    Allow,
+    Deny(HttpResponseMessage),
+}
+
+// Is this route "mutating" in the sense that it must require a bearer token
+// when any user is registered on the database? /query is deliberately not in
+// this set — it preserves anonymous access for browser playgrounds that the
+// operator has deemed safe (same policy as pre-fix).
+fn http_route_requires_auth_when_users_exist(method: &str, path: &str) -> bool {
+    if method != "POST" {
+        return false;
+    }
+    if path == "/export" || path == "/import" {
+        return true;
+    }
+    if path == "/rdf/import" || path.starts_with("/rdf/import?") {
+        return true;
+    }
+    if path.starts_with("/rag/") {
+        return true;
+    }
+    false
+}
+
+fn authenticate_http_request(
+    shared_db: &SharedDatabase,
+    request: &HttpRequestMessage,
+    require_when_users_exist: bool,
+) -> Result<AuthOutcome, CliError> {
+    if let Some(auth_value) = http_header_value(&request.headers, "authorization") {
+        let Some(token) = parse_bearer_token(auth_value) else {
+            return Ok(AuthOutcome::Deny(http_error(
+                401,
+                "Unauthorized",
+                "authorization header must be Bearer <token>",
+            )));
+        };
+        match shared_db.authenticate_token(token)? {
+            Some(_) => Ok(AuthOutcome::Allow),
+            None => Ok(AuthOutcome::Deny(http_error(
+                401,
+                "Unauthorized",
+                "invalid bearer token",
+            ))),
+        }
+    } else if require_when_users_exist
+        && shared_db
+            .has_any_users()
+            .map_err(|e| CliError::Runtime(e.to_string()))?
+    {
+        Ok(AuthOutcome::Deny(http_error(
+            401,
+            "Unauthorized",
+            "bearer token required for this endpoint",
+        )))
+    } else {
+        Ok(AuthOutcome::Allow)
+    }
+}
+
 fn dispatch_http_request(
     shared_db: &SharedDatabase,
     db_path: &str,
     request: HttpRequestMessage,
 ) -> Result<HttpResponseMessage, CliError> {
+    // Auth prologue — runs BEFORE any mutating handler. Pre-fix (audit F5.2),
+    // /export and /rag/* had no auth check at all: any network-attached
+    // client could exfiltrate the full graph. We now gate them on a valid
+    // bearer token whenever at least one user is registered.
+    let require_auth =
+        http_route_requires_auth_when_users_exist(request.method.as_str(), request.path.as_str());
+    if require_auth {
+        match authenticate_http_request(shared_db, &request, true)? {
+            AuthOutcome::Deny(response) => return Ok(response),
+            AuthOutcome::Allow => {}
+        }
+    }
+
     match (request.method.as_str(), request.path.as_str()) {
         ("GET", "/health") => Ok(http_json_response(
             200,
@@ -4586,16 +4763,34 @@ fn handle_serve_http(
 
     loop {
         let (mut stream, _) = io_runtime(listener.accept(), "http accept failed")?;
-        if let Some(request) = read_http_request(&mut stream)? {
-            // Intercept POST /query/trace before normal dispatch — SSE writes directly to stream
-            if request.method == "POST" && request.path == "/query/trace" {
-                match handle_trace_sse(&shared_db, &request, &mut stream) {
-                    Ok(()) => {}
-                    Err(err) => {
-                        let response = http_error(500, "Internal Server Error", err.to_string());
-                        let _ = write_http_response(&mut stream, response);
-                    }
-                }
+        // Bound per-connection read/write time so a slow-loris client cannot
+        // pin the loop forever. set_read_timeout / set_write_timeout apply to
+        // the underlying socket — both this handle and the try_clone'd reader
+        // inside read_http_request observe the same timeout.
+        let timeout = http_stream_timeout();
+        let _ = stream.set_read_timeout(Some(timeout));
+        let _ = stream.set_write_timeout(Some(timeout));
+
+        // A malformed-bytes / slow-loris / timed-out read must NOT tear down
+        // the accept loop. Treat any read error as a dead connection: close
+        // this stream, keep serving. Pre-fix (audit F5.3 + F5.6) this path
+        // propagated via `?` and a single bad client could crash the server.
+        let outcome = match read_http_request(&mut stream) {
+            Ok(outcome) => outcome,
+            Err(_) => continue,
+        };
+        match outcome {
+            HttpReadOutcome::Closed => {
+                // Drop the stream; do not count this toward the request budget.
+                continue;
+            }
+            HttpReadOutcome::Rejected {
+                status,
+                reason,
+                detail,
+            } => {
+                let response = http_error(status, reason, detail);
+                let _ = write_http_response(&mut stream, response);
                 requests_processed = requests_processed.saturating_add(1);
                 if requests_processed >= max_requests {
                     return Ok(format!(
@@ -4605,18 +4800,38 @@ fn handle_serve_http(
                 }
                 continue;
             }
+            HttpReadOutcome::Request(request) => {
+                // Intercept POST /query/trace before normal dispatch — SSE writes directly to stream
+                if request.method == "POST" && request.path == "/query/trace" {
+                    match handle_trace_sse(&shared_db, &request, &mut stream) {
+                        Ok(()) => {}
+                        Err(err) => {
+                            let response = http_error(500, "Internal Server Error", err.to_string());
+                            let _ = write_http_response(&mut stream, response);
+                        }
+                    }
+                    requests_processed = requests_processed.saturating_add(1);
+                    if requests_processed >= max_requests {
+                        return Ok(format!(
+                            "{listening}\nserve_stopped protocol=http bind={} requests_processed={requests_processed}",
+                            local_addr,
+                        ));
+                    }
+                    continue;
+                }
 
-            let response = match dispatch_http_request(&shared_db, db_path, request) {
-                Ok(response) => response,
-                Err(err) => http_error(500, "Internal Server Error", err.to_string()),
-            };
-            write_http_response(&mut stream, response)?;
-            requests_processed = requests_processed.saturating_add(1);
-            if requests_processed >= max_requests {
-                return Ok(format!(
-                    "{listening}\nserve_stopped protocol=http bind={} requests_processed={requests_processed}",
-                    local_addr,
-                ));
+                let response = match dispatch_http_request(&shared_db, db_path, request) {
+                    Ok(response) => response,
+                    Err(err) => http_error(500, "Internal Server Error", err.to_string()),
+                };
+                write_http_response(&mut stream, response)?;
+                requests_processed = requests_processed.saturating_add(1);
+                if requests_processed >= max_requests {
+                    return Ok(format!(
+                        "{listening}\nserve_stopped protocol=http bind={} requests_processed={requests_processed}",
+                        local_addr,
+                    ));
+                }
             }
         }
     }
@@ -7928,7 +8143,14 @@ mod tests {
                 if key == "content-type" {
                     content_type = value;
                 } else if key == "content-length" {
-                    content_length = value.parse::<usize>().expect("content-length number");
+                    // Replaces a prior `.expect("content-length number")` that
+                    // would panic the test runner on malformed server output —
+                    // audit F5.6 wants no `.expect` on parsed header values,
+                    // even inside test helpers. We fall back to 0 (and skip
+                    // the body read via `read_exact` on an empty buffer) so
+                    // the caller gets a clear assertion failure instead of a
+                    // panic spewing into the test log.
+                    content_length = value.parse::<usize>().unwrap_or(0);
                 }
             }
         }
@@ -15609,10 +15831,16 @@ ex:acme a schema:Organization ;
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/import".to_string(),
-                headers: HashMap::from([(
-                    "content-type".to_string(),
-                    "application/octet-stream".to_string(),
-                )]),
+                headers: HashMap::from([
+                    (
+                        "content-type".to_string(),
+                        "application/octet-stream".to_string(),
+                    ),
+                    (
+                        "authorization".to_string(),
+                        "Bearer token-api".to_string(),
+                    ),
+                ]),
                 body: Vec::new(),
             },
         )
@@ -15625,7 +15853,13 @@ ex:acme a schema:Organization ;
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/export".to_string(),
-                headers: HashMap::from([("content-type".to_string(), "text/plain".to_string())]),
+                headers: HashMap::from([
+                    ("content-type".to_string(), "text/plain".to_string()),
+                    (
+                        "authorization".to_string(),
+                        "Bearer token-api".to_string(),
+                    ),
+                ]),
                 body: br#"{"label":"Person"}"#.to_vec(),
             },
         )
@@ -15638,7 +15872,10 @@ ex:acme a schema:Organization ;
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/export".to_string(),
-                headers: HashMap::new(),
+                headers: HashMap::from([(
+                    "authorization".to_string(),
+                    "Bearer token-api".to_string(),
+                )]),
                 body: br#"{"label":"Person","edge_type":"KNOWS","node_id_range":"0:0"}"#.to_vec(),
             },
         )
@@ -15656,7 +15893,10 @@ ex:acme a schema:Organization ;
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/export".to_string(),
-                headers: HashMap::new(),
+                headers: HashMap::from([(
+                    "authorization".to_string(),
+                    "Bearer token-api".to_string(),
+                )]),
                 body: Vec::new(),
             },
         )
@@ -15679,7 +15919,10 @@ ex:acme a schema:Organization ;
             HttpRequestMessage {
                 method: "POST".to_string(),
                 path: "/export".to_string(),
-                headers: HashMap::new(),
+                headers: HashMap::from([(
+                    "authorization".to_string(),
+                    "Bearer token-api".to_string(),
+                )]),
                 body: br#"[]"#.to_vec(),
             },
         )
@@ -15852,7 +16095,7 @@ ex:acme a schema:Organization ;
         });
         let mut client = TcpStream::connect(addr_empty).expect("connect empty listener");
         let parsed = read_http_request(&mut client).expect("read blank request");
-        assert!(parsed.is_none());
+        assert!(matches!(parsed, HttpReadOutcome::Closed));
         empty_thread.join().expect("join empty thread");
 
         let listener_eof = TcpListener::bind("127.0.0.1:0").expect("bind eof listener");
@@ -15862,7 +16105,7 @@ ex:acme a schema:Organization ;
         });
         let mut eof_client = TcpStream::connect(addr_eof).expect("connect eof listener");
         let eof_request = read_http_request(&mut eof_client).expect("read eof request");
-        assert!(eof_request.is_none());
+        assert!(matches!(eof_request, HttpReadOutcome::Closed));
         eof_thread.join().expect("join eof thread");
 
         let listener_header_eof =
@@ -15880,10 +16123,13 @@ ex:acme a schema:Organization ;
         let mut header_eof_client =
             TcpStream::connect(addr_header_eof).expect("connect header-eof listener");
         let header_eof_request = read_http_request(&mut header_eof_client)
-            .expect("read header-eof request")
-            .expect("request should be parsed");
-        assert_eq!(header_eof_request.method, "GET");
-        assert_eq!(header_eof_request.path, "/health");
+            .expect("read header-eof request");
+        let message = match header_eof_request {
+            HttpReadOutcome::Request(msg) => msg,
+            other => panic!("expected parsed header-eof request, got {other:?}"),
+        };
+        assert_eq!(message.method, "GET");
+        assert_eq!(message.path, "/health");
         header_eof_thread.join().expect("join header-eof thread");
 
         fs::remove_file(&path).expect("cleanup db");

@@ -9826,6 +9826,20 @@ impl SharedDatabase {
         Ok(guard.authenticate_token(token))
     }
 
+    // Has at least one user been registered on this database? Used by the
+    // HTTP server to decide whether mutating routes (/export, /import,
+    // /rag/*, /rdf/import) require a bearer token: if users exist, the
+    // operator has explicitly opted into auth, so anonymous access to
+    // mutating endpoints must be rejected. When no users are configured
+    // (bare init), anonymous access is preserved for local-dev workflows.
+    pub fn has_any_users(&self) -> Result<bool, DbError> {
+        let guard = self
+            .inner
+            .read()
+            .map_err(|_| lock_poisoned_error("users read"))?;
+        Ok(guard.has_any_users())
+    }
+
     pub fn authenticate_token_with_validator(
         &self,
         token: &str,
@@ -12493,6 +12507,10 @@ impl Database {
                 None
             }
         })
+    }
+
+    pub fn has_any_users(&self) -> bool {
+        !self.meta.users.is_empty()
     }
 
     pub fn audit_log_since(&self, since_timestamp_millis: i64) -> Vec<AuditEntry> {

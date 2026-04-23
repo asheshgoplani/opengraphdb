@@ -256,3 +256,21 @@ tests:
     command: "cargo test -p ogdb-core --test wal_v2_recovers_labels_and_props_after_sidecar_loss -- --test-threads=1"
     purpose: "Guards audit finding 2.1 — WAL_RECORD_CREATE_NODE_V2 must carry labels + property bytes and replay must restore them after a hard power loss that destroys meta.json / -props-meta.json sidecars. This closes the deferred-sync silent-data-loss window opened by fix-write-perf 2026-04-19."
     added: 2026-04-22
+
+  - id: http-security-hardening
+    task: fix-http-security
+    crate: ogdb-cli
+    test: http_security
+    function: [body_exceeds_max_request_bytes_returns_413, export_without_token_returns_401_when_users_are_registered, slow_loris_connection_is_closed_by_server_timeout, too_many_headers_returns_431, malformed_content_length_returns_400]
+    command: "cargo test -p ogdb-cli --test http_security"
+    purpose: "Guards area 5 findings from the 2026-04-22 core technical audit — body cap (5.1 CRITICAL), /export auth hoist (5.2 CRITICAL), TCP read/write timeouts (5.3 HIGH), header count/line caps (5.4 HIGH), malformed Content-Length returning 400 without panicking (5.6 HIGH). Catches any reopening of the remote-OOM / graph-exfiltration / slow-loris attack surfaces."
+    added: 2026-04-22
+
+  - id: bolt-size-cap
+    task: fix-http-security
+    crate: ogdb-bolt
+    test: bolt_size_cap
+    function: [bolt_chunked_message_exceeding_cap_is_rejected_without_killing_server]
+    command: "cargo test -p ogdb-bolt --test bolt_size_cap"
+    purpose: "Guards area 5.7 MED from the 2026-04-22 audit — chunked Bolt messages above BOLT_MAX_MESSAGE_BYTES (100 MiB default) must be rejected with a FAILURE + connection close, and must NOT tear down the server for other clients. Catches a reopening of the unbounded-reassembly OOM vector."
+    added: 2026-04-22
