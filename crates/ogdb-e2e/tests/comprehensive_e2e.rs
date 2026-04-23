@@ -1225,7 +1225,7 @@ fn section_09_server_protocols() -> Result<(), Box<dyn Error>> {
     assert_eq!(health_json["status"], "ok");
 
     let (metrics_status, _, metrics_body) =
-        send_http_request(&http_addr_text, "GET", "/metrics", &[], &[]);
+        send_http_request(&http_addr_text, "GET", "/metrics/json", &[], &[]);
     assert_eq!(metrics_status, 200);
     let metrics_json: Value = serde_json::from_slice(&metrics_body)?;
     assert!(metrics_json["node_count"].as_u64().unwrap_or(0) >= 1);
