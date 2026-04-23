@@ -143,6 +143,10 @@ export function CosmosCanvas({
 }: CosmosCanvasProps) {
   const hostRef = useRef<HTMLDivElement>(null)
   const graphRef = useRef<Graph | null>(null)
+  // Tooltip DOM element — content is React-managed (on hover), position is
+  // updated imperatively in the rAF loop so it tracks the node as cosmos's
+  // simulation spreads the graph without re-rendering React.
+  const tooltipRef = useRef<HTMLDivElement | null>(null)
   // R5: The old `setFrameTick` state rAF loop triggered a React re-render on
   // every frame (~60 Hz) so the label/bloom IIFE rebuilt every span from
   // scratch. That made zoom feel sluggish on real-GPU Macs (user report:
@@ -177,6 +181,12 @@ export function CosmosCanvas({
   const onNodeClickRef = useRef(onNodeClick)
   const onNodeHoverRef = useRef(onNodeHover)
   const onBackgroundClickRef = useRef(onBackgroundClick)
+  // Kept in a ref so the 60 Hz rAF loop can read the current hover target
+  // without picking up a stale closure value.
+  const hoveredNodeIdRef = useRef<string | number | null | undefined>(hoveredNodeId)
+  useEffect(() => {
+    hoveredNodeIdRef.current = hoveredNodeId
+  }, [hoveredNodeId])
 
   const { nodes, links, indexById, degree } = useMemo(() => {
     const indexById = new Map<string | number, number>()
@@ -198,6 +208,30 @@ export function CosmosCanvas({
     onNodeHoverRef.current = onNodeHover
     onBackgroundClickRef.current = onBackgroundClick
   }, [nodes, onNodeClick, onNodeHover, onBackgroundClick])
+
+  // Test-only hover hook: cosmos.gl's WebGL point picking is flaky under
+  // SwiftShader-headless (software rasteriser) so the e2e hover spec drives
+  // the tooltip deterministically via window.__pgHoverNodeByIndex(i) instead
+  // of relying on simulated pointer events over a specific pixel. The hook
+  // is safe in production since it does the same thing a real hover would.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const w = window as Window & {
+      __pgHoverNodeByIndex?: (idx: number) => void
+      __pgHoverClear?: () => void
+    }
+    w.__pgHoverNodeByIndex = (idx: number) => {
+      const n = nodesRef.current[idx]
+      if (n) onNodeHoverRef.current?.(n)
+    }
+    w.__pgHoverClear = () => {
+      onNodeHoverRef.current?.(null)
+    }
+    return () => {
+      delete w.__pgHoverNodeByIndex
+      delete w.__pgHoverClear
+    }
+  }, [])
 
   const linkIndexPairs = useMemo(() => {
     const pairs: Array<[number, number, string | number, GraphEdge]> = []
@@ -394,16 +428,22 @@ export function CosmosCanvas({
       return
     }
 
-    // R5: 4 Hz (250 ms) re-driver for React-visible state only. This is NOT
-    // the label/bloom position loop — that runs imperatively at 60 Hz via
-    // `positionRafRef` below. The epoch tick exists so the collision/LOD
-    // decision in the render-body IIFE re-runs often enough that freshly-
-    // settled cosmos positions feed back into "which labels are shown", but
-    // not so often that the React reconciler burns the main thread during
-    // pan/zoom (the previous 60 Hz state tick was the headline cause of the
-    // reported jank).
+    // Perf fix (pg-lag-data-clarity): previously this 4 Hz tick ran forever,
+    // re-rendering React (and re-running the giant label/bloom IIFE) every
+    // 250 ms in perpetuity. That was a constant ~10-15% main-thread burn
+    // even when the user was idle, contributing to the "feels laggy" report.
+    // Cosmos's simulation converges in ~6-8 s on our datasets, so we cap
+    // epoch ticks at 32 × 250 ms = 8 s after mount and then stop. After that
+    // the imperative rAF loop keeps positions live at 60 Hz and React only
+    // re-renders on actual interaction (hover/select/query).
+    let epochCount = 0
+    const MAX_EPOCHS = 32
     const epochTick = () => {
+      epochCount += 1
       setPositionEpoch((t) => (t + 1) % 1024)
+      if (epochCount >= MAX_EPOCHS) {
+        clearInterval(epochInterval)
+      }
     }
     const epochInterval = setInterval(epochTick, 250)
 
@@ -665,31 +705,33 @@ export function CosmosCanvas({
   const cssW = canvasEl?.clientWidth ?? 0
   const cssH = canvasEl?.clientHeight ?? 0
 
-  // R5: positionEpoch referenced so useMemo captures it as a dependency.
-  // The re-compute frequency is 4 Hz (see the epochInterval in the init
-  // effect); between recomputes the per-frame positionRaf below handles
-  // actual pixel movement via `style.transform`.
-  void positionEpoch
-
-  const { renderedLabels, renderedBlooms } = (() => {
+  // Perf fix (pg-lag-data-clarity): wrap the ~250-line label/bloom computation
+  // in useMemo so hover / selection / epoch tick only re-run it when a real
+  // dep changes, not on every React render. Previously this IIFE re-executed
+  // every hover event AND every 4 Hz epoch tick (now capped at 8 s). Keeping
+  // `positionEpoch` as a dep preserves the "re-check collision/LOD after
+  // cosmos settles" semantic — but after MAX_EPOCHS epochs the tick stops
+  // firing, so the IIFE goes idle.
+  const { renderedLabels, renderedBlooms, nextGeom } = useMemo(() => {
     const g = graphRef.current
-    if (!g) return { renderedLabels: null, renderedBlooms: null }
-    if (cssW <= 0 || cssH <= 0) {
-      return { renderedLabels: null, renderedBlooms: null }
+    const empty = {
+      renderedLabels: null as React.ReactNode[] | null,
+      renderedBlooms: null as React.ReactNode[] | null,
+      nextGeom: new Map<
+        string | number,
+        { radius: number; bloomR: number; labelYOffset: number; emphasize: boolean }
+      >(),
     }
+    if (!g) return empty
+    if (cssW <= 0 || cssH <= 0) return empty
     const positions = g.getPointPositions?.()
-    if (!positions || positions.length === 0) {
-      return { renderedLabels: null, renderedBlooms: null }
-    }
+    if (!positions || positions.length === 0) return empty
 
     // R5: rebuild the geometry cache used by the hot rAF loop. This runs
-    // only when React re-renders (4 Hz from epoch, or on interaction) —
-    // NOT every frame. The rAF loop reads this cache by id and never walks
-    // the React tree.
-    const nextGeom = new Map<
-      string | number,
-      { radius: number; bloomR: number; labelYOffset: number; emphasize: boolean }
-    >()
+    // only when the useMemo deps change (hover/select/epoch), NOT on every
+    // React render and NOT every frame. The rAF loop reads this cache by id
+    // and never walks the React tree.
+    const nextGeom = empty.nextGeom
 
     // Degree distribution for LOD thresholds and stats-aware radius.
     const degreeValues: number[] = []
@@ -718,7 +760,7 @@ export function CosmosCanvas({
       finiteCount += 1
     }
     if (finiteCount < 2) {
-      return { renderedLabels: null, renderedBlooms: null }
+      return empty
     }
     const spanX = Math.max(1, maxX - minX)
     const spanY = Math.max(1, maxY - minY)
@@ -922,9 +964,27 @@ export function CosmosCanvas({
       const labelYOffset = emphasize ? -r - 12 : r + 8
       nextGeom.set(l.id, { radius: r, bloomR, labelYOffset, emphasize })
     }
+    return { renderedLabels: labels, renderedBlooms: blooms, nextGeom }
+  }, [
+    nodes,
+    labelItems,
+    labelIndexSet,
+    indexById,
+    cssW,
+    cssH,
+    hoveredNodeId,
+    selectedNodeId,
+    traceActiveNodeId,
+    ontologyMode,
+    positionEpoch,
+  ])
+
+  // labelGeomRef side-effect: publish the freshly-computed geometry map to
+  // the rAF loop. Moved out of the useMemo body so the memo function stays
+  // pure (React may call it more than once per deps change under StrictMode).
+  useEffect(() => {
     labelGeomRef.current = nextGeom
-    return { renderedLabels: labels, renderedBlooms: blooms }
-  })()
+  }, [nextGeom])
 
   // R5: 60 Hz imperative position loop. This is the pathway that kept the
   // zoom feeling sluggish on real-GPU Macs: previously every frame triggered
@@ -1006,6 +1066,24 @@ export function CosmosCanvas({
           lEl.style.transform = `translate3d(${x}px, ${y + g2.labelYOffset}px, 0) translateX(-50%)`
         }
       }
+      // Tooltip position: imperatively follow the hovered node each frame.
+      // React owns the tooltip's *content* (set on hover via re-render), the
+      // rAF loop owns its *position* so it tracks the node without thrashing.
+      const tooltipEl = tooltipRef.current
+      const hoveredIdForTip = hoveredNodeIdRef.current
+      if (tooltipEl && hoveredIdForTip != null) {
+        const idx = indexById.get(hoveredIdForTip)
+        if (idx != null) {
+          const sx = positions[idx * 2]
+          const sy = positions[idx * 2 + 1]
+          if (Number.isFinite(sx) && Number.isFinite(sy)) {
+            const x = cssWLocal / 2 + (sx - midXL) * scaleL
+            const y = cssHLocal / 2 + (sy - midYL) * scaleL
+            // 12 px above the node so it doesn't cover the node itself
+            tooltipEl.style.transform = `translate3d(${x}px, ${y - 18}px, 0) translate(-50%, -100%)`
+          }
+        }
+      }
       positionRafRef.current = requestAnimationFrame(tick)
     }
     positionRafRef.current = requestAnimationFrame(tick)
@@ -1026,6 +1104,11 @@ export function CosmosCanvas({
         style={{
           filter: `drop-shadow(0 0 10px ${GRAPH_THEME.particleColor})`,
         }}
+      />
+      <NodeHoverTooltip
+        tooltipRef={tooltipRef}
+        node={hoveredNodeId != null ? nodes[indexById.get(hoveredNodeId) ?? -1] ?? null : null}
+        links={links}
       />
       <div className="pointer-events-none absolute inset-0 select-none">
         <style>{`
@@ -1064,6 +1147,111 @@ export function CosmosCanvas({
         `}</style>
         {renderedLabels}
       </div>
+    </div>
+  )
+}
+
+interface NodeHoverTooltipProps {
+  tooltipRef: React.RefObject<HTMLDivElement | null>
+  node: GraphNode | null
+  links: GraphEdge[]
+}
+
+// Plain-language hover panel: shows the node's label + labels-array + every
+// stringifiable property so the user can tell what they're looking at, plus
+// a short list of edge types incident to the node (this is how the user
+// understands edges without a separate per-edge hover).
+//
+// Only rendered when a node is actively hovered; position is updated from
+// the parent's rAF loop via `tooltipRef`. Pointer-events stay off so the
+// tooltip never steals the underlying cosmos hover events.
+function NodeHoverTooltip({ tooltipRef, node, links }: NodeHoverTooltipProps) {
+  const visible = node != null
+  const displayName = node ? resolveLabel(node) : ''
+  const props = node?.properties ?? {}
+  const propEntries = Object.entries(props)
+    .filter(([, v]) => v !== null && v !== undefined && typeof v !== 'object')
+    .slice(0, 8)
+  const labels = node?.labels ?? []
+  let edgeTypes: Array<{ type: string; count: number }> = []
+  if (node) {
+    const counts = new Map<string, number>()
+    for (const l of links) {
+      const s = typeof l.source === 'object' ? l.source.id : l.source
+      const t = typeof l.target === 'object' ? l.target.id : l.target
+      if (s === node.id || t === node.id) {
+        const type = l.type ?? 'RELATED'
+        counts.set(type, (counts.get(type) ?? 0) + 1)
+      }
+    }
+    edgeTypes = Array.from(counts.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5)
+  }
+  return (
+    <div
+      ref={tooltipRef}
+      data-testid="cosmos-node-tooltip"
+      data-visible={visible ? 'true' : 'false'}
+      aria-hidden={!visible}
+      className="pointer-events-none absolute left-0 top-0 z-20 max-w-[260px] rounded-md border border-cyan-400/35 bg-slate-950/92 px-2.5 py-1.5 font-mono text-[10.5px] leading-snug text-white/90 shadow-lg shadow-black/40 backdrop-blur-sm"
+      style={{
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 80ms ease-out',
+        // Hide from hit-test before first transform update lands
+        transform: 'translate3d(-9999px, -9999px, 0)',
+        willChange: 'transform',
+      }}
+    >
+      {node && (
+        <>
+          <p
+            data-testid="cosmos-node-tooltip-label"
+            className="mb-1 truncate font-serif text-[12px] leading-tight text-cyan-100"
+          >
+            {displayName}
+          </p>
+          {labels.length > 0 && (
+            <p className="mb-1 text-[9.5px] uppercase tracking-[0.14em] text-white/60">
+              {labels.map((l, i) => (
+                <span key={l}>
+                  {i > 0 ? ' · ' : ''}
+                  {l}
+                </span>
+              ))}
+            </p>
+          )}
+          {propEntries.length > 0 && (
+            <dl
+              data-testid="cosmos-node-tooltip-properties"
+              className="mt-1 grid grid-cols-[auto_1fr] gap-x-2 gap-y-[2px] text-[10px]"
+            >
+              {propEntries.map(([k, v]) => (
+                <div key={k} className="contents" data-testid="cosmos-node-tooltip-property">
+                  <dt className="truncate text-white/45">{k}</dt>
+                  <dd className="truncate text-white/90">{String(v)}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+          {edgeTypes.length > 0 && (
+            <p
+              data-testid="cosmos-node-tooltip-edges"
+              className="mt-1.5 border-t border-white/10 pt-1 text-[9.5px] text-white/65"
+            >
+              <span className="uppercase tracking-[0.12em] text-white/45">edges: </span>
+              {edgeTypes.map(({ type, count }, i) => (
+                <span key={type}>
+                  {i > 0 ? ', ' : ''}
+                  <span className="text-cyan-200">{type}</span>
+                  <span className="text-white/40">×{count}</span>
+                </span>
+              ))}
+            </p>
+          )}
+        </>
+      )}
     </div>
   )
 }
