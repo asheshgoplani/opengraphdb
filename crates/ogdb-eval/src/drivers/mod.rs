@@ -12,4 +12,5 @@ pub mod ldbc_mini;
 pub mod ldbc_snb;
 pub mod resources;
 pub mod scaling;
+pub mod skill_quality;
 pub mod throughput;
