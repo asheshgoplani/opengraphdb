@@ -1,10 +1,10 @@
 # OpenGraphDB — Product Specification
 
-> The embeddable, AI-native graph database that doesn't exist yet.
+> The embeddable, AI-native graph database.
 
-**Version:** 0.1 (Draft)
-**Date:** 2026-02-05
-**Status:** Research Complete, Pre-Implementation
+**Version:** 0.3.0
+**Date:** 2026-04-23
+**Status:** Implemented (core engine, Cypher, import/export, server adapters, MCP, frontend)
 
 **Canonical architecture source:** `ARCHITECTURE.md` (if this document conflicts, `ARCHITECTURE.md` wins)
 
