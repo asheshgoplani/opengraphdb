@@ -1798,6 +1798,8 @@ dependencies = [
 name = "ogdb-eval"
 version = "0.3.0"
 dependencies = [
+ "libc",
+ "ogdb-core",
  "serde",
  "serde_json",
  "tempfile",

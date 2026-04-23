@@ -274,3 +274,12 @@ tests:
     command: "cargo test -p ogdb-bolt --test bolt_size_cap"
     purpose: "Guards area 5.7 MED from the 2026-04-22 audit — chunked Bolt messages above BOLT_MAX_MESSAGE_BYTES (100 MiB default) must be rejected with a FAILURE + connection close, and must NOT tear down the server for other clients. Catches a reopening of the unbounded-reassembly OOM vector."
     added: 2026-04-22
+
+  - id: evaluator-drivers-e2e
+    task: evaluator-harness-phase5
+    crate: ogdb-eval
+    test: ldbc_mini_fixture, ldbc_snb_is1_driver, graphalytics_driver, criterion_ingest_driver, scaling_driver
+    function: [ldbc_mini_has_100_persons_and_500_knows_edges, ldbc_mini_is_deterministic_across_rebuilds, ldbc_mini_adjacency_indexes_are_in_range, ldbc_snb_is1_emits_evaluation_run_with_qps_and_percentiles, ldbc_snb_is1_query_count_matches_metric, bfs_visits_every_reachable_node_from_seed, pagerank_top5_matches_hardcoded_oracle, ingests_two_benchmarks_into_two_evaluation_runs, ignores_missing_directory, skips_directories_without_estimates_json, scaling_10k_tier_emits_populated_evaluation_run]
+    command: "cargo test -p ogdb-eval --tests --no-fail-fast"
+    purpose: "Guards Phase 5 of the evaluator-harness plan — the four real drivers (ldbc_snb IS-1, graphalytics BFS+PageRank, criterion_ingest, scaling 10K) must each produce a populated EvaluationRun with the expected metric keys, and the deterministic ldbc-mini fixture must keep its 100-person/500-knows shape so the PageRank top-5 oracle ([64, 25, 31, 55, 57]) stays reproducible. Catches silent regressions in the closed-loop benchmark surface that the conductor watcher depends on."
+    added: 2026-04-23
