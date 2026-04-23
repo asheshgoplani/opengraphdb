@@ -25,6 +25,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+mod prom_metrics;
+
 pub const APP_NAME: &str = "opengraphdb";
 const SERVER_MULTI_WRITER_RETRIES: usize = 3;
 static HTTP_QUERY_COUNT: AtomicU64 = AtomicU64::new(0);
@@ -4466,6 +4468,21 @@ fn dispatch_http_request(
         ("GET", "/metrics") => {
             let snapshot = shared_db.read_snapshot()?;
             let metrics = snapshot.metrics()?;
+            prom_metrics::refresh_state_gauges(metrics.node_count, metrics.edge_count, db_path);
+            drop(snapshot);
+            let body = prom_metrics::encode().map_err(|e| {
+                CliError::Runtime(format!("prometheus encode failed: {e}"))
+            })?;
+            Ok(http_text_response(
+                200,
+                "OK",
+                "text/plain; version=0.0.4",
+                body,
+            ))
+        }
+        ("GET", "/metrics/json") => {
+            let snapshot = shared_db.read_snapshot()?;
+            let metrics = snapshot.metrics()?;
             Ok(http_json_response(
                 200,
                 "OK",
@@ -4961,6 +4978,7 @@ fn handle_serve_http(
     let local_addr = io_runtime(listener.local_addr(), "failed to query listener address")?;
     let listening = format!("listening on http://{local_addr}");
     eprintln!("{listening}");
+    prom_metrics::ensure_registered();
     let max_requests = max_requests.unwrap_or(u64::MAX);
     let mut requests_processed = 0u64;
 
@@ -5004,15 +5022,34 @@ fn handle_serve_http(
                 continue;
             }
             HttpReadOutcome::Request(request) => {
+                let route_label =
+                    prom_metrics::route_label(&request.method, &request.path);
+                let is_mutating = request.method == "POST";
+                if is_mutating {
+                    prom_metrics::TXN_ACTIVE.inc();
+                }
+                let timer = Instant::now();
+
                 // Intercept POST /query/trace before normal dispatch — SSE writes directly to stream
                 if request.method == "POST" && request.path == "/query/trace" {
-                    match handle_trace_sse(&shared_db, &request, &mut stream) {
-                        Ok(()) => {}
+                    let sse_status = match handle_trace_sse(&shared_db, &request, &mut stream) {
+                        Ok(()) => 200u16,
                         Err(err) => {
                             let response = http_error(500, "Internal Server Error", err.to_string());
                             let _ = write_http_response(&mut stream, response);
+                            500
                         }
+                    };
+                    if is_mutating {
+                        prom_metrics::TXN_ACTIVE.dec();
                     }
+                    let elapsed = timer.elapsed().as_secs_f64();
+                    prom_metrics::REQUESTS_TOTAL
+                        .with_label_values(&[&route_label, &sse_status.to_string()])
+                        .inc();
+                    prom_metrics::REQUEST_DURATION_SECONDS
+                        .with_label_values(&[&route_label])
+                        .observe(elapsed);
                     requests_processed = requests_processed.saturating_add(1);
                     if requests_processed >= max_requests {
                         return Ok(format!(
@@ -5027,6 +5064,17 @@ fn handle_serve_http(
                     Ok(response) => response,
                     Err(err) => http_error(500, "Internal Server Error", err.to_string()),
                 };
+                let response_status = response.status;
+                if is_mutating {
+                    prom_metrics::TXN_ACTIVE.dec();
+                }
+                let elapsed = timer.elapsed().as_secs_f64();
+                prom_metrics::REQUESTS_TOTAL
+                    .with_label_values(&[&route_label, &response_status.to_string()])
+                    .inc();
+                prom_metrics::REQUEST_DURATION_SECONDS
+                    .with_label_values(&[&route_label])
+                    .observe(elapsed);
                 write_http_response(&mut stream, response)?;
                 requests_processed = requests_processed.saturating_add(1);
                 if requests_processed >= max_requests {
@@ -16116,7 +16164,7 @@ ex:acme a schema:Organization ;
         )
         .expect("metrics response");
         assert_eq!(metrics.status, 200);
-        assert!(metrics.content_type.starts_with("application/json"));
+        assert!(metrics.content_type.starts_with("text/plain"));
 
         let ok_query = dispatch_http_request(
             &shared,
