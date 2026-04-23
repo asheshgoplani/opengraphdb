@@ -25,7 +25,11 @@ export function StatusBar({
     <footer
       data-testid="status-bar"
       className={cn(
-        'flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-card/60 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55 backdrop-blur-sm',
+        // H6 (audit 2026-04-23b): dropped `backdrop-blur-sm` from the
+        // canvas-adjacent footer for the same reason as DatasetHeader —
+        // per-frame blur composite pass while zoom/panning was measurable in
+        // the p99 frame-time tail. bg-card/60 still reads as a designed strip.
+        'flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-card/60 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55',
         className,
       )}
     >

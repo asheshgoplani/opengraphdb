@@ -1000,7 +1000,24 @@ export function CosmosCanvas({
         positionRafRef.current = null
       }
     }
-    const tick = () => {
+    // H6 (audit 2026-04-23b): throttle the DOM-label/bloom write loop to
+    // 30 Hz instead of 60 Hz. Every tick computes a full bbox over all point
+    // positions and writes `style.transform` on every bloom + label DOM node
+    // — on wikidata + movielens that showed up as 100-166ms p99 frames when
+    // the user was also zooming/panning (the zoom wheel fires at the same
+    // cadence and competes for the main thread). 30 Hz is visually
+    // indistinguishable from 60 Hz for label-follow-the-node motion and
+    // halves the per-frame layout work. The WebGL canvas itself keeps
+    // running at display refresh rate inside cosmos — only the overlay
+    // projection is throttled here.
+    const MIN_FRAME_INTERVAL_MS = 33 // ~30 Hz
+    let lastTickMs = 0
+    const tick = (nowMs: number) => {
+      if (nowMs - lastTickMs < MIN_FRAME_INTERVAL_MS) {
+        positionRafRef.current = requestAnimationFrame(tick)
+        return
+      }
+      lastTickMs = nowMs
       const g = graphRef.current
       const host = hostRef.current
       const canvasElLocal = host?.querySelector('canvas') as HTMLCanvasElement | null

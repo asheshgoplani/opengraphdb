@@ -18,6 +18,7 @@ import { DatasetHeader } from '@/components/playground/DatasetHeader'
 import { QueryResultSummary } from '@/components/playground/QueryResultSummary'
 import { SchemaBrowser } from '@/components/playground/SchemaBrowser'
 import { RDFDropzone } from '@/components/playground/RDFDropzone'
+import { LiveEmptyDbCTA } from '@/components/playground/LiveEmptyDbCTA'
 import { CypherEditorPanel } from '@/components/query/CypherEditorPanel'
 import { QueryResultTable } from '@/components/query/QueryResultTable'
 import { StatusBar } from '@/components/layout/StatusBar'
@@ -284,19 +285,31 @@ export default function PlaygroundPage() {
                         {category}
                       </p>
                       <div className="space-y-1.5">
-                        {categoryQueries.map((query) => (
-                          <QueryCard
-                            key={query.key}
-                            query={query}
-                            isActive={activeQueryKey === query.key}
-                            resultCount={
-                              activeQueryKey === query.key ? graphData.nodes.length : query.expectedResultCount
-                            }
-                            onClick={() => {
-                              void handleQueryRun(query.key)
-                            }}
-                          />
-                        ))}
+                        {categoryQueries.map((query) => {
+                          // Live mode: the static `expectedResultCount` baked
+                          // into datasets.ts is a lie against whatever is in
+                          // the live DB. Show the real row count once the
+                          // query has run (active card + lastQueryResult),
+                          // otherwise show "—" by passing `null`.
+                          const cardResultCount: number | null | undefined = isLiveMode
+                            ? activeQueryKey === query.key && lastQueryResult
+                              ? lastQueryResult.rowCount
+                              : null
+                            : activeQueryKey === query.key
+                              ? graphData.nodes.length
+                              : query.expectedResultCount
+                          return (
+                            <QueryCard
+                              key={query.key}
+                              query={query}
+                              isActive={activeQueryKey === query.key}
+                              resultCount={cardResultCount}
+                              onClick={() => {
+                                void handleQueryRun(query.key)
+                              }}
+                            />
+                          )
+                        })}
                       </div>
                     </div>
                   )
@@ -309,6 +322,19 @@ export default function PlaygroundPage() {
             edgeCount={displayedGraphData.links.length}
             labelCount={labelCount}
           />
+          {isLiveMode && (
+            <LiveEmptyDbCTA
+              serverUrl={serverUrl}
+              onSeeded={() => {
+                // After the seed lands, nudge the user towards running the
+                // first live-capable query so they immediately see data.
+                const firstLive = queries.find((q) => q.liveDescriptor)
+                if (firstLive) {
+                  setActiveQueryKey(firstLive.key)
+                }
+              }}
+            />
+          )}
           <RDFDropzone
             onImport={(data, source) => {
               if (source.kind === 'live') {
