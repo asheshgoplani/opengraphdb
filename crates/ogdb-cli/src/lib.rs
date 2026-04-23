@@ -4419,6 +4419,13 @@ fn http_route_requires_auth_when_users_exist(method: &str, path: &str) -> bool {
     if path.starts_with("/rag/") {
         return true;
     }
+    // HTTP MCP transport: /mcp/invoke can mutate the graph (upsert_node,
+    // rag_build_summaries, agent_store_episode, etc.); /mcp/tools leaks the
+    // available tool surface. Both must require a bearer token whenever users
+    // are registered — same policy as /export (5.2 CRIT fix).
+    if path == "/mcp/tools" || path == "/mcp/invoke" {
+        return true;
+    }
     false
 }
 
@@ -4888,6 +4895,8 @@ fn dispatch_http_request(
                 Err(e) => Ok(http_error(400, "Bad Request", e.to_string())),
             }
         }
+        ("POST", "/mcp/tools") => Ok(handle_http_mcp_tools(db_path)),
+        ("POST", "/mcp/invoke") => Ok(handle_http_mcp_invoke(db_path, &request.body)),
         ("OPTIONS", _) => {
             // CORS preflight — applies to every path, including unknown ones.
             // Browsers require 2xx here before they will issue the actual request.
@@ -4906,6 +4915,86 @@ fn dispatch_http_request(
                 request.path, request.method
             ),
         )),
+    }
+}
+
+// HTTP MCP transport: `/mcp/tools` and `/mcp/invoke` expose the same tool
+// surface as `ogdb mcp --stdio`, so remote AI agents can drive the database
+// over HTTP. Both delegate to the same primitives as the stdio path
+// (`execute_mcp_request` for the tool catalog, `execute_mcp_tools_call` for
+// invocation) — this is the single source of truth for the tool set, shared
+// by both transports.
+fn handle_http_mcp_tools(db_path: &str) -> HttpResponseMessage {
+    let request_json = r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#;
+    let response = execute_mcp_request(db_path, request_json);
+    match serde_json::from_str::<Value>(&response) {
+        Ok(value) => {
+            if let Some(result) = value.get("result") {
+                http_json_response(200, "OK", result.clone())
+            } else if let Some(error) = value.get("error") {
+                http_json_response(500, "Internal Server Error", error.clone())
+            } else {
+                http_error(
+                    500,
+                    "Internal Server Error",
+                    "mcp tools/list produced neither result nor error",
+                )
+            }
+        }
+        Err(e) => http_error(
+            500,
+            "Internal Server Error",
+            format!("failed to parse mcp response: {e}"),
+        ),
+    }
+}
+
+fn handle_http_mcp_invoke(db_path: &str, body: &[u8]) -> HttpResponseMessage {
+    let payload: Value = match serde_json::from_slice(body) {
+        Ok(value) => value,
+        Err(e) => {
+            return http_error(
+                400,
+                "Bad Request",
+                format!("invalid json invoke payload: {e}"),
+            );
+        }
+    };
+    let object = match payload.as_object() {
+        Some(object) => object,
+        None => {
+            return http_error(400, "Bad Request", "invoke payload must be a json object");
+        }
+    };
+    if !object.contains_key("name") {
+        return http_error(
+            400,
+            "Bad Request",
+            "invoke payload must include string `name`",
+        );
+    }
+    match execute_mcp_tools_call(db_path, Some(payload)) {
+        Ok(result) => http_json_response(200, "OK", result),
+        Err(message) => {
+            // Known-bad tool or bad arguments map to 4xx so callers can
+            // distinguish them from genuine server-side failures.
+            let lowered = message.to_ascii_lowercase();
+            let is_client_error = lowered.starts_with("unknown tool")
+                || lowered.contains("must be")
+                || lowered.contains("required")
+                || lowered.contains("cannot be empty");
+            let status = if is_client_error { 400 } else { 500 };
+            let reason = if is_client_error {
+                "Bad Request"
+            } else {
+                "Internal Server Error"
+            };
+            http_json_response(
+                status,
+                reason,
+                serde_json::json!({ "error": message }),
+            )
+        }
     }
 }
 
