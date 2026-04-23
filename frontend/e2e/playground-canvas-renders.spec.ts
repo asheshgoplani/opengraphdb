@@ -20,8 +20,10 @@ test.describe('cosmos canvas — first-paint gate', () => {
 
     // Wait only for the canvas element to attach. NOT networkidle — the whole
     // point is to catch cases where the canvas stays black despite being attached.
+    // 15s to tolerate Vite cold-boot of the lazy /playground route (first test
+    // in a run). Warm-cache loads attach in <2s.
     const canvas = page.locator('canvas').first()
-    await canvas.waitFor({ state: 'attached', timeout: 5_000 })
+    await canvas.waitFor({ state: 'attached', timeout: 15_000 })
 
     const box = await canvas.boundingBox()
     if (!box) throw new Error('canvas has no bounding box')

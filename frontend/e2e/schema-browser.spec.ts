@@ -27,15 +27,13 @@ test.describe('Playground premium — S7 schema + ontology browser', () => {
     await page.goto('/playground')
     await page.waitForLoadState('networkidle')
 
-    // Programmatically dispatch a dragenter to the body and assert the overlay appears.
-    await page.evaluate(() => {
-      const event = new DragEvent('dragenter', {
-        bubbles: true,
-        cancelable: true,
-        dataTransfer: new DataTransfer(),
-      })
-      document.body.dispatchEvent(event)
-    })
+    // Gate on the RDFDropzone being fully mounted — its idle-phase trigger
+    // button is in the DOM only after useEffect has run and attached the
+    // `dragenter` listener on document.body. Without this wait, the dispatch
+    // below races the effect and the overlay never appears.
+    await expect(page.getByTestId('rdf-dropzone-trigger')).toBeVisible({ timeout: 10_000 })
+
+    await page.dispatchEvent('body', 'dragenter')
 
     await expect(page.getByTestId('rdf-dropzone-overlay')).toBeVisible()
     await expect(page.getByText(/Drop a \.ttl file/i)).toBeVisible()

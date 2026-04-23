@@ -7,6 +7,12 @@ Versioning follows Semantic Versioning.
 
 ## [Unreleased]
 
+- Post-v0.3.0 changes will land here.
+
+## [0.3.0] - 2026-04-23
+
+Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo-seed (canonical movies/social/fraud/movielens datasets + seed-demo.sh), fix-wcoj-deadlock (WCOJ planner/executor termination guards), movielens-import (scripts/convert-movielens.py + download-movielens.sh), reposition R1–R6 (Power/Schema tabs backed by real `ogdb serve` endpoints, fake playground tabs removed), UX slices 10–15 (premium graph quality gates on /playground), clippy + npm + doc hygiene sweep, CORS + HTTP security hardening (body cap 413, export auth 401, stream timeouts, header caps 431, Content-Length parse 400, Bolt 100 MiB cap), WAL v2 durability (labels + property bytes survive sidecar loss), SI phantom-read caveat documented and pinned by tests, perf bundle 805 KB → 62 KB.
+
 ### Changed
 - frontend Phase 06-03 adds a playground Sample/Live mode toggle, category-grouped guided query cards (Explore/Traverse/Analyze), backend Cypher execution via transformLiveResponse() in live mode, a mode-aware ConnectionBadge (timing + live error states), and graph-area loading/error overlays while preserving offline fallback for queries without liveDescriptor.
 - `datasets` Phase 06-01 adds production demo import artifacts for live backend seeding: new `datasets/movies.json` (262 nodes, real film/person/genre graph with `ACTED_IN`/`DIRECTED`/`WROTE`/`IN_GENRE` edges), `datasets/social.json` (280-node social graph with dense `FOLLOWS`/`CREATED`/`LIKED`/`POSTED_IN`/`MEMBER_OF` relationships), `datasets/fraud.json` (140-node fraud graph with account/device/IP sharing and flagged transaction patterns), plus an idempotent executable seed script `scripts/seed-demo.sh` and `data/` gitignore coverage.
@@ -512,6 +518,7 @@ Versioning follows Semantic Versioning.
   - `scripts/coverage.sh`
 
 
-[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/asheshgoplani/opengraphdb/releases/tag/v0.1.0

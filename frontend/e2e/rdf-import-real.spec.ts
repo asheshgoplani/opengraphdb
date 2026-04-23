@@ -117,6 +117,11 @@ test.describe('fix/rdf-import-fake — dropzone must actually persist', () => {
     await page.goto('/playground')
     await page.waitForLoadState('networkidle')
 
+    // Gate on the RDFDropzone being mounted so the `drop` listener is attached
+    // on document.body before we dispatch below. Without this the evaluate can
+    // race the effect and the drop is ignored.
+    await expect(page.getByTestId('rdf-dropzone-trigger')).toBeVisible({ timeout: 10_000 })
+
     const importRequests: { url: string; method: string; bodyLen: number }[] = []
     page.on('request', (req) => {
       if (req.url().includes('/api/rdf/import')) {
@@ -164,6 +169,10 @@ test.describe('fix/rdf-import-fake — dropzone must actually persist', () => {
 
     await page.goto('/playground')
     await page.waitForLoadState('networkidle')
+
+    // Gate on the RDFDropzone being mounted so the `drop` listener is attached
+    // on document.body before we dispatch below.
+    await expect(page.getByTestId('rdf-dropzone-trigger')).toBeVisible({ timeout: 10_000 })
 
     await page.evaluate(async (ttl: string) => {
       const file = new File([ttl], 'sample.ttl', { type: 'text/turtle' })

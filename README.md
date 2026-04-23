@@ -6,7 +6,7 @@
 
 OpenGraphDB embeds in your Rust, Python, or Node app — or runs as a single `ogdb serve` process. Cypher queries, MVCC, WAL, and an MCP surface for AI tools. No JVM. No separate search index to keep in sync.
 
-> **Status: v0.2 — core engine, Cypher, import/export, server adapters, and MCP are implemented and test-gated**
+> **Status: v0.3.0 — core engine, Cypher, import/export, server adapters, and MCP are implemented and test-gated**
 > **Architecture baseline:** See `ARCHITECTURE.md` for locked technical decisions
 
 ## The Idea
