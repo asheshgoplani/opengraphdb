@@ -4,12 +4,19 @@ import { cn } from '@/lib/utils'
 interface QueryCardProps {
   query: GuidedQuery
   isActive: boolean
-  resultCount?: number
+  // `number` = a real, measured count. `null` = live-mode card that has not yet
+  // executed against the backend — show "—" instead of the stale in-browser
+  // `expectedResultCount`, which would lie when the live DB is empty.
+  // `undefined` = fall back to the static `expectedResultCount` (non-live).
+  resultCount?: number | null
   onClick: () => void
 }
 
 export function QueryCard({ query, isActive, resultCount, onClick }: QueryCardProps) {
-  const count = resultCount ?? query.expectedResultCount
+  const countLabel =
+    resultCount === null
+      ? '— results'
+      : `${(resultCount ?? query.expectedResultCount).toLocaleString()} results`
 
   return (
     <button
@@ -27,8 +34,11 @@ export function QueryCard({ query, isActive, resultCount, onClick }: QueryCardPr
     >
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-medium leading-tight text-foreground">{query.label}</p>
-        <span className="shrink-0 rounded-full border bg-background px-2 py-0.5 text-[10px] text-muted-foreground">
-          {count.toLocaleString()} results
+        <span
+          data-testid="query-card-count"
+          className="shrink-0 rounded-full border bg-background px-2 py-0.5 text-[10px] text-muted-foreground"
+        >
+          {countLabel}
         </span>
       </div>
       <p className="text-xs leading-snug text-muted-foreground">{query.description}</p>

@@ -30,6 +30,13 @@ export function DatasetHeader({
     typeof activeRowCount === 'number' && activeQueryLabel
       ? ` · query ${activeQueryLabel} returned ${activeRowCount.toLocaleString()} rows`
       : ''
+  // H6 (audit 2026-04-23b): `backdrop-blur-sm` used to sit on the <section>
+  // below. This strip is directly above the WebGL canvas, so every zoom-wheel
+  // / drag-pan invalidated the blur filter's compositor pass and showed up as
+  // 100-166ms p99 frame tails on wikidata + movielens under software GL. The
+  // strip still reads as "designed chrome" because of the cyan-bordered
+  // gradient band — blur was load-bearing for aesthetics, not information.
+  // Dropping it removes the per-frame repaint tax.
   return (
     <section
       data-testid="dataset-header"
@@ -37,7 +44,7 @@ export function DatasetHeader({
       data-node-count={nodeCount}
       data-edge-count={edgeCount}
       aria-label="Active dataset summary"
-      className="border-b border-cyan-400/20 bg-gradient-to-r from-cyan-500/10 via-slate-900/30 to-cyan-500/10 px-4 py-2 font-mono text-[11px] leading-tight text-white/85 backdrop-blur-sm"
+      className="border-b border-cyan-400/20 bg-gradient-to-r from-cyan-500/10 via-slate-900/30 to-cyan-500/10 px-4 py-2 font-mono text-[11px] leading-tight text-white/85"
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="tabular-nums text-cyan-200">{totals}</span>

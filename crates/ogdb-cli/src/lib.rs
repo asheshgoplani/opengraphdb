@@ -4320,12 +4320,29 @@ fn apply_import_records(
             tx.commit()
         })?;
 
+    // `commit.created_nodes` counts every `create_node()` call made during the
+    // transaction, which includes the gap-fill nodes the importer creates to
+    // match caller-supplied ids (importing a single `{"id":100}` into an empty
+    // db allocates ids 0..=100 and reports 101 "created"). That is useful as
+    // an internal bookkeeping counter but misleading as a public count field:
+    // it looks like "I imported one node" should map to "created_nodes=1".
+    //
+    // Public contract — what a dashboard / CLI script sees:
+    //   created_nodes      = count of node records that were applied (= imported_nodes)
+    //   created_edges      = count of edge records that were applied (= imported_edges)
+    //   highest_node_id    = max internal node id touched by the commit (former `created_nodes`).
+    //
+    // `highest_node_id` is the max id allocator saw during this commit — for a
+    // sparse import like `{"id":100}` that is 100. For callers that relied on
+    // the old shape to diff last-node-id, this field preserves that info.
+    let highest_node_id = commit.created_nodes.saturating_sub(1);
     Ok(serde_json::json!({
         "status": "ok",
         "imported_nodes": imported_nodes,
         "imported_edges": imported_edges,
-        "created_nodes": commit.created_nodes,
-        "created_edges": commit.created_edges,
+        "created_nodes": imported_nodes,
+        "created_edges": imported_edges,
+        "highest_node_id": highest_node_id,
     }))
 }
 
@@ -4509,15 +4526,30 @@ fn dispatch_http_request(
             ))
         }
         ("POST", "/query") => {
-            let payload: Value = serde_json::from_slice(&request.body)
-                .map_err(|e| CliError::Runtime(format!("invalid json query payload: {e}")))?;
-            let query = payload
+            // Malformed JSON body and missing/wrong-typed `query` are caller
+            // errors, not server errors — surface as 400, not the blanket 500
+            // the generic CliError-mapping layer would emit.
+            let payload: Value = match serde_json::from_slice::<Value>(&request.body) {
+                Ok(v) => v,
+                Err(e) => {
+                    return Ok(http_error(
+                        400,
+                        "Bad Request",
+                        format!("invalid json query payload: {e}"),
+                    ));
+                }
+            };
+            let Some(query) = payload
                 .as_object()
                 .and_then(|object| object.get("query"))
                 .and_then(Value::as_str)
-                .ok_or_else(|| {
-                    CliError::Runtime("query payload must include string query".to_string())
-                })?;
+            else {
+                return Ok(http_error(
+                    400,
+                    "Bad Request",
+                    "query payload must include string query",
+                ));
+            };
 
             let user =
                 if let Some(auth_value) = http_header_value(&request.headers, "authorization") {
@@ -4566,7 +4598,16 @@ fn dispatch_http_request(
                 let _ = tx.send(result);
             });
             let result = match rx.recv_timeout(query_budget) {
-                Ok(result) => result.map_err(|e| CliError::Runtime(e.to_string()))?,
+                // Cypher parse/plan/execution failure is surfaced as
+                // `DbError::InvalidArgument` by
+                // `query_cypher_as_user_with_retry`. That is a client error —
+                // they sent bad Cypher — so return 400, not the blanket 500
+                // the generic CliError mapping would emit.
+                Ok(Ok(result)) => result,
+                Ok(Err(DbError::InvalidArgument(msg))) => {
+                    return Ok(http_error(400, "Bad Request", msg));
+                }
+                Ok(Err(e)) => return Err(CliError::Runtime(e.to_string())),
                 Err(_) => {
                     HTTP_QUERY_TIMEOUT_COUNT.fetch_add(1, Ordering::Relaxed);
                     eprintln!(
@@ -16184,6 +16225,10 @@ ex:acme a schema:Organization ;
         .expect("authorized response");
         assert_eq!(authorized.status, 200);
 
+        // Post-M2 (audit 2026-04-23b): missing-query is a client error, so
+        // /query returns `Ok(http_error(400, ...))` instead of bubbling up
+        // as a `CliError::Runtime` that the caller-generic wrapper would
+        // surface as 500.
         let bad_query = dispatch_http_request(
             &shared,
             db_path,
@@ -16197,8 +16242,13 @@ ex:acme a schema:Organization ;
                 body: br#"{}"#.to_vec(),
             },
         )
-        .expect_err("missing query should error");
-        assert!(bad_query.to_string().contains("query payload"));
+        .expect("missing query returns formed response");
+        assert_eq!(bad_query.status, 400);
+        let bad_query_body = String::from_utf8(bad_query.body).expect("body utf8");
+        assert!(
+            bad_query_body.contains("query payload"),
+            "body should mention payload: {bad_query_body}"
+        );
 
         let unsupported_import = dispatch_http_request(
             &shared,

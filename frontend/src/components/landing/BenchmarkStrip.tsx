@@ -13,14 +13,14 @@ const METRICS = [
     foot: '30% writes, synthetic',
   },
   {
-    label: 'engine bench',
-    value: 'pending',
-    foot: 'WAL-backed run, in progress',
+    label: 'eval drivers',
+    value: '4 shipped',
+    foot: 'LDBC IS-1 · graphalytics · scaling · criterion',
   },
   {
-    label: 'BEIR · LDBC',
-    value: 'soon',
-    foot: 'standard suites',
+    label: 'scaling tier',
+    value: '100K nodes',
+    foot: 'insert_throughput + p50/p95/p99 tracked',
   },
 ]
 
