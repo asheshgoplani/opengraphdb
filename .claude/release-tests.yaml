@@ -301,3 +301,30 @@ tests:
     command: "OGDB_EVAL_BASELINE_JSON=/tmp/baseline.json cargo test -p ogdb-eval --release --test publish_baseline -- --nocapture"
     purpose: "Release-mode harness that re-runs the 0.3.0 competitive baseline (14 EvaluationRun metrics across ingest / point-read / 2-hop / LDBC IS-1 / Graphalytics / scaling-10K / enrichment / rerank / hybrid) and serializes the full JSON array to $OGDB_EVAL_BASELINE_JSON. Env-gated (silent skip without OGDB_EVAL_BASELINE_JSON) so plain `cargo test` does NOT trigger it — keeps dev loop fast. Guards docs/BENCHMARKS.md + docs/evaluation-runs/baseline-2026-04-23.json against silent schema drift."
     added: 2026-04-23
+
+  - id: http-mcp-endpoint
+    task: feat-http-mcp
+    crate: ogdb-cli
+    test: http_mcp
+    function: [http_mcp_tools_returns_tool_descriptors, http_mcp_invoke_executes_cypher_against_real_db, http_mcp_invoke_requires_bearer_when_users_registered, http_mcp_invoke_unknown_tool_returns_4xx]
+    command: "cargo test -p ogdb-cli --test http_mcp"
+    purpose: "Guards the remote AI-agent surface — POST /mcp/tools must expose the full 20-tool catalog (canonical + extended) with name/description/inputSchema, POST /mcp/invoke must execute Cypher against the live DB (returning real i64 results, not mocks), bearer auth must mirror the /query policy (401 when users registered + no/bad bearer, 200 on valid), unknown tool names must 4xx. Locks in the HTTP transport parity with the existing stdio MCP so agents can reach OpenGraphDB remotely."
+    added: 2026-04-23
+
+  - id: http-prometheus-metrics
+    task: feat-prometheus
+    crate: ogdb-cli
+    test: http_prometheus
+    function: [metrics_endpoint_exposes_prometheus_format]
+    command: "cargo test -p ogdb-cli --test http_prometheus"
+    purpose: "Guards the new Prometheus scrape endpoint — GET /metrics returns text/plain with 7 metric families (ogdb_requests_total, ogdb_request_duration_seconds, ogdb_wal_fsync_duration_seconds, ogdb_txn_active, ogdb_node_count, ogdb_edge_count, ogdb_meta_json_bytes) and increments request counters with route + status labels across real GETs. Also pins the /metrics JSON → /metrics/json rename so legacy dashboards (e2e comprehensive_e2e + frontend) don't silently regress."
+    added: 2026-04-23
+
+  - id: http-import-count-semantic-correctness
+    task: fix-audit-high-items
+    crate: ogdb-cli
+    test: http_import_count
+    function: [import_returns_created_node_count_not_highest_id, invalid_cypher_returns_400_not_500, missing_query_field_returns_400]
+    command: "cargo test -p ogdb-cli --test http_import_count"
+    purpose: "Guards 3 findings from real-UI audit 2026-04-23 — M3: POST /import must return created_nodes = actual count of newly-created nodes (not highest_node_id which double-counts when a partial import runs twice), M2: invalid Cypher like MATCH <(n) must return 400 with parse error body (not 500), M2b: missing query field must return 400 (not crash with serde error). Catches silent reversion of these semantic + error-shape contracts."
+    added: 2026-04-23
