@@ -14,6 +14,8 @@ import { PowerModeToggle } from '@/components/playground/PowerModeToggle'
 import { QueryCard } from '@/components/playground/QueryCard'
 import { StatsPanel } from '@/components/playground/StatsPanel'
 import { BackendSchemaStrip } from '@/components/playground/BackendSchemaStrip'
+import { DatasetHeader } from '@/components/playground/DatasetHeader'
+import { QueryResultSummary } from '@/components/playground/QueryResultSummary'
 import { SchemaBrowser } from '@/components/playground/SchemaBrowser'
 import { RDFDropzone } from '@/components/playground/RDFDropzone'
 import { CypherEditorPanel } from '@/components/query/CypherEditorPanel'
@@ -85,6 +87,15 @@ export default function PlaygroundPage() {
     dbPath: string | null
     source: 'live' | 'preview'
   } | null>(null)
+  // Last query summary: rowCount is what the query returned, visibleNodes is
+  // what actually got drawn (can differ when the query returns primitive
+  // values like counts, or when a filterFn drops unprojectable rows).
+  const [lastQueryResult, setLastQueryResult] = useState<{
+    rowCount: number
+    visibleNodes: number
+    visibleEdges: number
+    label: string
+  } | null>(null)
   const liveQueryMutation = useMutation({
     mutationFn: (cypher: string) => apiClient.query(cypher),
   })
@@ -147,6 +158,12 @@ export default function PlaygroundPage() {
         const nextGraphData = transformLiveResponse(response, query.liveDescriptor)
         setGraphData(nextGraphData)
         setQueryTimeMs(Math.max(0.05, +(performance.now() - start).toFixed(2)))
+        setLastQueryResult({
+          rowCount: response.row_count ?? nextGraphData.nodes.length,
+          visibleNodes: nextGraphData.nodes.length,
+          visibleEdges: nextGraphData.links.length,
+          label: query.label,
+        })
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Query failed'
         setLiveError(message)
@@ -158,8 +175,15 @@ export default function PlaygroundPage() {
     }
 
     const start = performance.now()
-    setGraphData(runDatasetQuery(activeDataset, queryKey))
+    const nextGraphData = runDatasetQuery(activeDataset, queryKey)
+    setGraphData(nextGraphData)
     setQueryTimeMs(Math.max(0.05, +(performance.now() - start).toFixed(2)))
+    setLastQueryResult({
+      rowCount: nextGraphData.nodes.length,
+      visibleNodes: nextGraphData.nodes.length,
+      visibleEdges: nextGraphData.links.length,
+      label: query.label,
+    })
   }
 
   const baseGraphData = useMemo(
@@ -198,6 +222,12 @@ export default function PlaygroundPage() {
       const response = (await apiClient.query(cypher)) as unknown as BackendQueryResponse
       setPowerResponse(response)
       setQueryTimeMs(Math.max(0.05, +(performance.now() - start).toFixed(2)))
+      setLastQueryResult({
+        rowCount: response.row_count ?? 0,
+        visibleNodes: displayedGraphData.nodes.length,
+        visibleEdges: displayedGraphData.links.length,
+        label: cypher.length > 40 ? cypher.slice(0, 37) + '…' : cypher,
+      })
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Power-mode query failed'
       setPowerError(message)
@@ -367,6 +397,14 @@ export default function PlaygroundPage() {
             )}
           </AnimatePresence>
 
+          <DatasetHeader
+            meta={importedGraph ? undefined : DATASETS[activeDataset]?.meta}
+            nodeCount={displayedGraphData.nodes.length}
+            edgeCount={displayedGraphData.links.length}
+            activeRowCount={lastQueryResult?.rowCount ?? null}
+            activeQueryLabel={lastQueryResult?.label ?? null}
+          />
+
           <div
             role="tablist"
             aria-label="Playground view"
@@ -387,6 +425,14 @@ export default function PlaygroundPage() {
               blurb="GET /schema · real backend"
             />
           </div>
+
+          <QueryResultSummary
+            rowCount={lastQueryResult?.rowCount ?? null}
+            visibleNodes={displayedGraphData.nodes.length}
+            visibleEdges={displayedGraphData.links.length}
+            queryLabel={lastQueryResult?.label ?? null}
+            error={liveError || powerError}
+          />
 
           <main className="relative min-h-[55vh] flex-1 overflow-hidden md:min-h-0">
             <AnimatePresence mode="wait" initial={false}>
