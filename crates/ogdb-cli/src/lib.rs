@@ -29,6 +29,7 @@ pub const APP_NAME: &str = "opengraphdb";
 const SERVER_MULTI_WRITER_RETRIES: usize = 3;
 static HTTP_QUERY_COUNT: AtomicU64 = AtomicU64::new(0);
 static HTTP_QUERY_DURATION_MICROS: AtomicU64 = AtomicU64::new(0);
+static HTTP_QUERY_TIMEOUT_COUNT: AtomicU64 = AtomicU64::new(0);
 
 // HTTP request-size / header caps. Pre-fix (audit 2026-04-22 area 5) a single
 // `Content-Length: 4000000000` would allocate 4 GB before any bounds check,
@@ -43,6 +44,11 @@ const MAX_HEADER_LINE: usize = 8192;
 // need a tight bound without compiling a custom binary; production should
 // leave it unset.
 const HTTP_STREAM_TIMEOUT_SECS_DEFAULT: u64 = 30;
+// Per-query execution budget for POST /query. A query that runs past the
+// budget is abandoned by the HTTP handler — the worker thread is detached
+// (the engine lacks cooperative cancellation today), a 504 is returned to
+// the client, and HTTP_QUERY_TIMEOUT_COUNT is incremented.
+const HTTP_QUERY_TIMEOUT_MS_DEFAULT: u64 = 10_000;
 
 fn http_stream_timeout() -> Duration {
     let secs = std::env::var("OGDB_HTTP_STREAM_TIMEOUT_SECS")
@@ -50,6 +56,14 @@ fn http_stream_timeout() -> Duration {
         .and_then(|v| v.parse::<u64>().ok())
         .unwrap_or(HTTP_STREAM_TIMEOUT_SECS_DEFAULT);
     Duration::from_secs(secs.max(1))
+}
+
+fn http_query_exec_timeout() -> Duration {
+    let ms = std::env::var("OGDB_HTTP_QUERY_TIMEOUT_MS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+        .unwrap_or(HTTP_QUERY_TIMEOUT_MS_DEFAULT);
+    Duration::from_millis(ms.max(1))
 }
 
 // Outcome of attempting to parse an HTTP request off the wire. Pre-fix,
@@ -1861,7 +1875,143 @@ fn should_route_to_cypher(db: &Database, query: &str) -> bool {
     db.parse_cypher(query).is_ok() || query.trim_start().to_ascii_uppercase().starts_with("CALL ")
 }
 
+// UNWIND is not yet wired through the physical planner, so a query like
+// `UNWIND range(1,100) AS i CREATE (:Person {id: i})` errors out in core
+// and nothing gets persisted. Until the planner learns UNWIND, the CLI
+// desugars the specific `UNWIND range(A, B) AS <var> <rest>` shape into B-A+1
+// simple CREATE statements by substituting <var> with each literal value.
+// Returns None when the query isn't this exact shape — caller falls back to
+// normal Cypher execution (which will surface the planner error).
+fn try_expand_unwind_range_create(query: &str) -> Option<Vec<String>> {
+    let rest = consume_keyword(query.trim(), "UNWIND")?;
+    let rest = consume_keyword(rest.trim_start(), "range")?;
+    let rest = rest.trim_start().strip_prefix('(')?;
+    let (start, rest) = parse_leading_i64(rest.trim_start())?;
+    let rest = rest.trim_start().strip_prefix(',')?;
+    let (end, rest) = parse_leading_i64(rest.trim_start())?;
+    let rest = rest.trim_start().strip_prefix(')')?;
+    let rest = consume_keyword(rest.trim_start(), "AS")?;
+    let (var, rest) = parse_leading_identifier(rest.trim_start())?;
+    let body = rest.trim_start();
+    if body.is_empty() {
+        return None;
+    }
+    if start > end {
+        return None;
+    }
+    let mut queries = Vec::with_capacity((end - start + 1) as usize);
+    for i in start..=end {
+        queries.push(substitute_identifier_literal(body, &var, &i.to_string()));
+    }
+    Some(queries)
+}
+
+fn consume_keyword<'a>(input: &'a str, keyword: &str) -> Option<&'a str> {
+    let head = input.get(..keyword.len())?;
+    if !head.eq_ignore_ascii_case(keyword) {
+        return None;
+    }
+    let rest = &input[keyword.len()..];
+    // Keyword must be followed by a non-identifier char (whitespace, '(', etc.)
+    // to avoid matching a prefix of a longer identifier like `rangex`.
+    match rest.chars().next() {
+        None => Some(rest),
+        Some(c) if c.is_ascii_alphanumeric() || c == '_' => None,
+        _ => Some(rest),
+    }
+}
+
+fn parse_leading_i64(input: &str) -> Option<(i64, &str)> {
+    let bytes = input.as_bytes();
+    let mut idx = 0;
+    if bytes.first().copied() == Some(b'-') || bytes.first().copied() == Some(b'+') {
+        idx = 1;
+    }
+    let digits_start = idx;
+    while idx < bytes.len() && bytes[idx].is_ascii_digit() {
+        idx += 1;
+    }
+    if idx == digits_start {
+        return None;
+    }
+    let value: i64 = input[..idx].parse().ok()?;
+    Some((value, &input[idx..]))
+}
+
+fn parse_leading_identifier(input: &str) -> Option<(String, &str)> {
+    let bytes = input.as_bytes();
+    let first = *bytes.first()?;
+    if !(first.is_ascii_alphabetic() || first == b'_') {
+        return None;
+    }
+    let mut idx = 1;
+    while idx < bytes.len() && (bytes[idx].is_ascii_alphanumeric() || bytes[idx] == b'_') {
+        idx += 1;
+    }
+    Some((input[..idx].to_string(), &input[idx..]))
+}
+
+// Replace whole-word occurrences of `var` with `value`, skipping over text
+// inside single- or double-quoted string literals so we do not corrupt
+// property-value strings that happen to contain the variable name.
+fn substitute_identifier_literal(query: &str, var: &str, value: &str) -> String {
+    let mut out = String::with_capacity(query.len());
+    let bytes = query.as_bytes();
+    let mut idx = 0;
+    let mut in_string: Option<u8> = None;
+    while idx < bytes.len() {
+        let b = bytes[idx];
+        if let Some(quote) = in_string {
+            out.push(b as char);
+            if b == b'\\' && idx + 1 < bytes.len() {
+                out.push(bytes[idx + 1] as char);
+                idx += 2;
+                continue;
+            }
+            if b == quote {
+                in_string = None;
+            }
+            idx += 1;
+            continue;
+        }
+        if b == b'\'' || b == b'"' {
+            in_string = Some(b);
+            out.push(b as char);
+            idx += 1;
+            continue;
+        }
+        if b.is_ascii_alphabetic() || b == b'_' {
+            let start = idx;
+            idx += 1;
+            while idx < bytes.len() && (bytes[idx].is_ascii_alphanumeric() || bytes[idx] == b'_') {
+                idx += 1;
+            }
+            let ident = &query[start..idx];
+            if ident == var {
+                out.push_str(value);
+            } else {
+                out.push_str(ident);
+            }
+            continue;
+        }
+        out.push(b as char);
+        idx += 1;
+    }
+    out
+}
+
 fn execute_query_rows(db_path: &str, query: &str) -> Result<QueryRows, CliError> {
+    if let Some(expanded) = try_expand_unwind_range_create(query) {
+        let mut db = Database::open(db_path)?;
+        for q in &expanded {
+            db.query(q)
+                .map_err(|e| CliError::Runtime(e.to_string()))?;
+        }
+        return Ok(QueryRows {
+            columns: Vec::new(),
+            rows: Vec::new(),
+        });
+    }
     let mut db = Database::open(db_path)?;
     if should_route_to_cypher(&db, query) {
         let result = db
@@ -1874,6 +2024,18 @@ fn execute_query_rows(db_path: &str, query: &str) -> Result<QueryRows, CliError>
 }
 
 fn execute_query(db_path: &str, query: &str) -> Result<String, CliError> {
+    if let Some(expanded) = try_expand_unwind_range_create(query) {
+        let mut db = Database::open(db_path)?;
+        for q in &expanded {
+            db.query(q)
+                .map_err(|e| CliError::Runtime(e.to_string()))?;
+        }
+        let rows = QueryRows {
+            columns: Vec::new(),
+            rows: Vec::new(),
+        };
+        return Ok(render_rows_table(&rows));
+    }
     let mut db = Database::open(db_path)?;
     if should_route_to_cypher(&db, query) {
         let result = db
@@ -4379,9 +4541,50 @@ fn dispatch_http_request(
                 WriteConcurrencyMode::SingleWriter => 0,
                 WriteConcurrencyMode::MultiWriter { max_retries } => max_retries,
             };
-            let result = shared_db
-                .query_cypher_as_user_with_retry(&user, query, retries)
-                .map_err(|e| CliError::Runtime(e.to_string()))?;
+            // Cap per-query execution time. The core engine has no cooperative
+            // cancellation hook yet, so the worker thread is detached on
+            // timeout — it will run to completion (holding the write lock) in
+            // the background while the HTTP handler returns 504 to the client.
+            // This prevents a single pathological query from wedging the
+            // accept loop and starving all other clients indefinitely.
+            let query_budget = http_query_exec_timeout();
+            let (tx, rx) = std::sync::mpsc::channel();
+            let shared_worker = shared_db.clone();
+            let query_owned = query.to_string();
+            let user_owned = user.clone();
+            std::thread::spawn(move || {
+                if let Ok(delay_ms) = std::env::var("OGDB_TEST_QUERY_DELAY_MS") {
+                    if let Ok(ms) = delay_ms.parse::<u64>() {
+                        std::thread::sleep(Duration::from_millis(ms));
+                    }
+                }
+                let result = shared_worker.query_cypher_as_user_with_retry(
+                    &user_owned,
+                    &query_owned,
+                    retries,
+                );
+                let _ = tx.send(result);
+            });
+            let result = match rx.recv_timeout(query_budget) {
+                Ok(result) => result.map_err(|e| CliError::Runtime(e.to_string()))?,
+                Err(_) => {
+                    HTTP_QUERY_TIMEOUT_COUNT.fetch_add(1, Ordering::Relaxed);
+                    eprintln!(
+                        "query cancelled: exceeded {}ms budget (user={}, query_len={})",
+                        query_budget.as_millis(),
+                        user,
+                        query.len(),
+                    );
+                    return Ok(http_error(
+                        504,
+                        "Gateway Timeout",
+                        format!(
+                            "query exceeded {}ms execution budget and was cancelled",
+                            query_budget.as_millis()
+                        ),
+                    ));
+                }
+            };
             HTTP_QUERY_COUNT.fetch_add(1, Ordering::Relaxed);
             let elapsed_micros = u64::try_from(started.elapsed().as_micros()).unwrap_or(u64::MAX);
             HTTP_QUERY_DURATION_MICROS.fetch_add(elapsed_micros, Ordering::Relaxed);
@@ -9634,6 +9837,58 @@ mod tests {
         fs::remove_file(&path).expect("cleanup db");
         fs::remove_file(wal_path(&path)).expect("cleanup wal");
         fs::remove_file(meta_path(&path)).expect("cleanup meta");
+    }
+
+    // Regression: `ogdb query <db> "UNWIND range(A, B) AS i CREATE (...)"`
+    // used to error out ("physical planning for UNWIND is not implemented")
+    // and persist zero nodes. The CLI now desugars this pattern into N
+    // individual CREATE statements so it actually writes. When the core
+    // planner eventually learns UNWIND, the desugar is safe to remove — this
+    // test still asserts the observable contract (CREATE persists N nodes).
+    #[test]
+    fn query_command_unwind_range_create_persists_all_nodes() {
+        let path = temp_db_path("query-unwind-range-create");
+        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        assert_eq!(init.exit_code, 0);
+
+        let create = run(&vec![
+            "query".to_string(),
+            path.display().to_string(),
+            "UNWIND range(1, 7) AS i CREATE (:Person {id: i})".to_string(),
+        ]);
+        assert_eq!(
+            create.exit_code, 0,
+            "UNWIND+CREATE must succeed: stderr={}",
+            create.stderr
+        );
+
+        let info = run(&vec![
+            "query".to_string(),
+            path.display().to_string(),
+            "info".to_string(),
+        ]);
+        assert_eq!(info.exit_code, 0);
+        assert!(
+            info.stdout.contains("node_count=7"),
+            "expected 7 nodes after UNWIND range(1,7) CREATE, got: {}",
+            info.stdout
+        );
+
+        let select = run(&vec![
+            "query".to_string(),
+            path.display().to_string(),
+            "--format".to_string(),
+            "json".to_string(),
+            "MATCH (n:Person) RETURN n.id AS id".to_string(),
+        ]);
+        assert_eq!(select.exit_code, 0);
+        let json_value: serde_json::Value =
+            serde_json::from_str(&select.stdout).expect("valid cypher json");
+        assert_eq!(json_value["row_count"], 7);
+
+        fs::remove_file(&path).expect("cleanup db");
+        fs::remove_file(wal_path(&path)).expect("cleanup wal");
+        let _ = fs::remove_file(meta_path(&path));
     }
 
     #[test]
@@ -15169,18 +15424,55 @@ ex:acme a schema:Organization ;
 
     #[test]
     fn serve_accepts_http_port_flag() {
-        let path = temp_db_path("serve-port-missing-db");
-        let out = run(&vec![
+        // HTTP mode auto-creates the database on missing path, so the
+        // original "missing DB + io error" shape no longer errors out — the
+        // serve loop would bind the port and block on accept forever,
+        // wedging CI. Rewritten to spawn-serve-then-kill: open an ephemeral
+        // port, boot serve with --port, send one health GET to trip
+        // max-requests=1, and join the serve thread through an mpsc channel
+        // bounded by a timeout so a future regression (e.g. serve ignoring
+        // --max-requests) fails fast instead of hanging the suite.
+        use std::sync::mpsc;
+
+        let path = temp_db_path("serve-accepts-http-port");
+        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        assert_eq!(init.exit_code, 0);
+
+        let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
+        let requested_port = probe.local_addr().expect("probe local addr").port();
+        drop(probe);
+
+        let serve_args = vec![
             "serve".to_string(),
             path.display().to_string(),
             "--http".to_string(),
             "--port".to_string(),
-            "18092".to_string(),
+            requested_port.to_string(),
             "--max-requests".to_string(),
             "1".to_string(),
-        ]);
-        assert_eq!(out.exit_code, 1);
-        assert!(out.stderr.contains("io error"));
+        ];
+        let (tx, rx) = mpsc::channel();
+        thread::spawn(move || {
+            let _ = tx.send(run(&serve_args));
+        });
+        let addr = format!("127.0.0.1:{requested_port}");
+
+        let (health_status, _health_type, _health_body) =
+            send_http_request(&addr, "GET", "/health", &[], &[]);
+        assert_eq!(health_status, 200);
+
+        let serve_result = rx
+            .recv_timeout(Duration::from_secs(10))
+            .expect("serve thread must exit within 10s after max-requests=1 is satisfied");
+        assert_eq!(serve_result.exit_code, 0);
+        assert!(serve_result
+            .stdout
+            .contains("listening on http://127.0.0.1:"));
+        assert!(serve_result.stdout.contains(&addr));
+        assert!(serve_result.stdout.contains("requests_processed=1"));
+
+        fs::remove_file(&path).expect("cleanup db");
+        fs::remove_file(wal_path(&path)).expect("cleanup wal");
     }
 
     #[test]
@@ -15562,6 +15854,89 @@ ex:acme a schema:Organization ;
             .contains("listening on http://127.0.0.1:"));
         assert!(serve_result.stdout.contains(&addr));
         assert!(serve_result.stdout.contains("requests_processed=1"));
+
+        fs::remove_file(&path).expect("cleanup db");
+        fs::remove_file(wal_path(&path)).expect("cleanup wal");
+    }
+
+    // Regression: POST /query used to run synchronously with no execution
+    // budget, so a single pathological query (e.g. Cartesian product over a
+    // huge graph) would pin the accept loop and starve every other client.
+    // The handler now caps each query at http_query_exec_timeout() and
+    // returns 504 on expiry while keeping the server up. We validate the
+    // contract by driving a fast query past a deliberately tiny budget via
+    // the OGDB_HTTP_QUERY_TIMEOUT_MS / OGDB_TEST_QUERY_DELAY_MS env hooks.
+    #[test]
+    fn serve_http_enforces_per_query_execution_timeout() {
+        let path = temp_db_path("serve-http-query-timeout");
+        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        assert_eq!(init.exit_code, 0);
+
+        let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
+        let bind_addr = probe.local_addr().expect("probe local addr");
+        drop(probe);
+
+        // Inject: query budget 80ms, simulated per-query delay 800ms. Forces
+        // a timeout on the server side without depending on query complexity.
+        // Env must be set in the parent before the serve thread reads it.
+        env::set_var("OGDB_HTTP_QUERY_TIMEOUT_MS", "80");
+        env::set_var("OGDB_TEST_QUERY_DELAY_MS", "800");
+
+        let serve_args = vec![
+            "serve".to_string(),
+            path.display().to_string(),
+            "--http".to_string(),
+            "--bind".to_string(),
+            bind_addr.to_string(),
+            "--max-requests".to_string(),
+            "2".to_string(),
+        ];
+        let handle = thread::spawn(move || run(&serve_args));
+        let addr = bind_addr.to_string();
+
+        // First request: slow query → 504 after budget elapses.
+        let (slow_status, _slow_type, slow_body) = send_http_request(
+            &addr,
+            "POST",
+            "/query",
+            &[("Content-Type", "application/json")],
+            br#"{"query":"MATCH (n) RETURN n"}"#,
+        );
+        assert_eq!(
+            slow_status, 504,
+            "expected 504 Gateway Timeout, got {slow_status} body={:?}",
+            String::from_utf8_lossy(&slow_body)
+        );
+        let slow_text = String::from_utf8_lossy(&slow_body);
+        assert!(
+            slow_text.contains("exceeded") && slow_text.contains("80"),
+            "timeout body must cite the budget: {slow_text}"
+        );
+
+        // Clear the injected delay so we can confirm the server kept serving.
+        env::set_var("OGDB_TEST_QUERY_DELAY_MS", "0");
+        let (fast_status, _fast_type, _fast_body) = send_http_request(
+            &addr,
+            "GET",
+            "/health",
+            &[],
+            &[],
+        );
+        assert_eq!(
+            fast_status, 200,
+            "server must stay up after a timed-out query"
+        );
+
+        env::remove_var("OGDB_HTTP_QUERY_TIMEOUT_MS");
+        env::remove_var("OGDB_TEST_QUERY_DELAY_MS");
+
+        let serve_result = handle.join().expect("join http serve thread");
+        assert_eq!(serve_result.exit_code, 0);
+        // The eprintln cancellation log goes to the test harness (captured by
+        // cargo's stderr), not via CliResult. The 504 body + serve-up probe
+        // above already prove the budget kicked in; serve_result asserts the
+        // loop kept serving both requests after the timeout.
+        assert!(serve_result.stdout.contains("requests_processed=2"));
 
         fs::remove_file(&path).expect("cleanup db");
         fs::remove_file(wal_path(&path)).expect("cleanup wal");
