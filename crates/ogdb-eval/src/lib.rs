@@ -2,6 +2,8 @@
 //! benchmarks, scaling probes, and UI/UX. See
 //! `.planning/evaluator-harness/PLAN.md` for full architecture.
 
+pub mod drivers;
+
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::BTreeMap;
