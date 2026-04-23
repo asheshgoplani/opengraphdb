@@ -54,6 +54,25 @@ fn ldbc_snb_is1_emits_evaluation_run_with_qps_and_percentiles() {
 }
 
 #[test]
+fn ldbc_snb_is1_emits_p99_9_latency_tail() {
+    let dir = TempDir::new().expect("temp dir");
+    let db_path = dir.path().join("graph.ogdb");
+    build_ldbc_mini(&db_path).expect("build mini");
+
+    let run = run_is1(&db_path, 1000).expect("run IS-1");
+    let p99 = run.metrics.get("p99_us").expect("p99_us").value;
+    let p999 = run
+        .metrics
+        .get("p99_9_us")
+        .expect("p99_9_us missing — spec requires full tail")
+        .value;
+    assert!(
+        p99 <= p999,
+        "p99 {p99} should be ≤ p99.9 {p999}"
+    );
+}
+
+#[test]
 fn ldbc_snb_is1_query_count_matches_metric() {
     let dir = TempDir::new().expect("temp dir");
     let db_path = dir.path().join("graph.ogdb");
