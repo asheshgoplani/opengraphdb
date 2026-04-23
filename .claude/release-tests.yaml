@@ -283,3 +283,21 @@ tests:
     command: "cargo test -p ogdb-eval --tests --no-fail-fast"
     purpose: "Guards Phase 5 of the evaluator-harness plan — the four real drivers (ldbc_snb IS-1, graphalytics BFS+PageRank, criterion_ingest, scaling 10K) must each produce a populated EvaluationRun with the expected metric keys, and the deterministic ldbc-mini fixture must keep its 100-person/500-knows shape so the PageRank top-5 oracle ([64, 25, 31, 55, 57]) stays reproducible. Catches silent regressions in the closed-loop benchmark surface that the conductor watcher depends on."
     added: 2026-04-23
+
+  - id: proptest-atomicity-mvcc-invariants
+    task: test-proptest-atomicity
+    crate: ogdb-core
+    test: proptest_atomicity
+    function: [commit_all_or_nothing, wal_replay_idempotent, read_snapshot_consistency, mvcc_version_monotonic]
+    command: "cargo test -p ogdb-core --test proptest_atomicity"
+    purpose: "Property-based invariants (256 cases each, shrinking enabled) guarding the commit/rollback/WAL/MVCC kernel: (1) post-tx state is strictly pre-tx snapshot or fully applied — never partial, (2) two drop+reopen cycles on the WAL-durable op subset yield byte-identical state, (3) every post-commit ReadTransaction is internally consistent (label/prop reads succeed, edge endpoints within node_count, snapshot_txn_id non-decreasing), (4) txn_id strictly monotonic across commits and ReadTransaction::snapshot_txn_id >= committed txn_id. Catches atomicity / durability / isolation regressions in any future core refactor."
+    added: 2026-04-23
+
+  - id: benchmarks-baseline-history-schema
+    task: eval-run-and-publish
+    crate: ogdb-eval
+    test: publish_baseline
+    function: []
+    command: "OGDB_EVAL_BASELINE_JSON=/tmp/baseline.json cargo test -p ogdb-eval --release --test publish_baseline -- --nocapture"
+    purpose: "Release-mode harness that re-runs the 0.3.0 competitive baseline (14 EvaluationRun metrics across ingest / point-read / 2-hop / LDBC IS-1 / Graphalytics / scaling-10K / enrichment / rerank / hybrid) and serializes the full JSON array to $OGDB_EVAL_BASELINE_JSON. Env-gated (silent skip without OGDB_EVAL_BASELINE_JSON) so plain `cargo test` does NOT trigger it — keeps dev loop fast. Guards docs/BENCHMARKS.md + docs/evaluation-runs/baseline-2026-04-23.json against silent schema drift."
+    added: 2026-04-23
