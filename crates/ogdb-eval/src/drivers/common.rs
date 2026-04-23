@@ -71,6 +71,23 @@ pub fn percentiles(samples_us: &[f64]) -> (f64, f64, f64) {
     (pick(0.50), pick(0.95), pick(0.99))
 }
 
+/// Extended percentile set — (p50, p95, p99, p99_9). Spec Dimension 2
+/// requires the full tail, and pure-graph workloads routinely have
+/// p99.9 ≫ p99 under GC / page-cache-miss events.
+pub fn percentiles_extended(samples_us: &[f64]) -> (f64, f64, f64, f64) {
+    if samples_us.is_empty() {
+        return (0.0, 0.0, 0.0, 0.0);
+    }
+    let mut sorted = samples_us.to_vec();
+    sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    let pick = |p: f64| -> f64 {
+        let n = sorted.len();
+        let idx = ((p * n as f64).ceil() as usize).saturating_sub(1).min(n - 1);
+        sorted[idx]
+    };
+    (pick(0.50), pick(0.95), pick(0.99), pick(0.999))
+}
+
 /// Sum file sizes under `dir`, recursing once. Used by the scaling driver.
 /// Returns 0 if `dir` doesn't exist.
 pub fn dir_disk_bytes(dir: &Path) -> u64 {
