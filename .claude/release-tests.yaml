@@ -400,3 +400,21 @@ tests:
     command: "cargo test -p ogdb-fuzz --test targets_compile"
     purpose: "Guards the fuzzing-harness scaffolding. Compile-only check (full fuzz runs are on-demand via 'cargo +nightly fuzz run') — 5 asserts: (1) crates/ogdb-fuzz/fuzz/ sub-workspace exists with Cargo.toml, (2) fuzz_cypher_parser target file present + correct shape, (3) fuzz_wal_record_reader target file present + correct shape, (4) both bin entries wired in fuzz/Cargo.toml, (5) README lists the cargo-fuzz invocation for each target. Catches silent deletion of the harness or broken wiring."
     added: 2026-04-24
+
+  - id: ogdb-vector-extraction
+    task: impl-ogdb-core-split-vector
+    crate: ogdb-vector
+    test: api_smoke
+    function: []
+    command: "cargo test -p ogdb-vector --test api_smoke"
+    purpose: "Guards the first ogdb-core monolith-split extraction — crates/ogdb-vector/ owns the 5 vector primitives (VectorDistanceMetric, VectorIndexDefinition, vector_distance, parse_vector_literal_text, compare_f32_vectors). 9 api_smoke tests pin the public surface. Catches silent re-collapse of the crate boundary or accidental API breakage."
+    added: 2026-04-24
+
+  - id: ogdb-vector-reexport-shim
+    task: impl-ogdb-core-split-vector
+    crate: ogdb-core
+    test: ogdb_vector_reexport_shim
+    function: []
+    command: "cargo test -p ogdb-core --test ogdb_vector_reexport_shim"
+    purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_vector::VectorDistanceMetric + VectorIndexDefinition. 26 downstream call sites rely on 'use ogdb_core::VectorDistanceMetric' still working. TypeId equality + BTreeSet ordering assertions catch both accidental deletion of the shim and type-identity drift between the two crates."
+    added: 2026-04-24
