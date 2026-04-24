@@ -22,7 +22,7 @@ use winnow::token::take_while;
 use winnow::Parser;
 
 #[cfg(feature = "vector-search")]
-use instant_distance::{Builder as HnswBuilder, Point as HnswPoint, Search as HnswSearch};
+use instant_distance::{Builder as HnswBuilder, HnswMap, Point as HnswPoint, Search as HnswSearch};
 #[cfg(feature = "fulltext-search")]
 use tantivy::collector::TopDocs;
 #[cfg(feature = "fulltext-search")]
@@ -84,6 +84,21 @@ const PAGE_COMPRESSION_CODEC_NONE: u8 = 0;
 const PAGE_COMPRESSION_CODEC_LZ4: u8 = 1;
 const PAGE_COMPRESSION_CODEC_ZSTD: u8 = 2;
 const VECTOR_MAX_DIMENSIONS: usize = 4096;
+#[cfg(feature = "vector-search")]
+const HNSW_MIN_N: usize = 256;
+#[cfg(feature = "vector-search")]
+const HNSW_EF_CONSTRUCTION: usize = 400;
+#[cfg(feature = "vector-search")]
+const HNSW_EF_SEARCH: usize = 128;
+// Fixed seed so HNSW layer assignment is deterministic across builds. Without
+// this the random level draw causes recall@10 to flake around the 0.95 floor
+// even when mean recall is comfortably above it.
+#[cfg(feature = "vector-search")]
+const HNSW_BUILDER_SEED: u64 = 0xC0FFEEu64;
+#[cfg(feature = "vector-search")]
+const HNSW_OVERSAMPLE_FANOUT: usize = 4;
+#[cfg(feature = "vector-search")]
+const HNSW_BITMAP_BRUTE_THRESHOLD: u64 = 32;
 const EPISODE_LABEL: &str = "Episode";
 const EPISODE_AGENT_ID_KEY: &str = "agent_id";
 const EPISODE_SESSION_ID_KEY: &str = "session_id";
@@ -8051,10 +8066,21 @@ struct PersistedVectorIndexEntry {
     entries: Vec<(u64, Vec<f32>)>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 struct VectorIndexRuntime {
     definition: VectorIndexDefinition,
     entries: BTreeMap<u64, Vec<f32>>,
+    #[cfg(feature = "vector-search")]
+    hnsw: Option<BuiltHnsw>,
+}
+
+impl std::fmt::Debug for VectorIndexRuntime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("VectorIndexRuntime")
+            .field("definition", &self.definition)
+            .field("entries", &self.entries)
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -8075,6 +8101,42 @@ impl HnswPoint for HnswVectorPoint {
     fn distance(&self, other: &Self) -> f32 {
         vector_distance(self.metric, &self.values, &other.values).unwrap_or(f32::MAX)
     }
+}
+
+#[cfg(feature = "vector-search")]
+#[derive(Clone)]
+struct BuiltHnsw {
+    map: std::sync::Arc<HnswMap<HnswVectorPoint, u64>>,
+}
+
+#[cfg(feature = "vector-search")]
+fn build_hnsw_from_entries(runtime: &mut VectorIndexRuntime) {
+    if runtime.entries.len() < HNSW_MIN_N {
+        runtime.hnsw = None;
+        return;
+    }
+    let metric = runtime.definition.metric;
+    let (points, values): (Vec<_>, Vec<_>) = runtime
+        .entries
+        .iter()
+        .map(|(node_id, vector)| {
+            (
+                HnswVectorPoint {
+                    values: vector.clone(),
+                    metric,
+                },
+                *node_id,
+            )
+        })
+        .unzip();
+    let map = HnswBuilder::default()
+        .ef_construction(HNSW_EF_CONSTRUCTION)
+        .ef_search(HNSW_EF_SEARCH)
+        .seed(HNSW_BUILDER_SEED)
+        .build(points, values);
+    runtime.hnsw = Some(BuiltHnsw {
+        map: std::sync::Arc::new(map),
+    });
 }
 
 #[derive(Debug)]
@@ -13268,58 +13330,72 @@ impl Database {
             )));
         }
         let metric = metric_override.unwrap_or(runtime.definition.metric);
-        let filtered = runtime
-            .entries
-            .iter()
-            .filter(|(node_id, _)| {
-                if let Some(bitmap) = prefilter {
-                    let Ok(bitmap_id) = u32::try_from(**node_id) else {
-                        return false;
-                    };
-                    if !bitmap.contains(bitmap_id) {
-                        return false;
-                    }
-                }
-                true
-            })
-            .map(|(node_id, vector)| (*node_id, vector.clone()))
-            .collect::<Vec<_>>();
 
         #[cfg(feature = "vector-search")]
-        if !filtered.is_empty() {
-            let points = filtered
-                .iter()
-                .map(|(_, vector)| HnswVectorPoint {
-                    values: vector.clone(),
-                    metric,
-                })
-                .collect::<Vec<_>>();
-            let values = filtered
-                .iter()
-                .map(|(node_id, _)| *node_id)
-                .collect::<Vec<_>>();
-            let map = HnswBuilder::default()
-                .ef_search(k.max(32))
-                .build(points, values);
-            let mut search = HnswSearch::default();
-            let _ = map
-                .search(
-                    &HnswVectorPoint {
+        if k > 0 {
+            // HNSW branch: only when the runtime has a built graph AND the
+            // caller's query metric matches the build-time metric (the graph
+            // was constructed against one metric; searching under another
+            // would return wrong neighbours). Also skip when the prefilter
+            // bitmap is small enough that brute force over the bitmap is
+            // cheaper than HNSW descent with heavy post-filter rejection.
+            if let Some(built) = runtime.hnsw.as_ref() {
+                let use_hnsw = metric == runtime.definition.metric
+                    && match prefilter {
+                        Some(bitmap) => bitmap.len() >= HNSW_BITMAP_BRUTE_THRESHOLD,
+                        None => true,
+                    };
+                if use_hnsw {
+                    let mut search = HnswSearch::default();
+                    let query_point = HnswVectorPoint {
                         values: query_vector.to_vec(),
                         metric,
-                    },
-                    &mut search,
-                )
-                .take(k.max(1))
-                .count();
+                    };
+                    let oversample = if prefilter.is_some() {
+                        k.saturating_mul(HNSW_OVERSAMPLE_FANOUT).max(k)
+                    } else {
+                        k
+                    };
+                    let mut out: Vec<(u64, f32)> = Vec::with_capacity(k);
+                    for item in built.map.search(&query_point, &mut search).take(oversample) {
+                        let node_id = *item.value;
+                        if let Some(bitmap) = prefilter {
+                            let Ok(bid) = u32::try_from(node_id) else {
+                                continue;
+                            };
+                            if !bitmap.contains(bid) {
+                                continue;
+                            }
+                        }
+                        out.push((node_id, item.distance));
+                        if out.len() >= k {
+                            break;
+                        }
+                    }
+                    // HNSW returns in ascending distance; re-sort to restore
+                    // the canonical (distance ASC, node_id ASC) tiebreak the
+                    // brute-force path guarantees.
+                    out.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
+                    return Ok(out);
+                }
+            }
         }
 
-        let mut scored = filtered
-            .into_iter()
-            .filter_map(|(node_id, vector)| {
-                vector_distance(metric, &vector, query_vector).map(|score| (node_id, score))
+        // Brute-force fallback: small N, small selective bitmap, feature off,
+        // or metric mismatch with the built graph.
+        let mut scored: Vec<(u64, f32)> = runtime
+            .entries
+            .iter()
+            .filter(|(node_id, _)| match prefilter {
+                Some(bitmap) => u32::try_from(**node_id)
+                    .map(|bid| bitmap.contains(bid))
+                    .unwrap_or(false),
+                None => true,
             })
-            .collect::<Vec<_>>();
+            .filter_map(|(node_id, vector)| {
+                vector_distance(metric, vector, query_vector).map(|score| (*node_id, score))
+            })
+            .collect();
         scored.sort_by(|left, right| {
             left.1
                 .total_cmp(&right.1)
@@ -20201,13 +20277,15 @@ impl Database {
                 }
                 entries.insert(node_id, vector);
             }
-            loaded.insert(
-                index.definition.name.clone(),
-                VectorIndexRuntime {
-                    definition: index.definition,
-                    entries,
-                },
-            );
+            let mut runtime = VectorIndexRuntime {
+                definition: index.definition.clone(),
+                entries,
+                #[cfg(feature = "vector-search")]
+                hnsw: None,
+            };
+            #[cfg(feature = "vector-search")]
+            build_hnsw_from_entries(&mut runtime);
+            loaded.insert(index.definition.name.clone(), runtime);
         }
         self.materialized_vector_indexes = loaded;
         Ok(true)
@@ -20263,13 +20341,16 @@ impl Database {
         let snapshot_txn_id = self.current_snapshot_txn_id();
         for definition in self.meta.vector_index_catalog.iter().cloned() {
             let entries = self.collect_vector_index_entries(&definition, snapshot_txn_id)?;
-            self.materialized_vector_indexes.insert(
-                definition.name.clone(),
-                VectorIndexRuntime {
-                    definition,
-                    entries,
-                },
-            );
+            let mut runtime = VectorIndexRuntime {
+                definition: definition.clone(),
+                entries,
+                #[cfg(feature = "vector-search")]
+                hnsw: None,
+            };
+            #[cfg(feature = "vector-search")]
+            build_hnsw_from_entries(&mut runtime);
+            self.materialized_vector_indexes
+                .insert(definition.name.clone(), runtime);
         }
         self.sync_vector_index_sidecar()
     }
@@ -20285,13 +20366,16 @@ impl Database {
         let snapshot_txn_id = self.current_snapshot_txn_id();
         for definition in self.meta.vector_index_catalog.iter().cloned() {
             let entries = self.collect_vector_index_entries(&definition, snapshot_txn_id)?;
-            self.materialized_vector_indexes.insert(
-                definition.name.clone(),
-                VectorIndexRuntime {
-                    definition,
-                    entries,
-                },
-            );
+            let mut runtime = VectorIndexRuntime {
+                definition: definition.clone(),
+                entries,
+                #[cfg(feature = "vector-search")]
+                hnsw: None,
+            };
+            #[cfg(feature = "vector-search")]
+            build_hnsw_from_entries(&mut runtime);
+            self.materialized_vector_indexes
+                .insert(definition.name.clone(), runtime);
         }
         // Refresh the sidecar so the next open sees current vector data
         // (stale sidecar would shadow the new entries via
@@ -37147,6 +37231,8 @@ mod tests {
                     metric: VectorDistanceMetric::Cosine,
                 },
                 entries: BTreeMap::new(),
+                #[cfg(feature = "vector-search")]
+                hnsw: None,
             },
         );
         let oversized_query = vec![0.0f32; VECTOR_MAX_DIMENSIONS + 1];
@@ -37168,6 +37254,8 @@ mod tests {
                     metric: VectorDistanceMetric::Cosine,
                 },
                 entries: BTreeMap::from([(u64::MAX, vec![1.0]), (42, vec![1.0])]),
+                #[cfg(feature = "vector-search")]
+                hnsw: None,
             },
         );
         let mut bitmap = RoaringBitmap::new();
