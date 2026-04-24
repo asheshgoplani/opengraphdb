@@ -328,3 +328,12 @@ tests:
     command: "cargo test -p ogdb-cli --test http_import_count"
     purpose: "Guards 3 findings from real-UI audit 2026-04-23 — M3: POST /import must return created_nodes = actual count of newly-created nodes (not highest_node_id which double-counts when a partial import runs twice), M2: invalid Cypher like MATCH <(n) must return 400 with parse error body (not 500), M2b: missing query field must return 400 (not crash with serde error). Catches silent reversion of these semantic + error-shape contracts."
     added: 2026-04-23
+
+  - id: skill-quality-dimension-driver
+    task: impl-skill-quality-dimension
+    crate: ogdb-eval
+    test: skill_quality_loader, skill_quality_scorer, skill_quality_adapter, skill_quality_aggregator, skill_quality_driver
+    function: [loader_parses_yaml_shipped_spec, loader_rejects_missing_cases, scorer_accepts_matching_response, scorer_rejects_must_not_contain_violation, mock_adapter_is_deterministic, stub_real_adapter_surfaces_unimplemented_error, pass_rate_math_is_ratio_of_passed_to_total, per_difficulty_breakdown_emitted, response_latency_percentiles_emitted, integration_with_evaluation_run_schema]
+    command: "cargo test -p ogdb-eval --test skill_quality_loader --test skill_quality_scorer --test skill_quality_adapter --test skill_quality_aggregator --test skill_quality_driver"
+    purpose: "Guards the 4th evaluator dimension — AI-agent skill-quality driver reads skills/evals/*.eval.yaml (data-import, graph-explore, ogdb-cypher, schema-advisor), drives an LlmAdapter trait (MockAdapter deterministic for CI; stub RealAdapter returns NotImplemented until a real LLM is wired), scores each case against must_contain / must_not_contain / pattern regex + the per-case scoring dict, and aggregates pass_rate + avg_score + per-difficulty (easy/medium/hard) + per-skill + p50/p95/p99 response latency into an EvaluationRun. Catches silent regressions in the new closed-loop recursive-skill-improvement surface."
+    added: 2026-04-23
