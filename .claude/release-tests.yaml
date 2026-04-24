@@ -436,3 +436,21 @@ tests:
     command: "cargo test -p ogdb-core --test ogdb_algorithms_reexport_shim"
     purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_algorithms::{GraphPath, ShortestPathOptions, Subgraph, SubgraphEdge}. 4 downstream call sites (ogdb-cli:5+:3130, ogdb-e2e:7+:1089) rely on use-from-core still compiling. 5 asserts on type identity + API shape."
     added: 2026-04-24
+
+  - id: ogdb-text-extraction
+    task: impl-ogdb-core-split-text
+    crate: ogdb-text
+    test: api_smoke
+    function: []
+    command: "cargo test -p ogdb-text --tests"
+    purpose: "Guards the third monolith-split extraction — crates/ogdb-text/ owns FullTextIndexDefinition (plain-data), normalize_fulltext_index_definition (pure validator), and 3 path helpers (fulltext_index_root_path_for_db, sanitize_index_component, fulltext_index_path_for_name). 13 tests pin public surface + validator invariants + path-sanitization edge cases. Tantivy dep + Database FTS methods stay in ogdb-core (follow-up plan handles runtime migration)."
+    added: 2026-04-25
+
+  - id: ogdb-text-reexport-shim
+    task: impl-ogdb-core-split-text
+    crate: ogdb-core
+    test: ogdb_text_reexport_shim
+    function: []
+    command: "cargo test -p ogdb-core --test ogdb_text_reexport_shim"
+    purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_text::FullTextIndexDefinition + exposes the pure validator via a 3-LOC DbError::InvalidArgument adapter. 9 in-core call sites and any future 'use ogdb_core::FullTextIndexDefinition' callers rely on the shim. TypeId + API-shape asserts catch silent re-collapse."
+    added: 2026-04-25
