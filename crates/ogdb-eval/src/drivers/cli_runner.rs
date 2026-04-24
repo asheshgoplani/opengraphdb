@@ -12,6 +12,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use crate::drivers::common::{evaluation_run_skeleton, metric};
+use crate::drivers::real_llm_adapter::{resolve_adapter, DeterministicMockAdapter};
+use crate::drivers::skill_quality::{self, LlmAdapter};
 use crate::drivers::{ai_agent, ldbc_mini, ldbc_snb, resources, scaling, throughput};
 use crate::EvaluationRun;
 
@@ -225,4 +228,71 @@ pub fn write_benchmarks_md(runs: &[EvaluationRun], path: &Path) -> Result<(), Ru
     }
     fs::write(path, body)?;
     Ok(())
+}
+
+/// Append one `skill_quality` EvaluationRun to `runs`, using the
+/// factory-selected adapter (mock by default). Tolerant of adapter
+/// failures — the run is still pushed, tagged `suite_status=degraded`.
+/// Returns `Ok(())` unless the specs directory itself is missing, in
+/// which case the step is skipped without pushing a run (see PLAN §3.1).
+pub fn append_skill_quality_run(runs: &mut Vec<EvaluationRun>) -> Result<(), RunAllError> {
+    let specs_dir = default_skill_evals_dir();
+    if !specs_dir.is_dir() {
+        eprintln!(
+            "skill_quality: specs dir not found at {} — skipping",
+            specs_dir.display()
+        );
+        return Ok(());
+    }
+
+    let (adapter, factory_degraded): (Box<dyn LlmAdapter>, bool) = match resolve_adapter() {
+        Ok(a) => (a, false),
+        Err(e) => {
+            eprintln!("skill_quality: adapter factory failed ({e}); falling back to mock");
+            (Box::new(DeterministicMockAdapter), true)
+        }
+    };
+
+    append_skill_quality_run_with_adapter(runs, adapter.as_ref(), factory_degraded)
+}
+
+/// Test seam — takes an explicit adapter so callers can inject a failing
+/// or deterministic adapter without touching env vars. Pushes exactly one
+/// `EvaluationRun` with `suite = "skill_quality"`, tagged
+/// `environment["suite_status"] = "degraded"` if either the caller signals
+/// a factory-degradation or the driver itself surfaced an error.
+pub fn append_skill_quality_run_with_adapter(
+    runs: &mut Vec<EvaluationRun>,
+    adapter: &dyn LlmAdapter,
+    factory_degraded: bool,
+) -> Result<(), RunAllError> {
+    let specs_dir = default_skill_evals_dir();
+
+    let (mut run, degraded) = match skill_quality::run(&specs_dir, adapter) {
+        Ok(r) => (r, factory_degraded),
+        Err(e) => {
+            eprintln!("skill_quality: driver failed ({e}); emitting degraded skeleton");
+            (degraded_skill_quality_skeleton(), true)
+        }
+    };
+    run.environment.insert(
+        "suite_status".into(),
+        if degraded { "degraded".into() } else { "ok".into() },
+    );
+    runs.push(run);
+    Ok(())
+}
+
+fn default_skill_evals_dir() -> PathBuf {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    manifest.join("..").join("..").join("skills").join("evals")
+}
+
+fn degraded_skill_quality_skeleton() -> EvaluationRun {
+    let mut run = evaluation_run_skeleton("skill_quality", "all", "skills-degraded");
+    run.metrics
+        .insert("pass_rate".into(), metric(0.0, "ratio", true));
+    run.metrics
+        .insert("total_cases".into(), metric(0.0, "count", false));
+    run
 }
