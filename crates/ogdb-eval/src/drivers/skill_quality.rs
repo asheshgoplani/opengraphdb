@@ -132,6 +132,22 @@ pub struct CaseResult {
     pub latency_us: u64,
 }
 
+/// Diagnostic mirror of `CaseResult` with the extra fields a regression
+/// report needs: the original expected-gates spec + the adapter's actual
+/// response text. Produced by `run_with_diagnostics`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CaseDiagnostic {
+    pub skill: String,
+    pub case_name: String,
+    pub difficulty: Difficulty,
+    pub passed: bool,
+    pub score: f64,
+    pub latency_us: u64,
+    pub expected_must_contain: Vec<String>,
+    pub expected_pattern: Option<String>,
+    pub actual_response: String,
+}
+
 // ---------------------------------------------------------------------------
 // Loader
 // ---------------------------------------------------------------------------
@@ -358,6 +374,18 @@ pub fn run(
     let mut run = aggregate(&results);
     run.dataset = format!("skills-v{max_version}");
     Ok(run)
+}
+
+/// Like `run`, but also returns the per-case diagnostic payload the
+/// recursive-skill-improvement reporter needs to describe *why* each
+/// failing case failed. RED stub — Phase 3 replaces with a real walk
+/// that threads each `(EvalCase, AdapterResponse)` pair into a
+/// `CaseDiagnostic`.
+pub fn run_with_diagnostics(
+    _specs_dir: &Path,
+    _adapter: &dyn LlmAdapter,
+) -> Result<(EvaluationRun, Vec<CaseDiagnostic>), SkillQualityError> {
+    unimplemented!("Phase 3 GREEN: capture per-case diagnostics alongside run")
 }
 
 #[cfg(test)]

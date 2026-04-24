@@ -3,6 +3,7 @@
 //! `.planning/evaluator-harness/PLAN.md` for full architecture.
 
 pub mod drivers;
+pub mod skill_regression;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -102,7 +103,7 @@ impl Default for Threshold {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Severity {
     Minor,
     Major,
@@ -123,6 +124,13 @@ pub enum RegressionEvent {
         magnitude: f64,
         baseline_value: f64,
         current_value: f64,
+    },
+    SkillQualityDiff {
+        skill: String,
+        baseline_pass_rate: f64,
+        current_pass_rate: f64,
+        delta_pct: f64,
+        severity: Severity,
     },
 }
 
@@ -181,6 +189,19 @@ impl DiffEngine {
             }
         }
         events
+    }
+
+    /// Specialised diff for `suite == "skill_quality"` runs. Iterates
+    /// `pass_rate_<slug>` metric pairs and emits one
+    /// `RegressionEvent::SkillQualityDiff` per skill whose |delta_pct|
+    /// meets the caller-supplied threshold. RED stub — Phase 3 replaces.
+    pub fn diff_skill_quality(
+        &self,
+        _baseline: &EvaluationRun,
+        _current: &EvaluationRun,
+        _threshold_pct: f64,
+    ) -> Vec<RegressionEvent> {
+        unimplemented!("Phase 3 GREEN: per-skill pass_rate diff")
     }
 }
 
