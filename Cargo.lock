@@ -1995,6 +1995,7 @@ dependencies = [
  "instant-distance",
  "lopdf",
  "lz4_flex",
+ "ogdb-algorithms",
  "ogdb-vector",
  "proptest",
  "pulldown-cmark",
