@@ -382,3 +382,12 @@ tests:
     command: "cargo test -p ogdb-cli --test http_post_query_accepts_unwind"
     purpose: "Cross-crate acceptance test — POST /query body={\"query\":\"UNWIND ... \"} must route through the real core planner and execute without the CLI-only desugar (which is now deleted). Catches silent regression where the desugar gets reintroduced or where POST /query bypasses the new physical operator."
     added: 2026-04-24
+
+  - id: baseline-includes-skill-quality
+    task: impl-wire-skill-quality-baseline
+    crate: ogdb-eval
+    test: baseline_includes_skill_quality
+    function: []
+    command: "cargo test -p ogdb-eval --test baseline_includes_skill_quality"
+    purpose: "Guards the dimension-4 integration into the release baseline harness. 4 tests: (1) default (mock) mode emits a skill_quality EvaluationRun alongside the existing 14, (2) run count matches skill count from skills/evals/*.eval.yaml, (3) LLM errors from a FailingAdapter produce suite_status='degraded' in EvaluationRun.environment instead of panicking (prevents flaky external APIs from blocking releases), (4) auto-summary markdown lists a skill_quality section. Catches silent regressions in every release cut's skill-quality capture."
+    added: 2026-04-24
