@@ -132,6 +132,22 @@ pub struct CaseResult {
     pub latency_us: u64,
 }
 
+/// Diagnostic mirror of `CaseResult` with the extra fields a regression
+/// report needs: the original expected-gates spec + the adapter's actual
+/// response text. Produced by `run_with_diagnostics`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CaseDiagnostic {
+    pub skill: String,
+    pub case_name: String,
+    pub difficulty: Difficulty,
+    pub passed: bool,
+    pub score: f64,
+    pub latency_us: u64,
+    pub expected_must_contain: Vec<String>,
+    pub expected_pattern: Option<String>,
+    pub actual_response: String,
+}
+
 // ---------------------------------------------------------------------------
 // Loader
 // ---------------------------------------------------------------------------
@@ -358,6 +374,48 @@ pub fn run(
     let mut run = aggregate(&results);
     run.dataset = format!("skills-v{max_version}");
     Ok(run)
+}
+
+/// Like `run`, but also returns the per-case diagnostic payload the
+/// recursive-skill-improvement reporter needs to describe *why* each
+/// failing case failed.
+pub fn run_with_diagnostics(
+    specs_dir: &Path,
+    adapter: &dyn LlmAdapter,
+) -> Result<(EvaluationRun, Vec<CaseDiagnostic>), SkillQualityError> {
+    let specs = load_specs_from_dir(specs_dir)?;
+
+    let max_version = specs
+        .iter()
+        .map(|s| s.version.as_str())
+        .max()
+        .unwrap_or("0.0.0")
+        .to_string();
+
+    let mut results = Vec::new();
+    let mut diagnostics = Vec::new();
+    for spec in &specs {
+        for case in &spec.cases {
+            let resp = adapter.respond(case)?;
+            let result = score_case(case, &resp, &spec.skill);
+            diagnostics.push(CaseDiagnostic {
+                skill: spec.skill.clone(),
+                case_name: result.case_name.clone(),
+                difficulty: result.difficulty,
+                passed: result.passed,
+                score: result.score,
+                latency_us: result.latency_us,
+                expected_must_contain: case.expected.must_contain.clone(),
+                expected_pattern: case.expected.pattern.clone(),
+                actual_response: resp.text.clone(),
+            });
+            results.push(result);
+        }
+    }
+
+    let mut run = aggregate(&results);
+    run.dataset = format!("skills-v{max_version}");
+    Ok((run, diagnostics))
 }
 
 #[cfg(test)]

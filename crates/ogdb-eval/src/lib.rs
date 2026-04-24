@@ -3,6 +3,7 @@
 //! `.planning/evaluator-harness/PLAN.md` for full architecture.
 
 pub mod drivers;
+pub mod skill_regression;
 
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -102,7 +103,7 @@ impl Default for Threshold {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum Severity {
     Minor,
     Major,
@@ -123,6 +124,13 @@ pub enum RegressionEvent {
         magnitude: f64,
         baseline_value: f64,
         current_value: f64,
+    },
+    SkillQualityDiff {
+        skill: String,
+        baseline_pass_rate: f64,
+        current_pass_rate: f64,
+        delta_pct: f64,
+        severity: Severity,
     },
 }
 
@@ -179,6 +187,62 @@ impl DiffEngine {
                     current_value,
                 });
             }
+        }
+        events
+    }
+
+    /// Specialised diff for `suite == "skill_quality"` runs. Iterates
+    /// `pass_rate_<slug>` metric pairs (plus the overall `pass_rate`
+    /// under the special name `"<overall>"`) and emits one
+    /// `RegressionEvent::SkillQualityDiff` per skill whose |delta_pct|
+    /// meets the caller-supplied threshold. Difficulty-bucket metrics
+    /// (`pass_rate_easy|medium|hard`) are skipped — they are not skills.
+    /// `delta_pct` is signed percentage; negative = regression.
+    pub fn diff_skill_quality(
+        &self,
+        baseline: &EvaluationRun,
+        current: &EvaluationRun,
+        threshold_pct: f64,
+    ) -> Vec<RegressionEvent> {
+        let mut events = Vec::new();
+        for (name, base_metric) in &baseline.metrics {
+            let skill_name = if name == "pass_rate" {
+                "<overall>".to_string()
+            } else if let Some(slug) = name.strip_prefix("pass_rate_") {
+                if matches!(slug, "easy" | "medium" | "hard") {
+                    continue;
+                }
+                slug.replace('_', "-")
+            } else {
+                continue;
+            };
+
+            let Some(curr_metric) = current.metrics.get(name) else {
+                continue;
+            };
+            let baseline_value = base_metric.value;
+            let current_value = curr_metric.value;
+            if baseline_value == 0.0 {
+                continue;
+            }
+
+            let delta_pct = (current_value - baseline_value) / baseline_value * 100.0;
+            if delta_pct.abs() < threshold_pct {
+                continue;
+            }
+
+            let severity = crate::skill_regression::severity_for_pct(
+                delta_pct.abs(),
+                threshold_pct,
+            );
+
+            events.push(RegressionEvent::SkillQualityDiff {
+                skill: skill_name,
+                baseline_pass_rate: baseline_value,
+                current_pass_rate: current_value,
+                delta_pct,
+                severity,
+            });
         }
         events
     }
