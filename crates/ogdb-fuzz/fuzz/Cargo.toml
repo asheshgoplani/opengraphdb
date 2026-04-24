@@ -1,0 +1,30 @@
+[package]
+name = "ogdb-fuzz-targets"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+ogdb-core = { path = "../../ogdb-core" }
+tempfile = "3"
+
+# Detach from the outer workspace — cargo-fuzz requires the nested crate
+# to be its own workspace root so stable builds never pull these targets
+# into the normal `cargo build` graph. See PLAN §5.1.
+[workspace]
+
+[[bin]]
+name = "fuzz_cypher_parser"
+path = "fuzz_targets/fuzz_cypher_parser.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_wal_record_reader"
+path = "fuzz_targets/fuzz_wal_record_reader.rs"
+test = false
+doc = false
