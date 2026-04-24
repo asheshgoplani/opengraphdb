@@ -378,14 +378,44 @@ pub fn run(
 
 /// Like `run`, but also returns the per-case diagnostic payload the
 /// recursive-skill-improvement reporter needs to describe *why* each
-/// failing case failed. RED stub — Phase 3 replaces with a real walk
-/// that threads each `(EvalCase, AdapterResponse)` pair into a
-/// `CaseDiagnostic`.
+/// failing case failed.
 pub fn run_with_diagnostics(
-    _specs_dir: &Path,
-    _adapter: &dyn LlmAdapter,
+    specs_dir: &Path,
+    adapter: &dyn LlmAdapter,
 ) -> Result<(EvaluationRun, Vec<CaseDiagnostic>), SkillQualityError> {
-    unimplemented!("Phase 3 GREEN: capture per-case diagnostics alongside run")
+    let specs = load_specs_from_dir(specs_dir)?;
+
+    let max_version = specs
+        .iter()
+        .map(|s| s.version.as_str())
+        .max()
+        .unwrap_or("0.0.0")
+        .to_string();
+
+    let mut results = Vec::new();
+    let mut diagnostics = Vec::new();
+    for spec in &specs {
+        for case in &spec.cases {
+            let resp = adapter.respond(case)?;
+            let result = score_case(case, &resp, &spec.skill);
+            diagnostics.push(CaseDiagnostic {
+                skill: spec.skill.clone(),
+                case_name: result.case_name.clone(),
+                difficulty: result.difficulty,
+                passed: result.passed,
+                score: result.score,
+                latency_us: result.latency_us,
+                expected_must_contain: case.expected.must_contain.clone(),
+                expected_pattern: case.expected.pattern.clone(),
+                actual_response: resp.text.clone(),
+            });
+            results.push(result);
+        }
+    }
+
+    let mut run = aggregate(&results);
+    run.dataset = format!("skills-v{max_version}");
+    Ok((run, diagnostics))
 }
 
 #[cfg(test)]

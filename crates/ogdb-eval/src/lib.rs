@@ -192,16 +192,59 @@ impl DiffEngine {
     }
 
     /// Specialised diff for `suite == "skill_quality"` runs. Iterates
-    /// `pass_rate_<slug>` metric pairs and emits one
+    /// `pass_rate_<slug>` metric pairs (plus the overall `pass_rate`
+    /// under the special name `"<overall>"`) and emits one
     /// `RegressionEvent::SkillQualityDiff` per skill whose |delta_pct|
-    /// meets the caller-supplied threshold. RED stub — Phase 3 replaces.
+    /// meets the caller-supplied threshold. Difficulty-bucket metrics
+    /// (`pass_rate_easy|medium|hard`) are skipped — they are not skills.
+    /// `delta_pct` is signed percentage; negative = regression.
     pub fn diff_skill_quality(
         &self,
-        _baseline: &EvaluationRun,
-        _current: &EvaluationRun,
-        _threshold_pct: f64,
+        baseline: &EvaluationRun,
+        current: &EvaluationRun,
+        threshold_pct: f64,
     ) -> Vec<RegressionEvent> {
-        unimplemented!("Phase 3 GREEN: per-skill pass_rate diff")
+        let mut events = Vec::new();
+        for (name, base_metric) in &baseline.metrics {
+            let skill_name = if name == "pass_rate" {
+                "<overall>".to_string()
+            } else if let Some(slug) = name.strip_prefix("pass_rate_") {
+                if matches!(slug, "easy" | "medium" | "hard") {
+                    continue;
+                }
+                slug.replace('_', "-")
+            } else {
+                continue;
+            };
+
+            let Some(curr_metric) = current.metrics.get(name) else {
+                continue;
+            };
+            let baseline_value = base_metric.value;
+            let current_value = curr_metric.value;
+            if baseline_value == 0.0 {
+                continue;
+            }
+
+            let delta_pct = (current_value - baseline_value) / baseline_value * 100.0;
+            if delta_pct.abs() < threshold_pct {
+                continue;
+            }
+
+            let severity = crate::skill_regression::severity_for_pct(
+                delta_pct.abs(),
+                threshold_pct,
+            );
+
+            events.push(RegressionEvent::SkillQualityDiff {
+                skill: skill_name,
+                baseline_pass_rate: baseline_value,
+                current_pass_rate: current_value,
+                delta_pct,
+                severity,
+            });
+        }
+        events
     }
 }
 
