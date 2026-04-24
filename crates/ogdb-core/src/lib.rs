@@ -2347,6 +2347,13 @@ pub enum PhysicalPlan {
         estimated_rows: u64,
         estimated_cost: f64,
     },
+    PhysicalUnwind {
+        input: Option<Box<PhysicalPlan>>,
+        expression: CypherExpression,
+        variable: String,
+        estimated_rows: u64,
+        estimated_cost: f64,
+    },
     PhysicalWcojJoin {
         /// Initial input plan (typically scan/filter for the first variable).
         input: Box<PhysicalPlan>,
@@ -2392,6 +2399,7 @@ impl PhysicalPlan {
             | Self::PhysicalSet { estimated_rows, .. }
             | Self::PhysicalRemove { estimated_rows, .. }
             | Self::PhysicalMerge { estimated_rows, .. }
+            | Self::PhysicalUnwind { estimated_rows, .. }
             | Self::PhysicalWcojJoin { estimated_rows, .. }
             | Self::PhysicalFactorizedExpand { estimated_rows, .. } => *estimated_rows,
         }
@@ -2415,6 +2423,7 @@ impl PhysicalPlan {
             | Self::PhysicalSet { estimated_cost, .. }
             | Self::PhysicalRemove { estimated_cost, .. }
             | Self::PhysicalMerge { estimated_cost, .. }
+            | Self::PhysicalUnwind { estimated_cost, .. }
             | Self::PhysicalWcojJoin { estimated_cost, .. }
             | Self::PhysicalFactorizedExpand { estimated_cost, .. } => *estimated_cost,
         }
@@ -4539,7 +4548,9 @@ fn collect_filtered_properties_from_plan_recursive(
             collect_filtered_properties_from_plan_recursive(left, accesses);
             collect_filtered_properties_from_plan_recursive(right, accesses);
         }
-        PhysicalPlan::PhysicalCreate { input, .. } | PhysicalPlan::PhysicalMerge { input, .. } => {
+        PhysicalPlan::PhysicalCreate { input, .. }
+        | PhysicalPlan::PhysicalMerge { input, .. }
+        | PhysicalPlan::PhysicalUnwind { input, .. } => {
             if let Some(input) = input.as_ref() {
                 collect_filtered_properties_from_plan_recursive(input, accesses);
             }
@@ -4548,6 +4559,28 @@ fn collect_filtered_properties_from_plan_recursive(
         | PhysicalPlan::PhysicalVectorScan { .. }
         | PhysicalPlan::PhysicalTextSearch { .. }
         | PhysicalPlan::PhysicalCreateIndex { .. } => {}
+    }
+}
+
+fn estimated_unwind_fanout(expr: &CypherExpression) -> u64 {
+    match expr {
+        CypherExpression::ListLiteral(values) => values.len() as u64,
+        CypherExpression::FunctionCall {
+            name, arguments, ..
+        } if name.eq_ignore_ascii_case("range") && arguments.len() >= 2 => {
+            let lit_i64 = |e: &CypherExpression| -> Option<i64> {
+                if let CypherExpression::Literal(CypherLiteral::Integer(v)) = e {
+                    Some(*v)
+                } else {
+                    None
+                }
+            };
+            match (lit_i64(&arguments[0]), lit_i64(&arguments[1])) {
+                (Some(a), Some(b)) if b >= a => (b - a + 1) as u64,
+                _ => 8,
+            }
+        }
+        _ => 8,
     }
 }
 
@@ -4931,9 +4964,34 @@ fn build_physical_plan(db: &Database, plan: &LogicalPlan) -> Result<PhysicalPlan
                 estimated_cost,
             })
         }
-        LogicalPlan::UnwindList { .. } => Err(PlanError::new(
-            "physical planning for UNWIND is not implemented yet",
-        )),
+        LogicalPlan::UnwindList {
+            input,
+            expression,
+            variable,
+        } => {
+            let input = input
+                .as_ref()
+                .map(|plan| build_physical_plan(db, plan))
+                .transpose()?;
+            let base_rows = input
+                .as_ref()
+                .map(|value| value.estimated_rows())
+                .unwrap_or(1);
+            let fanout = estimated_unwind_fanout(expression);
+            let estimated_rows = base_rows.saturating_mul(fanout);
+            let base_cost = input
+                .as_ref()
+                .map(|value| value.estimated_cost())
+                .unwrap_or(0.0);
+            let estimated_cost = base_cost + estimated_rows as f64;
+            Ok(PhysicalPlan::PhysicalUnwind {
+                input: input.map(Box::new),
+                expression: expression.clone(),
+                variable: variable.clone(),
+                estimated_rows,
+                estimated_cost,
+            })
+        }
         LogicalPlan::Merge {
             input,
             pattern,
@@ -15134,6 +15192,40 @@ impl Database {
                     .unwrap_or_default();
                 Ok(batches_from_rows(&rows, &columns, QUERY_BATCH_SIZE))
             }
+            PhysicalPlan::PhysicalUnwind {
+                input,
+                expression,
+                variable,
+                ..
+            } => {
+                let input_rows = if let Some(input) = input {
+                    rows_from_batches(&self.execute_physical_plan_batches(input, snapshot_txn_id)?)
+                } else {
+                    vec![BTreeMap::<String, RuntimeValue>::new()]
+                };
+                let mut output_columns = input_rows
+                    .first()
+                    .map(|row| row.keys().cloned().collect::<Vec<_>>())
+                    .unwrap_or_default();
+                if !output_columns.iter().any(|c| c == variable) {
+                    output_columns.push(variable.clone());
+                }
+                let mut rows = Vec::<BTreeMap<String, RuntimeValue>>::new();
+                for row in input_rows {
+                    let list_value =
+                        self.evaluate_expression(expression, &row, snapshot_txn_id)?;
+                    let values = match list_value {
+                        RuntimeValue::Property(PropertyValue::List(values)) => values,
+                        _ => continue,
+                    };
+                    for value in values {
+                        let mut out = row.clone();
+                        out.insert(variable.clone(), RuntimeValue::Property(value));
+                        rows.push(out);
+                    }
+                }
+                Ok(batches_from_rows(&rows, &output_columns, QUERY_BATCH_SIZE))
+            }
         }
     }
 
@@ -15455,6 +15547,46 @@ impl Database {
                     QUERY_BATCH_SIZE,
                 ))
             }
+            PhysicalPlan::PhysicalUnwind {
+                input,
+                expression,
+                variable,
+                ..
+            } => {
+                let input_rows = if let Some(input) = input {
+                    rows_from_batches(
+                        &self.execute_physical_plan_batches_traced(
+                            input,
+                            snapshot_txn_id,
+                            trace,
+                        )?,
+                    )
+                } else {
+                    vec![BTreeMap::<String, RuntimeValue>::new()]
+                };
+                let mut output_columns = input_rows
+                    .first()
+                    .map(|row| row.keys().cloned().collect::<Vec<_>>())
+                    .unwrap_or_default();
+                if !output_columns.iter().any(|c| c == variable) {
+                    output_columns.push(variable.clone());
+                }
+                let mut rows = Vec::<BTreeMap<String, RuntimeValue>>::new();
+                for row in input_rows {
+                    let list_value =
+                        self.evaluate_expression(expression, &row, snapshot_txn_id)?;
+                    let values = match list_value {
+                        RuntimeValue::Property(PropertyValue::List(values)) => values,
+                        _ => continue,
+                    };
+                    for value in values {
+                        let mut out = row.clone();
+                        out.insert(variable.clone(), RuntimeValue::Property(value));
+                        rows.push(out);
+                    }
+                }
+                Ok(batches_from_rows(&rows, &output_columns, QUERY_BATCH_SIZE))
+            }
             // For plan types that don't have a traversal input (VectorScan, TextSearch,
             // CreateIndex) or that are mutation nodes (Create, Merge, Delete, Set, Remove,
             // WcojJoin, CartesianProduct, FactorizedExpand), fall through to regular execution.
@@ -15623,6 +15755,18 @@ impl Database {
                 for chain in &pattern.chains {
                     push_unique(&chain.relationship.variable);
                     push_unique(&chain.node.variable);
+                }
+                columns
+            }
+            PhysicalPlan::PhysicalUnwind {
+                input, variable, ..
+            } => {
+                let mut columns = input
+                    .as_ref()
+                    .map(|input| self.plan_output_columns(input))
+                    .unwrap_or_default();
+                if !columns.iter().any(|c| c == variable) {
+                    columns.push(variable.clone());
                 }
                 columns
             }
@@ -23043,6 +23187,9 @@ mod tests {
             PhysicalPlan::PhysicalMerge { input, .. } => {
                 input.as_ref().and_then(|value| physical_scan_parts(value))
             }
+            PhysicalPlan::PhysicalUnwind { input, .. } => {
+                input.as_ref().and_then(|value| physical_scan_parts(value))
+            }
             PhysicalPlan::PhysicalCreateIndex { .. } => None,
         }
     }
@@ -23068,6 +23215,9 @@ mod tests {
                 .as_ref()
                 .and_then(|value| physical_expand_parts(value)),
             PhysicalPlan::PhysicalMerge { input, .. } => input
+                .as_ref()
+                .and_then(|value| physical_expand_parts(value)),
+            PhysicalPlan::PhysicalUnwind { input, .. } => input
                 .as_ref()
                 .and_then(|value| physical_expand_parts(value)),
             PhysicalPlan::PhysicalScan { .. }
@@ -31823,7 +31973,10 @@ mod tests {
             on_create: vec![],
             on_match: vec![],
         };
-        assert!(db.physical_plan_cypher(&unwind).is_err());
+        assert!(matches!(
+            db.physical_plan_cypher(&unwind).expect("unwind"),
+            PhysicalPlan::PhysicalUnwind { .. }
+        ));
         assert!(matches!(
             db.physical_plan_cypher(&merge).expect("merge"),
             PhysicalPlan::PhysicalMerge { .. }
