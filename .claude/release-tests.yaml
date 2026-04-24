@@ -418,3 +418,21 @@ tests:
     command: "cargo test -p ogdb-core --test ogdb_vector_reexport_shim"
     purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_vector::VectorDistanceMetric + VectorIndexDefinition. 26 downstream call sites rely on 'use ogdb_core::VectorDistanceMetric' still working. TypeId equality + BTreeSet ordering assertions catch both accidental deletion of the shim and type-identity drift between the two crates."
     added: 2026-04-24
+
+  - id: ogdb-algorithms-extraction
+    task: impl-ogdb-core-split-algorithms
+    crate: ogdb-algorithms
+    test: api_smoke
+    function: []
+    command: "cargo test -p ogdb-algorithms --test api_smoke"
+    purpose: "Guards the second monolith-split extraction — crates/ogdb-algorithms/ owns the pure-fn community-detection kernels (label_propagation, louvain-with-resolution, leiden) + plain-data types (ShortestPathOptions, GraphPath, SubgraphEdge, Subgraph). 9 api_smoke tests pin the public surface. Catches silent re-collapse or API drift."
+    added: 2026-04-24
+
+  - id: ogdb-algorithms-reexport-shim
+    task: impl-ogdb-core-split-algorithms
+    crate: ogdb-core
+    test: ogdb_algorithms_reexport_shim
+    function: []
+    command: "cargo test -p ogdb-core --test ogdb_algorithms_reexport_shim"
+    purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_algorithms::{GraphPath, ShortestPathOptions, Subgraph, SubgraphEdge}. 4 downstream call sites (ogdb-cli:5+:3130, ogdb-e2e:7+:1089) rely on use-from-core still compiling. 5 asserts on type identity + API shape."
+    added: 2026-04-24
