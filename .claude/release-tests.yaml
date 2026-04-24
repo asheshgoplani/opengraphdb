@@ -391,3 +391,12 @@ tests:
     command: "cargo test -p ogdb-eval --test baseline_includes_skill_quality"
     purpose: "Guards the dimension-4 integration into the release baseline harness. 4 tests: (1) default (mock) mode emits a skill_quality EvaluationRun alongside the existing 14, (2) run count matches skill count from skills/evals/*.eval.yaml, (3) LLM errors from a FailingAdapter produce suite_status='degraded' in EvaluationRun.environment instead of panicking (prevents flaky external APIs from blocking releases), (4) auto-summary markdown lists a skill_quality section. Catches silent regressions in every release cut's skill-quality capture."
     added: 2026-04-24
+
+  - id: fuzzing-harness-targets-compile
+    task: impl-fuzzing-harness
+    crate: ogdb-fuzz
+    test: targets_compile
+    function: []
+    command: "cargo test -p ogdb-fuzz --test targets_compile"
+    purpose: "Guards the fuzzing-harness scaffolding. Compile-only check (full fuzz runs are on-demand via 'cargo +nightly fuzz run') — 5 asserts: (1) crates/ogdb-fuzz/fuzz/ sub-workspace exists with Cargo.toml, (2) fuzz_cypher_parser target file present + correct shape, (3) fuzz_wal_record_reader target file present + correct shape, (4) both bin entries wired in fuzz/Cargo.toml, (5) README lists the cargo-fuzz invocation for each target. Catches silent deletion of the harness or broken wiring."
+    added: 2026-04-24
