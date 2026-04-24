@@ -2087,6 +2087,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ogdb-text"
+version = "0.3.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ogdb-vector"
 version = "0.3.0"
 dependencies = [
