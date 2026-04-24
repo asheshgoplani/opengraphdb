@@ -337,3 +337,12 @@ tests:
     command: "cargo test -p ogdb-eval --test skill_quality_loader --test skill_quality_scorer --test skill_quality_adapter --test skill_quality_aggregator --test skill_quality_driver"
     purpose: "Guards the 4th evaluator dimension — AI-agent skill-quality driver reads skills/evals/*.eval.yaml (data-import, graph-explore, ogdb-cypher, schema-advisor), drives an LlmAdapter trait (MockAdapter deterministic for CI; stub RealAdapter returns NotImplemented until a real LLM is wired), scores each case against must_contain / must_not_contain / pattern regex + the per-case scoring dict, and aggregates pass_rate + avg_score + per-difficulty (easy/medium/hard) + per-skill + p50/p95/p99 response latency into an EvaluationRun. Catches silent regressions in the new closed-loop recursive-skill-improvement surface."
     added: 2026-04-23
+
+  - id: skill-regression-closed-loop
+    task: impl-recursive-skill-improvement
+    crate: ogdb-eval
+    test: skill_regression_diff, skill_regression_history, skill_regression_report, skill_regression_threshold
+    function: [diff_engine_detects_pass_rate_drop, no_regression_when_within_threshold, report_lists_failing_cases_per_skill, report_is_deterministic_across_runs, integration_with_diff_history_file, threshold_configurable_via_env]
+    command: "cargo test -p ogdb-eval --test skill_regression_diff --test skill_regression_history --test skill_regression_report --test skill_regression_threshold"
+    purpose: "Guards the closed-loop recursive-skill-improvement surface — diff_engine must detect per-skill pass_rate drops exceeding a threshold (default -5%, configurable via OGDB_SKILL_REGRESSION_THRESHOLD env), ignore drops within the threshold, emit a deterministic skill_regression_report.json (sort + stable ordering so identical inputs always produce identical bytes) listing regressed skills + failing cases per skill + a suggested next-plan one-liner the conductor watcher consumes to auto-spawn targeted plan sessions. Catches silent breakage of the autonomous skill-improvement feedback loop."
+    added: 2026-04-24
