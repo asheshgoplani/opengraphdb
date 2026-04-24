@@ -364,3 +364,21 @@ tests:
     command: "cargo test --release -p ogdb-core --test hnsw_recall_at_10_over_0_95_at_10k --test hnsw_query_under_5ms_p95_at_10k --test hnsw_matches_brute_force_on_tiny_fixture --test hnsw_survives_drop_and_reopen --test concurrent_inserts_do_not_corrupt_index"
     purpose: "Guards the HNSW ANN backend that replaces brute-force vector search. Acceptance gates: recall@10 >= 0.95 at 10K/d=384 (shipped 0.966), p95 query latency <= 5ms (shipped 4.29ms), matches brute-force exactly on tiny fixtures, survives drop+reopen via sidecar persistence + rebuild-on-load fallback, concurrent inserts do not corrupt. Fixed seed (ef_construction=800, ef_search=100) for determinism. Catches silent regressions in the core AI-agent vector-search workload — the primary perf win for v0.4."
     added: 2026-04-24
+
+  - id: unwind-in-core-physical-operator
+    task: impl-unwind-in-core
+    crate: ogdb-core
+    test: unwind_literal_list, unwind_range_two_arg, unwind_range_three_arg_with_step, unwind_over_stored_list_property, unwind_then_create_persists_all_rows, unwind_empty_list_yields_zero_rows
+    function: []
+    command: "cargo test -p ogdb-core --test unwind_literal_list --test unwind_range_two_arg --test unwind_range_three_arg_with_step --test unwind_over_stored_list_property --test unwind_then_create_persists_all_rows --test unwind_empty_list_yields_zero_rows"
+    purpose: "Guards UNWIND as a real ogdb-core physical operator (PhysicalUnwind modelled on PhysicalMerge). Catches any regression that would push UNWIND back into CLI-level string-desugar — six cases: list literal, range(A,B), range(A,B,step), UNWIND over a stored list property, UNWIND-then-CREATE row persistence (must match pre-desugar semantics), empty-list yields zero rows. Ensures UNWIND works identically across embedded / HTTP / CLI entrypoints."
+    added: 2026-04-24
+
+  - id: http-post-query-accepts-unwind
+    task: impl-unwind-in-core
+    crate: ogdb-cli
+    test: http_post_query_accepts_unwind
+    function: []
+    command: "cargo test -p ogdb-cli --test http_post_query_accepts_unwind"
+    purpose: "Cross-crate acceptance test — POST /query body={\"query\":\"UNWIND ... \"} must route through the real core planner and execute without the CLI-only desugar (which is now deleted). Catches silent regression where the desugar gets reintroduced or where POST /query bypasses the new physical operator."
+    added: 2026-04-24
