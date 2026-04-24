@@ -1945,6 +1945,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ogdb-algorithms"
+version = "0.3.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "ogdb-bench"
 version = "0.3.0"
 dependencies = [
