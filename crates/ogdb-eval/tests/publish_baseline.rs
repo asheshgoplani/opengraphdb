@@ -14,7 +14,9 @@
 
 use std::path::PathBuf;
 
-use ogdb_eval::drivers::cli_runner::{run_all, write_benchmarks_md, RunAllConfig};
+use ogdb_eval::drivers::cli_runner::{
+    append_skill_quality_run, run_all, write_benchmarks_md, RunAllConfig,
+};
 use ogdb_eval::drivers::{criterion_ingest, graphalytics};
 use ogdb_eval::EvaluationRun;
 
@@ -76,6 +78,15 @@ fn publish_full_suite_baseline() {
         }
         Err(e) => eprintln!("  criterion_ingest FAILED: {e}"),
     }
+
+    // Dimension-4: skill quality. Mock adapter by default — set
+    // OGDB_SKILL_LLM_PROVIDER=anthropic|openai|local to exercise real
+    // adapters. LLM failures are recorded, not propagated, so a flaky
+    // external API cannot block a v0.4 release cut.
+    if let Err(e) = append_skill_quality_run(&mut runs) {
+        eprintln!("  skill_quality step FAILED: {e}");
+    }
+    eprintln!("  runs now total: {}", runs.len());
 
     // Serialize every run as a JSON array so jq / downstream tooling can walk it.
     let json = serde_json::to_string_pretty(&runs).expect("serialize runs");
