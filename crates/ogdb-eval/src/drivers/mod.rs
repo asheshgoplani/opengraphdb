@@ -10,6 +10,7 @@ pub mod criterion_ingest;
 pub mod graphalytics;
 pub mod ldbc_mini;
 pub mod ldbc_snb;
+pub mod real_llm_adapter;
 pub mod resources;
 pub mod scaling;
 pub mod skill_quality;

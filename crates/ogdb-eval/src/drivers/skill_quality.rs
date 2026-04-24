@@ -89,7 +89,7 @@ pub struct AdapterResponse {
     pub latency_us: u64,
 }
 
-pub trait LlmAdapter {
+pub trait LlmAdapter: Send + Sync {
     fn respond(&self, case: &EvalCase) -> Result<AdapterResponse, SkillQualityError>;
 }
 
@@ -100,7 +100,7 @@ where
 
 impl<F> LlmAdapter for MockAdapter<F>
 where
-    F: Fn(&EvalCase) -> AdapterResponse,
+    F: Fn(&EvalCase) -> AdapterResponse + Send + Sync,
 {
     fn respond(&self, case: &EvalCase) -> Result<AdapterResponse, SkillQualityError> {
         Ok((self.0)(case))
