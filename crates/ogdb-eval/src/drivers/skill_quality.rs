@@ -107,17 +107,6 @@ where
     }
 }
 
-/// Placeholder for the real LLM adapter — Phase 5 fills this in.
-pub struct StubRealAdapter;
-
-impl LlmAdapter for StubRealAdapter {
-    fn respond(&self, _case: &EvalCase) -> Result<AdapterResponse, SkillQualityError> {
-        Err(SkillQualityError::Unimplemented(
-            "real LLM adapter lands in Phase 5",
-        ))
-    }
-}
-
 // ---------------------------------------------------------------------------
 // Per-case result (what the scorer emits, what the aggregator consumes).
 // ---------------------------------------------------------------------------
