@@ -1,0 +1,13 @@
+[package]
+name = "ogdb-fuzz"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[dev-dependencies]
+tempfile = "3"
+toml = { version = "0.8", default-features = false, features = ["parse"] }

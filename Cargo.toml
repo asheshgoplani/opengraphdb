@@ -10,6 +10,7 @@ members = [
   "crates/ogdb-ffi",
   "crates/ogdb-python",
   "crates/ogdb-node",
+  "crates/ogdb-fuzz",
 ]
 resolver = "2"
 
