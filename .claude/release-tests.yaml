@@ -355,3 +355,12 @@ tests:
     command: "cargo test -p ogdb-eval --features llm-anthropic,llm-openai,llm-local --test real_llm_adapter_factory --test real_llm_adapter_anthropic --test real_llm_adapter_openai --test real_llm_adapter_local --test real_llm_adapter_errors"
     purpose: "Guards the 3 real LLM adapters behind feature flags (Anthropic default, OpenAI + Local optional). 12 wiremock-based tests — ZERO real network — covering factory resolution (default→mock / env-picked / unknown-errors / missing-feature-errors), Anthropic request body + x-api-key + response extraction, OpenAI request body + Bearer auth, LocalAdapter URL env enforcement + optional auth, 429 retry with exponential backoff + eventual give-up, malformed JSON + missing-field mapping. Catches silent breakage of the real LLM integration path that closes the dimension-4 recursive-skill-improvement loop."
     added: 2026-04-24
+
+  - id: hnsw-vector-index-acceptance
+    task: impl-hnsw-vector-index
+    crate: ogdb-core
+    test: hnsw_recall_at_10_over_0_95_at_10k, hnsw_query_under_5ms_p95_at_10k, hnsw_matches_brute_force_on_tiny_fixture, hnsw_survives_drop_and_reopen, concurrent_inserts_do_not_corrupt_index
+    function: []
+    command: "cargo test --release -p ogdb-core --test hnsw_recall_at_10_over_0_95_at_10k --test hnsw_query_under_5ms_p95_at_10k --test hnsw_matches_brute_force_on_tiny_fixture --test hnsw_survives_drop_and_reopen --test concurrent_inserts_do_not_corrupt_index"
+    purpose: "Guards the HNSW ANN backend that replaces brute-force vector search. Acceptance gates: recall@10 >= 0.95 at 10K/d=384 (shipped 0.966), p95 query latency <= 5ms (shipped 4.29ms), matches brute-force exactly on tiny fixtures, survives drop+reopen via sidecar persistence + rebuild-on-load fallback, concurrent inserts do not corrupt. Fixed seed (ef_construction=800, ef_search=100) for determinism. Catches silent regressions in the core AI-agent vector-search workload — the primary perf win for v0.4."
+    added: 2026-04-24
