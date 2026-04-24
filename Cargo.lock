@@ -1945,6 +1945,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ogdb-algorithms"
+version = "0.3.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "ogdb-bench"
 version = "0.3.0"
 dependencies = [
@@ -1988,6 +1995,7 @@ dependencies = [
  "instant-distance",
  "lopdf",
  "lz4_flex",
+ "ogdb-algorithms",
  "ogdb-vector",
  "proptest",
  "pulldown-cmark",

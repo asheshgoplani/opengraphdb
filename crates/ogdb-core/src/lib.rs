@@ -7,6 +7,16 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, VecDeque};
 // keeps compiling byte-for-byte identically after the extraction.
 pub use ogdb_vector::{VectorDistanceMetric, VectorIndexDefinition};
 use ogdb_vector::{compare_f32_vectors, parse_vector_literal_text, vector_distance};
+
+// Re-export the plain-data algorithm types so every existing
+// `use ogdb_core::{ShortestPathOptions, GraphPath, Subgraph, SubgraphEdge};`
+// caller in the workspace (ogdb-cli, ogdb-e2e) keeps compiling
+// byte-for-byte identically after the algorithm extraction.
+pub use ogdb_algorithms::{GraphPath, ShortestPathOptions, Subgraph, SubgraphEdge};
+// Crate-private import so the three Database `community_*_at` wrappers
+// (community_label_propagation_at, community_louvain_at, community_leiden_at)
+// resolve the pure kernels unqualified.
+use ogdb_algorithms::{label_propagation, leiden, louvain};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::{File, OpenOptions};
@@ -1265,36 +1275,6 @@ pub enum TemporalScope {
 pub struct TemporalFilter {
     pub scope: TemporalScope,
     pub timestamp_millis: i64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct ShortestPathOptions {
-    pub max_hops: Option<u32>,
-    pub edge_type: Option<String>,
-    pub weight_property: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq)]
-pub struct GraphPath {
-    pub node_ids: Vec<u64>,
-    pub edge_ids: Vec<u64>,
-    pub total_weight: f64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SubgraphEdge {
-    pub edge_id: u64,
-    pub src: u64,
-    pub dst: u64,
-    pub edge_type: Option<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Subgraph {
-    pub center: u64,
-    pub max_hops: u32,
-    pub nodes: Vec<u64>,
-    pub edges: Vec<SubgraphEdge>,
 }
 
 /// B-tree index definition for one label and property key set.
@@ -18956,41 +18936,7 @@ impl Database {
         let visible_nodes = (0..self.node_count())
             .filter(|node_id| self.is_node_visible_at(*node_id, snapshot_txn_id))
             .collect::<Vec<_>>();
-        let mut labels = (0..self.node_count()).collect::<Vec<_>>();
-
-        for _ in 0..20 {
-            let mut changed = false;
-            for node_id in &visible_nodes {
-                let node_idx = *node_id as usize;
-                if neighbors[node_idx].is_empty() {
-                    continue;
-                }
-                let mut counts = BTreeMap::<u64, u64>::new();
-                for neighbor in &neighbors[node_idx] {
-                    *counts.entry(labels[*neighbor as usize]).or_insert(0) += 1;
-                }
-                let mut best_label = labels[node_idx];
-                let mut best_count = 0u64;
-                for (candidate_label, count) in counts {
-                    if count > best_count || (count == best_count && candidate_label < best_label) {
-                        best_label = candidate_label;
-                        best_count = count;
-                    }
-                }
-                if best_label != labels[node_idx] {
-                    labels[node_idx] = best_label;
-                    changed = true;
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
-
-        Ok(visible_nodes
-            .into_iter()
-            .map(|node_id| (node_id, labels[node_id as usize]))
-            .collect())
+        Ok(label_propagation(&neighbors, &visible_nodes))
     }
 
     fn community_louvain_at(
@@ -19002,76 +18948,7 @@ impl Database {
         let visible_nodes = (0..self.node_count())
             .filter(|node_id| self.is_node_visible_at(*node_id, snapshot_txn_id))
             .collect::<Vec<_>>();
-        if visible_nodes.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let degrees = neighbors
-            .iter()
-            .map(|entries| entries.len() as f64)
-            .collect::<Vec<_>>();
-        let m2 = degrees.iter().sum::<f64>();
-        if m2 <= 0.0 {
-            return Ok(visible_nodes
-                .into_iter()
-                .map(|node_id| (node_id, node_id))
-                .collect());
-        }
-
-        let mut communities = (0..self.node_count()).collect::<Vec<_>>();
-        let mut community_totals = BTreeMap::<u64, f64>::new();
-        for node_id in &visible_nodes {
-            community_totals.insert(*node_id, degrees[*node_id as usize]);
-        }
-
-        for _ in 0..20 {
-            let mut changed = false;
-            for node_id in &visible_nodes {
-                let idx = *node_id as usize;
-                let degree = degrees[idx];
-                if degree == 0.0 {
-                    continue;
-                }
-
-                let current_community = communities[idx];
-                if let Some(total) = community_totals.get_mut(&current_community) {
-                    *total -= degree;
-                }
-
-                let mut in_weights = BTreeMap::<u64, f64>::new();
-                for neighbor in &neighbors[idx] {
-                    let comm = communities[*neighbor as usize];
-                    *in_weights.entry(comm).or_insert(0.0) += 1.0;
-                }
-
-                let mut best_community = current_community;
-                let mut best_gain = 0.0f64;
-                for (community, k_i_in) in in_weights {
-                    let total = *community_totals.get(&community).unwrap_or(&0.0);
-                    let gain = k_i_in - (total * degree / m2);
-                    if gain > best_gain
-                        || ((gain - best_gain).abs() < f64::EPSILON && community < best_community)
-                    {
-                        best_gain = gain;
-                        best_community = community;
-                    }
-                }
-
-                communities[idx] = best_community;
-                *community_totals.entry(best_community).or_insert(0.0) += degree;
-                if best_community != current_community {
-                    changed = true;
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
-
-        Ok(visible_nodes
-            .into_iter()
-            .map(|node_id| (node_id, communities[node_id as usize]))
-            .collect())
+        Ok(louvain(&neighbors, &visible_nodes, 1.0))
     }
 
     fn community_leiden_at(
@@ -19080,131 +18957,11 @@ impl Database {
         resolution: f64,
         snapshot_txn_id: u64,
     ) -> Result<Vec<(u64, u64)>, DbError> {
-        // Phase 1: Run Louvain modularity optimization with resolution parameter
         let neighbors = self.collect_undirected_neighbors_at(edge_type, snapshot_txn_id)?;
         let visible_nodes = (0..self.node_count())
             .filter(|node_id| self.is_node_visible_at(*node_id, snapshot_txn_id))
             .collect::<Vec<_>>();
-        if visible_nodes.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        let degrees: Vec<f64> = neighbors
-            .iter()
-            .map(|entries| entries.len() as f64)
-            .collect();
-        let m2 = degrees.iter().sum::<f64>();
-        if m2 <= 0.0 {
-            return Ok(visible_nodes.iter().map(|n| (*n, *n)).collect());
-        }
-
-        // Standard Louvain phase with resolution parameter
-        let mut communities: Vec<u64> = (0..self.node_count()).collect();
-        let mut community_totals = BTreeMap::<u64, f64>::new();
-        for node_id in &visible_nodes {
-            community_totals.insert(*node_id, degrees[*node_id as usize]);
-        }
-
-        for _ in 0..20 {
-            let mut changed = false;
-            for node_id in &visible_nodes {
-                let idx = *node_id as usize;
-                let degree = degrees[idx];
-                if degree == 0.0 {
-                    continue;
-                }
-                let current_community = communities[idx];
-                if let Some(total) = community_totals.get_mut(&current_community) {
-                    *total -= degree;
-                }
-
-                let mut in_weights = BTreeMap::<u64, f64>::new();
-                for neighbor in &neighbors[idx] {
-                    let comm = communities[*neighbor as usize];
-                    *in_weights.entry(comm).or_insert(0.0) += 1.0;
-                }
-
-                let mut best_community = current_community;
-                let mut best_gain = 0.0f64;
-                for (community, k_i_in) in in_weights {
-                    let total = *community_totals.get(&community).unwrap_or(&0.0);
-                    // Resolution parameter scales the null-model term
-                    let gain = k_i_in - resolution * (total * degree / m2);
-                    if gain > best_gain
-                        || ((gain - best_gain).abs() < f64::EPSILON && community < best_community)
-                    {
-                        best_gain = gain;
-                        best_community = community;
-                    }
-                }
-
-                communities[idx] = best_community;
-                *community_totals.entry(best_community).or_insert(0.0) += degree;
-                if best_community != current_community {
-                    changed = true;
-                }
-            }
-            if !changed {
-                break;
-            }
-        }
-
-        // Phase 2: Leiden refinement — split any disconnected subclusters within communities
-        let mut community_members = BTreeMap::<u64, Vec<u64>>::new();
-        for node_id in &visible_nodes {
-            community_members
-                .entry(communities[*node_id as usize])
-                .or_default()
-                .push(*node_id);
-        }
-
-        let mut next_community_id = visible_nodes.iter().max().copied().unwrap_or(0) + 1;
-
-        for member_nodes in community_members.values() {
-            if member_nodes.len() <= 1 {
-                continue;
-            }
-            // Find connected components within this community via BFS
-            let member_set: BTreeSet<u64> = member_nodes.iter().copied().collect();
-            let mut visited = BTreeSet::<u64>::new();
-            let mut component_id = 0u64;
-
-            for start_node in member_nodes {
-                if visited.contains(start_node) {
-                    continue;
-                }
-                // BFS within community
-                let mut queue = std::collections::VecDeque::new();
-                queue.push_back(*start_node);
-                visited.insert(*start_node);
-                let mut component_nodes = Vec::new();
-
-                while let Some(current) = queue.pop_front() {
-                    component_nodes.push(current);
-                    for neighbor in &neighbors[current as usize] {
-                        if member_set.contains(neighbor) && !visited.contains(neighbor) {
-                            visited.insert(*neighbor);
-                            queue.push_back(*neighbor);
-                        }
-                    }
-                }
-
-                // Second+ component gets a new community ID to ensure connectivity
-                if component_id > 0 {
-                    let new_id = next_community_id;
-                    next_community_id += 1;
-                    for node_id in &component_nodes {
-                        communities[*node_id as usize] = new_id;
-                    }
-                }
-                component_id += 1;
-            }
-        }
-
-        Ok(visible_nodes
-            .iter()
-            .map(|node_id| (*node_id, communities[*node_id as usize]))
-            .collect())
+        Ok(leiden(&neighbors, &visible_nodes, resolution))
     }
 
     #[allow(clippy::type_complexity)]
