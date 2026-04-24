@@ -1988,6 +1988,7 @@ dependencies = [
  "instant-distance",
  "lopdf",
  "lz4_flex",
+ "ogdb-vector",
  "proptest",
  "pulldown-cmark",
  "roaring",
@@ -2075,6 +2076,13 @@ dependencies = [
  "serde_json",
  "tempfile",
  "walkdir",
+]
+
+[[package]]
+name = "ogdb-vector"
+version = "0.3.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]
