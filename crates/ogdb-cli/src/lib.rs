@@ -1877,143 +1877,7 @@ fn should_route_to_cypher(db: &Database, query: &str) -> bool {
     db.parse_cypher(query).is_ok() || query.trim_start().to_ascii_uppercase().starts_with("CALL ")
 }
 
-// UNWIND is not yet wired through the physical planner, so a query like
-// `UNWIND range(1,100) AS i CREATE (:Person {id: i})` errors out in core
-// and nothing gets persisted. Until the planner learns UNWIND, the CLI
-// desugars the specific `UNWIND range(A, B) AS <var> <rest>` shape into B-A+1
-// simple CREATE statements by substituting <var> with each literal value.
-// Returns None when the query isn't this exact shape — caller falls back to
-// normal Cypher execution (which will surface the planner error).
-fn try_expand_unwind_range_create(query: &str) -> Option<Vec<String>> {
-    let rest = consume_keyword(query.trim(), "UNWIND")?;
-    let rest = consume_keyword(rest.trim_start(), "range")?;
-    let rest = rest.trim_start().strip_prefix('(')?;
-    let (start, rest) = parse_leading_i64(rest.trim_start())?;
-    let rest = rest.trim_start().strip_prefix(',')?;
-    let (end, rest) = parse_leading_i64(rest.trim_start())?;
-    let rest = rest.trim_start().strip_prefix(')')?;
-    let rest = consume_keyword(rest.trim_start(), "AS")?;
-    let (var, rest) = parse_leading_identifier(rest.trim_start())?;
-    let body = rest.trim_start();
-    if body.is_empty() {
-        return None;
-    }
-    if start > end {
-        return None;
-    }
-    let mut queries = Vec::with_capacity((end - start + 1) as usize);
-    for i in start..=end {
-        queries.push(substitute_identifier_literal(body, &var, &i.to_string()));
-    }
-    Some(queries)
-}
-
-fn consume_keyword<'a>(input: &'a str, keyword: &str) -> Option<&'a str> {
-    let head = input.get(..keyword.len())?;
-    if !head.eq_ignore_ascii_case(keyword) {
-        return None;
-    }
-    let rest = &input[keyword.len()..];
-    // Keyword must be followed by a non-identifier char (whitespace, '(', etc.)
-    // to avoid matching a prefix of a longer identifier like `rangex`.
-    match rest.chars().next() {
-        None => Some(rest),
-        Some(c) if c.is_ascii_alphanumeric() || c == '_' => None,
-        _ => Some(rest),
-    }
-}
-
-fn parse_leading_i64(input: &str) -> Option<(i64, &str)> {
-    let bytes = input.as_bytes();
-    let mut idx = 0;
-    if bytes.first().copied() == Some(b'-') || bytes.first().copied() == Some(b'+') {
-        idx = 1;
-    }
-    let digits_start = idx;
-    while idx < bytes.len() && bytes[idx].is_ascii_digit() {
-        idx += 1;
-    }
-    if idx == digits_start {
-        return None;
-    }
-    let value: i64 = input[..idx].parse().ok()?;
-    Some((value, &input[idx..]))
-}
-
-fn parse_leading_identifier(input: &str) -> Option<(String, &str)> {
-    let bytes = input.as_bytes();
-    let first = *bytes.first()?;
-    if !(first.is_ascii_alphabetic() || first == b'_') {
-        return None;
-    }
-    let mut idx = 1;
-    while idx < bytes.len() && (bytes[idx].is_ascii_alphanumeric() || bytes[idx] == b'_') {
-        idx += 1;
-    }
-    Some((input[..idx].to_string(), &input[idx..]))
-}
-
-// Replace whole-word occurrences of `var` with `value`, skipping over text
-// inside single- or double-quoted string literals so we do not corrupt
-// property-value strings that happen to contain the variable name.
-fn substitute_identifier_literal(query: &str, var: &str, value: &str) -> String {
-    let mut out = String::with_capacity(query.len());
-    let bytes = query.as_bytes();
-    let mut idx = 0;
-    let mut in_string: Option<u8> = None;
-    while idx < bytes.len() {
-        let b = bytes[idx];
-        if let Some(quote) = in_string {
-            out.push(b as char);
-            if b == b'\\' && idx + 1 < bytes.len() {
-                out.push(bytes[idx + 1] as char);
-                idx += 2;
-                continue;
-            }
-            if b == quote {
-                in_string = None;
-            }
-            idx += 1;
-            continue;
-        }
-        if b == b'\'' || b == b'"' {
-            in_string = Some(b);
-            out.push(b as char);
-            idx += 1;
-            continue;
-        }
-        if b.is_ascii_alphabetic() || b == b'_' {
-            let start = idx;
-            idx += 1;
-            while idx < bytes.len() && (bytes[idx].is_ascii_alphanumeric() || bytes[idx] == b'_') {
-                idx += 1;
-            }
-            let ident = &query[start..idx];
-            if ident == var {
-                out.push_str(value);
-            } else {
-                out.push_str(ident);
-            }
-            continue;
-        }
-        out.push(b as char);
-        idx += 1;
-    }
-    out
-}
-
 fn execute_query_rows(db_path: &str, query: &str) -> Result<QueryRows, CliError> {
-    if let Some(expanded) = try_expand_unwind_range_create(query) {
-        let mut db = Database::open(db_path)?;
-        for q in &expanded {
-            db.query(q)
-                .map_err(|e| CliError::Runtime(e.to_string()))?;
-        }
-        return Ok(QueryRows {
-            columns: Vec::new(),
-            rows: Vec::new(),
-        });
-    }
     let mut db = Database::open(db_path)?;
     if should_route_to_cypher(&db, query) {
         let result = db
@@ -2026,18 +1890,6 @@ fn execute_query_rows(db_path: &str, query: &str) -> Result<QueryRows, CliError>
 }
 
 fn execute_query(db_path: &str, query: &str) -> Result<String, CliError> {
-    if let Some(expanded) = try_expand_unwind_range_create(query) {
-        let mut db = Database::open(db_path)?;
-        for q in &expanded {
-            db.query(q)
-                .map_err(|e| CliError::Runtime(e.to_string()))?;
-        }
-        let rows = QueryRows {
-            columns: Vec::new(),
-            rows: Vec::new(),
-        };
-        return Ok(render_rows_table(&rows));
-    }
     let mut db = Database::open(db_path)?;
     if should_route_to_cypher(&db, query) {
         let result = db
@@ -10018,11 +9870,12 @@ mod tests {
     }
 
     // Regression: `ogdb query <db> "UNWIND range(A, B) AS i CREATE (...)"`
-    // used to error out ("physical planning for UNWIND is not implemented")
-    // and persist zero nodes. The CLI now desugars this pattern into N
-    // individual CREATE statements so it actually writes. When the core
-    // planner eventually learns UNWIND, the desugar is safe to remove — this
-    // test still asserts the observable contract (CREATE persists N nodes).
+    // must persist N nodes with the unwound binding visible in the CREATE
+    // body. Serviced by the core `PhysicalUnwind` operator; see
+    // `crates/ogdb-core/src/lib.rs` (the `PhysicalUnwind` branch in
+    // `execute_physical_plan_batches` + `build_physical_plan`). The CLI no
+    // longer rewrites the query string above the core — all transports
+    // (CLI, HTTP, embedded, Bolt, FFI) share this contract via core.
     #[test]
     fn query_command_unwind_range_create_persists_all_nodes() {
         let path = temp_db_path("query-unwind-range-create");
