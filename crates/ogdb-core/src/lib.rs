@@ -1,6 +1,12 @@
 use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, VecDeque};
+
+// Re-export the public vector primitive types so every existing
+// `use ogdb_core::VectorDistanceMetric;` caller in the workspace
+// keeps compiling byte-for-byte identically after the extraction.
+pub use ogdb_vector::{VectorDistanceMetric, VectorIndexDefinition};
+use ogdb_vector::{compare_f32_vectors, parse_vector_literal_text, vector_distance};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::{File, OpenOptions};
@@ -813,20 +819,6 @@ impl Ord for PropertyValue {
     }
 }
 
-fn compare_f32_vectors(left: &[f32], right: &[f32]) -> std::cmp::Ordering {
-    let len_cmp = left.len().cmp(&right.len());
-    if len_cmp != std::cmp::Ordering::Equal {
-        return len_cmp;
-    }
-    for (l, r) in left.iter().zip(right.iter()) {
-        let cmp = l.total_cmp(r);
-        if cmp != std::cmp::Ordering::Equal {
-            return cmp;
-        }
-    }
-    std::cmp::Ordering::Equal
-}
-
 fn property_value_variant_rank(value: &PropertyValue) -> u8 {
     match value {
         PropertyValue::Bool(_) => 0,
@@ -1310,22 +1302,6 @@ pub struct Subgraph {
 pub struct IndexDefinition {
     pub label: String,
     pub property_keys: Vec<String>,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub enum VectorDistanceMetric {
-    Cosine,
-    Euclidean,
-    DotProduct,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct VectorIndexDefinition {
-    pub name: String,
-    pub label: Option<String>,
-    pub property_key: String,
-    pub dimensions: usize,
-    pub metric: VectorDistanceMetric,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
@@ -5941,68 +5917,6 @@ fn runtime_to_vector(value: &RuntimeValue) -> Option<Vec<f32>> {
             })
             .collect::<Option<Vec<_>>>(),
         _ => None,
-    }
-}
-
-fn parse_vector_literal_text(value: &str) -> Option<Vec<f32>> {
-    let trimmed = value.trim();
-    if !trimmed.starts_with('[') || !trimmed.ends_with(']') {
-        return None;
-    }
-    let body = &trimmed[1..trimmed.len() - 1];
-    if body.trim().is_empty() {
-        return Some(Vec::new());
-    }
-    body.split(',')
-        .map(|entry| {
-            let entry = entry.trim();
-            let entry = entry
-                .strip_prefix("f64:")
-                .or_else(|| entry.strip_prefix("i64:"))
-                .unwrap_or(entry);
-            entry.parse::<f32>().ok()
-        })
-        .collect::<Option<Vec<_>>>()
-}
-
-fn vector_distance(metric: VectorDistanceMetric, left: &[f32], right: &[f32]) -> Option<f32> {
-    if left.len() != right.len() || left.is_empty() {
-        return None;
-    }
-    match metric {
-        VectorDistanceMetric::Cosine => {
-            let mut dot = 0.0f32;
-            let mut left_norm = 0.0f32;
-            let mut right_norm = 0.0f32;
-            for (l, r) in left.iter().zip(right.iter()) {
-                dot += *l * *r;
-                left_norm += *l * *l;
-                right_norm += *r * *r;
-            }
-            if left_norm == 0.0 || right_norm == 0.0 {
-                return Some(1.0);
-            }
-            Some(1.0 - (dot / (left_norm.sqrt() * right_norm.sqrt())))
-        }
-        VectorDistanceMetric::Euclidean => {
-            let sum_sq = left
-                .iter()
-                .zip(right.iter())
-                .map(|(l, r)| {
-                    let diff = *l - *r;
-                    diff * diff
-                })
-                .sum::<f32>();
-            Some(sum_sq.sqrt())
-        }
-        VectorDistanceMetric::DotProduct => {
-            let dot = left
-                .iter()
-                .zip(right.iter())
-                .map(|(l, r)| *l * *r)
-                .sum::<f32>();
-            Some(-dot)
-        }
     }
 }
 

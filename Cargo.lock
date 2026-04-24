@@ -1988,6 +1988,7 @@ dependencies = [
  "instant-distance",
  "lopdf",
  "lz4_flex",
+ "ogdb-vector",
  "proptest",
  "pulldown-cmark",
  "roaring",
