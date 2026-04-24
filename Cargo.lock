@@ -1996,6 +1996,7 @@ dependencies = [
  "lopdf",
  "lz4_flex",
  "ogdb-algorithms",
+ "ogdb-text",
  "ogdb-vector",
  "proptest",
  "pulldown-cmark",
