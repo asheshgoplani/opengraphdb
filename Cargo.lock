@@ -2088,6 +2088,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "ogdb-temporal"
+version = "0.3.0"
+
+[[package]]
 name = "ogdb-text"
 version = "0.3.0"
 dependencies = [
