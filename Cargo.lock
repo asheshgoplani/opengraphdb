@@ -1996,6 +1996,7 @@ dependencies = [
  "lopdf",
  "lz4_flex",
  "ogdb-algorithms",
+ "ogdb-text",
  "ogdb-vector",
  "proptest",
  "pulldown-cmark",
@@ -2084,6 +2085,14 @@ dependencies = [
  "serde_json",
  "tempfile",
  "walkdir",
+]
+
+[[package]]
+name = "ogdb-text"
+version = "0.3.0"
+dependencies = [
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

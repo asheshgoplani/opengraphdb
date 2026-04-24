@@ -17,6 +17,22 @@ pub use ogdb_algorithms::{GraphPath, ShortestPathOptions, Subgraph, SubgraphEdge
 // (community_label_propagation_at, community_louvain_at, community_leiden_at)
 // resolve the pure kernels unqualified.
 use ogdb_algorithms::{label_propagation, leiden, louvain};
+
+// Re-export the plain-data full-text-index type so every existing
+// caller (`use ogdb_core::FullTextIndexDefinition;` — including the
+// `DbMeta::fulltext_index_catalog` serde round-trip) keeps compiling
+// byte-for-byte identically after the text extraction.
+pub use ogdb_text::FullTextIndexDefinition;
+// Crate-private import so the in-core call sites of the validator and
+// path helpers (inside `Database::create_fulltext_index` and
+// `Database::rebuild_fulltext_indexes_from_catalog`) resolve the names
+// unqualified. The validator is re-aliased to `_pure` because a thin
+// 3-LOC wrapper preserves the historical `Result<_, DbError>` signature.
+use ogdb_text::{
+    fulltext_index_path_for_name, fulltext_index_root_path_for_db,
+    normalize_fulltext_index_definition as normalize_fulltext_index_definition_pure,
+    sanitize_index_component,
+};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::{File, OpenOptions};
@@ -1281,13 +1297,6 @@ pub struct TemporalFilter {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct IndexDefinition {
     pub label: String,
-    pub property_keys: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct FullTextIndexDefinition {
-    pub name: String,
-    pub label: Option<String>,
     pub property_keys: Vec<String>,
 }
 
@@ -3919,41 +3928,8 @@ fn normalize_fulltext_index_definition(
     label: Option<&str>,
     property_keys: &[String],
 ) -> Result<FullTextIndexDefinition, DbError> {
-    let name = name.trim();
-    if name.is_empty() {
-        return Err(DbError::InvalidArgument(
-            "fulltext index name cannot be empty".to_string(),
-        ));
-    }
-    if property_keys.is_empty() {
-        return Err(DbError::InvalidArgument(
-            "fulltext index must include at least one property key".to_string(),
-        ));
-    }
-    let mut normalized = Vec::<String>::new();
-    let mut seen = BTreeSet::<String>::new();
-    for key in property_keys {
-        let key = key.trim();
-        if key.is_empty() {
-            return Err(DbError::InvalidArgument(
-                "fulltext index property key cannot be empty".to_string(),
-            ));
-        }
-        if !seen.insert(key.to_string()) {
-            return Err(DbError::InvalidArgument(format!(
-                "duplicate fulltext index property key: {key}"
-            )));
-        }
-        normalized.push(key.to_string());
-    }
-    Ok(FullTextIndexDefinition {
-        name: name.to_string(),
-        label: label
-            .map(str::trim)
-            .filter(|value| !value.is_empty())
-            .map(str::to_string),
-        property_keys: normalized,
-    })
+    normalize_fulltext_index_definition_pure(name, label, property_keys)
+        .map_err(DbError::InvalidArgument)
 }
 
 fn composite_prefix_len(
@@ -10889,32 +10865,6 @@ fn vector_index_path_for_db(path: &Path) -> PathBuf {
     let mut sidecar_name = path.as_os_str().to_os_string();
     sidecar_name.push(".ogdb.vecindex");
     PathBuf::from(sidecar_name)
-}
-
-fn fulltext_index_root_path_for_db(path: &Path) -> PathBuf {
-    let mut root_name = path.as_os_str().to_os_string();
-    root_name.push(".ogdb.ftindex");
-    PathBuf::from(root_name)
-}
-
-fn sanitize_index_component(name: &str) -> String {
-    let mut out = String::with_capacity(name.len());
-    for ch in name.chars() {
-        if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
-            out.push(ch);
-        } else {
-            out.push('_');
-        }
-    }
-    if out.is_empty() {
-        "_".to_string()
-    } else {
-        out
-    }
-}
-
-fn fulltext_index_path_for_name(path: &Path, index_name: &str) -> PathBuf {
-    fulltext_index_root_path_for_db(path).join(sanitize_index_component(index_name))
 }
 
 #[derive(Debug)]
