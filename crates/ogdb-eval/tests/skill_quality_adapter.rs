@@ -1,12 +1,18 @@
-//! RED-phase tests for the `LlmAdapter` trait + `MockAdapter`.
-//! PLAN.md §6 row 8.
+//! Tests for the `LlmAdapter` trait + `MockAdapter`.
+//! Retargeted in Phase 5 when `StubRealAdapter` was replaced by the real
+//! adapter factory (`drivers::real_llm_adapter::resolve_adapter`).
+//! PLAN.md §6 row 8 (skill-quality-dimension) + Phase-3 TODO in
+//! `.planning/real-llm-adapter/PLAN.md` §7.
 
 use std::collections::BTreeMap;
+use std::sync::Mutex;
 
+use ogdb_eval::drivers::real_llm_adapter::{resolve_adapter, PROVIDER_ENV};
 use ogdb_eval::drivers::skill_quality::{
     AdapterResponse, Difficulty, EvalCase, Expected, LlmAdapter, MockAdapter, SkillQualityError,
-    StubRealAdapter,
 };
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 fn sample_case() -> EvalCase {
     EvalCase {
@@ -43,12 +49,23 @@ fn mock_adapter_is_deterministic() {
 
 #[test]
 fn stub_real_adapter_surfaces_unimplemented_error() {
-    // The placeholder adapter for the real LLM must never silently
-    // succeed — it returns `SkillQualityError::Unimplemented`. Phase 5
-    // replaces this with real inference.
-    let case = sample_case();
-    match StubRealAdapter.respond(&case) {
-        Err(SkillQualityError::Unimplemented(_)) => {}
-        other => panic!("StubRealAdapter must return Unimplemented, got {other:?}"),
+    // Retargeted in Phase 5: `StubRealAdapter` was removed when real
+    // adapter implementations landed. The invariant is unchanged — asking
+    // the factory for a real provider without the required env var
+    // produces `Err(Adapter(_))`, never silent success.
+    let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+
+    for key in [PROVIDER_ENV, "ANTHROPIC_API_KEY"] {
+        std::env::remove_var(key);
+    }
+    std::env::set_var(PROVIDER_ENV, "anthropic");
+
+    let result = resolve_adapter();
+    std::env::remove_var(PROVIDER_ENV);
+
+    match result {
+        Err(SkillQualityError::Adapter(_)) => {}
+        Err(other) => panic!("expected Err(Adapter), got Err({other:?})"),
+        Ok(_) => panic!("expected Err(Adapter), got Ok(_)"),
     }
 }
