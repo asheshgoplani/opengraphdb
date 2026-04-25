@@ -5,11 +5,22 @@
 //! is two pieces of plumbing — neither is a wall-clock filter (those
 //! hide real outliers; we don't add drop-min/drop-max here).
 //!
-//! 1. **Warm-up driver pass.** Runs `throughput::ingest_streaming` once
-//!    with a small budget *before* the measured iterations begin. This
-//!    primes the build-cache and page-cache so iter-1 isn't punished.
-//!    The warm-up's `EvaluationRun` is discarded — it never reaches
-//!    the published JSON.
+//! 1. **Warm-up driver pass.** Runs four sub-phases against a scratch
+//!    `<workdir>/warmup` DB before the measured iterations begin. Each
+//!    sub-phase's `EvaluationRun` is discarded — none reach the
+//!    published JSON.
+//!
+//!    a. `throughput::ingest_streaming` — primes write-tx + page-cache.
+//!    b. `throughput::ingest_bulk(1k)` — creates a fresh small dataset
+//!       so the read sub-phases have known ids to query.
+//!    c. `throughput::read_point` — primes `db.neighbors()` + buffer pool.
+//!    d. `throughput::read_traversal` — primes the 2-hop traversal path.
+//!
+//!    Sub-phases (c) and (d) were added 2026-04-25 after the rebaseline
+//!    showed 30–50 % iter-1 variance on read_point qps and 46 % on
+//!    read_traversal_2hop qps; without read warm-up the buffer pool +
+//!    snapshot cache + query plan cache stay cold for iter-1 and the
+//!    measured qps reflects cold-cache state, not steady-state.
 //!
 //! 2. **N=5 median aggregation.** Runs `run_all(cfg)` `iters` times and
 //!    medians each metric across iters, grouped by
@@ -21,6 +32,7 @@
 //! "Methodology" for the operator-facing version of this contract.
 
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::time::Duration;
 
 use crate::drivers::cli_runner::{run_all, RunAllConfig, RunAllError};
@@ -28,25 +40,92 @@ use crate::drivers::throughput;
 use crate::{EvaluationRun, Metric};
 
 const WARMUP_BUDGET: Duration = Duration::from_secs(5);
+const WARMUP_BULK_NODES: u32 = 1_000;
+const WARMUP_READ_POINT_SAMPLES: u32 = 500;
+const WARMUP_READ_TRAVERSAL_SAMPLES: u32 = 200;
 
-/// Run the warm-up driver once (discarded) and then `iters` measured
-/// passes of `run_all(cfg)`. Each measured iter writes into its own
-/// `<workdir>/iter-N` subdirectory so per-iter state can't pollute the
-/// next.
+/// Observable counts from a warm-up pass. Fields exist so tests can
+/// assert that each sub-phase actually executed; production callers
+/// (`run_warmup_then_iters`, `publish_baseline`) discard this.
+#[derive(Debug, Clone, Default)]
+pub struct WarmupReport {
+    /// Nodes inserted by phase 1 (`throughput::ingest_streaming`).
+    pub streaming_writes: u64,
+    /// Nodes inserted by phase 2 (`throughput::ingest_bulk`).
+    pub bulk_writes: u64,
+    /// Sample count driven through phase 3 (`throughput::read_point`).
+    pub read_point_samples: u32,
+    /// Sample count driven through phase 4 (`throughput::read_traversal`).
+    pub read_traversal_samples: u32,
+}
+
+/// Execute every warm-up sub-phase against `warmup_dir`. All
+/// `EvaluationRun` outputs are discarded; only sub-phase counts are
+/// returned in the report so callers can verify each phase ran.
+///
+/// Phases run sequentially against the same `<warmup_dir>/throughput.ogdb`.
+/// Phase 2 (`ingest_bulk`) deletes the streaming DB and starts fresh, so
+/// phases 3-4 read against the controlled 1k-node dataset (not the
+/// streaming DB's variable size). This isolates read warm-up from
+/// timing-dependent streaming output.
+pub fn run_warmup_pass(warmup_dir: &Path) -> Result<WarmupReport, RunAllError> {
+    std::fs::create_dir_all(warmup_dir)?;
+
+    eprintln!(
+        "[multi_iter] warm-up phase 1/4: throughput::ingest_streaming budget={:?} (result discarded)",
+        WARMUP_BUDGET
+    );
+    let stream_run = throughput::ingest_streaming(warmup_dir, WARMUP_BUDGET)?;
+    let streaming_writes = stream_run
+        .metrics
+        .get("nodes_total")
+        .map(|m| m.value as u64)
+        .unwrap_or(0);
+
+    eprintln!(
+        "[multi_iter] warm-up phase 2/4: throughput::ingest_bulk nodes={} (result discarded)",
+        WARMUP_BULK_NODES
+    );
+    let bulk_run = throughput::ingest_bulk(warmup_dir, WARMUP_BULK_NODES)?;
+    let bulk_writes = bulk_run
+        .metrics
+        .get("nodes")
+        .map(|m| m.value as u64)
+        .unwrap_or(0);
+
+    eprintln!(
+        "[multi_iter] warm-up phase 3/4: throughput::read_point samples={} (result discarded)",
+        WARMUP_READ_POINT_SAMPLES
+    );
+    let _ = throughput::read_point(warmup_dir, WARMUP_READ_POINT_SAMPLES)?;
+
+    eprintln!(
+        "[multi_iter] warm-up phase 4/4: throughput::read_traversal samples={} (result discarded)",
+        WARMUP_READ_TRAVERSAL_SAMPLES
+    );
+    let _ = throughput::read_traversal(warmup_dir, WARMUP_READ_TRAVERSAL_SAMPLES)?;
+
+    Ok(WarmupReport {
+        streaming_writes,
+        bulk_writes,
+        read_point_samples: WARMUP_READ_POINT_SAMPLES,
+        read_traversal_samples: WARMUP_READ_TRAVERSAL_SAMPLES,
+    })
+}
+
+/// Run the warm-up driver pass once (discarded) and then `iters`
+/// measured passes of `run_all(cfg)`. Each measured iter writes into
+/// its own `<workdir>/iter-N` subdirectory so per-iter state can't
+/// pollute the next.
 ///
 /// Returns one `Vec<EvaluationRun>` per measured iter, in execution
-/// order. The warm-up's run is *not* included.
+/// order. The warm-up's runs are *not* included.
 pub fn run_warmup_then_iters(
     cfg: &RunAllConfig,
     iters: u32,
 ) -> Result<Vec<Vec<EvaluationRun>>, RunAllError> {
     let warmup_dir = cfg.workdir.join("warmup");
-    std::fs::create_dir_all(&warmup_dir)?;
-    eprintln!(
-        "[multi_iter] warm-up: throughput::ingest_streaming budget={:?} (result discarded)",
-        WARMUP_BUDGET
-    );
-    let _discard = throughput::ingest_streaming(&warmup_dir, WARMUP_BUDGET)?;
+    let _report = run_warmup_pass(&warmup_dir)?;
 
     let mut all = Vec::with_capacity(iters as usize);
     for i in 0..iters {
