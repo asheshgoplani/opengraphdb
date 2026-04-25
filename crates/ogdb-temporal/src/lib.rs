@@ -52,6 +52,7 @@ pub struct TemporalFilter {
 ///   are treated as ∞ (always-ok).
 /// * `SystemTime` — `transaction_time_millis <= filter.timestamp_millis`;
 ///   valid-window args are ignored.
+#[inline]
 pub fn temporal_filter_matches(
     filter: &TemporalFilter,
     valid_from: Option<i64>,
@@ -77,6 +78,7 @@ pub fn temporal_filter_matches(
 /// MUST hold. The call site in `parse_edge_valid_window` (in
 /// `ogdb-core`) adapts the error via
 /// `.map_err(DbError::InvalidArgument)`.
+#[inline]
 pub fn validate_valid_window(
     valid_from: Option<i64>,
     valid_to: Option<i64>,
