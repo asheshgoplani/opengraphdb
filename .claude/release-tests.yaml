@@ -472,3 +472,21 @@ tests:
     command: "cargo test -p ogdb-core --test ogdb_temporal_reexport_shim"
     purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_temporal::{TemporalScope, TemporalFilter} + the 2 internal call sites (edge_matches_temporal_filter body + parse_edge_valid_window body) that consume the new pure helpers. 5 asserts on TypeId + API shape."
     added: 2026-04-25
+
+  - id: ogdb-import-extraction
+    task: impl-ogdb-core-split-import
+    crate: ogdb-import
+    test: api_smoke
+    function: []
+    command: "cargo test -p ogdb-import --tests --features document-ingest"
+    purpose: "Guards the fifth monolith-split extraction — crates/ogdb-import/ owns DocumentFormat / IngestConfig / IngestResult / ParsedSection plain-data + 5 pure parser/chunker fns (PDF, Markdown, Plaintext, chunk_content, detect_cross_references). 15 api_smoke tests + 1 unit test pin the public surface + parser invariants. lopdf + pulldown-cmark deps live here under a 'document-ingest' passthrough feature."
+    added: 2026-04-25
+
+  - id: ogdb-import-reexport-shim
+    task: impl-ogdb-core-split-import
+    crate: ogdb-core
+    test: ogdb_import_reexport_shim
+    function: []
+    command: "cargo test -p ogdb-core --test ogdb_import_reexport_shim"
+    purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_import::{DocumentFormat, IngestConfig, IngestResult}. 4 downstream callers (ogdb-cli/src/lib.rs:3-4, ogdb-bench/benches/rag_benchmark.rs:2, ogdb-bench/tests/rag_accuracy.rs:1) rely on the shim. Database::ingest_document orchestrator stays in core; 6 asserts on TypeId + API shape."
+    added: 2026-04-25
