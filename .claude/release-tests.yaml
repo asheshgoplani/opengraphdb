@@ -526,3 +526,12 @@ tests:
     command: "cargo test -p ogdb-eval --test multi_iter_aggregation"
     purpose: "Guards the N-iter median aggregation infrastructure that the release-mode publish_baseline harness uses to produce stable baselines. 7 unit tests cover: median across N=5, lower-median on even N, p99.9 exclusion (still noisy at N=5), group-key (suite,subsuite,dataset) tuple, warm-up driver plumbing (run-discarded), governor probe + sudo-write fallback. Catches silent regression of the noise-reduction logic that prevents single-shot false alarms."
     added: 2026-04-25
+
+  - id: read-path-warmup-and-spread-diagnostic
+    task: perf-read-path-tail-noise-fix
+    crate: ogdb-eval
+    test: read_path_warmup
+    function: []
+    command: "cargo test -p ogdb-eval --test read_path_warmup"
+    purpose: "Guards the 4-phase warm-up driver pass (ingest_streaming + ingest_bulk + read_point + read_traversal) and the WarmupReport struct that the release-mode publish_baseline harness uses to drive the system into a steady state before measurement. 1 default unit test + 1 #[ignore]'d release-mode variance gate. Catches silent disabling of the warm-up logic that would re-introduce iter-1 cold-cache outliers."
+    added: 2026-04-25
