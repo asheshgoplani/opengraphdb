@@ -39,7 +39,11 @@ test('slice14 — .cosmos-bloom CSS opacity is ≤ 0.6 (core hue survives)', asy
   const block = src.match(/\.cosmos-bloom\s*\{[\s\S]*?\n\s*\}/)
   expect(block, '.cosmos-bloom CSS block must be present').not.toBeNull()
 
-  const opMatch = block![0].match(/opacity:\s*([0-9.]+)/)
+  // Slice-15 refactored the literal opacity to a CSS var with a fallback —
+  // accept either form so the gate keeps measuring the user-visible value.
+  const opMatch =
+    block![0].match(/opacity:\s*var\(--bloom-opacity\s*,\s*([0-9.]+)\)/) ??
+    block![0].match(/opacity:\s*([0-9.]+)/)
   expect(opMatch, 'opacity declaration must be present').not.toBeNull()
 
   const opacity = parseFloat(opMatch![1])

@@ -5,6 +5,7 @@
  */
 
 import { expect, test } from '@playwright/test'
+import { skipIfCosmosWebglUnavailable } from './_helpers/cosmos-webgl'
 
 async function waitForGraph(page: import('@playwright/test').Page) {
   const canvas = page.locator('canvas').first()
@@ -37,6 +38,7 @@ function rectIoU(
 test('slice13 — label CSS is Inter 500 with 3px navy halo', async ({ page }) => {
   await page.goto('/playground?dataset=community')
   await waitForGraph(page)
+  await skipIfCosmosWebglUnavailable(page)
 
   const labels = page.locator('.cosmos-label')
   const count = await labels.count()
@@ -67,6 +69,7 @@ test('slice13 — label CSS is Inter 500 with 3px navy halo', async ({ page }) =
 test('slice13 — no two labels overlap (IoU < 0.05) on community @ zoom 1×', async ({ page }) => {
   await page.goto('/playground?dataset=community')
   await waitForGraph(page)
+  await skipIfCosmosWebglUnavailable(page)
 
   const labels = page.locator('.cosmos-label')
   const count = await labels.count()

@@ -17,6 +17,7 @@
 
 import { expect, test } from '@playwright/test'
 import { PNG } from 'pngjs'
+import { skipIfCosmosWebglUnavailable } from './_helpers/cosmos-webgl'
 
 interface Box {
   x: number
@@ -97,6 +98,7 @@ async function labelPositions(page: import('@playwright/test').Page): Promise<La
 test.describe('slice 12 — palette variety + radius ratio', () => {
   test('5+ HSL hue buckets populated from 50-pixel sample', async ({ page }) => {
     const box = await gotoPlayground(page)
+    await skipIfCosmosWebglUnavailable(page)
     const canvasImg = await clipOf(page, {
       x: Math.round(box.x),
       y: Math.round(box.y),
@@ -157,6 +159,7 @@ test.describe('slice 12 — palette variety + radius ratio', () => {
 
   test('edge midpoints show ≥3 distinct hues', async ({ page }) => {
     const box = await gotoPlayground(page)
+    await skipIfCosmosWebglUnavailable(page)
     const positions = await labelPositions(page)
     expect(positions.length, 'labels present').toBeGreaterThan(5)
 
@@ -219,6 +222,7 @@ test.describe('slice 12 — palette variety + radius ratio', () => {
 
   test('hub radius ≥ 1.8× median (from .cosmos-bloom widths)', async ({ page }) => {
     await gotoPlayground(page)
+    await skipIfCosmosWebglUnavailable(page)
 
     // Each `.cosmos-bloom` has an explicit width style in px. Read them
     // from the DOM — we don't need screenshots for this gate.
