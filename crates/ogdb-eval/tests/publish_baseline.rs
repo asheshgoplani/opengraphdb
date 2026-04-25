@@ -47,6 +47,67 @@ fn read_iters_env() -> u32 {
         .unwrap_or(1)
 }
 
+/// Diagnostic: log per-iter spread for the read-path + IS-1 metrics that
+/// the acceptance gate cares about. Spread = (max-min)/median across iters.
+/// Read paths are the noisiest cold-cache axis; this report is how we
+/// confirm the read warm-up landed without inflating the published JSON.
+fn report_variance(groups: &[Vec<EvaluationRun>]) {
+    let key_metrics = [
+        ("throughput", "read_point", "qps"),
+        ("throughput", "read_point", "p50_us"),
+        ("throughput", "read_point", "p95_us"),
+        ("throughput", "read_point", "p99_us"),
+        ("throughput", "read_traversal_2hop", "qps"),
+        ("throughput", "read_traversal_2hop", "p50_us"),
+        ("throughput", "read_traversal_2hop", "p95_us"),
+        ("throughput", "read_traversal_2hop", "p99_us"),
+        ("throughput", "ingest_bulk", "nodes_per_sec"),
+        ("throughput", "ingest_streaming", "nodes_per_sec"),
+        ("ldbc_snb", "is1", "qps"),
+    ];
+    eprintln!(
+        "[variance] per-iter spread = (max-min)/median, computed over {} iters:",
+        groups.len()
+    );
+    eprintln!(
+        "  {:<11} {:<22} {:<14} {:>11} {:>11} {:>11} {:>8}",
+        "suite", "subsuite", "metric", "median", "min", "max", "spread"
+    );
+    for (suite, subsuite, metric) in key_metrics {
+        let mut values: Vec<f64> = groups
+            .iter()
+            .filter_map(|g| {
+                g.iter()
+                    .find(|r| r.suite == suite && r.subsuite == subsuite)
+                    .and_then(|r| r.metrics.get(metric))
+                    .map(|m| m.value)
+            })
+            .collect();
+        if values.len() < 2 {
+            continue;
+        }
+        values.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+        let min = values.first().copied().unwrap_or(0.0);
+        let max = values.last().copied().unwrap_or(0.0);
+        let median = values[values.len() / 2];
+        let spread = if median.abs() > f64::EPSILON {
+            (max - min) / median.abs()
+        } else {
+            0.0
+        };
+        eprintln!(
+            "  {:<11} {:<22} {:<14} {:>11.2} {:>11.2} {:>11.2} {:>7.1}%",
+            suite,
+            subsuite,
+            metric,
+            median,
+            min,
+            max,
+            spread * 100.0
+        );
+    }
+}
+
 /// Probe + warn about CPU governor. Best-effort — never fails the run.
 fn probe_governor_and_warn() {
     match detect_governor() {
@@ -143,6 +204,10 @@ fn publish_full_suite_baseline() {
     let groups = run_warmup_then_iters(&cfg, iters).expect("warmup + iters");
     for (i, g) in groups.iter().enumerate() {
         eprintln!("  iter {} contributed {} EvaluationRun(s)", i + 1, g.len());
+    }
+
+    if iters >= 2 {
+        report_variance(&groups);
     }
 
     let mut runs: Vec<EvaluationRun> = if iters >= 2 {
