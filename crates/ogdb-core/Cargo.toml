@@ -8,7 +8,7 @@ license.workspace = true
 default = ["vector-search", "fulltext-search", "document-ingest"]
 vector-search = ["dep:instant-distance"]
 fulltext-search = ["dep:tantivy"]
-document-ingest = ["dep:lopdf", "dep:pulldown-cmark"]
+document-ingest = ["ogdb-import/document-ingest"]
 tracing = ["dep:tracing"]
 wasm-bindings = ["dep:wasm-bindgen"]
 
@@ -20,10 +20,9 @@ ogdb-vector = { path = "../ogdb-vector" }
 ogdb-algorithms = { path = "../ogdb-algorithms" }
 ogdb-text = { path = "../ogdb-text" }
 ogdb-temporal = { path = "../ogdb-temporal" }
+ogdb-import = { path = "../ogdb-import", default-features = false }
 lz4_flex = "0.11.6"
 instant-distance = { version = "0.6.1", optional = true }
-lopdf = { version = "0.34", optional = true }
-pulldown-cmark = { version = "0.13", optional = true }
 roaring = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
