@@ -499,3 +499,12 @@ tests:
     command: "cd frontend && npx playwright test e2e/cookbook-snippets-runnable.spec.ts"
     purpose: "Guards docs/COOKBOOK.md against snippet rot. 9 e2e tests run every documented snippet (curl + Python + Node) against a live target/release/ogdb serve --http and verify the expected output. Catches API drift (e.g. /mcp/invoke payload shape, /rag/search response format, /query body structure). Without this, cookbook recipes silently break as the API evolves."
     added: 2026-04-25
+
+  - id: stability-sweep-blockers-fix
+    task: fix-stability-sweep-blockers
+    crate: frontend
+    test: e2e/cosmos-webgl-helper
+    function: []
+    command: "cd frontend && npx playwright test e2e/slice11-color-bloom-backdrop.spec.ts e2e/slice12-legibility-palette-depth.spec.ts e2e/slice13-label-halos.spec.ts e2e/slice13-palette-hues.spec.ts e2e/slice13-routing-palette.spec.ts e2e/slice14-bloom-balance.spec.ts"
+    purpose: "Guards the WebGL-availability guard rolled into slice11-14 cosmos.gl specs. These hard-failed under both xvfb and real-GPU when cosmos couldn't initialize. With skipIfCosmosWebglUnavailable: cleanly SKIP when WebGL absent, run when present. Catches reintroduction of unconditional cosmos asserts that would re-break CI on headless hosts."
+    added: 2026-04-25
