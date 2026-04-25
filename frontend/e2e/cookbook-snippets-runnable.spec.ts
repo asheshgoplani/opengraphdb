@@ -191,11 +191,12 @@ test.describe('cookbook snippets — runnable against ogdb serve --http', () => 
 
   test('recipe 1: POST /mcp/invoke browse_schema returns 200', async () => {
     readCookbook()
+    // /mcp/invoke takes the flat tool-call shape — top-level `name` +
+    // `arguments`, NOT a JSON-RPC envelope. See `handle_http_mcp_invoke` in
+    // `crates/ogdb-cli/src/lib.rs:4804`.
     const { status, json } = await postJson('/mcp/invoke', {
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'tools/call',
-      params: { name: 'browse_schema', arguments: {} },
+      name: 'browse_schema',
+      arguments: {},
     })
     expect(status).toBe(200)
     expect(json, 'browse_schema response must be JSON').not.toBeNull()
@@ -205,8 +206,9 @@ test.describe('cookbook snippets — runnable against ogdb serve --http', () => 
     readCookbook()
     const { status, json } = await postJson('/rag/search', { query: 'hello', k: 3 })
     expect(status).toBe(200)
-    const results = (json as { results?: unknown[] } | null)?.results
-    expect(Array.isArray(results), 'rag/search must return a results array').toBe(true)
+    // /rag/search returns a bare top-level JSON array (see
+    // `rag_results_to_json` at `crates/ogdb-cli/src/lib.rs:3730`).
+    expect(Array.isArray(json), 'rag/search must return a top-level JSON array').toBe(true)
   })
 
   test('recipe 3: POST /rag/ingest then POST /query reads the ingested doc back', async () => {
@@ -229,14 +231,10 @@ test.describe('cookbook snippets — runnable against ogdb serve --http', () => 
   test('recipe 4: POST /mcp/invoke temporal_diff returns snapshot_a + snapshot_b', async () => {
     readCookbook()
     const now = Math.floor(Date.now() / 1000)
+    // Flat tool-call shape (see comment on the browse_schema test above).
     const { status, json } = await postJson('/mcp/invoke', {
-      jsonrpc: '2.0',
-      id: 4,
-      method: 'tools/call',
-      params: {
-        name: 'temporal_diff',
-        arguments: { timestamp_a: 0, timestamp_b: now },
-      },
+      name: 'temporal_diff',
+      arguments: { timestamp_a: 0, timestamp_b: now },
     })
     expect(status).toBe(200)
     const stringified = JSON.stringify(json)
