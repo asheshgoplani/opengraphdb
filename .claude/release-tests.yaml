@@ -535,3 +535,12 @@ tests:
     command: "cargo test -p ogdb-eval --test read_path_warmup"
     purpose: "Guards the 4-phase warm-up driver pass (ingest_streaming + ingest_bulk + read_point + read_traversal) and the WarmupReport struct that the release-mode publish_baseline harness uses to drive the system into a steady state before measurement. 1 default unit test + 1 #[ignore]'d release-mode variance gate. Catches silent disabling of the warm-up logic that would re-introduce iter-1 cold-cache outliers."
     added: 2026-04-25
+
+  - id: migration-guide-snippets-runnable
+    task: impl-neo4j-migration-guide
+    crate: frontend
+    test: e2e/migration-guide-snippets
+    function: []
+    command: "cd frontend && npx playwright test e2e/migration-guide-snippets.spec.ts"
+    purpose: "Guards docs/MIGRATION-FROM-NEO4J.md against snippet rot. 11 e2e tests run every documented Cypher + curl snippet against a live target/release/ogdb serve --http and verify expected output. Catches API drift in /query, /schema, vector search, and migration-specific patterns (LABEL syntax, id() function, CREATE INDEX). Without this, migration guide silently breaks as the API evolves."
+    added: 2026-04-25
