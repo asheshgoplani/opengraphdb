@@ -6,42 +6,75 @@
 //! Gated by `OGDB_EVAL_BASELINE_JSON` being set so `cargo test -p ogdb-eval`
 //! in debug mode doesn't drag in the full-tier workload.
 //!
+//! ## Noise-reduction harness (added 2026-04-25)
+//!
+//! Cold-cache variance on read paths is 40–70 % at N=1. Two levers tame it:
+//!
+//! 1. **Warm-up driver pass.** Runs `throughput::ingest_streaming` once
+//!    *before* the measured iterations so the build-cache + page-cache are
+//!    primed. The warm-up's `EvaluationRun` is discarded.
+//!
+//! 2. **N-iter median (`OGDB_EVAL_BASELINE_ITERS`, default 1).** When set
+//!    ≥ 2, runs the full suite N times and medians each metric across iters
+//!    by `(suite, subsuite, dataset)`. p99.9 is dropped — even at N=5 the
+//!    tail is too noisy to publish.
+//!
+//! The `performance` CPU governor is the third lever; on a process without
+//! root we can only log a warning. See `ogdb_eval::drivers::governor`.
+//!
 //! Invoke:
 //!   cd crates/ogdb-eval
 //!   OGDB_EVAL_BASELINE_JSON=/path/baseline.json \
 //!   OGDB_EVAL_BASELINE_MD=/path/auto-summary.md \
+//!   OGDB_EVAL_BASELINE_ITERS=5 \
 //!   cargo test --release --test publish_baseline -- --nocapture
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use ogdb_eval::drivers::cli_runner::{
-    append_skill_quality_run, run_all, write_benchmarks_md, RunAllConfig,
+    append_skill_quality_run, write_benchmarks_md, RunAllConfig,
 };
+use ogdb_eval::drivers::governor::{detect_governor, try_set_governor, GovernorState};
+use ogdb_eval::drivers::multi_iter::{median_aggregate, run_warmup_then_iters};
 use ogdb_eval::drivers::{criterion_ingest, graphalytics};
 use ogdb_eval::EvaluationRun;
 
-#[test]
-fn publish_full_suite_baseline() {
-    let Ok(json_out) = std::env::var("OGDB_EVAL_BASELINE_JSON") else {
-        eprintln!("skipping: set OGDB_EVAL_BASELINE_JSON to run");
-        return;
-    };
-    let md_out = std::env::var("OGDB_EVAL_BASELINE_MD").ok();
+fn read_iters_env() -> u32 {
+    std::env::var("OGDB_EVAL_BASELINE_ITERS")
+        .ok()
+        .and_then(|s| s.parse::<u32>().ok())
+        .filter(|n| *n >= 1)
+        .unwrap_or(1)
+}
 
-    // Workdir: sibling of the JSON output so driver artifacts survive
-    // if the run is inspected.
-    let workdir = PathBuf::from(&json_out).with_extension("workdir");
-    if workdir.exists() {
-        std::fs::remove_dir_all(&workdir).ok();
+/// Probe + warn about CPU governor. Best-effort — never fails the run.
+fn probe_governor_and_warn() {
+    match detect_governor() {
+        GovernorState::Available(name) => {
+            eprintln!("[governor] cpu0 governor: {name}");
+            if name != "performance" {
+                if try_set_governor("performance").is_ok() {
+                    eprintln!("[governor] pinned cpu0 to 'performance' for this run");
+                } else {
+                    eprintln!(
+                        "[governor] WARNING: governor is '{name}', not 'performance'. \
+                         Re-run with sudo (or `sudo cpupower frequency-set -g performance`) \
+                         for true performance pinning. Warm-up driver pass is the more \
+                         impactful lever; proceeding without governor change."
+                    );
+                }
+            }
+        }
+        GovernorState::Unavailable => {
+            eprintln!("[governor] cpufreq not available on this host — skipping pinning");
+        }
     }
-    std::fs::create_dir_all(&workdir).unwrap();
+}
 
-    let cfg = RunAllConfig::full(&workdir);
-    eprintln!("running RunAllConfig::full at {}", workdir.display());
-    let mut runs: Vec<EvaluationRun> = run_all(&cfg).expect("run_all full");
-    eprintln!("  run_all emitted {} EvaluationRun(s)", runs.len());
-
-    // Graphalytics on the mini LDBC DB that run_all already built.
+/// Post-pass: graphalytics + criterion-ingest + skill_quality. These run
+/// once after the medianed core (looping them per-iter would only inflate
+/// runtime; their numbers are stable enough to publish single-shot).
+fn run_post_pass(workdir: &Path, runs: &mut Vec<EvaluationRun>) {
     let ldbc_db = workdir.join("ldbc").join("mini.ogdb");
     match graphalytics::run_bfs(&ldbc_db, 0, 3) {
         Ok(r) => {
@@ -62,7 +95,6 @@ fn publish_full_suite_baseline() {
         Err(e) => eprintln!("  graphalytics PageRank FAILED: {e}"),
     }
 
-    // Criterion ingest — tolerant of missing target/criterion.
     let criterion_root = PathBuf::from(
         std::env::var("OGDB_EVAL_CRITERION_DIR")
             .unwrap_or_else(|_| "target/criterion".to_string()),
@@ -79,16 +111,57 @@ fn publish_full_suite_baseline() {
         Err(e) => eprintln!("  criterion_ingest FAILED: {e}"),
     }
 
-    // Dimension-4: skill quality. Mock adapter by default — set
-    // OGDB_SKILL_LLM_PROVIDER=anthropic|openai|local to exercise real
-    // adapters. LLM failures are recorded, not propagated, so a flaky
-    // external API cannot block a v0.4 release cut.
-    if let Err(e) = append_skill_quality_run(&mut runs) {
+    if let Err(e) = append_skill_quality_run(runs) {
         eprintln!("  skill_quality step FAILED: {e}");
     }
+}
+
+#[test]
+fn publish_full_suite_baseline() {
+    let Ok(json_out) = std::env::var("OGDB_EVAL_BASELINE_JSON") else {
+        eprintln!("skipping: set OGDB_EVAL_BASELINE_JSON to run");
+        return;
+    };
+    let md_out = std::env::var("OGDB_EVAL_BASELINE_MD").ok();
+    let iters = read_iters_env();
+
+    let workdir = PathBuf::from(&json_out).with_extension("workdir");
+    if workdir.exists() {
+        std::fs::remove_dir_all(&workdir).ok();
+    }
+    std::fs::create_dir_all(&workdir).unwrap();
+
+    probe_governor_and_warn();
+
+    let cfg = RunAllConfig::full(&workdir);
+    eprintln!(
+        "[publish_baseline] iters={iters} (set OGDB_EVAL_BASELINE_ITERS to change), \
+         workdir={}",
+        workdir.display()
+    );
+
+    let groups = run_warmup_then_iters(&cfg, iters).expect("warmup + iters");
+    for (i, g) in groups.iter().enumerate() {
+        eprintln!("  iter {} contributed {} EvaluationRun(s)", i + 1, g.len());
+    }
+
+    let mut runs: Vec<EvaluationRun> = if iters >= 2 {
+        let medianed = median_aggregate(&groups);
+        eprintln!(
+            "[publish_baseline] medianed across {iters} iters → {} EvaluationRun(s) \
+             (p99.9 dropped: still noisy at N=5)",
+            medianed.len()
+        );
+        medianed
+    } else {
+        groups.into_iter().next().unwrap_or_default()
+    };
+
+    // Post-pass uses the LDBC mini DB built by iter-0 of the measured run.
+    let post_workdir = workdir.join("iter-0");
+    run_post_pass(&post_workdir, &mut runs);
     eprintln!("  runs now total: {}", runs.len());
 
-    // Serialize every run as a JSON array so jq / downstream tooling can walk it.
     let json = serde_json::to_string_pretty(&runs).expect("serialize runs");
     if let Some(parent) = std::path::Path::new(&json_out).parent() {
         std::fs::create_dir_all(parent).ok();
@@ -97,7 +170,7 @@ fn publish_full_suite_baseline() {
     eprintln!("wrote {} runs to {}", runs.len(), json_out);
 
     if let Some(md_path) = md_out {
-        write_benchmarks_md(&runs, std::path::Path::new(&md_path)).expect("write md");
+        write_benchmarks_md(&runs, Path::new(&md_path)).expect("write md");
         eprintln!("wrote auto-summary md to {}", md_path);
     }
 }
