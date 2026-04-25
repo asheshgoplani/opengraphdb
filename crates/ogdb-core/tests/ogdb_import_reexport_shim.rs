@@ -7,6 +7,7 @@
 //!   * `ogdb-cli/src/lib.rs:3-4`
 //!   * `ogdb-bench/benches/rag_benchmark.rs:2`
 //!   * `ogdb-bench/tests/rag_accuracy.rs:1`
+//!
 //! and 9 in-core integration tests at @41020-41250 construct them.
 //! A silent parallel definition in ogdb-core would corrupt
 //! `serde_json`-emitted DocumentFormat strings (ogdb-cli surfaces

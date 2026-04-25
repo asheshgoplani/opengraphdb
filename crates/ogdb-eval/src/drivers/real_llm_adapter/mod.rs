@@ -110,7 +110,7 @@ pub fn resolve_adapter() -> Result<Box<dyn LlmAdapter>, SkillQualityError> {
         Provider::Anthropic => {
             #[cfg(feature = "llm-anthropic")]
             {
-                return Ok(Box::new(anthropic::AnthropicAdapter::from_env()?));
+                Ok(Box::new(anthropic::AnthropicAdapter::from_env()?))
             }
             #[cfg(not(feature = "llm-anthropic"))]
             {

@@ -25,6 +25,7 @@
 
 import { expect, test } from '@playwright/test'
 import { PNG } from 'pngjs'
+import { skipIfCosmosWebglUnavailable } from './_helpers/cosmos-webgl'
 
 interface Box {
   x: number
@@ -160,6 +161,7 @@ test.describe('slice 11 — palette, bloom, backdrop', () => {
     page,
   }) => {
     const box = await gotoPlayground(page)
+    await skipIfCosmosWebglUnavailable(page)
     const positions = await cosmosLabelPositions(page)
     expect(positions.length, 'cosmos labels on canvas').toBeGreaterThan(0)
 
@@ -271,6 +273,7 @@ test.describe('slice 11 — palette, bloom, backdrop', () => {
 
   test('node-bloom-ring: hub has colored glow outside its core', async ({ page }) => {
     const box = await gotoPlayground(page)
+    await skipIfCosmosWebglUnavailable(page)
     const positions = await cosmosLabelPositions(page)
     expect(positions.length, 'cosmos labels on canvas').toBeGreaterThan(0)
 

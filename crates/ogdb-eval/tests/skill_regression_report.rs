@@ -55,6 +55,7 @@ fn skill_quality_run(run_id: &str, metrics: Vec<(&str, f64)>) -> EvaluationRun {
     }
 }
 
+#[allow(clippy::too_many_arguments)] // 8 fields of CaseDiagnostic — splitting into a builder would obscure the test
 fn diag(
     skill: &str,
     case_name: &str,

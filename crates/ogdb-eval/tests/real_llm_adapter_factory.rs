@@ -70,7 +70,7 @@ fn factory_default_returns_deterministic_mock_adapter() {
     // Direct construction must match the factory behaviour exactly —
     // tests that instantiate the mock directly (without env lookups)
     // rely on the same output.
-    let direct = DeterministicMockAdapter::default()
+    let direct = DeterministicMockAdapter
         .respond(&case)
         .expect("direct mock");
     assert_eq!(direct.text, resp.text);

@@ -125,9 +125,7 @@ fn send_request(addr: &str, method: &str, path: &str) -> (u16, String, String) {
             break;
         }
         if header.to_ascii_lowercase().starts_with("content-type:") {
-            content_type = header
-                .splitn(2, ':')
-                .nth(1)
+            content_type = header.split_once(':').map(|x| x.1)
                 .map(|v| v.trim().to_string())
                 .unwrap_or_default();
         }

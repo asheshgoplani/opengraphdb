@@ -12,7 +12,7 @@ use serde_json::Value;
 use std::env;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
@@ -173,7 +173,7 @@ fn spawn_http_server(
     spawn_http_server_with_init(tag, max_requests, |_| {})
 }
 
-fn seed_user(path: &PathBuf, username: &str, token: &str) {
+fn seed_user(path: &Path, username: &str, token: &str) {
     let mut db = Database::open(path.display().to_string()).expect("open db for user seed");
     db.create_user(username, Some(token)).expect("create user");
     db.grant_role(username, DbRole::ReadWrite)

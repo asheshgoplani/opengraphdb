@@ -609,12 +609,12 @@ fn section_04_cypher_query_engine_full_pipeline() -> Result<(), Box<dyn Error>> 
             .any(|row| row.get("name") == Some(&PropertyValue::String("Test".to_string()))),
         "WITH projection should include the Test row"
     );
-    let unwind_err = db
-        .query("UNWIND [1, 2] AS item RETURN item")
-        .expect_err("UNWIND physical execution path should currently be unsupported");
-    assert!(unwind_err
-        .to_string()
-        .contains("physical planning for UNWIND is not implemented yet"));
+    let unwind_rows = db
+        .query("UNWIND [1, 2] AS item RETURN item")?
+        .to_rows();
+    assert_eq!(unwind_rows.len(), 2);
+    assert_eq!(unwind_rows[0].get("item"), Some(&PropertyValue::I64(1)));
+    assert_eq!(unwind_rows[1].get("item"), Some(&PropertyValue::I64(2)));
 
     let merge_first = db
         .query(

@@ -6,7 +6,7 @@
 use ogdb_cli::run;
 use std::env;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -28,7 +28,7 @@ fn cleanup_db(path: &PathBuf) {
     let _ = fs::remove_file(rdf_meta);
 }
 
-fn import_ttl(db: &PathBuf, ttl_body: &str) {
+fn import_ttl(db: &Path, ttl_body: &str) {
     let input = temp_path("rdf-edgecase-input", "ttl");
     fs::write(&input, ttl_body).expect("write ttl input");
 
@@ -49,7 +49,7 @@ fn import_ttl(db: &PathBuf, ttl_body: &str) {
     let _ = fs::remove_file(&input);
 }
 
-fn exported_edge_types(db: &PathBuf) -> Vec<String> {
+fn exported_edge_types(db: &Path) -> Vec<String> {
     let export_path = temp_path("rdf-edgecase-export", "json");
     let export = run(&[
         "export".to_string(),

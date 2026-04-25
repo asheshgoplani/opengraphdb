@@ -8,6 +8,7 @@
  */
 
 import { expect, test } from '@playwright/test'
+import { skipIfCosmosWebglUnavailable } from './_helpers/cosmos-webgl'
 
 async function waitForGraph(page: import('@playwright/test').Page) {
   const canvas = page.locator('canvas').first()
@@ -51,6 +52,7 @@ function hueBucket(h: number): number {
 test('slice13 — community canvas paints ≥6 distinct hue buckets', async ({ page }) => {
   await page.goto('/playground?dataset=community')
   await waitForGraph(page)
+  await skipIfCosmosWebglUnavailable(page)
 
   // Sample pixels via canvas.toDataURL → decode in page, then ship back
   // an array of [r,g,b,a] for every sampled pixel that isn't background.

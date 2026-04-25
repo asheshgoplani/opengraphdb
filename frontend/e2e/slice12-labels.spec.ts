@@ -15,6 +15,7 @@
 
 import { expect, test } from '@playwright/test'
 import { PNG } from 'pngjs'
+import { skipIfCosmosWebglUnavailable } from './_helpers/cosmos-webgl'
 
 interface Box {
   x: number
@@ -95,6 +96,7 @@ function iou(a: LabelRect, b: LabelRect): number {
 test.describe('slice 12 — label legibility', () => {
   test('labels do not overlap (≥95% with IoU<0.1)', async ({ page }) => {
     await gotoPlayground(page)
+    await skipIfCosmosWebglUnavailable(page)
     const rects = await labelRects(page)
     expect(rects.length, 'cosmos labels on canvas').toBeGreaterThan(10)
 
@@ -122,6 +124,7 @@ test.describe('slice 12 — label legibility', () => {
 
   test('emphasized labels have stronger halo', async ({ page }) => {
     const box = await gotoPlayground(page)
+    await skipIfCosmosWebglUnavailable(page)
     const rects = await labelRects(page)
     expect(rects.length).toBeGreaterThan(5)
 

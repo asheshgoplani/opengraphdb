@@ -376,7 +376,7 @@ proptest! {
                 prop_assert!(rt.edge_properties(eid).is_ok());
                 prop_assert!(rt.edge_type(eid).is_ok());
             }
-            drop(rt);
+            let _ = rt;
 
             for e in db.export_edges().expect("export edges") {
                 prop_assert!(
