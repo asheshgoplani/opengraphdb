@@ -508,3 +508,12 @@ tests:
     command: "cd frontend && npx playwright test e2e/slice11-color-bloom-backdrop.spec.ts e2e/slice12-legibility-palette-depth.spec.ts e2e/slice13-label-halos.spec.ts e2e/slice13-palette-hues.spec.ts e2e/slice13-routing-palette.spec.ts e2e/slice14-bloom-balance.spec.ts"
     purpose: "Guards the WebGL-availability guard rolled into slice11-14 cosmos.gl specs. These hard-failed under both xvfb and real-GPU when cosmos couldn't initialize. With skipIfCosmosWebglUnavailable: cleanly SKIP when WebGL absent, run when present. Catches reintroduction of unconditional cosmos asserts that would re-break CI on headless hosts."
     added: 2026-04-25
+
+  - id: is1-perf-recovery-after-monolith-split
+    task: fix-is1-cross-crate-inlining
+    crate: ogdb-eval
+    test: ldbc_snb_is1_driver
+    function: []
+    command: "OGDB_EVAL_BASELINE_JSON=/tmp/is1-gate.json cargo test --release -p ogdb-eval --test publish_baseline -- --nocapture"
+    purpose: "Acceptance gate: median IS-1 qps over 5 release-mode iterations >= 18,000. Guards against re-introduction of the cross-crate-inlining regression that the monolith-split refactors caused. Combined with workspace-wide thin-LTO + codegen-units=1 and #[inline] hints on 7 pure helpers in ogdb-vector/-temporal/-text. NOTE: this gate runs the FULL publish_baseline harness (~155s); it is env-gated by OGDB_EVAL_BASELINE_JSON so plain cargo test does not trigger it. Verification protocol requires N=5 median, NOT a single shot, due to ~40-70% cold-cache variance on read paths."
+    added: 2026-04-25
