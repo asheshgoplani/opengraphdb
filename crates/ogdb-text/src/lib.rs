@@ -33,6 +33,7 @@ pub struct FullTextIndexDefinition {
 ///
 /// Returns `Result<_, String>`; the caller (`Database::create_fulltext_index`
 /// in `ogdb-core`) wraps via `.map_err(DbError::InvalidArgument)`.
+#[inline]
 pub fn normalize_fulltext_index_definition(
     name: &str,
     label: Option<&str>,
@@ -81,6 +82,7 @@ pub fn fulltext_index_root_path_for_db(path: &Path) -> PathBuf {
 /// `-` + `_` slug suitable for a filesystem path component. Empty
 /// input maps to `"_"` so the filesystem never sees a blank
 /// component.
+#[inline]
 pub fn sanitize_index_component(name: &str) -> String {
     let mut out = String::with_capacity(name.len());
     for ch in name.chars() {

@@ -23,3 +23,12 @@ resolver = "2"
 version = "0.3.0"
 edition = "2021"
 license = "Apache-2.0"
+
+# Cross-crate inlining for the IS-1 hot path. The 5 ogdb-core-split-* refactors
+# (vector/algorithms/text/temporal/import) moved plain-data types and pure
+# helpers out of ogdb-core into sibling crates; without LTO the optimizer does
+# not inline across crate boundaries, which costs ~25% on the 1-hop Cypher
+# property-fetch benchmark.
+[profile.release]
+lto = "thin"
+codegen-units = 1

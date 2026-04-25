@@ -34,6 +34,7 @@ pub struct VectorIndexDefinition {
     pub metric: VectorDistanceMetric,
 }
 
+#[inline]
 pub fn compare_f32_vectors(left: &[f32], right: &[f32]) -> std::cmp::Ordering {
     let len_cmp = left.len().cmp(&right.len());
     if len_cmp != std::cmp::Ordering::Equal {
@@ -48,6 +49,7 @@ pub fn compare_f32_vectors(left: &[f32], right: &[f32]) -> std::cmp::Ordering {
     std::cmp::Ordering::Equal
 }
 
+#[inline]
 pub fn parse_vector_literal_text(value: &str) -> Option<Vec<f32>> {
     let trimmed = value.trim();
     if !trimmed.starts_with('[') || !trimmed.ends_with(']') {
@@ -69,6 +71,7 @@ pub fn parse_vector_literal_text(value: &str) -> Option<Vec<f32>> {
         .collect::<Option<Vec<_>>>()
 }
 
+#[inline]
 pub fn vector_distance(metric: VectorDistanceMetric, left: &[f32], right: &[f32]) -> Option<f32> {
     if left.len() != right.len() || left.is_empty() {
         return None;
