@@ -517,3 +517,12 @@ tests:
     command: "OGDB_EVAL_BASELINE_JSON=/tmp/is1-gate.json cargo test --release -p ogdb-eval --test publish_baseline -- --nocapture"
     purpose: "Acceptance gate: median IS-1 qps over 5 release-mode iterations >= 18,000. Guards against re-introduction of the cross-crate-inlining regression that the monolith-split refactors caused. Combined with workspace-wide thin-LTO + codegen-units=1 and #[inline] hints on 7 pure helpers in ogdb-vector/-temporal/-text. NOTE: this gate runs the FULL publish_baseline harness (~155s); it is env-gated by OGDB_EVAL_BASELINE_JSON so plain cargo test does not trigger it. Verification protocol requires N=5 median, NOT a single shot, due to ~40-70% cold-cache variance on read paths."
     added: 2026-04-25
+
+  - id: multi-iter-median-aggregation
+    task: perf-noise-reduce-and-rebaseline
+    crate: ogdb-eval
+    test: multi_iter_aggregation
+    function: []
+    command: "cargo test -p ogdb-eval --test multi_iter_aggregation"
+    purpose: "Guards the N-iter median aggregation infrastructure that the release-mode publish_baseline harness uses to produce stable baselines. 7 unit tests cover: median across N=5, lower-median on even N, p99.9 exclusion (still noisy at N=5), group-key (suite,subsuite,dataset) tuple, warm-up driver plumbing (run-discarded), governor probe + sudo-write fallback. Catches silent regression of the noise-reduction logic that prevents single-shot false alarms."
+    added: 2026-04-25
