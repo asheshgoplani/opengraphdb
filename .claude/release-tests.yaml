@@ -490,3 +490,12 @@ tests:
     command: "cargo test -p ogdb-core --test ogdb_import_reexport_shim"
     purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_import::{DocumentFormat, IngestConfig, IngestResult}. 4 downstream callers (ogdb-cli/src/lib.rs:3-4, ogdb-bench/benches/rag_benchmark.rs:2, ogdb-bench/tests/rag_accuracy.rs:1) rely on the shim. Database::ingest_document orchestrator stays in core; 6 asserts on TypeId + API shape."
     added: 2026-04-25
+
+  - id: cookbook-snippets-runnable
+    task: impl-ai-agent-cookbook
+    crate: frontend
+    test: e2e/cookbook-snippets-runnable
+    function: []
+    command: "cd frontend && npx playwright test e2e/cookbook-snippets-runnable.spec.ts"
+    purpose: "Guards docs/COOKBOOK.md against snippet rot. 9 e2e tests run every documented snippet (curl + Python + Node) against a live target/release/ogdb serve --http and verify the expected output. Catches API drift (e.g. /mcp/invoke payload shape, /rag/search response format, /query body structure). Without this, cookbook recipes silently break as the API evolves."
+    added: 2026-04-25
