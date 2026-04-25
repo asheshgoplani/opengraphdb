@@ -30,7 +30,7 @@ test.describe('Playground Page Visual Coverage', () => {
     const sidebar = page.locator('aside').first()
     await expect(page).toHaveURL(/dataset=airroutes/)
     await expect(page.getByTestId('dataset-switcher').first()).toHaveValue('airroutes')
-    await expect(sidebar.getByText(/Global airport network/i)).toBeVisible()
+    await expect(sidebar.getByText(/Practical Gremlin Air Routes/i)).toBeVisible()
     await page.screenshot({ path: 'e2e/screenshots/playground-airroutes-light.png' })
   })
 
@@ -41,7 +41,7 @@ test.describe('Playground Page Visual Coverage', () => {
     const sidebar = page.locator('aside').first()
     await expect(page).toHaveURL(/dataset=got/)
     await expect(page.getByTestId('dataset-switcher').first()).toHaveValue('got')
-    await expect(sidebar.getByText(/Character interaction network across 8 seasons/i)).toBeVisible()
+    await expect(sidebar.getByText(/character-interaction subgraph across 8 seasons/i)).toBeVisible()
     await page.screenshot({ path: 'e2e/screenshots/playground-got-light.png' })
   })
 
@@ -56,7 +56,7 @@ test.describe('Playground Page Visual Coverage', () => {
     await switcher.selectOption('airroutes')
     await expect(page).toHaveURL(/dataset=airroutes/)
     await expect(switcher).toHaveValue('airroutes')
-    await expect(sidebar.getByText(/Global airport network/i)).toBeVisible()
+    await expect(sidebar.getByText(/Practical Gremlin Air Routes/i)).toBeVisible()
   })
 
   test('query cards and stats panel render in sidebar', async ({ page }) => {

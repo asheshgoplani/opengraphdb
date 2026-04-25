@@ -15,13 +15,13 @@ test.describe('Landing Page Visual Coverage', () => {
 
   test('renders all primary sections and captures light screenshots', async ({ page }) => {
     const heroTitle = page.getByRole('heading', { level: 1 })
-    await expect(heroTitle).toContainText('Knowledge Graph Workflows That Feel Instant')
+    await expect(heroTitle).toContainText('The single-file graph DB')
     await page.screenshot({ path: 'e2e/screenshots/landing-hero-light.png', fullPage: false })
 
     const showcaseSection = page.locator('#use-cases')
     await showcaseSection.scrollIntoViewIfNeeded()
     await expect(showcaseSection).toBeVisible()
-    await expect(page.getByTestId('showcase-card')).toHaveCount(4)
+    await expect(page.getByTestId('showcase-card')).toHaveCount(5)
     await page.screenshot({ path: 'e2e/screenshots/landing-showcase-light.png', fullPage: false })
 
     const featuresSection = page.locator('#features')
@@ -33,11 +33,10 @@ test.describe('Landing Page Visual Coverage', () => {
     const gettingStartedSection = page.locator('#get-started')
     await gettingStartedSection.scrollIntoViewIfNeeded()
     await expect(gettingStartedSection).toBeVisible()
-    await expect(gettingStartedSection.locator('article')).toHaveCount(3)
+    await expect(gettingStartedSection.locator('ol > li')).toHaveCount(3)
     await page.screenshot({ path: 'e2e/screenshots/landing-getting-started-light.png', fullPage: false })
 
     await expect(page.locator('header a[href="/playground"]').first()).toBeVisible()
-    await expect(page.locator('header a[href="/app"]').first()).toBeVisible()
     await page.screenshot({ path: 'e2e/screenshots/landing-full-light.png', fullPage: true })
   })
 

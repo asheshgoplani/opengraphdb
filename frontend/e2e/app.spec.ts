@@ -10,28 +10,33 @@ async function setTheme(page: Page, theme: 'light' | 'dark') {
 test.describe('App Page Visual Coverage', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/app', { waitUntil: 'domcontentloaded' })
-    await expect(page.getByText('OpenGraphDB')).toBeVisible()
+    await expect(page.getByRole('link', { name: 'OpenGraphDB' })).toBeVisible()
   })
 
   test('renders empty state and captures light screenshot', async ({ page }) => {
-    await expect(page.getByText('OpenGraphDB')).toBeVisible()
-    await expect(page.getByText(/run a query to see results/i)).toBeVisible()
+    await expect(page.getByRole('link', { name: 'OpenGraphDB' })).toBeVisible()
+    // Either the connected empty-state copy or the disconnected-state copy is acceptable —
+    // CI runners typically have no backend, but a developer running these locally may.
+    await expect(
+      page.getByText(/run a query to see results|no server reachable yet/i).first(),
+    ).toBeVisible()
     await expect(page.locator('.cm-editor')).toBeVisible()
     await page.screenshot({ path: 'e2e/screenshots/app-empty-light.png' })
   })
 
   test('shows connection status text in header', async ({ page }) => {
-    await expect
-      .poll(async () => {
-        const statusText = await page.locator('header span.font-medium').first().textContent()
-        return statusText?.trim() ?? ''
-      })
-      .toMatch(/Connected|Disconnected|Connecting\.\.\./)
+    // Header now has multiple font-medium spans (brand link + status pill).
+    // Match the status text directly so we are not coupled to header span order.
+    await expect(
+      page.locator('header').getByText(/^(Connected|Disconnected|Connecting\.\.\.)$/),
+    ).toBeVisible()
   })
 
   test('captures dark mode empty-state screenshot', async ({ page }) => {
     await setTheme(page, 'dark')
-    await expect(page.getByText(/run a query to see results/i)).toBeVisible()
+    await expect(
+      page.getByText(/run a query to see results|no server reachable yet/i).first(),
+    ).toBeVisible()
     await page.screenshot({ path: 'e2e/screenshots/app-empty-dark.png' })
   })
 
@@ -43,14 +48,13 @@ test.describe('App Page Visual Coverage', () => {
   })
 
   test('captures post-query screenshot when backend is available', async ({ page }) => {
-    await expect
-      .poll(async () => {
-        const statusText = await page.locator('header span.font-medium').first().textContent()
-        return statusText?.trim() ?? ''
-      })
-      .toMatch(/Connected|Disconnected/)
+    const statusLocator = page
+      .locator('header')
+      .getByText(/^(Connected|Disconnected|Connecting\.\.\.)$/)
+    await expect(statusLocator).toBeVisible()
+    await expect(statusLocator).toHaveText(/Connected|Disconnected/)
 
-    const statusText = (await page.locator('header span.font-medium').first().textContent())?.trim()
+    const statusText = (await statusLocator.textContent())?.trim()
     test.skip(statusText !== 'Connected', 'Backend is not connected; skipping post-query screenshot.')
 
     const editor = page.locator('[aria-label="Cypher query editor"]')
