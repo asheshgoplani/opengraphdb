@@ -2055,6 +2055,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ogdb-import"
+version = "0.3.0"
+dependencies = [
+ "serde_json",
+]
+
+[[package]]
 name = "ogdb-node"
 version = "0.3.0"
 dependencies = [

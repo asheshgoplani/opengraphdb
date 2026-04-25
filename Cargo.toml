@@ -5,6 +5,7 @@ members = [
   "crates/ogdb-algorithms",
   "crates/ogdb-text",
   "crates/ogdb-temporal",
+  "crates/ogdb-import",
   "crates/ogdb-bolt",
   "crates/ogdb-cli",
   "crates/ogdb-e2e",
