@@ -33,6 +33,19 @@ use ogdb_text::{
     normalize_fulltext_index_definition as normalize_fulltext_index_definition_pure,
     sanitize_index_component,
 };
+
+// Re-export the plain-data temporal primitives so every existing
+// in-core call site (the AST `MatchClause.temporal_filter` field, the
+// 5 planner-op variants holding `Option<TemporalFilter>`, the Cypher
+// parser's `parse_match_temporal_filter`, and
+// `Database::edge_matches_temporal_filter`) keeps resolving without
+// a fully-qualified path. No downstream crate imports either type
+// today; pinning the re-export identity guards against future breakage.
+pub use ogdb_temporal::{TemporalFilter, TemporalScope};
+// Crate-private import so the refactored bodies of
+// `Database::edge_matches_temporal_filter` and `parse_edge_valid_window`
+// can call the pure helpers unqualified.
+use ogdb_temporal::{temporal_filter_matches, validate_valid_window};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::{File, OpenOptions};
@@ -1279,18 +1292,6 @@ pub struct ExportEdge {
     pub valid_from: Option<i64>,
     pub valid_to: Option<i64>,
     pub transaction_time_millis: i64,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TemporalScope {
-    ValidTime,
-    SystemTime,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TemporalFilter {
-    pub scope: TemporalScope,
-    pub timestamp_millis: i64,
 }
 
 /// B-tree index definition for one label and property key set.
@@ -5643,13 +5644,7 @@ fn parse_edge_valid_window(
 ) -> Result<(Option<i64>, Option<i64>), DbError> {
     let valid_from = temporal_i64_property(properties, "valid_from")?;
     let valid_to = temporal_i64_property(properties, "valid_to")?;
-    if let (Some(from), Some(to)) = (valid_from, valid_to) {
-        if to <= from {
-            return Err(DbError::InvalidArgument(
-                "valid_to must be greater than valid_from".to_string(),
-            ));
-        }
-    }
+    validate_valid_window(valid_from, valid_to).map_err(DbError::InvalidArgument)?;
     Ok((valid_from, valid_to))
 }
 
@@ -19867,22 +19862,17 @@ impl Database {
         let Some(filter) = temporal_filter else {
             return Ok(true);
         };
-        match filter.scope {
-            TemporalScope::ValidTime => {
-                let (valid_from, valid_to) = self.edge_valid_window_at(edge_id, snapshot_txn_id)?;
-                let lower_ok = valid_from
-                    .map(|value| value <= filter.timestamp_millis)
-                    .unwrap_or(true);
-                let upper_ok = valid_to
-                    .map(|value| value > filter.timestamp_millis)
-                    .unwrap_or(true);
-                Ok(lower_ok && upper_ok)
-            }
+        let (valid_from, valid_to) = match filter.scope {
+            TemporalScope::ValidTime => self.edge_valid_window_at(edge_id, snapshot_txn_id)?,
+            TemporalScope::SystemTime => (None, None),
+        };
+        let tx_time = match filter.scope {
             TemporalScope::SystemTime => {
-                let tx_time = self.edge_transaction_time_millis_at(edge_id, snapshot_txn_id)?;
-                Ok(tx_time <= filter.timestamp_millis)
+                self.edge_transaction_time_millis_at(edge_id, snapshot_txn_id)?
             }
-        }
+            TemporalScope::ValidTime => 0,
+        };
+        Ok(temporal_filter_matches(filter, valid_from, valid_to, tx_time))
     }
 
     fn rebuild_property_indexes_from_catalog(&mut self) -> Result<(), DbError> {

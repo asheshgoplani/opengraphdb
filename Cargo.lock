@@ -1996,6 +1996,7 @@ dependencies = [
  "lopdf",
  "lz4_flex",
  "ogdb-algorithms",
+ "ogdb-temporal",
  "ogdb-text",
  "ogdb-vector",
  "proptest",
@@ -2086,6 +2087,10 @@ dependencies = [
  "tempfile",
  "walkdir",
 ]
+
+[[package]]
+name = "ogdb-temporal"
+version = "0.3.0"
 
 [[package]]
 name = "ogdb-text"
