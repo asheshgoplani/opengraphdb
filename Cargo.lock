@@ -1993,14 +1993,13 @@ name = "ogdb-core"
 version = "0.3.0"
 dependencies = [
  "instant-distance",
- "lopdf",
  "lz4_flex",
  "ogdb-algorithms",
+ "ogdb-import",
  "ogdb-temporal",
  "ogdb-text",
  "ogdb-vector",
  "proptest",
- "pulldown-cmark",
  "roaring",
  "serde",
  "serde_json",
@@ -2052,6 +2051,16 @@ version = "0.3.0"
 dependencies = [
  "tempfile",
  "toml",
+]
+
+[[package]]
+name = "ogdb-import"
+version = "0.3.0"
+dependencies = [
+ "lopdf",
+ "pulldown-cmark",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
