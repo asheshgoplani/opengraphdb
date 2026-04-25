@@ -1,0 +1,795 @@
+[
+  {
+    "schema_version": "1.0",
+    "run_id": "ai_agent-concurrent_writes-1777104771272286301",
+    "suite": "ai_agent",
+    "subsuite": "concurrent_writes",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:22:19Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "commits_per_sec": {
+        "value": 300.48381099732836,
+        "unit": "ops/s",
+        "higher_is_better": true
+      },
+      "commits_total": {
+        "value": 2000.0,
+        "unit": "count",
+        "higher_is_better": true
+      },
+      "conflict_rate": {
+        "value": 0.0,
+        "unit": "fraction",
+        "higher_is_better": false
+      },
+      "elapsed_s": {
+        "value": 6.655932622,
+        "unit": "s",
+        "higher_is_better": false
+      },
+      "threads": {
+        "value": 4.0,
+        "unit": "count",
+        "higher_is_better": true
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "4 threads × 500 ops; separate DB per thread (single-writer kernel). True contention-aware conflict_rate requires multi-writer — DEFERRED."
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "ai_agent-enrichment_roundtrip-1777104762284078414",
+    "suite": "ai_agent",
+    "subsuite": "enrichment_roundtrip",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:22:09Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "docs": {
+        "value": 100.0,
+        "unit": "count",
+        "higher_is_better": true
+      },
+      "docs_per_sec": {
+        "value": 23.91800922510536,
+        "unit": "docs/s",
+        "higher_is_better": true
+      },
+      "t_persist_p50_us": {
+        "value": 38477.011,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "t_persist_p95_us": {
+        "value": 45388.005000000005,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "t_persist_p99_us": {
+        "value": 114044.34300000001,
+        "unit": "us",
+        "higher_is_better": false
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "enrichment; 100 docs × 10 entities + 15 edges; single-writer tx per doc"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "ai_agent-hybrid_retrieval-1777104764692115057",
+    "suite": "ai_agent",
+    "subsuite": "hybrid_retrieval",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:22:12Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "nodes": {
+        "value": 1000.0,
+        "unit": "count",
+        "higher_is_better": true
+      },
+      "p50_us": {
+        "value": 184.196,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p95_us": {
+        "value": 223.651,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p99_us": {
+        "value": 245.56099999999998,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "queries": {
+        "value": 100.0,
+        "unit": "count",
+        "higher_is_better": true
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "vector kNN + 1-hop expansion; 100 queries over 1000 nodes (dim=16). NDCG@10 DEFERRED: no BEIR corpus in-tree — see docs/BENCHMARKS.md"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "ai_agent-re_ranking-1777104773443989775",
+    "suite": "ai_agent",
+    "subsuite": "re_ranking",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:22:21Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "batch_us": {
+        "value": 153.764,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "candidates": {
+        "value": 100.0,
+        "unit": "count",
+        "higher_is_better": true
+      },
+      "p50_us": {
+        "value": 1.266,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p95_us": {
+        "value": 1.3459999999999999,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p99_us": {
+        "value": 1.5030000000000001,
+        "unit": "us",
+        "higher_is_better": false
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "graph-feature rerank; 100 candidates × 1-hop lookup. Synthetic boost (sum-of-ids) stands in for neighbour-similarity dot product."
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "ldbc_snb-IS-1-1777104758056833607",
+    "suite": "ldbc_snb",
+    "subsuite": "IS-1",
+    "dataset": "ldbc-mini-sf0",
+    "timestamp_utc": "2026-04-25T08:22:05Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "p50_us": {
+        "value": 22.231,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p95_us": {
+        "value": 232.72899999999998,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p99_us": {
+        "value": 365.911,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "qps": {
+        "value": 18907.44537005633,
+        "unit": "qps",
+        "higher_is_better": true
+      },
+      "queries": {
+        "value": 1000.0,
+        "unit": "count",
+        "higher_is_better": true
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "IS-1 Profile of Person; 1000 queries against 100 persons"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "resources-throughput.ingest_bulk-1777104812984928751",
+    "suite": "resources",
+    "subsuite": "throughput.ingest_bulk",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:23:00Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "cpu_user_s": {
+        "value": 1.45,
+        "unit": "s",
+        "higher_is_better": false
+      },
+      "disk_mb": {
+        "value": 49.13503837585449,
+        "unit": "MB",
+        "higher_is_better": false
+      },
+      "elapsed_s": {
+        "value": 39.625941503,
+        "unit": "s",
+        "higher_is_better": false
+      },
+      "rss_final_mb": {
+        "value": 29.24609375,
+        "unit": "MB",
+        "higher_is_better": false
+      },
+      "rss_peak_mb": {
+        "value": 30.3125,
+        "unit": "MB",
+        "higher_is_better": false
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "resources around throughput.ingest_bulk; linux-only proc probes"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "scaling-10k-1777104813340716879",
+    "suite": "scaling",
+    "subsuite": "10k",
+    "dataset": "synthetic-10k",
+    "timestamp_utc": "2026-04-25T08:23:01Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "file_size_mb": {
+        "value": 39.36745071411133,
+        "unit": "MB",
+        "higher_is_better": false
+      },
+      "insert_secs": {
+        "value": 0.28519376,
+        "unit": "s",
+        "higher_is_better": false
+      },
+      "insert_throughput": {
+        "value": 35063.88078056125,
+        "unit": "elem/s",
+        "higher_is_better": true
+      },
+      "inserts": {
+        "value": 10000.0,
+        "unit": "count",
+        "higher_is_better": true
+      },
+      "p50_us": {
+        "value": 0.08900000000000001,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p95_us": {
+        "value": 0.261,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p99_us": {
+        "value": 0.638,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "rss_mb": {
+        "value": 27.2421875,
+        "unit": "MB",
+        "higher_is_better": false
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "tier=10k, inserts=10000, read_samples=1000"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "throughput-ingest_bulk-1777104740943566381",
+    "suite": "throughput",
+    "subsuite": "ingest_bulk",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:21:48Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "disk_mb": {
+        "value": 49.53033447265625,
+        "unit": "MB",
+        "higher_is_better": false
+      },
+      "elapsed_s": {
+        "value": 39.332117914,
+        "unit": "s",
+        "higher_is_better": false
+      },
+      "nodes": {
+        "value": 10000.0,
+        "unit": "count",
+        "higher_is_better": true
+      },
+      "nodes_per_sec": {
+        "value": 254.24514443552422,
+        "unit": "nodes/s",
+        "higher_is_better": true
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "bulk ingest; 10000 nodes + 9999 edges"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "throughput-ingest_streaming-1777104701675565881",
+    "suite": "throughput",
+    "subsuite": "ingest_streaming",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:21:09Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "edges_per_sec": {
+        "value": 297.1174994837546,
+        "unit": "edges/s",
+        "higher_is_better": true
+      },
+      "edges_total": {
+        "value": 8946.0,
+        "unit": "count",
+        "higher_is_better": true
+      },
+      "elapsed_s": {
+        "value": 30.109300245,
+        "unit": "s",
+        "higher_is_better": false
+      },
+      "nodes_per_sec": {
+        "value": 301.83365026921103,
+        "unit": "nodes/s",
+        "higher_is_better": true
+      },
+      "nodes_total": {
+        "value": 9088.0,
+        "unit": "count",
+        "higher_is_better": true
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "streaming ingest; batch=64, budget_ms=30000"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "throughput-mutation-1777104756843599277",
+    "suite": "throughput",
+    "subsuite": "mutation",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:22:04Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "p50_us": {
+        "value": 11785.645,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p95_us": {
+        "value": 13687.431,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p99_us": {
+        "value": 15668.162,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "rss_delta_mb": {
+        "value": 2.59375,
+        "unit": "MB",
+        "higher_is_better": false
+      },
+      "updates_per_sec": {
+        "value": 71.09883489429905,
+        "unit": "ops/s",
+        "higher_is_better": true
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "per-update write-tx; 1000 mutations, one begin_write+commit each"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "throughput-read_point-1777104741839927998",
+    "suite": "throughput",
+    "subsuite": "read_point",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:21:49Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "p50_us": {
+        "value": 7.124,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p95_us": {
+        "value": 11.242,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p99_us": {
+        "value": 13.381,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "qps": {
+        "value": 119088.97411160519,
+        "unit": "qps",
+        "higher_is_better": true
+      },
+      "samples": {
+        "value": 1000.0,
+        "unit": "count",
+        "higher_is_better": true
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "neighbors() point lookup; 1000 samples over 10000 nodes"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "throughput-read_traversal_2hop-1777104742049093774",
+    "suite": "throughput",
+    "subsuite": "read_traversal_2hop",
+    "dataset": "synthetic",
+    "timestamp_utc": "2026-04-25T08:21:49Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "p50_us": {
+        "value": 8.602,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p95_us": {
+        "value": 17.159,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "p99_us": {
+        "value": 18.086,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "qps": {
+        "value": 89979.73926211035,
+        "unit": "qps",
+        "higher_is_better": true
+      }
+    },
+    "environment": {
+      "aggregation": "median-of-5-iters",
+      "p99_9_excluded": "true (still noisy at N=5)"
+    },
+    "notes": "2-hop expansion; 1000 seeds over 10000 nodes"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "graphalytics-BFS-1777105381308339521",
+    "suite": "graphalytics",
+    "subsuite": "BFS",
+    "dataset": "ldbc-mini-sf0",
+    "timestamp_utc": "2026-04-25T08:23:01Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "levels": {
+        "value": 3.0,
+        "unit": "levels",
+        "higher_is_better": true
+      },
+      "levels_us": {
+        "value": 42.72,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "nodes_visited": {
+        "value": 70.0,
+        "unit": "nodes",
+        "higher_is_better": true
+      }
+    },
+    "environment": {},
+    "notes": "BFS from seed=0, max_hops=3, depth_explored=3"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "graphalytics-PageRank-1777105381378603245",
+    "suite": "graphalytics",
+    "subsuite": "PageRank",
+    "dataset": "ldbc-mini-sf0",
+    "timestamp_utc": "2026-04-25T08:23:01Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "iter_us": {
+        "value": 604.7389999999999,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "iterations": {
+        "value": 20.0,
+        "unit": "count",
+        "higher_is_better": false
+      },
+      "nodes": {
+        "value": 100.0,
+        "unit": "nodes",
+        "higher_is_better": true
+      },
+      "setup_us": {
+        "value": 124.80999999999999,
+        "unit": "us",
+        "higher_is_better": false
+      }
+    },
+    "environment": {},
+    "notes": "PageRank 20 iters, damping=0.85, n=100"
+  },
+  {
+    "schema_version": "1.0",
+    "run_id": "skill_quality-all-1777105381398182169",
+    "suite": "skill_quality",
+    "subsuite": "all",
+    "dataset": "skills-v0.1.0",
+    "timestamp_utc": "2026-04-25T08:23:01Z",
+    "git_sha": "unknown",
+    "platform": {
+      "os": "linux",
+      "arch": "x86_64",
+      "cpu_model": "Intel(R) Core(TM) i9-10920X CPU @ 3.50GHz",
+      "ram_gb": 0
+    },
+    "binary": {
+      "version": "0.3.0",
+      "build_profile": "release"
+    },
+    "metrics": {
+      "avg_score": {
+        "value": 0.24342903828197948,
+        "unit": "ratio",
+        "higher_is_better": true
+      },
+      "cases_failed": {
+        "value": 33.0,
+        "unit": "count",
+        "higher_is_better": false
+      },
+      "latency_p50_us": {
+        "value": 0.0,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "latency_p95_us": {
+        "value": 0.0,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "latency_p99_us": {
+        "value": 0.0,
+        "unit": "us",
+        "higher_is_better": false
+      },
+      "pass_rate": {
+        "value": 0.029411764705882353,
+        "unit": "ratio",
+        "higher_is_better": true
+      },
+      "pass_rate_data_import": {
+        "value": 0.0,
+        "unit": "ratio",
+        "higher_is_better": true
+      },
+      "pass_rate_easy": {
+        "value": 0.0,
+        "unit": "ratio",
+        "higher_is_better": true
+      },
+      "pass_rate_graph_explore": {
+        "value": 0.0,
+        "unit": "ratio",
+        "higher_is_better": true
+      },
+      "pass_rate_hard": {
+        "value": 0.1111111111111111,
+        "unit": "ratio",
+        "higher_is_better": true
+      },
+      "pass_rate_medium": {
+        "value": 0.0,
+        "unit": "ratio",
+        "higher_is_better": true
+      },
+      "pass_rate_ogdb_cypher": {
+        "value": 0.0,
+        "unit": "ratio",
+        "higher_is_better": true
+      },
+      "pass_rate_schema_advisor": {
+        "value": 0.14285714285714285,
+        "unit": "ratio",
+        "higher_is_better": true
+      },
+      "total_cases": {
+        "value": 34.0,
+        "unit": "count",
+        "higher_is_better": false
+      }
+    },
+    "environment": {
+      "suite_status": "ok"
+    },
+    "notes": ""
+  }
+]
