@@ -39,3 +39,4 @@
 
 # Node
 node_modules/
+*.workdir/
