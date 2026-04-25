@@ -2266,9 +2266,9 @@ fn run_mcp_stdio_command(db_path: &str, max_requests: Option<u64>) -> Result<Str
         let mut writer = Vec::<u8>::new();
         let requests_processed =
             run_mcp_stdio_session(db_path, &mut reader, &mut writer, max_requests)?;
-        return Ok(format!(
+        Ok(format!(
             "mcp_stdio_stopped requests_processed={requests_processed}"
-        ));
+        ))
     }
     #[cfg(not(test))]
     {
@@ -8211,7 +8211,7 @@ mod tests {
     use std::fs;
     use std::io::{BufRead, BufReader, Cursor, Read, Write};
     use std::net::{TcpListener, TcpStream};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::process;
     use std::thread;
     use std::time::Duration;
@@ -8227,11 +8227,11 @@ mod tests {
         path
     }
 
-    fn wal_path(path: &PathBuf) -> PathBuf {
+    fn wal_path(path: &Path) -> PathBuf {
         PathBuf::from(format!("{}-wal", path.display()))
     }
 
-    fn meta_path(path: &PathBuf) -> PathBuf {
+    fn meta_path(path: &Path) -> PathBuf {
         PathBuf::from(format!("{}-meta.json", path.display()))
     }
 
@@ -8354,7 +8354,7 @@ mod tests {
         reader
             .read_line(&mut status_line)
             .expect("read http status line");
-        let mut parts = status_line.trim().split_whitespace();
+        let mut parts = status_line.split_whitespace();
         let _http = parts.next().expect("status line protocol");
         let status = parts
             .next()
@@ -8521,7 +8521,7 @@ mod tests {
     #[test]
     fn shell_dispatch_interactive_mode_calls_interactive_handler() {
         let path = temp_db_path("shell-interactive-dispatch");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let err = handle_shell_with_stdin_mode(
@@ -8544,7 +8544,7 @@ mod tests {
     #[test]
     fn shell_dispatch_non_tty_mode_reads_stdin_queries() {
         let path = temp_db_path("shell-non-tty-dispatch");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let err = handle_shell_with_stdin_mode(
@@ -8567,7 +8567,7 @@ mod tests {
     #[test]
     fn handle_mcp_requires_mode_when_called_directly() {
         let path = temp_db_path("mcp-direct-mode-required");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let err = handle_mcp(&path.display().to_string(), None, false, None)
@@ -8623,7 +8623,7 @@ mod tests {
     #[test]
     fn execute_query_cypher_runtime_errors_are_wrapped() {
         let path = temp_db_path("query-runtime-wrap");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let table_err = execute_query(&path.display().to_string(), "RETURN n")
@@ -8654,7 +8654,7 @@ mod tests {
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("initialized"));
 
-        let info = run(&vec!["info".to_string(), path.display().to_string()]);
+        let info = run(&["info".to_string(), path.display().to_string()]);
         assert_eq!(info.exit_code, 0);
         assert!(info.stdout.contains("format_version=1"));
         assert!(info.stdout.contains("page_size=8192"));
@@ -8791,14 +8791,12 @@ mod tests {
     #[test]
     fn global_db_flag_can_supply_database_path() {
         let path = temp_db_path("global-db-flag");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "info".to_string(),
+        let out = run(&["info".to_string(),
             "--db".to_string(),
-            path.display().to_string(),
-        ]);
+            path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("node_count=0"));
         assert!(out.stdout.contains("edge_count=0"));
@@ -8922,15 +8920,13 @@ mod tests {
     #[test]
     fn global_format_flag_applies_to_read_commands() {
         let path = temp_db_path("global-format-flag");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "--format".to_string(),
+        let out = run(&["--format".to_string(),
             "json".to_string(),
             "info".to_string(),
-            path.display().to_string(),
-        ]);
+            path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         let value: serde_json::Value = serde_json::from_str(&out.stdout).expect("valid json");
         assert_eq!(value["row_count"], 1);
@@ -8950,11 +8946,9 @@ mod tests {
     #[test]
     fn init_requires_page_size_value_when_flag_present() {
         let path = temp_db_path("missing-pagesize-value");
-        let out = run(&vec![
-            "init".to_string(),
+        let out = run(&["init".to_string(),
             path.display().to_string(),
-            "--page-size".to_string(),
-        ]);
+            "--page-size".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("--page-size"));
         assert!(out.stderr.contains("required"));
@@ -8963,11 +8957,9 @@ mod tests {
     #[test]
     fn init_rejects_unknown_flag() {
         let path = temp_db_path("unknown-flag");
-        let out = run(&vec![
-            "init".to_string(),
+        let out = run(&["init".to_string(),
             path.display().to_string(),
-            "--unknown".to_string(),
-        ]);
+            "--unknown".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("unexpected argument"));
     }
@@ -8982,12 +8974,10 @@ mod tests {
     #[test]
     fn returns_usage_error_for_invalid_page_size() {
         let path = temp_db_path("bad-pagesize");
-        let out = run(&vec![
-            "init".to_string(),
+        let out = run(&["init".to_string(),
             path.display().to_string(),
             "--page-size".to_string(),
-            "3000".to_string(),
-        ]);
+            "3000".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("power of two"));
     }
@@ -8995,12 +8985,10 @@ mod tests {
     #[test]
     fn returns_usage_error_for_too_small_page_size() {
         let path = temp_db_path("small-pagesize");
-        let out = run(&vec![
-            "init".to_string(),
+        let out = run(&["init".to_string(),
             path.display().to_string(),
             "--page-size".to_string(),
-            "32".to_string(),
-        ]);
+            "32".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains(">= 64"));
     }
@@ -9008,12 +8996,10 @@ mod tests {
     #[test]
     fn returns_usage_error_for_non_numeric_page_size() {
         let path = temp_db_path("bad-pagesize-string");
-        let out = run(&vec![
-            "init".to_string(),
+        let out = run(&["init".to_string(),
             path.display().to_string(),
             "--page-size".to_string(),
-            "not-a-number".to_string(),
-        ]);
+            "not-a-number".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("--page-size"));
         assert!(out.stderr.contains("invalid value"));
@@ -9022,7 +9008,7 @@ mod tests {
     #[test]
     fn returns_runtime_error_for_missing_file_on_info() {
         let path = temp_db_path("missing");
-        let out = run(&vec!["info".to_string(), path.display().to_string()]);
+        let out = run(&["info".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("io error"));
     }
@@ -9030,10 +9016,10 @@ mod tests {
     #[test]
     fn returns_runtime_error_when_init_path_already_exists() {
         let path = temp_db_path("existing");
-        let first = run(&vec!["init".to_string(), path.display().to_string()]);
+        let first = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(first.exit_code, 0);
 
-        let second = run(&vec!["init".to_string(), path.display().to_string()]);
+        let second = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(second.exit_code, 1);
         assert!(second.stderr.contains("already exists"));
 
@@ -9046,7 +9032,7 @@ mod tests {
         let db = Database::init(&path, Header::default_v1()).expect("init must succeed");
         let _ = db.allocate_page().expect("allocate page");
 
-        let out = run(&vec!["info".to_string(), path.display().to_string()]);
+        let out = run(&["info".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("page_count=1"));
         assert!(out.stdout.contains("node_count=0"));
@@ -9059,58 +9045,48 @@ mod tests {
     #[test]
     fn info_metrics_stats_and_schema_support_machine_readable_formats() {
         let path = temp_db_path("read-formats");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let info_json = run(&vec![
-            "info".to_string(),
+        let info_json = run(&["info".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "json".to_string(),
-        ]);
+            "json".to_string()]);
         assert_eq!(info_json.exit_code, 0);
         let info_value: serde_json::Value =
             serde_json::from_str(&info_json.stdout).expect("valid info json");
         assert_eq!(info_value["rows"][0]["node_count"], "2");
         assert_eq!(info_value["rows"][0]["edge_count"], "1");
 
-        let stats_jsonl = run(&vec![
-            "stats".to_string(),
+        let stats_jsonl = run(&["stats".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "jsonl".to_string(),
-        ]);
+            "jsonl".to_string()]);
         assert_eq!(stats_jsonl.exit_code, 0);
         let stats_row: serde_json::Value =
             serde_json::from_str(stats_jsonl.stdout.trim()).expect("valid stats jsonl");
         assert_eq!(stats_row["max_out_degree"], "1");
 
-        let schema_csv = run(&vec![
-            "schema".to_string(),
+        let schema_csv = run(&["schema".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "csv".to_string(),
-        ]);
+            "csv".to_string()]);
         assert_eq!(schema_csv.exit_code, 0);
         assert!(schema_csv
             .stdout
             .starts_with("path,model,node_labels,edge_types,property_keys,node_count,edge_count"));
         assert!(schema_csv.stdout.contains(",property_graph_minimal,"));
 
-        let metrics_json = run(&vec![
-            "metrics".to_string(),
+        let metrics_json = run(&["metrics".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "json".to_string(),
-        ]);
+            "json".to_string()]);
         assert_eq!(metrics_json.exit_code, 0);
         let metrics_value: serde_json::Value =
             serde_json::from_str(&metrics_json.stdout).expect("valid metrics json");
@@ -9125,32 +9101,26 @@ mod tests {
     #[test]
     fn stats_command_reports_degree_metrics() {
         let path = temp_db_path("stats");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "1".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "2".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "2".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "2".to_string(),
-            "3".to_string(),
-        ]);
+            "3".to_string()]);
 
-        let out = run(&vec!["stats".to_string(), path.display().to_string()]);
+        let out = run(&["stats".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("node_count=4"));
         assert!(out.stdout.contains("edge_count=3"));
@@ -9166,18 +9136,16 @@ mod tests {
     #[test]
     fn schema_command_reports_baseline_shape() {
         let path = temp_db_path("schema");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let out = run(&vec!["schema".to_string(), path.display().to_string()]);
+        let out = run(&["schema".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("model=property_graph_minimal"));
         assert!(out.stdout.contains("node_labels=0"));
@@ -9193,56 +9161,48 @@ mod tests {
     #[test]
     fn schema_command_reports_property_graph_catalog_counts() {
         let path = temp_db_path("schema-property-catalog");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let n0 = run(&vec![
-            "create-node".to_string(),
+        let n0 = run(&["create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
             "Person,Employee".to_string(),
             "--props".to_string(),
-            "age=i64:42;name=string:alice;active=bool:true".to_string(),
-        ]);
+            "age=i64:42;name=string:alice;active=bool:true".to_string()]);
         assert_eq!(n0.exit_code, 0);
         assert!(n0.stdout.contains("node_id=0"));
 
-        let n1 = run(&vec![
-            "create-node".to_string(),
+        let n1 = run(&["create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
             "Person".to_string(),
             "--props".to_string(),
-            "age=i64:7;name=string:bob;active=bool:false".to_string(),
-        ]);
+            "age=i64:7;name=string:bob;active=bool:false".to_string()]);
         assert_eq!(n1.exit_code, 0);
         assert!(n1.stdout.contains("node_id=1"));
 
-        let e0 = run(&vec![
-            "add-edge".to_string(),
+        let e0 = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
             "--props".to_string(),
-            "weight=f64:0.75".to_string(),
-        ]);
+            "weight=f64:0.75".to_string()]);
         assert_eq!(e0.exit_code, 0);
         assert!(e0.stdout.contains("edge_id=0"));
 
-        let e1 = run(&vec![
-            "add-edge".to_string(),
+        let e1 = run(&["add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
             "0".to_string(),
             "--type".to_string(),
             "KNOWS".to_string(),
             "--props".to_string(),
-            "since=i64:2024;proof=bytes:00ff".to_string(),
-        ]);
+            "since=i64:2024;proof=bytes:00ff".to_string()]);
         assert_eq!(e1.exit_code, 0);
         assert!(e1.stdout.contains("edge_id=1"));
 
-        let schema = run(&vec!["schema".to_string(), path.display().to_string()]);
+        let schema = run(&["schema".to_string(), path.display().to_string()]);
         assert_eq!(schema.exit_code, 0);
         assert!(schema.stdout.contains("node_labels=2"));
         assert!(schema.stdout.contains("edge_types=1"));
@@ -9259,7 +9219,7 @@ mod tests {
     fn migrate_dry_run_prints_planned_actions() {
         let path = temp_db_path("migrate-dry-run");
         let script = temp_file_path("migrate-dry-run-script", "migrate");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &script,
@@ -9267,19 +9227,17 @@ mod tests {
         )
         .expect("write migration script");
 
-        let out = run(&vec![
-            "migrate".to_string(),
+        let out = run(&["migrate".to_string(),
             path.display().to_string(),
             script.display().to_string(),
-            "--dry-run".to_string(),
-        ]);
+            "--dry-run".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("[DRY-RUN] ADD LABEL Person"));
         assert!(out.stdout.contains("[DRY-RUN] ADD LABEL Company"));
         assert!(out.stdout.contains("[DRY-RUN] ADD INDEX ON :Person(name)"));
         assert!(out.stdout.contains("3 action(s) would be applied"));
 
-        let schema = run(&vec!["schema".to_string(), path.display().to_string()]);
+        let schema = run(&["schema".to_string(), path.display().to_string()]);
         assert_eq!(schema.exit_code, 0);
         assert!(schema.stdout.contains("node_labels=0"));
         assert!(schema.stdout.contains("edge_types=0"));
@@ -9294,17 +9252,15 @@ mod tests {
     fn migrate_dry_run_supports_global_db_flag() {
         let path = temp_db_path("migrate-dry-run-db-flag");
         let script = temp_file_path("migrate-dry-run-db-flag-script", "migrate");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(&script, "ADD LABEL Person\n").expect("write migration script");
 
-        let out = run(&vec![
-            "migrate".to_string(),
+        let out = run(&["migrate".to_string(),
             "--db".to_string(),
             path.display().to_string(),
             script.display().to_string(),
-            "--dry-run".to_string(),
-        ]);
+            "--dry-run".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("[DRY-RUN] ADD LABEL Person"));
         assert!(out.stdout.contains("1 action(s) would be applied"));
@@ -9318,7 +9274,7 @@ mod tests {
     fn migrate_apply_executes_all_actions() {
         let path = temp_db_path("migrate-apply");
         let script = temp_file_path("migrate-apply-script", "migrate");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &script,
@@ -9326,11 +9282,9 @@ mod tests {
         )
         .expect("write migration script");
 
-        let out = run(&vec![
-            "migrate".to_string(),
+        let out = run(&["migrate".to_string(),
             path.display().to_string(),
-            script.display().to_string(),
-        ]);
+            script.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("[APPLIED] ADD LABEL Person"));
         assert!(out.stdout.contains("[APPLIED] ADD LABEL Company"));
@@ -9357,7 +9311,7 @@ mod tests {
         let path = temp_db_path("migrate-drop");
         let add_script = temp_file_path("migrate-drop-add", "migrate");
         let drop_script = temp_file_path("migrate-drop-drop", "migrate");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         fs::write(
@@ -9365,11 +9319,9 @@ mod tests {
             "ADD LABEL TempLabel\nADD EDGE_TYPE TEMP_REL\nADD PROPERTY_KEY temp_prop\n",
         )
         .expect("write add script");
-        let add_out = run(&vec![
-            "migrate".to_string(),
+        let add_out = run(&["migrate".to_string(),
             path.display().to_string(),
-            add_script.display().to_string(),
-        ]);
+            add_script.display().to_string()]);
         assert_eq!(add_out.exit_code, 0);
 
         fs::write(
@@ -9377,11 +9329,9 @@ mod tests {
             "DROP LABEL TempLabel\nDROP EDGE_TYPE TEMP_REL\nDROP PROPERTY_KEY temp_prop\n",
         )
         .expect("write drop script");
-        let drop_out = run(&vec![
-            "migrate".to_string(),
+        let drop_out = run(&["migrate".to_string(),
             path.display().to_string(),
-            drop_script.display().to_string(),
-        ]);
+            drop_script.display().to_string()]);
         assert_eq!(drop_out.exit_code, 0);
         assert!(drop_out.stdout.contains("[APPLIED] DROP LABEL TempLabel"));
         assert!(drop_out
@@ -9409,16 +9359,14 @@ mod tests {
     fn migrate_invalid_directive_returns_parse_error() {
         let path = temp_db_path("migrate-invalid");
         let script = temp_file_path("migrate-invalid-script", "migrate");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(&script, "ADD LABEL Person\nRENAME LABEL Person TO User\n")
             .expect("write invalid migration script");
 
-        let out = run(&vec![
-            "migrate".to_string(),
+        let out = run(&["migrate".to_string(),
             path.display().to_string(),
-            script.display().to_string(),
-        ]);
+            script.display().to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("line 2"));
         assert!(out.stderr.contains("unrecognized directive"));
@@ -9432,7 +9380,7 @@ mod tests {
     fn migrate_skips_comments_and_empty_lines() {
         let path = temp_db_path("migrate-comments");
         let script = temp_file_path("migrate-comments-script", "migrate");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &script,
@@ -9440,11 +9388,9 @@ mod tests {
         )
         .expect("write migration script");
 
-        let out = run(&vec![
-            "migrate".to_string(),
+        let out = run(&["migrate".to_string(),
             path.display().to_string(),
-            script.display().to_string(),
-        ]);
+            script.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("2 action(s) applied successfully"));
 
@@ -9469,10 +9415,10 @@ mod tests {
     #[test]
     fn stats_command_reports_empty_graph_metrics() {
         let path = temp_db_path("stats-empty");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec!["stats".to_string(), path.display().to_string()]);
+        let out = run(&["stats".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("node_count=0"));
         assert!(out.stdout.contains("edge_count=0"));
@@ -9495,18 +9441,16 @@ mod tests {
     #[test]
     fn metrics_command_reports_storage_metrics() {
         let path = temp_db_path("metrics");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let out = run(&vec!["metrics".to_string(), path.display().to_string()]);
+        let out = run(&["metrics".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("format_version=1"));
         assert!(out.stdout.contains("page_size=4096"));
@@ -9531,41 +9475,33 @@ mod tests {
     #[test]
     fn read_commands_reject_invalid_format_flags() {
         let path = temp_db_path("read-format-errors");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let info_missing = run(&vec![
-            "info".to_string(),
+        let info_missing = run(&["info".to_string(),
             path.display().to_string(),
-            "--format".to_string(),
-        ]);
+            "--format".to_string()]);
         assert_eq!(info_missing.exit_code, 2);
         assert!(info_missing.stderr.contains("--format"));
 
-        let stats_bad = run(&vec![
-            "stats".to_string(),
+        let stats_bad = run(&["stats".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "xml".to_string(),
-        ]);
+            "xml".to_string()]);
         assert_eq!(stats_bad.exit_code, 2);
         assert!(stats_bad.stderr.contains("invalid value"));
         assert!(stats_bad.stderr.contains("xml"));
 
-        let metrics_missing = run(&vec![
-            "metrics".to_string(),
+        let metrics_missing = run(&["metrics".to_string(),
             path.display().to_string(),
-            "--format".to_string(),
-        ]);
+            "--format".to_string()]);
         assert_eq!(metrics_missing.exit_code, 2);
         assert!(metrics_missing.stderr.contains("--format"));
 
-        let schema_unknown = run(&vec![
-            "schema".to_string(),
+        let schema_unknown = run(&["schema".to_string(),
             path.display().to_string(),
-            "--bad-flag".to_string(),
-        ]);
+            "--bad-flag".to_string()]);
         assert_eq!(schema_unknown.exit_code, 2);
         assert!(schema_unknown.stderr.contains("unexpected argument"));
 
@@ -9576,14 +9512,14 @@ mod tests {
     #[test]
     fn checkpoint_command_truncates_wal() {
         let path = temp_db_path("checkpoint");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let wal = wal_path(&path);
         let before = fs::metadata(&wal).expect("wal metadata before").len();
         assert!(before > 8);
 
-        let out = run(&vec!["checkpoint".to_string(), path.display().to_string()]);
+        let out = run(&["checkpoint".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("checkpointed"));
         let after = fs::metadata(&wal).expect("wal metadata after").len();
@@ -9604,26 +9540,22 @@ mod tests {
     fn backup_command_creates_database_copy() {
         let src = temp_db_path("backup-src");
         let dst = temp_db_path("backup-dst");
-        let init = run(&vec!["init".to_string(), src.display().to_string()]);
+        let init = run(&["init".to_string(), src.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), src.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), src.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), src.display().to_string()]);
+        let _ = run(&["create-node".to_string(), src.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             src.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let out = run(&vec![
-            "backup".to_string(),
+        let out = run(&["backup".to_string(),
             src.display().to_string(),
-            dst.display().to_string(),
-        ]);
+            dst.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("backup_created"));
 
-        let info = run(&vec!["info".to_string(), dst.display().to_string()]);
+        let info = run(&["info".to_string(), dst.display().to_string()]);
         assert_eq!(info.exit_code, 0);
         assert!(info.stdout.contains("node_count=2"));
         assert!(info.stdout.contains("edge_count=1"));
@@ -9648,15 +9580,13 @@ mod tests {
     fn backup_returns_runtime_error_when_destination_exists() {
         let src = temp_db_path("backup-existing-src");
         let dst = temp_db_path("backup-existing-dst");
-        let init = run(&vec!["init".to_string(), src.display().to_string()]);
+        let init = run(&["init".to_string(), src.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(&dst, []).expect("create dst file");
 
-        let out = run(&vec![
-            "backup".to_string(),
+        let out = run(&["backup".to_string(),
             src.display().to_string(),
-            dst.display().to_string(),
-        ]);
+            dst.display().to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("already exists"));
 
@@ -9670,33 +9600,27 @@ mod tests {
         let src = temp_db_path("backup-online-src");
         let dst_online = temp_db_path("backup-online-dst");
         let dst_compact = temp_db_path("backup-compact-dst");
-        let init = run(&vec!["init".to_string(), src.display().to_string()]);
+        let init = run(&["init".to_string(), src.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), src.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), src.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), src.display().to_string()]);
+        let _ = run(&["create-node".to_string(), src.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             src.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let online = run(&vec![
-            "backup".to_string(),
+        let online = run(&["backup".to_string(),
             src.display().to_string(),
             dst_online.display().to_string(),
-            "--online".to_string(),
-        ]);
+            "--online".to_string()]);
         assert_eq!(online.exit_code, 0);
         assert!(online.stdout.contains("backup_created"));
 
-        let compact = run(&vec![
-            "backup".to_string(),
+        let compact = run(&["backup".to_string(),
             src.display().to_string(),
             dst_compact.display().to_string(),
             "--online".to_string(),
-            "--compact".to_string(),
-        ]);
+            "--compact".to_string()]);
         assert_eq!(compact.exit_code, 0);
         assert!(compact.stdout.contains("backup_created"));
 
@@ -9712,15 +9636,13 @@ mod tests {
     fn backup_compact_requires_online_flag() {
         let src = temp_db_path("backup-compact-requires-online-src");
         let dst = temp_db_path("backup-compact-requires-online-dst");
-        let init = run(&vec!["init".to_string(), src.display().to_string()]);
+        let init = run(&["init".to_string(), src.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "backup".to_string(),
+        let out = run(&["backup".to_string(),
             src.display().to_string(),
             dst.display().to_string(),
-            "--compact".to_string(),
-        ]);
+            "--compact".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("--online"));
 
@@ -9731,63 +9653,51 @@ mod tests {
     #[test]
     fn query_command_executes_read_queries() {
         let path = temp_db_path("query-reads");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let neighbors = run(&vec![
-            "query".to_string(),
+        let neighbors = run(&["query".to_string(),
             path.display().to_string(),
             "neighbors".to_string(),
-            "0".to_string(),
-        ]);
+            "0".to_string()]);
         assert_eq!(neighbors.exit_code, 0);
         assert!(neighbors.stdout.contains("count=1"));
         assert!(neighbors.stdout.contains("neighbors=1"));
 
-        let stats = run(&vec![
-            "query".to_string(),
+        let stats = run(&["query".to_string(),
             path.display().to_string(),
-            "stats".to_string(),
-        ]);
+            "stats".to_string()]);
         assert_eq!(stats.exit_code, 0);
         assert!(stats.stdout.contains("node_count=2"));
 
-        let hop = run(&vec![
-            "query".to_string(),
+        let hop = run(&["query".to_string(),
             path.display().to_string(),
             "hop".to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(hop.exit_code, 0);
         assert!(hop.stdout.contains("reachable_count=1"));
         assert!(hop.stdout.contains("level1=1"));
 
-        let incoming = run(&vec![
-            "query".to_string(),
+        let incoming = run(&["query".to_string(),
             path.display().to_string(),
             "incoming".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(incoming.exit_code, 0);
         assert!(incoming.stdout.contains("dst=1"));
         assert!(incoming.stdout.contains("incoming=0"));
 
-        let hop_in = run(&vec![
-            "query".to_string(),
+        let hop_in = run(&["query".to_string(),
             path.display().to_string(),
             "hop-in".to_string(),
             "1".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(hop_in.exit_code, 0);
         assert!(hop_in.stdout.contains("dst=1"));
         assert!(hop_in.stdout.contains("reachable_count=1"));
@@ -9800,35 +9710,27 @@ mod tests {
     #[test]
     fn query_command_executes_write_queries() {
         let path = temp_db_path("query-writes");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create = run(&vec![
-            "query".to_string(),
+        let create = run(&["query".to_string(),
             path.display().to_string(),
-            "create node".to_string(),
-        ]);
+            "create node".to_string()]);
         assert_eq!(create.exit_code, 0);
         assert!(create.stdout.contains("node_id=0"));
 
-        let _ = run(&vec![
-            "query".to_string(),
+        let _ = run(&["query".to_string(),
             path.display().to_string(),
-            "create node".to_string(),
-        ]);
-        let add = run(&vec![
-            "query".to_string(),
+            "create node".to_string()]);
+        let add = run(&["query".to_string(),
             path.display().to_string(),
-            "add edge 0 1".to_string(),
-        ]);
+            "add edge 0 1".to_string()]);
         assert_eq!(add.exit_code, 0);
         assert!(add.stdout.contains("edge_id=0"));
 
-        let info = run(&vec![
-            "query".to_string(),
+        let info = run(&["query".to_string(),
             path.display().to_string(),
-            "info".to_string(),
-        ]);
+            "info".to_string()]);
         assert_eq!(info.exit_code, 0);
         assert!(info.stdout.contains("node_count=2"));
         assert!(info.stdout.contains("edge_count=1"));
@@ -9840,23 +9742,19 @@ mod tests {
     #[test]
     fn query_command_executes_cypher_queries_via_core_pipeline() {
         let path = temp_db_path("query-cypher");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create = run(&vec![
-            "query".to_string(),
+        let create = run(&["query".to_string(),
             path.display().to_string(),
-            "CREATE (n:Person {name: 'Alice', age: 42})".to_string(),
-        ]);
+            "CREATE (n:Person {name: 'Alice', age: 42})".to_string()]);
         assert_eq!(create.exit_code, 0);
 
-        let select = run(&vec![
-            "query".to_string(),
+        let select = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "MATCH (n:Person) RETURN n.name AS name, n.age AS age".to_string(),
-        ]);
+            "MATCH (n:Person) RETURN n.name AS name, n.age AS age".to_string()]);
         assert_eq!(select.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&select.stdout).expect("valid cypher json");
@@ -9879,25 +9777,21 @@ mod tests {
     #[test]
     fn query_command_unwind_range_create_persists_all_nodes() {
         let path = temp_db_path("query-unwind-range-create");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create = run(&vec![
-            "query".to_string(),
+        let create = run(&["query".to_string(),
             path.display().to_string(),
-            "UNWIND range(1, 7) AS i CREATE (:Person {id: i})".to_string(),
-        ]);
+            "UNWIND range(1, 7) AS i CREATE (:Person {id: i})".to_string()]);
         assert_eq!(
             create.exit_code, 0,
             "UNWIND+CREATE must succeed: stderr={}",
             create.stderr
         );
 
-        let info = run(&vec![
-            "query".to_string(),
+        let info = run(&["query".to_string(),
             path.display().to_string(),
-            "info".to_string(),
-        ]);
+            "info".to_string()]);
         assert_eq!(info.exit_code, 0);
         assert!(
             info.stdout.contains("node_count=7"),
@@ -9905,13 +9799,11 @@ mod tests {
             info.stdout
         );
 
-        let select = run(&vec![
-            "query".to_string(),
+        let select = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "MATCH (n:Person) RETURN n.id AS id".to_string(),
-        ]);
+            "MATCH (n:Person) RETURN n.id AS id".to_string()]);
         assert_eq!(select.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&select.stdout).expect("valid cypher json");
@@ -9925,52 +9817,40 @@ mod tests {
     #[test]
     fn query_command_routes_call_procedures_and_create_index_on() {
         let path = temp_db_path("query-call-and-create-index");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&vec![
-            "query".to_string(),
+        let _ = run(&["query".to_string(),
             path.display().to_string(),
-            "CREATE (a:Person {name: 'Alice'})".to_string(),
-        ]);
-        let _ = run(&vec![
-            "query".to_string(),
+            "CREATE (a:Person {name: 'Alice'})".to_string()]);
+        let _ = run(&["query".to_string(),
             path.display().to_string(),
-            "CREATE (b:Person {name: 'Bob'})".to_string(),
-        ]);
-        let _ = run(&vec![
-            "query".to_string(),
+            "CREATE (b:Person {name: 'Bob'})".to_string()]);
+        let _ = run(&["query".to_string(),
             path.display().to_string(),
             "MATCH (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}) CREATE (a)-[:KNOWS]->(b)"
-                .to_string(),
-        ]);
+                .to_string()]);
 
-        let create_index = run(&vec![
-            "query".to_string(),
+        let create_index = run(&["query".to_string(),
             path.display().to_string(),
-            "CREATE INDEX ON :Person(name)".to_string(),
-        ]);
+            "CREATE INDEX ON :Person(name)".to_string()]);
         assert_eq!(create_index.exit_code, 0);
 
-        let list_indexes = run(&vec![
-            "query".to_string(),
+        let list_indexes = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "CALL db.indexes()".to_string(),
-        ]);
+            "CALL db.indexes()".to_string()]);
         assert_eq!(list_indexes.exit_code, 0);
         let indexes_json: serde_json::Value =
             serde_json::from_str(&list_indexes.stdout).expect("valid indexes json");
         assert!(indexes_json["row_count"].as_u64().unwrap_or(0) >= 1);
 
-        let shortest_path = run(&vec![
-            "query".to_string(),
+        let shortest_path = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "CALL db.algo.shortestPath(0, 1)".to_string(),
-        ]);
+            "CALL db.algo.shortestPath(0, 1)".to_string()]);
         assert_eq!(shortest_path.exit_code, 0);
         let shortest_json: serde_json::Value =
             serde_json::from_str(&shortest_path.stdout).expect("valid shortest path json");
@@ -9984,15 +9864,13 @@ mod tests {
     #[test]
     fn query_allows_db_flag_without_positional_path() {
         let path = temp_db_path("query-global-db");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "query".to_string(),
+        let out = run(&["query".to_string(),
             "--db".to_string(),
             path.display().to_string(),
-            "info".to_string(),
-        ]);
+            "info".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("node_count=0"));
 
@@ -10003,16 +9881,14 @@ mod tests {
     #[test]
     fn query_parses_format_flag_after_query_argument() {
         let path = temp_db_path("query-format-after-query");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "query".to_string(),
+        let out = run(&["query".to_string(),
             path.display().to_string(),
             "info".to_string(),
             "--format".to_string(),
-            "json".to_string(),
-        ]);
+            "json".to_string()]);
         assert_eq!(out.exit_code, 0);
         let value: serde_json::Value = serde_json::from_str(&out.stdout).expect("valid json");
         assert_eq!(value["row_count"], 1);
@@ -10032,14 +9908,12 @@ mod tests {
     #[test]
     fn query_rejects_empty_query_string() {
         let path = temp_db_path("query-empty");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "query".to_string(),
+        let out = run(&["query".to_string(),
             path.display().to_string(),
-            "   ".to_string(),
-        ]);
+            "   ".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("empty query string"));
 
@@ -10050,15 +9924,13 @@ mod tests {
     #[test]
     fn query_rejects_unsupported_query() {
         let path = temp_db_path("query-unsupported");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "query".to_string(),
+        let out = run(&["query".to_string(),
             path.display().to_string(),
             "gibberish".to_string(),
-            "tokens".to_string(),
-        ]);
+            "tokens".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("unsupported query"));
 
@@ -10069,14 +9941,12 @@ mod tests {
     #[test]
     fn query_supports_schema_form() {
         let path = temp_db_path("query-schema");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "query".to_string(),
+        let out = run(&["query".to_string(),
             path.display().to_string(),
-            "schema".to_string(),
-        ]);
+            "schema".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("model=property_graph_minimal"));
 
@@ -10087,44 +9957,36 @@ mod tests {
     #[test]
     fn query_supports_find_nodes_by_property_form_and_formats() {
         let path = temp_db_path("query-find-nodes");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&vec![
-            "create-node".to_string(),
+        let _ = run(&["create-node".to_string(),
             path.display().to_string(),
             "--props".to_string(),
-            "name=string:alice;age=i64:42".to_string(),
-        ]);
-        let _ = run(&vec![
-            "create-node".to_string(),
+            "name=string:alice;age=i64:42".to_string()]);
+        let _ = run(&["create-node".to_string(),
             path.display().to_string(),
             "--props".to_string(),
-            "name=string:alice;age=i64:7".to_string(),
-        ]);
+            "name=string:alice;age=i64:7".to_string()]);
 
-        let table = run(&vec![
-            "query".to_string(),
+        let table = run(&["query".to_string(),
             path.display().to_string(),
             "find".to_string(),
             "nodes".to_string(),
-            "name=string:alice".to_string(),
-        ]);
+            "name=string:alice".to_string()]);
         assert_eq!(table.exit_code, 0);
         assert!(table.stdout.contains("property_key=name"));
         assert!(table.stdout.contains("property_value=string:alice"));
         assert!(table.stdout.contains("count=2"));
         assert!(table.stdout.contains("node_ids=0,1"));
 
-        let json = run(&vec![
-            "query".to_string(),
+        let json = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
             "find".to_string(),
             "nodes".to_string(),
-            "name=string:alice".to_string(),
-        ]);
+            "name=string:alice".to_string()]);
         assert_eq!(json.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&json.stdout).expect("valid find-nodes json");
@@ -10140,51 +10002,41 @@ mod tests {
     #[test]
     fn query_supports_find_nodes_by_label_form_and_formats() {
         let path = temp_db_path("query-find-nodes-by-label");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&vec![
-            "create-node".to_string(),
+        let _ = run(&["create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
-            "Person".to_string(),
-        ]);
-        let _ = run(&vec![
-            "create-node".to_string(),
+            "Person".to_string()]);
+        let _ = run(&["create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
-            "Person,Employee".to_string(),
-        ]);
-        let _ = run(&vec![
-            "create-node".to_string(),
+            "Person,Employee".to_string()]);
+        let _ = run(&["create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
-            "Admin".to_string(),
-        ]);
+            "Admin".to_string()]);
 
-        let table = run(&vec![
-            "query".to_string(),
+        let table = run(&["query".to_string(),
             path.display().to_string(),
             "find".to_string(),
             "nodes".to_string(),
             "label".to_string(),
-            "Person".to_string(),
-        ]);
+            "Person".to_string()]);
         assert_eq!(table.exit_code, 0);
         assert!(table.stdout.contains("label=Person"));
         assert!(table.stdout.contains("count=2"));
         assert!(table.stdout.contains("node_ids=0,1"));
 
-        let json = run(&vec![
-            "query".to_string(),
+        let json = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
             "find".to_string(),
             "nodes".to_string(),
             "label".to_string(),
-            "Person".to_string(),
-        ]);
+            "Person".to_string()]);
         assert_eq!(json.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&json.stdout).expect("valid find-nodes-by-label json");
@@ -10200,13 +10052,11 @@ mod tests {
     #[test]
     fn query_find_nodes_returns_runtime_error_for_missing_database() {
         let missing = temp_db_path("query-find-missing");
-        let out = run(&vec![
-            "query".to_string(),
+        let out = run(&["query".to_string(),
             missing.display().to_string(),
             "find".to_string(),
             "nodes".to_string(),
-            "name=string:alice".to_string(),
-        ]);
+            "name=string:alice".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("io error"));
     }
@@ -10214,14 +10064,12 @@ mod tests {
     #[test]
     fn query_find_nodes_by_label_returns_runtime_error_for_missing_database() {
         let missing = temp_db_path("query-find-label-missing");
-        let out = run(&vec![
-            "query".to_string(),
+        let out = run(&["query".to_string(),
             missing.display().to_string(),
             "find".to_string(),
             "nodes".to_string(),
             "label".to_string(),
-            "Person".to_string(),
-        ]);
+            "Person".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("io error"));
     }
@@ -10229,22 +10077,18 @@ mod tests {
     #[test]
     fn query_supports_metrics_form() {
         let path = temp_db_path("query-metrics");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let out = run(&vec![
-            "query".to_string(),
+        let out = run(&["query".to_string(),
             path.display().to_string(),
-            "metrics".to_string(),
-        ]);
+            "metrics".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("wal_size_bytes="));
         assert!(out.stdout.contains("delta_buffer_edge_count=0"));
@@ -10256,33 +10100,27 @@ mod tests {
     #[test]
     fn query_rejects_missing_or_invalid_format_flag_values() {
         let path = temp_db_path("query-format-errors");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let missing_value = run(&vec![
-            "query".to_string(),
+        let missing_value = run(&["query".to_string(),
             path.display().to_string(),
-            "--format".to_string(),
-        ]);
+            "--format".to_string()]);
         assert_eq!(missing_value.exit_code, 2);
         assert!(missing_value.stderr.contains("--format"));
 
-        let missing_query = run(&vec![
-            "query".to_string(),
+        let missing_query = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "json".to_string(),
-        ]);
+            "json".to_string()]);
         assert_eq!(missing_query.exit_code, 2);
         assert!(missing_query.stderr.contains("empty query string"));
 
-        let bad_value = run(&vec![
-            "query".to_string(),
+        let bad_value = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "xml".to_string(),
-            "info".to_string(),
-        ]);
+            "info".to_string()]);
         assert_eq!(bad_value.exit_code, 2);
         assert!(bad_value.stderr.contains("invalid value"));
         assert!(bad_value.stderr.contains("xml"));
@@ -10294,24 +10132,20 @@ mod tests {
     #[test]
     fn query_formats_cover_info_stats_schema_and_hop_in_rows() {
         let path = temp_db_path("query-format-coverage");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let info_json = run(&vec![
-            "query".to_string(),
+        let info_json = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "info".to_string(),
-        ]);
+            "info".to_string()]);
         assert_eq!(info_json.exit_code, 0);
         let info_value: serde_json::Value =
             serde_json::from_str(&info_json.stdout).expect("valid info json");
@@ -10319,40 +10153,34 @@ mod tests {
         assert_eq!(info_value["rows"][0]["node_count"], "2");
         assert_eq!(info_value["rows"][0]["edge_count"], "1");
 
-        let stats_json = run(&vec![
-            "query".to_string(),
+        let stats_json = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "stats".to_string(),
-        ]);
+            "stats".to_string()]);
         assert_eq!(stats_json.exit_code, 0);
         let stats_value: serde_json::Value =
             serde_json::from_str(&stats_json.stdout).expect("valid stats json");
         assert_eq!(stats_value["rows"][0]["max_out_degree"], "1");
 
-        let schema_json = run(&vec![
-            "query".to_string(),
+        let schema_json = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "schema".to_string(),
-        ]);
+            "schema".to_string()]);
         assert_eq!(schema_json.exit_code, 0);
         let schema_value: serde_json::Value =
             serde_json::from_str(&schema_json.stdout).expect("valid schema json");
         assert_eq!(schema_value["rows"][0]["model"], "property_graph_minimal");
         assert_eq!(schema_value["rows"][0]["node_count"], "2");
 
-        let hop_in_jsonl = run(&vec![
-            "query".to_string(),
+        let hop_in_jsonl = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "jsonl".to_string(),
             "hop-in".to_string(),
             "1".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(hop_in_jsonl.exit_code, 0);
         let row: serde_json::Value =
             serde_json::from_str(hop_in_jsonl.stdout.trim()).expect("valid hop-in jsonl");
@@ -10368,16 +10196,14 @@ mod tests {
     #[test]
     fn query_format_stats_reports_none_max_node_for_empty_graph() {
         let path = temp_db_path("query-format-stats-empty");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let stats_json = run(&vec![
-            "query".to_string(),
+        let stats_json = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "stats".to_string(),
-        ]);
+            "stats".to_string()]);
         assert_eq!(stats_json.exit_code, 0);
         let value: serde_json::Value =
             serde_json::from_str(&stats_json.stdout).expect("valid stats json");
@@ -10390,25 +10216,21 @@ mod tests {
     #[test]
     fn query_supports_json_jsonl_csv_tsv_and_table_formats() {
         let path = temp_db_path("query-formats");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let json_out = run(&vec![
-            "query".to_string(),
+        let json_out = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
             "neighbors".to_string(),
-            "0".to_string(),
-        ]);
+            "0".to_string()]);
         assert_eq!(json_out.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&json_out.stdout).expect("valid json output");
@@ -10418,15 +10240,13 @@ mod tests {
         assert_eq!(json_value["rows"][0]["src"], "0");
         assert_eq!(json_value["rows"][0]["dst"], "1");
 
-        let jsonl_out = run(&vec![
-            "query".to_string(),
+        let jsonl_out = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "jsonl".to_string(),
             "hop".to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(jsonl_out.exit_code, 0);
         let lines: Vec<&str> = jsonl_out.stdout.lines().collect();
         assert_eq!(lines.len(), 1);
@@ -10436,36 +10256,30 @@ mod tests {
         assert_eq!(jsonl_value["level"], "1");
         assert_eq!(jsonl_value["node"], "1");
 
-        let csv_out = run(&vec![
-            "query".to_string(),
+        let csv_out = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "csv".to_string(),
             "neighbors".to_string(),
-            "0".to_string(),
-        ]);
+            "0".to_string()]);
         assert_eq!(csv_out.exit_code, 0);
         assert!(csv_out.stdout.starts_with("src,dst\n0,1"));
 
-        let tsv_out = run(&vec![
-            "query".to_string(),
+        let tsv_out = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "tsv".to_string(),
             "incoming".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(tsv_out.exit_code, 0);
         assert!(tsv_out.stdout.starts_with("dst\tsrc\n1\t0"));
 
-        let table_out = run(&vec![
-            "query".to_string(),
+        let table_out = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "table".to_string(),
             "neighbors".to_string(),
-            "0".to_string(),
-        ]);
+            "0".to_string()]);
         assert_eq!(table_out.exit_code, 0);
         assert!(table_out.stdout.contains("count=1"));
         assert!(table_out.stdout.contains("neighbors=1"));
@@ -10477,34 +10291,28 @@ mod tests {
     #[test]
     fn query_formats_support_write_queries() {
         let path = temp_db_path("query-format-writes");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create_json = run(&vec![
-            "query".to_string(),
+        let create_json = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "create node".to_string(),
-        ]);
+            "create node".to_string()]);
         assert_eq!(create_json.exit_code, 0);
         let create_value: serde_json::Value =
             serde_json::from_str(&create_json.stdout).expect("valid create json");
         assert_eq!(create_value["row_count"], 1);
         assert_eq!(create_value["rows"][0]["node_id"], "0");
 
-        let _ = run(&vec![
-            "query".to_string(),
+        let _ = run(&["query".to_string(),
             path.display().to_string(),
-            "create node".to_string(),
-        ]);
-        let add_jsonl = run(&vec![
-            "query".to_string(),
+            "create node".to_string()]);
+        let add_jsonl = run(&["query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "jsonl".to_string(),
-            "add edge 0 1".to_string(),
-        ]);
+            "add edge 0 1".to_string()]);
         assert_eq!(add_jsonl.exit_code, 0);
         let row: serde_json::Value =
             serde_json::from_str(add_jsonl.stdout.trim()).expect("valid edge jsonl");
@@ -10519,15 +10327,13 @@ mod tests {
     #[test]
     fn shell_commands_mode_executes_multiple_queries() {
         let path = temp_db_path("shell-commands");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "shell".to_string(),
+        let out = run(&["shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
-            "create node; create node; add edge 0 1; neighbors 0".to_string(),
-        ]);
+            "create node; create node; add edge 0 1; neighbors 0".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("commands_executed=4"));
         assert!(out.stdout.contains("[4] neighbors 0"));
@@ -10540,17 +10346,15 @@ mod tests {
     #[test]
     fn shell_executes_cypher_queries_in_sequence() {
         let path = temp_db_path("shell-cypher");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "shell".to_string(),
+        let out = run(&["shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "CREATE (n:Person {name: 'A', age: 1}); CREATE (n:Person {name: 'B', age: 2}); MATCH (n:Person) RETURN n.name AS name ORDER BY n.name ASC".to_string(),
             "--format".to_string(),
-            "json".to_string(),
-        ]);
+            "json".to_string()]);
         assert_eq!(out.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&out.stdout).expect("valid shell cypher json");
@@ -10570,7 +10374,7 @@ mod tests {
     fn shell_script_mode_executes_queries() {
         let path = temp_db_path("shell-script");
         let script = temp_db_path("shell-script-file");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &script,
@@ -10578,12 +10382,10 @@ mod tests {
         )
         .expect("write script");
 
-        let out = run(&vec![
-            "shell".to_string(),
+        let out = run(&["shell".to_string(),
             path.display().to_string(),
             "--script".to_string(),
-            script.display().to_string(),
-        ]);
+            script.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("commands_executed=4"));
         assert!(out.stdout.contains("edge_count=1"));
@@ -10596,17 +10398,15 @@ mod tests {
     #[test]
     fn shell_supports_machine_readable_formats() {
         let path = temp_db_path("shell-formats");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let json_out = run(&vec![
-            "shell".to_string(),
+        let json_out = run(&["shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "create node; create node; add edge 0 1; neighbors 0".to_string(),
             "--format".to_string(),
-            "json".to_string(),
-        ]);
+            "json".to_string()]);
         assert_eq!(json_out.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&json_out.stdout).expect("valid shell json");
@@ -10615,14 +10415,12 @@ mod tests {
         assert_eq!(json_value["rows"][3]["result_columns"], "src,dst");
         assert_eq!(json_value["rows"][3]["result_row_count"], "1");
 
-        let csv_out = run(&vec![
-            "shell".to_string(),
+        let csv_out = run(&["shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "stats".to_string(),
             "--format".to_string(),
-            "csv".to_string(),
-        ]);
+            "csv".to_string()]);
         assert_eq!(csv_out.exit_code, 0);
         assert!(csv_out
             .stdout
@@ -10637,15 +10435,13 @@ mod tests {
     fn shell_returns_runtime_error_for_missing_script_file() {
         let path = temp_db_path("shell-missing-script");
         let missing_script = temp_db_path("shell-missing-script-file");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "shell".to_string(),
+        let out = run(&["shell".to_string(),
             path.display().to_string(),
             "--script".to_string(),
-            missing_script.display().to_string(),
-        ]);
+            missing_script.display().to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("failed to read script file"));
 
@@ -10662,7 +10458,7 @@ mod tests {
         let nodes_csv = PathBuf::from(format!("{}.nodes.csv", input_stem.display()));
         let edges_csv = PathBuf::from(format!("{}.edges.csv", input_stem.display()));
 
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &nodes_csv,
@@ -10675,11 +10471,9 @@ mod tests {
         )
         .expect("write edges csv");
 
-        let out = run(&vec![
-            "import".to_string(),
+        let out = run(&["import".to_string(),
             path.display().to_string(),
-            input_base.display().to_string(),
-        ]);
+            input_base.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=2"));
@@ -10721,7 +10515,7 @@ mod tests {
         let path = temp_db_path("import-json-full");
         let json_input = temp_file_path("import-json-full-input", "txt");
         let jsonl_input = temp_file_path("import-jsonl-full-input", "jsonl");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         fs::write(
@@ -10745,24 +10539,20 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let json_out = run(&vec![
-            "import".to_string(),
+        let json_out = run(&["import".to_string(),
             path.display().to_string(),
             json_input.display().to_string(),
             "--format".to_string(),
-            "json".to_string(),
-        ]);
+            "json".to_string()]);
         assert_eq!(json_out.exit_code, 0);
         assert!(json_out.stdout.contains("imported_nodes=2"));
         assert!(json_out.stdout.contains("imported_edges=1"));
         assert!(json_out.stdout.contains("total_nodes=2"));
         assert!(json_out.stdout.contains("total_edges=1"));
 
-        let jsonl_out = run(&vec![
-            "import".to_string(),
+        let jsonl_out = run(&["import".to_string(),
             path.display().to_string(),
-            jsonl_input.display().to_string(),
-        ]);
+            jsonl_input.display().to_string()]);
         assert_eq!(jsonl_out.exit_code, 0);
         assert!(jsonl_out.stdout.contains("imported_nodes=1"));
         assert!(jsonl_out.stdout.contains("imported_edges=1"));
@@ -10791,7 +10581,7 @@ mod tests {
     fn import_streaming_batches_and_continue_on_error_report_progress() {
         let path = temp_db_path("import-streaming-continue");
         let jsonl_input = temp_file_path("import-streaming-continue-input", "jsonl");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &jsonl_input,
@@ -10803,14 +10593,12 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&vec![
-            "import".to_string(),
+        let out = run(&["import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--batch-size".to_string(),
             "2".to_string(),
-            "--continue-on-error".to_string(),
-        ]);
+            "--continue-on-error".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=1"));
@@ -10819,13 +10607,11 @@ mod tests {
         assert!(out.stdout.contains("total_nodes=2"));
         assert!(out.stdout.contains("total_edges=1"));
 
-        let strict_out = run(&vec![
-            "import".to_string(),
+        let strict_out = run(&["import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--batch-size".to_string(),
-            "2".to_string(),
-        ]);
+            "2".to_string()]);
         assert_eq!(strict_out.exit_code, 1);
         assert!(strict_out.stderr.contains("invalid jsonl record"));
 
@@ -10839,7 +10625,7 @@ mod tests {
     fn import_atomic_valid_data_commits_single_batch() {
         let path = temp_db_path("import-atomic-valid");
         let jsonl_input = temp_file_path("import-atomic-valid-input", "jsonl");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &jsonl_input,
@@ -10849,14 +10635,12 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&vec![
-            "import".to_string(),
+        let out = run(&["import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--batch-size".to_string(),
             "1".to_string(),
-            "--atomic".to_string(),
-        ]);
+            "--atomic".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=1"));
@@ -10878,7 +10662,7 @@ mod tests {
     fn import_atomic_corrupt_record_rolls_back_all() {
         let path = temp_db_path("import-atomic-rollback");
         let jsonl_input = temp_file_path("import-atomic-rollback-input", "jsonl");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let mut db = Database::open(&path).expect("open baseline db");
@@ -10901,12 +10685,10 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&vec![
-            "import".to_string(),
+        let out = run(&["import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
-            "--atomic".to_string(),
-        ]);
+            "--atomic".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("invalid jsonl record"));
 
@@ -10928,7 +10710,7 @@ mod tests {
     fn import_atomic_conflicts_with_continue_on_error() {
         let path = temp_db_path("import-atomic-conflict");
         let jsonl_input = temp_file_path("import-atomic-conflict-input", "jsonl");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &jsonl_input,
@@ -10936,13 +10718,11 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&vec![
-            "import".to_string(),
+        let out = run(&["import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--atomic".to_string(),
-            "--continue-on-error".to_string(),
-        ]);
+            "--continue-on-error".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("cannot be used with"));
 
@@ -10955,7 +10735,7 @@ mod tests {
     fn import_non_atomic_default_behavior_is_unchanged() {
         let path = temp_db_path("import-non-atomic-default");
         let jsonl_input = temp_file_path("import-non-atomic-default-input", "jsonl");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &jsonl_input,
@@ -10964,13 +10744,11 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&vec![
-            "import".to_string(),
+        let out = run(&["import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--batch-size".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=0"));
@@ -10996,45 +10774,37 @@ mod tests {
         let no_ext_input = temp_file_path("import-format-errors-input", "txt");
         let bad_json = temp_file_path("import-format-errors-bad", "json");
         let missing = temp_file_path("import-format-errors-missing", "csv");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         fs::write(&no_ext_input, "{}").expect("write no-ext input");
-        let no_detect = run(&vec![
-            "import".to_string(),
+        let no_detect = run(&["import".to_string(),
             path.display().to_string(),
-            no_ext_input.display().to_string(),
-        ]);
+            no_ext_input.display().to_string()]);
         assert_eq!(no_detect.exit_code, 1);
         assert!(no_detect
             .stderr
             .contains("unable to determine import format"));
 
-        let bad_format = run(&vec![
-            "import".to_string(),
+        let bad_format = run(&["import".to_string(),
             path.display().to_string(),
             no_ext_input.display().to_string(),
             "--format".to_string(),
-            "xml".to_string(),
-        ]);
+            "xml".to_string()]);
         assert_eq!(bad_format.exit_code, 2);
         assert!(bad_format.stderr.contains("invalid value"));
         assert!(bad_format.stderr.contains("xml"));
 
         fs::write(&bad_json, "{]").expect("write bad json");
-        let json_out = run(&vec![
-            "import".to_string(),
+        let json_out = run(&["import".to_string(),
             path.display().to_string(),
-            bad_json.display().to_string(),
-        ]);
+            bad_json.display().to_string()]);
         assert_eq!(json_out.exit_code, 1);
         assert!(json_out.stderr.contains("invalid json import payload"));
 
-        let missing_out = run(&vec![
-            "import".to_string(),
+        let missing_out = run(&["import".to_string(),
             path.display().to_string(),
-            missing.display().to_string(),
-        ]);
+            missing.display().to_string()]);
         assert_eq!(missing_out.exit_code, 1);
         assert!(missing_out.stderr.contains("failed to open import source"));
 
@@ -11050,11 +10820,9 @@ mod tests {
         let input = temp_file_path("import-missing-db-message-input", "json");
         fs::write(&input, "{\"nodes\":[],\"edges\":[]}").expect("write import json");
 
-        let out = run(&vec![
-            "import".to_string(),
+        let out = run(&["import".to_string(),
             missing_db.display().to_string(),
-            input.display().to_string(),
-        ]);
+            input.display().to_string()]);
         assert_eq!(out.exit_code, 1);
         assert_eq!(
             out.stderr.trim(),
@@ -11074,7 +10842,7 @@ mod tests {
         let json_out = temp_file_path("export-full-json", "json");
         let jsonl_out = temp_file_path("export-full-jsonl", "txt");
 
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let mut db = Database::open(&path).expect("open db");
@@ -11099,11 +10867,9 @@ mod tests {
             .add_typed_edge(0, 1, "KNOWS", &edge_props)
             .expect("add edge");
 
-        let csv_cmd = run(&vec![
-            "export".to_string(),
+        let csv_cmd = run(&["export".to_string(),
             path.display().to_string(),
-            csv_base.display().to_string(),
-        ]);
+            csv_base.display().to_string()]);
         assert_eq!(csv_cmd.exit_code, 0);
         assert!(csv_cmd.stdout.contains("exported_nodes=2"));
         assert!(csv_cmd.stdout.contains("exported_edges=1"));
@@ -11160,11 +10926,9 @@ mod tests {
         assert_eq!(edge_row_0.get(since_idx).expect("since"), "2020");
         assert_eq!(edge_row_0.get(weight_idx).expect("weight"), "0.9");
 
-        let json_cmd = run(&vec![
-            "export".to_string(),
+        let json_cmd = run(&["export".to_string(),
             path.display().to_string(),
-            json_out.display().to_string(),
-        ]);
+            json_out.display().to_string()]);
         assert_eq!(json_cmd.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&json_out).expect("read json"))
@@ -11179,13 +10943,11 @@ mod tests {
         );
         assert_eq!(json_value["edges"][0]["type"], "KNOWS");
 
-        let jsonl_cmd = run(&vec![
-            "export".to_string(),
+        let jsonl_cmd = run(&["export".to_string(),
             path.display().to_string(),
             jsonl_out.display().to_string(),
             "--format".to_string(),
-            "jsonl".to_string(),
-        ]);
+            "jsonl".to_string()]);
         assert_eq!(jsonl_cmd.exit_code, 0);
         let jsonl_text = fs::read_to_string(&jsonl_out).expect("read jsonl");
         assert!(jsonl_text.contains("\"kind\":\"node\""));
@@ -11204,7 +10966,7 @@ mod tests {
     fn export_supports_label_edge_type_and_node_id_range_filters() {
         let path = temp_db_path("export-filters");
         let json_out = temp_file_path("export-filters-json", "json");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let mut db = Database::open(&path).expect("open db");
@@ -11242,8 +11004,7 @@ mod tests {
             .add_typed_edge(0, 2, "WORKS_AT", &PropertyMap::new())
             .expect("add works_at");
 
-        let cmd = run(&vec![
-            "export".to_string(),
+        let cmd = run(&["export".to_string(),
             path.display().to_string(),
             json_out.display().to_string(),
             "--label".to_string(),
@@ -11251,8 +11012,7 @@ mod tests {
             "--edge-type".to_string(),
             "KNOWS".to_string(),
             "--node-id-range".to_string(),
-            "0:1".to_string(),
-        ]);
+            "0:1".to_string()]);
         assert_eq!(cmd.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&json_out).expect("read json"))
@@ -11276,48 +11036,40 @@ mod tests {
         let path = temp_db_path("export-bad");
         let dst = temp_file_path("export-bad-dst", "json");
         let no_ext = temp_file_path("export-bad-no-ext", "txt");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(&dst, "already-there").expect("write existing destination");
 
-        let bad_format = run(&vec![
-            "export".to_string(),
+        let bad_format = run(&["export".to_string(),
             path.display().to_string(),
             no_ext.display().to_string(),
             "--format".to_string(),
-            "xml".to_string(),
-        ]);
+            "xml".to_string()]);
         assert_eq!(bad_format.exit_code, 2);
         assert!(bad_format.stderr.contains("invalid value"));
         assert!(bad_format.stderr.contains("xml"));
 
-        let missing_format = run(&vec![
-            "export".to_string(),
+        let missing_format = run(&["export".to_string(),
             path.display().to_string(),
-            no_ext.display().to_string(),
-        ]);
+            no_ext.display().to_string()]);
         assert_eq!(missing_format.exit_code, 1);
         assert!(missing_format
             .stderr
             .contains("unable to determine export format"));
 
-        let exists = run(&vec![
-            "export".to_string(),
+        let exists = run(&["export".to_string(),
             path.display().to_string(),
-            dst.display().to_string(),
-        ]);
+            dst.display().to_string()]);
         assert_eq!(exists.exit_code, 1);
         assert!(exists.stderr.contains("export destination already exists"));
 
-        let bad_range = run(&vec![
-            "export".to_string(),
+        let bad_range = run(&["export".to_string(),
             path.display().to_string(),
             temp_file_path("export-bad-range", "json")
                 .display()
                 .to_string(),
             "--node-id-range".to_string(),
-            "bad".to_string(),
-        ]);
+            "bad".to_string()]);
         assert_eq!(bad_range.exit_code, 1);
         assert!(bad_range.stderr.contains("invalid --node-id-range value"));
 
@@ -11325,18 +11077,14 @@ mod tests {
         let mut bad_parent = temp_file_path("export-missing-parent", "dir");
         bad_parent.set_extension("no_such_dir");
         let unwritable_dst = bad_parent.join("out.json");
-        let init_unwritable = run(&vec![
-            "init".to_string(),
-            path_unwritable.display().to_string(),
-        ]);
+        let init_unwritable = run(&["init".to_string(),
+            path_unwritable.display().to_string()]);
         assert_eq!(init_unwritable.exit_code, 0);
-        let unwritable = run(&vec![
-            "export".to_string(),
+        let unwritable = run(&["export".to_string(),
             path_unwritable.display().to_string(),
             unwritable_dst.display().to_string(),
             "--format".to_string(),
-            "json".to_string(),
-        ]);
+            "json".to_string()]);
         assert_eq!(unwritable.exit_code, 1);
         assert!(unwritable.stderr.contains("failed to write export"));
 
@@ -11815,17 +11563,15 @@ mod tests {
         let existing_dst = temp_file_path("export-rdf-helper-existing", "ttl");
         let invalid_prefix_dst = temp_file_path("export-rdf-helper-invalid-prefix", "ttl");
         let fallback_export = temp_file_path("export-rdf-helper-fallback", "nt");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         fs::write(&existing_dst, "already there").expect("write existing output");
-        let exists = run(&vec![
-            "export-rdf".to_string(),
+        let exists = run(&["export-rdf".to_string(),
             path.display().to_string(),
             existing_dst.display().to_string(),
             "--format".to_string(),
-            "ttl".to_string(),
-        ]);
+            "ttl".to_string()]);
         assert_eq!(exists.exit_code, 1);
         assert!(exists.stderr.contains("export destination already exists"));
         fs::remove_file(&existing_dst).expect("cleanup existing output");
@@ -11839,13 +11585,11 @@ mod tests {
             ..PersistedRdfMeta::default()
         };
         save_rdf_meta(&path.display().to_string(), &bad_meta).expect("save bad rdf meta");
-        let invalid_prefix = run(&vec![
-            "export-rdf".to_string(),
+        let invalid_prefix = run(&["export-rdf".to_string(),
             path.display().to_string(),
             invalid_prefix_dst.display().to_string(),
             "--format".to_string(),
-            "ttl".to_string(),
-        ]);
+            "ttl".to_string()]);
         assert_eq!(invalid_prefix.exit_code, 1);
         assert!(invalid_prefix.stderr.contains("invalid stored rdf prefix"));
 
@@ -11903,13 +11647,11 @@ mod tests {
             ..PersistedRdfMeta::default()
         };
         save_rdf_meta(&path.display().to_string(), &fallback_meta).expect("save fallback meta");
-        let export_ok = run(&vec![
-            "export-rdf".to_string(),
+        let export_ok = run(&["export-rdf".to_string(),
             path.display().to_string(),
             fallback_export.display().to_string(),
             "--format".to_string(),
-            "nt".to_string(),
-        ]);
+            "nt".to_string()]);
         assert_eq!(export_ok.exit_code, 0);
         let rendered = fs::read_to_string(&fallback_export).expect("read fallback export");
         assert!(rendered.contains("http://schema.org/knows"));
@@ -11929,7 +11671,7 @@ mod tests {
     fn import_rdf_turtle_converts_to_property_graph_and_preserves_uris() {
         let path = temp_db_path("import-rdf-ttl");
         let input = temp_file_path("import-rdf-ttl-input", "ttl");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         fs::write(
@@ -11949,11 +11691,9 @@ ex:acme a schema:Organization ;
         )
         .expect("write rdf input");
 
-        let out = run(&vec![
-            "import-rdf".to_string(),
+        let out = run(&["import-rdf".to_string(),
             path.display().to_string(),
-            input.display().to_string(),
-        ]);
+            input.display().to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=1"));
@@ -12011,7 +11751,7 @@ ex:acme a schema:Organization ;
     fn import_rdf_atomic_imports_in_single_batch() {
         let path = temp_db_path("import-rdf-atomic");
         let input = temp_file_path("import-rdf-atomic-input", "ttl");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &input,
@@ -12022,12 +11762,10 @@ ex:a ex:knows ex:b .
         )
         .expect("write rdf input");
 
-        let out = run(&vec![
-            "import-rdf".to_string(),
+        let out = run(&["import-rdf".to_string(),
             path.display().to_string(),
             input.display().to_string(),
-            "--atomic".to_string(),
-        ]);
+            "--atomic".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=1"));
@@ -12044,10 +11782,8 @@ ex:a ex:knows ex:b .
     fn import_rdf_supports_base_uri_blank_nodes_and_named_graphs() {
         let base_uri_path = temp_db_path("import-rdf-base-uri");
         let base_uri_input = temp_file_path("import-rdf-base-uri-input", "ttl");
-        let init = run(&vec![
-            "init".to_string(),
-            base_uri_path.display().to_string(),
-        ]);
+        let init = run(&["init".to_string(),
+            base_uri_path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &base_uri_input,
@@ -12058,13 +11794,11 @@ ex:a ex:knows ex:b .
         )
         .expect("write base-uri rdf input");
 
-        let base_out = run(&vec![
-            "import-rdf".to_string(),
+        let base_out = run(&["import-rdf".to_string(),
             base_uri_path.display().to_string(),
             base_uri_input.display().to_string(),
             "--base-uri".to_string(),
-            "http://example.com/people/".to_string(),
-        ]);
+            "http://example.com/people/".to_string()]);
         assert_eq!(base_out.exit_code, 0);
 
         let base_db = Database::open(&base_uri_path).expect("open base-uri db");
@@ -12081,7 +11815,7 @@ ex:a ex:knows ex:b .
 
         let nq_path = temp_db_path("import-rdf-nq");
         let nq_input = temp_file_path("import-rdf-nq-input", "nq");
-        let init = run(&vec!["init".to_string(), nq_path.display().to_string()]);
+        let init = run(&["init".to_string(), nq_path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &nq_input,
@@ -12091,13 +11825,11 @@ _:b1 <http://schema.org/name> "Blanky" <http://example.com/g1> .
         )
         .expect("write nquads input");
 
-        let nq_out = run(&vec![
-            "import-rdf".to_string(),
+        let nq_out = run(&["import-rdf".to_string(),
             nq_path.display().to_string(),
             nq_input.display().to_string(),
             "--format".to_string(),
-            "nq".to_string(),
-        ]);
+            "nq".to_string()]);
         assert_eq!(nq_out.exit_code, 0);
 
         let nq_db = Database::open(&nq_path).expect("open nq db");
@@ -12151,7 +11883,7 @@ _:b1 <http://schema.org/name> "Blanky" <http://example.com/g1> .
     fn import_rdf_schema_only_populates_schema_catalog_and_subclass_hierarchy() {
         let path = temp_db_path("import-rdf-schema-only");
         let input = temp_file_path("import-rdf-schema-only-input", "ttl");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &input,
@@ -12172,12 +11904,10 @@ ex:alice a ex:Employee ;
         )
         .expect("write ontology input");
 
-        let out = run(&vec![
-            "import-rdf".to_string(),
+        let out = run(&["import-rdf".to_string(),
             path.display().to_string(),
             input.display().to_string(),
-            "--schema-only".to_string(),
-        ]);
+            "--schema-only".to_string()]);
         assert_eq!(out.exit_code, 0);
 
         let db = Database::open(&path).expect("open db");
@@ -12233,7 +11963,7 @@ ex:alice a ex:Employee ;
         let import_input = temp_file_path("export-rdf-roundtrip-input", "ttl");
         let export_output = temp_file_path("export-rdf-roundtrip-output", "ttl");
         let roundtrip_path = temp_db_path("export-rdf-roundtrip-reimport");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         fs::write(
@@ -12250,20 +11980,16 @@ ex:acme a schema:Organization ;
         )
         .expect("write import ttl");
 
-        let import_out = run(&vec![
-            "import-rdf".to_string(),
+        let import_out = run(&["import-rdf".to_string(),
             path.display().to_string(),
-            import_input.display().to_string(),
-        ]);
+            import_input.display().to_string()]);
         assert_eq!(import_out.exit_code, 0);
 
-        let export_out = run(&vec![
-            "export-rdf".to_string(),
+        let export_out = run(&["export-rdf".to_string(),
             path.display().to_string(),
             export_output.display().to_string(),
             "--format".to_string(),
-            "ttl".to_string(),
-        ]);
+            "ttl".to_string()]);
         assert_eq!(export_out.exit_code, 0);
         assert!(export_out.stdout.contains("exported_triples="));
         let rendered = fs::read_to_string(&export_output).expect("read rdf output");
@@ -12271,16 +11997,12 @@ ex:acme a schema:Organization ;
         assert!(rendered.contains("@prefix schema:"));
         assert!(rendered.contains("schema:worksAt"));
 
-        let init_roundtrip = run(&vec![
-            "init".to_string(),
-            roundtrip_path.display().to_string(),
-        ]);
+        let init_roundtrip = run(&["init".to_string(),
+            roundtrip_path.display().to_string()]);
         assert_eq!(init_roundtrip.exit_code, 0);
-        let reimport_out = run(&vec![
-            "import-rdf".to_string(),
+        let reimport_out = run(&["import-rdf".to_string(),
             roundtrip_path.display().to_string(),
-            export_output.display().to_string(),
-        ]);
+            export_output.display().to_string()]);
         assert_eq!(reimport_out.exit_code, 0);
         let reimport_db = Database::open(&roundtrip_path).expect("open roundtrip db");
         let john_nodes = reimport_db.find_nodes_by_property(
@@ -12316,49 +12038,41 @@ ex:acme a schema:Organization ;
 
         let path = temp_db_path("rdf-format-resolution");
         let no_ext_input = temp_file_path("rdf-format-resolution", "txt");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(&no_ext_input, "<s> <p> <o> .").expect("write no-ext rdf input");
 
-        let no_detect = run(&vec![
-            "import-rdf".to_string(),
+        let no_detect = run(&["import-rdf".to_string(),
             path.display().to_string(),
-            no_ext_input.display().to_string(),
-        ]);
+            no_ext_input.display().to_string()]);
         assert_eq!(no_detect.exit_code, 1);
         assert!(no_detect
             .stderr
             .contains("unable to determine import-rdf format"));
 
-        let bad_format = run(&vec![
-            "import-rdf".to_string(),
+        let bad_format = run(&["import-rdf".to_string(),
             path.display().to_string(),
             no_ext_input.display().to_string(),
             "--format".to_string(),
-            "csv".to_string(),
-        ]);
+            "csv".to_string()]);
         assert_eq!(bad_format.exit_code, 2);
         assert!(bad_format.stderr.contains("invalid value"));
 
-        let bad_export_format = run(&vec![
-            "export-rdf".to_string(),
+        let bad_export_format = run(&["export-rdf".to_string(),
             path.display().to_string(),
             temp_file_path("rdf-bad-export-format", "ttl")
                 .display()
                 .to_string(),
             "--format".to_string(),
-            "nq".to_string(),
-        ]);
+            "nq".to_string()]);
         assert_eq!(bad_export_format.exit_code, 2);
         assert!(bad_export_format.stderr.contains("invalid value"));
 
-        let atomic_conflict = run(&vec![
-            "import-rdf".to_string(),
+        let atomic_conflict = run(&["import-rdf".to_string(),
             path.display().to_string(),
             no_ext_input.display().to_string(),
             "--atomic".to_string(),
-            "--continue-on-error".to_string(),
-        ]);
+            "--continue-on-error".to_string()]);
         assert_eq!(atomic_conflict.exit_code, 2);
         assert!(atomic_conflict.stderr.contains("cannot be used with"));
 
@@ -12371,10 +12085,10 @@ ex:acme a schema:Organization ;
     #[test]
     fn shell_rejects_missing_mode() {
         let path = temp_db_path("shell-no-mode");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec!["shell".to_string(), path.display().to_string()]);
+        let out = run(&["shell".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out
             .stderr
@@ -12394,32 +12108,26 @@ ex:acme a schema:Organization ;
     #[test]
     fn shell_rejects_missing_flag_value() {
         let path = temp_db_path("shell-missing-flag-value");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let commands_out = run(&vec![
-            "shell".to_string(),
+        let commands_out = run(&["shell".to_string(),
             path.display().to_string(),
-            "--commands".to_string(),
-        ]);
+            "--commands".to_string()]);
         assert_eq!(commands_out.exit_code, 2);
         assert!(commands_out.stderr.contains("--commands"));
 
-        let script_out = run(&vec![
-            "shell".to_string(),
+        let script_out = run(&["shell".to_string(),
             path.display().to_string(),
-            "--script".to_string(),
-        ]);
+            "--script".to_string()]);
         assert_eq!(script_out.exit_code, 2);
         assert!(script_out.stderr.contains("--script"));
 
-        let format_out = run(&vec![
-            "shell".to_string(),
+        let format_out = run(&["shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "info".to_string(),
-            "--format".to_string(),
-        ]);
+            "--format".to_string()]);
         assert_eq!(format_out.exit_code, 2);
         assert!(format_out.stderr.contains("--format"));
 
@@ -12431,40 +12139,34 @@ ex:acme a schema:Organization ;
     fn shell_rejects_unknown_flag_and_both_modes() {
         let path = temp_db_path("shell-unknown-flag");
         let script = temp_db_path("shell-both-script");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(&script, "info\n").expect("write script");
 
-        let unknown = run(&vec![
-            "shell".to_string(),
+        let unknown = run(&["shell".to_string(),
             path.display().to_string(),
             "--bad".to_string(),
-            "x".to_string(),
-        ]);
+            "x".to_string()]);
         assert_eq!(unknown.exit_code, 2);
         assert!(unknown.stderr.contains("unexpected argument"));
 
-        let both = run(&vec![
-            "shell".to_string(),
+        let both = run(&["shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "info".to_string(),
             "--script".to_string(),
-            script.display().to_string(),
-        ]);
+            script.display().to_string()]);
         assert_eq!(both.exit_code, 2);
         assert!(both
             .stderr
             .contains("choose either --commands or --script, not both"));
 
-        let bad_format = run(&vec![
-            "shell".to_string(),
+        let bad_format = run(&["shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "info".to_string(),
             "--format".to_string(),
-            "xml".to_string(),
-        ]);
+            "xml".to_string()]);
         assert_eq!(bad_format.exit_code, 2);
         assert!(bad_format.stderr.contains("invalid value"));
         assert!(bad_format.stderr.contains("xml"));
@@ -12477,15 +12179,13 @@ ex:acme a schema:Organization ;
     #[test]
     fn shell_rejects_empty_command_input() {
         let path = temp_db_path("shell-empty-commands");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "shell".to_string(),
+        let out = run(&["shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
-            " ; ; ".to_string(),
-        ]);
+            " ; ; ".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out
             .stderr
@@ -12498,12 +12198,12 @@ ex:acme a schema:Organization ;
     #[test]
     fn create_node_add_edge_and_neighbors_commands_work() {
         let path = temp_db_path("graph-cli-flow");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let n0 = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let n1 = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let n2 = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let n0 = run(&["create-node".to_string(), path.display().to_string()]);
+        let n1 = run(&["create-node".to_string(), path.display().to_string()]);
+        let n2 = run(&["create-node".to_string(), path.display().to_string()]);
         assert_eq!(n0.exit_code, 0);
         assert_eq!(n1.exit_code, 0);
         assert_eq!(n2.exit_code, 0);
@@ -12511,34 +12211,28 @@ ex:acme a schema:Organization ;
         assert!(n1.stdout.contains("node_id=1"));
         assert!(n2.stdout.contains("node_id=2"));
 
-        let e0 = run(&vec![
-            "add-edge".to_string(),
+        let e0 = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
-        let e1 = run(&vec![
-            "add-edge".to_string(),
+            "1".to_string()]);
+        let e1 = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "2".to_string(),
-        ]);
+            "2".to_string()]);
         assert_eq!(e0.exit_code, 0);
         assert_eq!(e1.exit_code, 0);
         assert!(e0.stdout.contains("edge_id=0"));
         assert!(e1.stdout.contains("edge_id=1"));
 
-        let neighbors = run(&vec![
-            "neighbors".to_string(),
+        let neighbors = run(&["neighbors".to_string(),
             path.display().to_string(),
-            "0".to_string(),
-        ]);
+            "0".to_string()]);
         assert_eq!(neighbors.exit_code, 0);
         assert!(neighbors.stdout.contains("src=0"));
         assert!(neighbors.stdout.contains("count=2"));
         assert!(neighbors.stdout.contains("neighbors=1,2"));
 
-        let info = run(&vec!["info".to_string(), path.display().to_string()]);
+        let info = run(&["info".to_string(), path.display().to_string()]);
         assert_eq!(info.exit_code, 0);
         assert!(info.stdout.contains("node_count=3"));
         assert!(info.stdout.contains("edge_count=2"));
@@ -12565,15 +12259,13 @@ ex:acme a schema:Organization ;
     #[test]
     fn add_edge_rejects_non_numeric_ids() {
         let path = temp_db_path("add-edge-non-numeric");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "add-edge".to_string(),
+        let out = run(&["add-edge".to_string(),
             path.display().to_string(),
             "abc".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("invalid value"));
         assert!(out.stderr.contains("src"));
@@ -12584,16 +12276,14 @@ ex:acme a schema:Organization ;
     #[test]
     fn add_edge_returns_runtime_error_for_unknown_nodes() {
         let path = temp_db_path("add-edge-unknown");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&vec![
-            "add-edge".to_string(),
+        let out = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "99".to_string(),
-        ]);
+            "99".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("unknown node id"));
 
@@ -12603,65 +12293,53 @@ ex:acme a schema:Organization ;
     #[test]
     fn create_node_and_add_edge_reject_property_flag_errors() {
         let path = temp_db_path("property-flag-errors");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create_missing_labels = run(&vec![
-            "create-node".to_string(),
+        let create_missing_labels = run(&["create-node".to_string(),
             path.display().to_string(),
-            "--labels".to_string(),
-        ]);
+            "--labels".to_string()]);
         assert_eq!(create_missing_labels.exit_code, 2);
         assert!(create_missing_labels.stderr.contains("--labels"));
 
-        let create_missing_props = run(&vec![
-            "create-node".to_string(),
+        let create_missing_props = run(&["create-node".to_string(),
             path.display().to_string(),
-            "--props".to_string(),
-        ]);
+            "--props".to_string()]);
         assert_eq!(create_missing_props.exit_code, 2);
         assert!(create_missing_props.stderr.contains("--props"));
 
-        let create_unknown = run(&vec![
-            "create-node".to_string(),
+        let create_unknown = run(&["create-node".to_string(),
             path.display().to_string(),
             "--bad".to_string(),
-            "x".to_string(),
-        ]);
+            "x".to_string()]);
         assert_eq!(create_unknown.exit_code, 2);
         assert!(create_unknown.stderr.contains("unexpected argument"));
 
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let add_missing_type = run(&vec![
-            "add-edge".to_string(),
+        let add_missing_type = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
-            "--type".to_string(),
-        ]);
+            "--type".to_string()]);
         assert_eq!(add_missing_type.exit_code, 2);
         assert!(add_missing_type.stderr.contains("--type"));
 
-        let add_missing_props = run(&vec![
-            "add-edge".to_string(),
+        let add_missing_props = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
-            "--props".to_string(),
-        ]);
+            "--props".to_string()]);
         assert_eq!(add_missing_props.exit_code, 2);
         assert!(add_missing_props.stderr.contains("--props"));
 
-        let add_unknown = run(&vec![
-            "add-edge".to_string(),
+        let add_unknown = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
             "--bad".to_string(),
-            "x".to_string(),
-        ]);
+            "x".to_string()]);
         assert_eq!(add_unknown.exit_code, 2);
         assert!(add_unknown.stderr.contains("unexpected argument"));
 
@@ -13043,7 +12721,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn stream_json_import_surfaces_edge_parse_errors_with_continue_mode() {
         let path = temp_db_path("json-import-edge-parse-error");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let payload_path = temp_file_path("json-import-edge-parse-error", "json");
@@ -13074,7 +12752,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn import_batcher_and_stream_helpers_cover_flush_skip_and_fatal_paths() {
         let path = temp_db_path("import-batcher-helpers");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         let mut db = Database::open(&path).expect("open db");
 
@@ -13189,7 +12867,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn csv_stream_helpers_cover_header_and_row_error_paths() {
         let path = temp_db_path("csv-stream-helpers");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         let mut db = Database::open(&path).expect("open db");
 
@@ -13307,7 +12985,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn json_stream_helpers_cover_legacy_and_skip_paths() {
         let path = temp_db_path("json-stream-helpers");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         let mut db = Database::open(&path).expect("open db");
 
@@ -13374,7 +13052,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn export_helpers_cover_filters_and_existing_destination_checks() {
         let path = temp_db_path("export-helper-coverage");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let mut db = Database::open(&path).expect("open db");
@@ -13452,14 +13130,12 @@ ex:acme a schema:Organization ;
     #[test]
     fn neighbors_rejects_non_numeric_source() {
         let path = temp_db_path("neighbors-bad-src");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "neighbors".to_string(),
+        let out = run(&["neighbors".to_string(),
             path.display().to_string(),
-            "abc".to_string(),
-        ]);
+            "abc".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("invalid value"));
         assert!(out.stderr.contains("src"));
@@ -13470,15 +13146,13 @@ ex:acme a schema:Organization ;
     #[test]
     fn neighbors_returns_runtime_error_for_unknown_source() {
         let path = temp_db_path("neighbors-unknown-src");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&vec![
-            "neighbors".to_string(),
+        let out = run(&["neighbors".to_string(),
             path.display().to_string(),
-            "99".to_string(),
-        ]);
+            "99".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("unknown node id"));
 
@@ -13488,32 +13162,26 @@ ex:acme a schema:Organization ;
     #[test]
     fn traversal_commands_support_machine_readable_formats() {
         let path = temp_db_path("traversal-formats");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "1".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
-            "2".to_string(),
-        ]);
+            "2".to_string()]);
 
-        let neighbors_json = run(&vec![
-            "neighbors".to_string(),
+        let neighbors_json = run(&["neighbors".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "--format".to_string(),
-            "json".to_string(),
-        ]);
+            "json".to_string()]);
         assert_eq!(neighbors_json.exit_code, 0);
         let neighbors_value: serde_json::Value =
             serde_json::from_str(&neighbors_json.stdout).expect("valid neighbors json");
@@ -13521,36 +13189,30 @@ ex:acme a schema:Organization ;
         assert_eq!(neighbors_value["rows"][0]["src"], "0");
         assert_eq!(neighbors_value["rows"][0]["dst"], "1");
 
-        let incoming_tsv = run(&vec![
-            "incoming".to_string(),
+        let incoming_tsv = run(&["incoming".to_string(),
             path.display().to_string(),
             "1".to_string(),
             "--format".to_string(),
-            "tsv".to_string(),
-        ]);
+            "tsv".to_string()]);
         assert_eq!(incoming_tsv.exit_code, 0);
         assert_eq!(incoming_tsv.stdout.trim(), "dst\tsrc\n1\t0");
 
-        let hop_jsonl = run(&vec![
-            "hop".to_string(),
+        let hop_jsonl = run(&["hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "2".to_string(),
             "--format".to_string(),
-            "jsonl".to_string(),
-        ]);
+            "jsonl".to_string()]);
         assert_eq!(hop_jsonl.exit_code, 0);
         let hop_lines: Vec<&str> = hop_jsonl.stdout.lines().collect();
         assert_eq!(hop_lines.len(), 2);
 
-        let hop_in_csv = run(&vec![
-            "hop-in".to_string(),
+        let hop_in_csv = run(&["hop-in".to_string(),
             path.display().to_string(),
             "2".to_string(),
             "2".to_string(),
             "--format".to_string(),
-            "csv".to_string(),
-        ]);
+            "csv".to_string()]);
         assert_eq!(hop_in_csv.exit_code, 0);
         assert!(hop_in_csv
             .stdout
@@ -13562,47 +13224,39 @@ ex:acme a schema:Organization ;
     #[test]
     fn traversal_commands_reject_bad_format_flags() {
         let path = temp_db_path("traversal-format-errors");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let neighbors_bad = run(&vec![
-            "neighbors".to_string(),
+        let neighbors_bad = run(&["neighbors".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "--format".to_string(),
-            "xml".to_string(),
-        ]);
+            "xml".to_string()]);
         assert_eq!(neighbors_bad.exit_code, 2);
         assert!(neighbors_bad.stderr.contains("invalid value"));
         assert!(neighbors_bad.stderr.contains("xml"));
 
-        let incoming_missing = run(&vec![
-            "incoming".to_string(),
+        let incoming_missing = run(&["incoming".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "--format".to_string(),
-        ]);
+            "--format".to_string()]);
         assert_eq!(incoming_missing.exit_code, 2);
         assert!(incoming_missing.stderr.contains("--format"));
 
-        let hop_unknown = run(&vec![
-            "hop".to_string(),
+        let hop_unknown = run(&["hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
-            "--x".to_string(),
-        ]);
+            "--x".to_string()]);
         assert_eq!(hop_unknown.exit_code, 2);
         assert!(hop_unknown.stderr.contains("unexpected argument"));
 
-        let hop_in_unknown = run(&vec![
-            "hop-in".to_string(),
+        let hop_in_unknown = run(&["hop-in".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
-            "--x".to_string(),
-        ]);
+            "--x".to_string()]);
         assert_eq!(hop_in_unknown.exit_code, 2);
         assert!(hop_in_unknown.stderr.contains("unexpected argument"));
 
@@ -13612,31 +13266,25 @@ ex:acme a schema:Organization ;
     #[test]
     fn incoming_command_returns_sources() {
         let path = temp_db_path("incoming-sources");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "2".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "2".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
-            "2".to_string(),
-        ]);
+            "2".to_string()]);
 
-        let out = run(&vec![
-            "incoming".to_string(),
+        let out = run(&["incoming".to_string(),
             path.display().to_string(),
-            "2".to_string(),
-        ]);
+            "2".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("dst=2"));
         assert!(out.stdout.contains("count=2"));
@@ -13657,14 +13305,12 @@ ex:acme a schema:Organization ;
     #[test]
     fn incoming_rejects_non_numeric_destination() {
         let path = temp_db_path("incoming-bad-dst");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&vec![
-            "incoming".to_string(),
+        let out = run(&["incoming".to_string(),
             path.display().to_string(),
-            "abc".to_string(),
-        ]);
+            "abc".to_string()]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("invalid value"));
         assert!(out.stderr.contains("dst"));
@@ -13675,15 +13321,13 @@ ex:acme a schema:Organization ;
     #[test]
     fn incoming_returns_runtime_error_for_unknown_destination() {
         let path = temp_db_path("incoming-unknown-dst");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&vec![
-            "incoming".to_string(),
+        let out = run(&["incoming".to_string(),
             path.display().to_string(),
-            "99".to_string(),
-        ]);
+            "99".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("unknown node id"));
 
@@ -13693,39 +13337,31 @@ ex:acme a schema:Organization ;
     #[test]
     fn hop_in_command_returns_breadth_first_levels() {
         let path = temp_db_path("hop-in-levels");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "3".to_string(),
-            "2".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "2".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
-            "2".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "2".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let out = run(&vec![
-            "hop-in".to_string(),
+        let out = run(&["hop-in".to_string(),
             path.display().to_string(),
             "2".to_string(),
-            "3".to_string(),
-        ]);
+            "3".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("dst=2"));
         assert!(out.stdout.contains("hops=3"));
@@ -13748,26 +13384,22 @@ ex:acme a schema:Organization ;
     #[test]
     fn hop_in_rejects_non_numeric_arguments() {
         let path = temp_db_path("hop-in-bad-args");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let bad_dst = run(&vec![
-            "hop-in".to_string(),
+        let bad_dst = run(&["hop-in".to_string(),
             path.display().to_string(),
             "x".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(bad_dst.exit_code, 2);
         assert!(bad_dst.stderr.contains("invalid value"));
         assert!(bad_dst.stderr.contains("dst"));
 
-        let bad_hops = run(&vec![
-            "hop-in".to_string(),
+        let bad_hops = run(&["hop-in".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "x".to_string(),
-        ]);
+            "x".to_string()]);
         assert_eq!(bad_hops.exit_code, 2);
         assert!(bad_hops.stderr.contains("invalid value"));
         assert!(bad_hops.stderr.contains("hops"));
@@ -13778,16 +13410,14 @@ ex:acme a schema:Organization ;
     #[test]
     fn hop_in_returns_runtime_error_for_unknown_destination() {
         let path = temp_db_path("hop-in-unknown-dst");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&vec![
-            "hop-in".to_string(),
+        let out = run(&["hop-in".to_string(),
             path.display().to_string(),
             "99".to_string(),
-            "2".to_string(),
-        ]);
+            "2".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out
             .stderr
@@ -13799,52 +13429,40 @@ ex:acme a schema:Organization ;
     #[test]
     fn hop_command_returns_breadth_first_levels() {
         let path = temp_db_path("hop-levels");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "1".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "2".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "2".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
-            "3".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "3".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "2".to_string(),
-            "3".to_string(),
-        ]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+            "3".to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "3".to_string(),
-            "4".to_string(),
-        ]);
+            "4".to_string()]);
 
-        let out = run(&vec![
-            "hop".to_string(),
+        let out = run(&["hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "3".to_string(),
-        ]);
+            "3".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("src=0"));
         assert!(out.stdout.contains("hops=3"));
@@ -13859,16 +13477,14 @@ ex:acme a schema:Organization ;
     #[test]
     fn hop_command_returns_empty_for_zero_hops() {
         let path = temp_db_path("hop-zero");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&vec![
-            "hop".to_string(),
+        let out = run(&["hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "0".to_string(),
-        ]);
+            "0".to_string()]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("reachable_count=0"));
         assert!(!out.stdout.contains("level1="));
@@ -13888,26 +13504,22 @@ ex:acme a schema:Organization ;
     #[test]
     fn hop_rejects_non_numeric_arguments() {
         let path = temp_db_path("hop-bad-args");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let bad_src = run(&vec![
-            "hop".to_string(),
+        let bad_src = run(&["hop".to_string(),
             path.display().to_string(),
             "x".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(bad_src.exit_code, 2);
         assert!(bad_src.stderr.contains("invalid value"));
         assert!(bad_src.stderr.contains("src"));
 
-        let bad_hops = run(&vec![
-            "hop".to_string(),
+        let bad_hops = run(&["hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "x".to_string(),
-        ]);
+            "x".to_string()]);
         assert_eq!(bad_hops.exit_code, 2);
         assert!(bad_hops.stderr.contains("invalid value"));
         assert!(bad_hops.stderr.contains("hops"));
@@ -13918,16 +13530,14 @@ ex:acme a schema:Organization ;
     #[test]
     fn hop_returns_runtime_error_for_unknown_source() {
         let path = temp_db_path("hop-unknown-src");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&vec![
-            "hop".to_string(),
+        let out = run(&["hop".to_string(),
             path.display().to_string(),
             "99".to_string(),
-            "2".to_string(),
-        ]);
+            "2".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("unknown node id for hop traversal"));
 
@@ -13944,94 +13554,78 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_rejects_invalid_mode_combinations_and_stdio_flags() {
         let path = temp_db_path("mcp-mode-errors");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let no_mode = run(&vec!["mcp".to_string(), path.display().to_string()]);
+        let no_mode = run(&["mcp".to_string(), path.display().to_string()]);
         assert_eq!(no_mode.exit_code, 2);
         assert!(no_mode.stderr.contains("--request"));
         assert!(no_mode.stderr.contains("--stdio"));
 
-        let missing_db_path = run(&vec!["mcp".to_string(), "--db".to_string()]);
+        let missing_db_path = run(&["mcp".to_string(), "--db".to_string()]);
         assert_eq!(missing_db_path.exit_code, 2);
         assert!(missing_db_path.stderr.contains("--db"));
 
-        let both_modes = run(&vec![
-            "mcp".to_string(),
+        let both_modes = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}".to_string(),
-            "--stdio".to_string(),
-        ]);
+            "--stdio".to_string()]);
         assert_eq!(both_modes.exit_code, 2);
         assert!(both_modes.stderr.contains("--request"));
         assert!(both_modes.stderr.contains("--stdio"));
 
-        let max_without_stdio = run(&vec![
-            "mcp".to_string(),
+        let max_without_stdio = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
             "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}".to_string(),
             "--max-requests".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(max_without_stdio.exit_code, 2);
         assert!(max_without_stdio
             .stderr
             .contains("--max-requests is only valid with --stdio"));
 
-        let missing_request_value = run(&vec![
-            "mcp".to_string(),
+        let missing_request_value = run(&["mcp".to_string(),
             path.display().to_string(),
-            "--request".to_string(),
-        ]);
+            "--request".to_string()]);
         assert_eq!(missing_request_value.exit_code, 2);
         assert!(missing_request_value.stderr.contains("--request"));
 
-        let missing_max_value = run(&vec![
-            "mcp".to_string(),
+        let missing_max_value = run(&["mcp".to_string(),
             path.display().to_string(),
             "--stdio".to_string(),
-            "--max-requests".to_string(),
-        ]);
+            "--max-requests".to_string()]);
         assert_eq!(missing_max_value.exit_code, 2);
         assert!(missing_max_value.stderr.contains("--max-requests"));
 
-        let invalid_max = run(&vec![
-            "mcp".to_string(),
+        let invalid_max = run(&["mcp".to_string(),
             path.display().to_string(),
             "--stdio".to_string(),
             "--max-requests".to_string(),
-            "abc".to_string(),
-        ]);
+            "abc".to_string()]);
         assert_eq!(invalid_max.exit_code, 2);
         assert!(invalid_max.stderr.contains("invalid value"));
 
-        let zero_max = run(&vec![
-            "mcp".to_string(),
+        let zero_max = run(&["mcp".to_string(),
             path.display().to_string(),
             "--stdio".to_string(),
             "--max-requests".to_string(),
-            "0".to_string(),
-        ]);
+            "0".to_string()]);
         assert_eq!(zero_max.exit_code, 2);
         assert!(zero_max.stderr.contains("--max-requests"));
 
-        let unknown_flag = run(&vec![
-            "mcp".to_string(),
+        let unknown_flag = run(&["mcp".to_string(),
             path.display().to_string(),
-            "--not-a-flag".to_string(),
-        ]);
+            "--not-a-flag".to_string()]);
         assert_eq!(unknown_flag.exit_code, 2);
         assert!(unknown_flag.stderr.contains("unexpected argument"));
 
-        let stdio_ok = run(&vec![
-            "mcp".to_string(),
+        let stdio_ok = run(&["mcp".to_string(),
             path.display().to_string(),
             "--stdio".to_string(),
             "--max-requests".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(stdio_ok.exit_code, 0);
         assert!(stdio_ok
             .stdout
@@ -14044,28 +13638,24 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_supports_initialize_and_tools_list() {
         let path = temp_db_path("mcp-init-tools");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let initialize = run(&vec![
-            "mcp".to_string(),
+        let initialize = run(&["mcp".to_string(),
             "--db".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}".to_string()]);
         assert_eq!(initialize.exit_code, 0);
         let initialize_json: serde_json::Value =
             serde_json::from_str(&initialize.stdout).expect("valid initialize response");
         assert_eq!(initialize_json["result"]["serverInfo"]["name"], APP_NAME);
         assert_eq!(initialize_json["result"]["capabilities"]["tools"], true);
 
-        let tools_list = run(&vec![
-            "mcp".to_string(),
+        let tools_list = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}".to_string()]);
         assert_eq!(tools_list.exit_code, 0);
         let tools_json: serde_json::Value =
             serde_json::from_str(&tools_list.stdout).expect("valid tools/list response");
@@ -14078,23 +13668,19 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_tools_call_executes_query_and_reports_param_errors() {
         let path = temp_db_path("mcp-tools-call");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
-        let ok_default_format = run(&vec![
-            "mcp".to_string(),
+        let ok_default_format = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"query\":\"neighbors 0\"}}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"query\":\"neighbors 0\"}}".to_string()]);
         assert_eq!(ok_default_format.exit_code, 0);
         let ok_default_json: serde_json::Value =
             serde_json::from_str(&ok_default_format.stdout).expect("valid tools/call response");
@@ -14104,12 +13690,10 @@ ex:acme a schema:Organization ;
             .expect("string output")
             .contains("\"row_count\": 1"));
 
-        let ok_tsv = run(&vec![
-            "mcp".to_string(),
+        let ok_tsv = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"query\":\"neighbors 0\",\"format\":\"tsv\"}}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":4,\"method\":\"tools/call\",\"params\":{\"query\":\"neighbors 0\",\"format\":\"tsv\"}}".to_string()]);
         assert_eq!(ok_tsv.exit_code, 0);
         let ok_tsv_json: serde_json::Value =
             serde_json::from_str(&ok_tsv.stdout).expect("valid tsv tools/call response");
@@ -14119,12 +13703,10 @@ ex:acme a schema:Organization ;
             .expect("string output")
             .contains("src\tdst"));
 
-        let bad_params_type = run(&vec![
-            "mcp".to_string(),
+        let bad_params_type = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":[]}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":[]}".to_string()]);
         assert_eq!(bad_params_type.exit_code, 0);
         let bad_params_type_json: serde_json::Value =
             serde_json::from_str(&bad_params_type.stdout).expect("valid mcp error response");
@@ -14134,12 +13716,10 @@ ex:acme a schema:Organization ;
             .expect("error message")
             .contains("params must be an object"));
 
-        let missing_query = run(&vec![
-            "mcp".to_string(),
+        let missing_query = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{}}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{}}".to_string()]);
         assert_eq!(missing_query.exit_code, 0);
         let missing_query_json: serde_json::Value =
             serde_json::from_str(&missing_query.stdout).expect("valid mcp error response");
@@ -14149,12 +13729,10 @@ ex:acme a schema:Organization ;
             .expect("error message")
             .contains("params.query must be a string"));
 
-        let unsupported_format = run(&vec![
-            "mcp".to_string(),
+        let unsupported_format = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"query\":\"neighbors 0\",\"format\":\"xml\"}}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":7,\"method\":\"tools/call\",\"params\":{\"query\":\"neighbors 0\",\"format\":\"xml\"}}".to_string()]);
         assert_eq!(unsupported_format.exit_code, 0);
         let unsupported_format_json: serde_json::Value =
             serde_json::from_str(&unsupported_format.stdout).expect("valid mcp error response");
@@ -14164,12 +13742,10 @@ ex:acme a schema:Organization ;
             .expect("error message")
             .contains("unsupported --format value"));
 
-        let bad_query = run(&vec![
-            "mcp".to_string(),
+        let bad_query = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/call\",\"params\":{\"query\":\"gibberish tokens\"}}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":8,\"method\":\"tools/call\",\"params\":{\"query\":\"gibberish tokens\"}}".to_string()]);
         assert_eq!(bad_query.exit_code, 0);
         let bad_query_json: serde_json::Value =
             serde_json::from_str(&bad_query.stdout).expect("valid mcp error response");
@@ -14186,37 +13762,31 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_reports_jsonrpc_parse_protocol_and_method_errors() {
         let path = temp_db_path("mcp-errors");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let parse_error = run(&vec![
-            "mcp".to_string(),
+        let parse_error = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{".to_string(),
-        ]);
+            "{".to_string()]);
         assert_eq!(parse_error.exit_code, 0);
         let parse_error_json: serde_json::Value =
             serde_json::from_str(&parse_error.stdout).expect("valid mcp parse-error response");
         assert_eq!(parse_error_json["error"]["code"], -32700);
 
-        let invalid_jsonrpc = run(&vec![
-            "mcp".to_string(),
+        let invalid_jsonrpc = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"1.0\",\"id\":9,\"method\":\"tools/list\"}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"1.0\",\"id\":9,\"method\":\"tools/list\"}".to_string()]);
         assert_eq!(invalid_jsonrpc.exit_code, 0);
         let invalid_jsonrpc_json: serde_json::Value =
             serde_json::from_str(&invalid_jsonrpc.stdout).expect("valid mcp error response");
         assert_eq!(invalid_jsonrpc_json["error"]["code"], -32600);
 
-        let method_not_found = run(&vec![
-            "mcp".to_string(),
+        let method_not_found = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"unknown/method\"}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"unknown/method\"}".to_string()]);
         assert_eq!(method_not_found.exit_code, 0);
         let method_not_found_json: serde_json::Value =
             serde_json::from_str(&method_not_found.stdout).expect("valid mcp error response");
@@ -14233,16 +13803,14 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_stdio_session_processes_requests_and_respects_max_requests() {
         let path = temp_db_path("mcp-stdio-session");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
         let input = concat!(
             "\n",
@@ -14305,15 +13873,13 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_tools_list_includes_extended_graph_tools() {
         let path = temp_db_path("mcp-tools-extended-list");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let tools_list = run(&vec![
-            "mcp".to_string(),
+        let tools_list = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":41,\"method\":\"tools/list\"}".to_string(),
-        ]);
+            "{\"jsonrpc\":\"2.0\",\"id\":41,\"method\":\"tools/list\"}".to_string()]);
         assert_eq!(tools_list.exit_code, 0);
         let tools_json: serde_json::Value =
             serde_json::from_str(&tools_list.stdout).expect("valid tools/list response");
@@ -14337,11 +13903,10 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_tools_list_includes_full_ai_agent_surface() {
         let path = temp_db_path("mcp-tools-ai-list");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let tools_list = run(&vec![
-            "mcp".to_string(),
+        let tools_list = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
             serde_json::json!({
@@ -14349,8 +13914,7 @@ ex:acme a schema:Organization ;
                 "id": 401,
                 "method": "tools/list"
             })
-            .to_string(),
-        ]);
+            .to_string()]);
         assert_eq!(tools_list.exit_code, 0);
         let tools_json: Value =
             serde_json::from_str(&tools_list.stdout).expect("valid tools/list response");
@@ -14378,51 +13942,43 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_extended_tools_round_trip_for_schema_upsert_and_path_queries() {
         let path = temp_db_path("mcp-tools-extended-roundtrip");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let upsert_n0 = run(&vec![
-            "mcp".to_string(),
+        let upsert_n0 = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Alice","properties":{"age":30}}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":42,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Alice","properties":{"age":30}}}}"#.to_string()]);
         assert_eq!(upsert_n0.exit_code, 0);
         let upsert_n0_json: serde_json::Value =
             serde_json::from_str(&upsert_n0.stdout).expect("valid upsert node response");
         assert_eq!(upsert_n0_json["result"]["node_id"], 0);
         assert_eq!(upsert_n0_json["result"]["created"], true);
 
-        let upsert_n1 = run(&vec![
-            "mcp".to_string(),
+        let upsert_n1 = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Bob","properties":{"age":32}}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":43,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Bob","properties":{"age":32}}}}"#.to_string()]);
         assert_eq!(upsert_n1.exit_code, 0);
         let upsert_n1_json: serde_json::Value =
             serde_json::from_str(&upsert_n1.stdout).expect("valid second upsert node response");
         assert_eq!(upsert_n1_json["result"]["node_id"], 1);
         assert_eq!(upsert_n1_json["result"]["created"], true);
 
-        let update_n0 = run(&vec![
-            "mcp".to_string(),
+        let update_n0 = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":431,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Alice","properties":{"age":31}}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":431,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Alice","properties":{"age":31}}}}"#.to_string()]);
         assert_eq!(update_n0.exit_code, 0);
         let update_n0_json: serde_json::Value =
             serde_json::from_str(&update_n0.stdout).expect("valid update node response");
         assert_eq!(update_n0_json["result"]["node_id"], 0);
         assert_eq!(update_n0_json["result"]["created"], false);
 
-        let upsert_edge = run(&vec![
-            "mcp".to_string(),
+        let upsert_edge = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":1,"edge_type":"KNOWS","properties":{"since":2020}}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":44,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":1,"edge_type":"KNOWS","properties":{"since":2020}}}}"#.to_string()]);
         assert_eq!(upsert_edge.exit_code, 0);
         let upsert_edge_json: serde_json::Value =
             serde_json::from_str(&upsert_edge.stdout).expect("valid upsert edge response");
@@ -14430,23 +13986,19 @@ ex:acme a schema:Organization ;
         assert_eq!(upsert_edge_json["result"]["src"], 0);
         assert_eq!(upsert_edge_json["result"]["dst"], 1);
 
-        let update_edge = run(&vec![
-            "mcp".to_string(),
+        let update_edge = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":441,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":1,"edge_type":"KNOWS","properties":{"since":2021}}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":441,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":1,"edge_type":"KNOWS","properties":{"since":2021}}}}"#.to_string()]);
         assert_eq!(update_edge.exit_code, 0);
         let update_edge_json: serde_json::Value =
             serde_json::from_str(&update_edge.stdout).expect("valid update edge response");
         assert_eq!(update_edge_json["result"]["created"], false);
 
-        let schema = run(&vec![
-            "mcp".to_string(),
+        let schema = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"schema","arguments":{}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":45,"method":"tools/call","params":{"name":"schema","arguments":{}}}"#.to_string()]);
         assert_eq!(schema.exit_code, 0);
         let schema_json: serde_json::Value =
             serde_json::from_str(&schema.stdout).expect("valid schema response");
@@ -14461,12 +14013,10 @@ ex:acme a schema:Organization ;
             .iter()
             .any(|edge_type| edge_type == "KNOWS"));
 
-        let subgraph = run(&vec![
-            "mcp".to_string(),
+        let subgraph = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"subgraph","arguments":{"node_id":0,"hops":1}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":46,"method":"tools/call","params":{"name":"subgraph","arguments":{"node_id":0,"hops":1}}}"#.to_string()]);
         assert_eq!(subgraph.exit_code, 0);
         let subgraph_json: serde_json::Value =
             serde_json::from_str(&subgraph.stdout).expect("valid subgraph response");
@@ -14486,12 +14036,10 @@ ex:acme a schema:Organization ;
             1
         );
 
-        let shortest_path = run(&vec![
-            "mcp".to_string(),
+        let shortest_path = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"shortest_path","arguments":{"src":0,"dst":1}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":47,"method":"tools/call","params":{"name":"shortest_path","arguments":{"src":0,"dst":1}}}"#.to_string()]);
         assert_eq!(shortest_path.exit_code, 0);
         let shortest_path_json: serde_json::Value =
             serde_json::from_str(&shortest_path.stdout).expect("valid shortest_path response");
@@ -14517,7 +14065,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_full_ai_tools_round_trip_and_stdio_mode() {
         let path = temp_db_path("mcp-tools-ai-roundtrip");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         {
@@ -14584,12 +14132,10 @@ ex:acme a schema:Organization ;
                     "arguments": arguments,
                 }
             });
-            let out = run(&vec![
-                "mcp".to_string(),
+            let out = run(&["mcp".to_string(),
                 path.display().to_string(),
                 "--request".to_string(),
-                request.to_string(),
-            ]);
+                request.to_string()]);
             assert_eq!(out.exit_code, 0);
             serde_json::from_str(&out.stdout).expect("valid mcp tool response")
         };
@@ -14604,11 +14150,9 @@ ex:acme a schema:Organization ;
             }),
         );
         assert!(
-            vector_search["result"]["results"]
+            !vector_search["result"]["results"]
                 .as_array()
-                .expect("vector results array")
-                .len()
-                >= 1
+                .expect("vector results array").is_empty()
         );
 
         let text_search = call_tool(
@@ -14621,11 +14165,9 @@ ex:acme a schema:Organization ;
             }),
         );
         assert!(
-            text_search["result"]["results"]
+            !text_search["result"]["results"]
                 .as_array()
-                .expect("text results array")
-                .len()
-                >= 1
+                .expect("text results array").is_empty()
         );
 
         let temporal_diff = call_tool(
@@ -15101,30 +14643,26 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_upsert_edge_merges_properties_for_existing_edge() {
         let path = temp_db_path("mcp-upsert-edge-merge");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         {
             let mut db = Database::open(&path).expect("open db for seed");
             let _ = db.create_node().expect("seed node");
         }
 
-        let create_edge = run(&vec![
-            "mcp".to_string(),
+        let create_edge = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":0,"edge_type":"SELF","properties":{"since":2020}}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":48,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":0,"edge_type":"SELF","properties":{"since":2020}}}}"#.to_string()]);
         assert_eq!(create_edge.exit_code, 0);
         let create_edge_json: Value =
             serde_json::from_str(&create_edge.stdout).expect("create edge response json");
         assert_eq!(create_edge_json["result"]["created"], true);
 
-        let update_edge = run(&vec![
-            "mcp".to_string(),
+        let update_edge = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":0,"edge_type":"SELF","properties":{"since":2021,"strength":9}}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":49,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":0,"edge_type":"SELF","properties":{"since":2021,"strength":9}}}}"#.to_string()]);
         assert_eq!(update_edge.exit_code, 0);
         let update_edge_json: Value =
             serde_json::from_str(&update_edge.stdout).expect("update edge response json");
@@ -15189,27 +14727,23 @@ ex:acme a schema:Organization ;
     #[test]
     fn mcp_extended_tools_cover_validation_and_untyped_edge_paths() {
         let path = temp_db_path("mcp-tools-extended-validation");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let schema_no_args = run(&vec![
-            "mcp".to_string(),
+        let schema_no_args = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
             r#"{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"schema"}}"#
-                .to_string(),
-        ]);
+                .to_string()]);
         assert_eq!(schema_no_args.exit_code, 0);
         let schema_no_args_json: serde_json::Value =
             serde_json::from_str(&schema_no_args.stdout).expect("schema without args response");
         assert!(schema_no_args_json.get("result").is_some());
 
-        let unknown_tool = run(&vec![
-            "mcp".to_string(),
+        let unknown_tool = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"unknown_tool","arguments":{}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":52,"method":"tools/call","params":{"name":"unknown_tool","arguments":{}}}"#.to_string()]);
         assert_eq!(unknown_tool.exit_code, 0);
         let unknown_tool_json: serde_json::Value =
             serde_json::from_str(&unknown_tool.stdout).expect("unknown tool response");
@@ -15219,12 +14753,10 @@ ex:acme a schema:Organization ;
             .expect("unknown tool error text")
             .contains("unknown tool"));
 
-        let empty_label = run(&vec![
-            "mcp".to_string(),
+        let empty_label = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":" ","match_key":"name","match_value":"Alice"}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":53,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":" ","match_key":"name","match_value":"Alice"}}}"#.to_string()]);
         assert_eq!(empty_label.exit_code, 0);
         let empty_label_json: serde_json::Value =
             serde_json::from_str(&empty_label.stdout).expect("empty label response");
@@ -15234,12 +14766,10 @@ ex:acme a schema:Organization ;
             .expect("empty label error text")
             .contains("cannot be empty"));
 
-        let bad_edge_props = run(&vec![
-            "mcp".to_string(),
+        let bad_edge_props = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":0,"properties":"not-an-object"}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":54,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":0,"properties":"not-an-object"}}}"#.to_string()]);
         assert_eq!(bad_edge_props.exit_code, 0);
         let bad_edge_props_json: serde_json::Value =
             serde_json::from_str(&bad_edge_props.stdout).expect("bad edge props response");
@@ -15249,65 +14779,51 @@ ex:acme a schema:Organization ;
             .expect("bad edge props error text")
             .contains("properties must be an object"));
 
-        let _ = run(&vec![
-            "mcp".to_string(),
+        let _ = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Alice"}}}"#.to_string(),
-        ]);
-        let _ = run(&vec![
-            "mcp".to_string(),
+            r#"{"jsonrpc":"2.0","id":55,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Alice"}}}"#.to_string()]);
+        let _ = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Bob"}}}"#.to_string(),
-        ]);
-        let _ = run(&vec![
-            "mcp".to_string(),
+            r#"{"jsonrpc":"2.0","id":56,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Bob"}}}"#.to_string()]);
+        let _ = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Carol"}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":57,"method":"tools/call","params":{"name":"upsert_node","arguments":{"label":"Person","match_key":"name","match_value":"Carol"}}}"#.to_string()]);
 
-        let untyped_edge_no_props = run(&vec![
-            "mcp".to_string(),
+        let untyped_edge_no_props = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":58,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":1}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":58,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":0,"dst":1}}}"#.to_string()]);
         assert_eq!(untyped_edge_no_props.exit_code, 0);
         let untyped_edge_no_props_json: serde_json::Value =
             serde_json::from_str(&untyped_edge_no_props.stdout).expect("untyped edge response");
         assert_eq!(untyped_edge_no_props_json["result"]["created"], true);
 
-        let untyped_edge_with_props = run(&vec![
-            "mcp".to_string(),
+        let untyped_edge_with_props = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":59,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":1,"dst":2,"properties":{"weight":1.5}}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":59,"method":"tools/call","params":{"name":"upsert_edge","arguments":{"src":1,"dst":2,"properties":{"weight":1.5}}}}"#.to_string()]);
         assert_eq!(untyped_edge_with_props.exit_code, 0);
         let untyped_edge_with_props_json: serde_json::Value =
             serde_json::from_str(&untyped_edge_with_props.stdout).expect("untyped edge+props");
         assert_eq!(untyped_edge_with_props_json["result"]["created"], true);
 
-        let missing_path = run(&vec![
-            "mcp".to_string(),
+        let missing_path = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":60,"method":"tools/call","params":{"name":"shortest_path","arguments":{"src":2,"dst":0}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":60,"method":"tools/call","params":{"name":"shortest_path","arguments":{"src":2,"dst":0}}}"#.to_string()]);
         assert_eq!(missing_path.exit_code, 0);
         let missing_path_json: serde_json::Value =
             serde_json::from_str(&missing_path.stdout).expect("missing shortest path response");
         assert_eq!(missing_path_json["result"]["found"], false);
         assert_eq!(missing_path_json["result"]["length"], 0);
 
-        let max_hops_overflow = run(&vec![
-            "mcp".to_string(),
+        let max_hops_overflow = run(&["mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            r#"{"jsonrpc":"2.0","id":601,"method":"tools/call","params":{"name":"shortest_path","arguments":{"src":0,"dst":1,"max_hops":4294967296}}}"#.to_string(),
-        ]);
+            r#"{"jsonrpc":"2.0","id":601,"method":"tools/call","params":{"name":"shortest_path","arguments":{"src":0,"dst":1,"max_hops":4294967296}}}"#.to_string()]);
         assert_eq!(max_hops_overflow.exit_code, 0);
         let max_hops_overflow_json: serde_json::Value =
             serde_json::from_str(&max_hops_overflow.stdout).expect("max_hops overflow response");
@@ -15330,57 +14846,45 @@ ex:acme a schema:Organization ;
             "database path required: provide <path> or --db"
         );
 
-        let missing_db_path = run(&vec!["serve".to_string(), "--db".to_string()]);
+        let missing_db_path = run(&["serve".to_string(), "--db".to_string()]);
         assert_eq!(missing_db_path.exit_code, 2);
         assert!(missing_db_path.stderr.contains("--db"));
 
-        let missing_bind_value = run(&vec![
-            "serve".to_string(),
+        let missing_bind_value = run(&["serve".to_string(),
             "x.ogdb".to_string(),
-            "--bind".to_string(),
-        ]);
+            "--bind".to_string()]);
         assert_eq!(missing_bind_value.exit_code, 2);
         assert!(missing_bind_value.stderr.contains("--bind"));
 
-        let missing_max_value = run(&vec![
-            "serve".to_string(),
+        let missing_max_value = run(&["serve".to_string(),
             "x.ogdb".to_string(),
-            "--max-requests".to_string(),
-        ]);
+            "--max-requests".to_string()]);
         assert_eq!(missing_max_value.exit_code, 2);
         assert!(missing_max_value.stderr.contains("--max-requests"));
 
-        let missing_port_value = run(&vec![
-            "serve".to_string(),
+        let missing_port_value = run(&["serve".to_string(),
             "x.ogdb".to_string(),
-            "--port".to_string(),
-        ]);
+            "--port".to_string()]);
         assert_eq!(missing_port_value.exit_code, 2);
         assert!(missing_port_value.stderr.contains("--port"));
 
-        let non_numeric_max = run(&vec![
-            "serve".to_string(),
+        let non_numeric_max = run(&["serve".to_string(),
             "x.ogdb".to_string(),
             "--max-requests".to_string(),
-            "abc".to_string(),
-        ]);
+            "abc".to_string()]);
         assert_eq!(non_numeric_max.exit_code, 2);
         assert!(non_numeric_max.stderr.contains("invalid value"));
 
-        let zero_max = run(&vec![
-            "serve".to_string(),
+        let zero_max = run(&["serve".to_string(),
             "x.ogdb".to_string(),
             "--max-requests".to_string(),
-            "0".to_string(),
-        ]);
+            "0".to_string()]);
         assert_eq!(zero_max.exit_code, 2);
         assert!(zero_max.stderr.contains("--max-requests"));
 
-        let unknown_flag = run(&vec![
-            "serve".to_string(),
+        let unknown_flag = run(&["serve".to_string(),
             "x.ogdb".to_string(),
-            "--unknown".to_string(),
-        ]);
+            "--unknown".to_string()]);
         assert_eq!(unknown_flag.exit_code, 2);
         assert!(unknown_flag.stderr.contains("unexpected argument"));
     }
@@ -15429,13 +14933,11 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_grpc_mode_reports_feature_gate_when_disabled() {
         let missing_path = temp_db_path("serve-grpc-disabled");
-        let out = run(&vec![
-            "serve".to_string(),
+        let out = run(&["serve".to_string(),
             missing_path.display().to_string(),
             "--grpc".to_string(),
             "--max-requests".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("gRPC support is not enabled"));
     }
@@ -15443,12 +14945,10 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_returns_runtime_error_for_missing_database() {
         let path = temp_db_path("serve-missing-db");
-        let out = run(&vec![
-            "serve".to_string(),
+        let out = run(&["serve".to_string(),
             path.display().to_string(),
             "--max-requests".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("io error"));
     }
@@ -15466,7 +14966,7 @@ ex:acme a schema:Organization ;
         use std::sync::mpsc;
 
         let path = temp_db_path("serve-accepts-http-port");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
@@ -15509,19 +15009,17 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_returns_runtime_error_when_bind_address_is_in_use() {
         let path = temp_db_path("serve-bind-in-use");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let guard = TcpListener::bind("127.0.0.1:0").expect("bind guard listener");
         let addr = guard.local_addr().expect("guard local addr");
-        let out = run(&vec![
-            "serve".to_string(),
+        let out = run(&["serve".to_string(),
             path.display().to_string(),
             "--bind".to_string(),
             addr.to_string(),
             "--max-requests".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("failed to bind"));
 
@@ -15533,16 +15031,14 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_processes_single_tcp_request_when_max_requests_is_set() {
         let path = temp_db_path("serve-one-request");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
         let bind_addr = probe.local_addr().expect("probe local addr");
@@ -15596,16 +15092,14 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_handles_empty_lines_and_connection_rollover_before_max() {
         let path = temp_db_path("serve-empty-and-rollover");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec!["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&vec![
-            "add-edge".to_string(),
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["create-node".to_string(), path.display().to_string()]);
+        let _ = run(&["add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string(),
-        ]);
+            "1".to_string()]);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
         let bind_addr = probe.local_addr().expect("probe local addr");
@@ -15668,16 +15162,14 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_bolt_handshake_and_query_round_trip() {
         let path = temp_db_path("serve-bolt-roundtrip");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let seeded = run(&vec![
-            "create-node".to_string(),
+        let seeded = run(&["create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
             "Person".to_string(),
             "--props".to_string(),
-            "name=string:Alice".to_string(),
-        ]);
+            "name=string:Alice".to_string()]);
         assert_eq!(seeded.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
@@ -15764,16 +15256,14 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_http_supports_query_health_and_csv_negotiation() {
         let path = temp_db_path("serve-http-roundtrip");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let seeded = run(&vec![
-            "create-node".to_string(),
+        let seeded = run(&["create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
             "Person".to_string(),
             "--props".to_string(),
-            "name=string:Alice".to_string(),
-        ]);
+            "name=string:Alice".to_string()]);
         assert_eq!(seeded.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
@@ -15855,7 +15345,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_http_port_flag_binds_loopback_with_requested_port() {
         let path = temp_db_path("serve-http-port-loopback");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
@@ -15900,7 +15390,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_http_enforces_per_query_execution_timeout() {
         let path = temp_db_path("serve-http-query-timeout");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
@@ -15976,7 +15466,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_http_processes_concurrent_requests() {
         let path = temp_db_path("serve-http-concurrency");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
@@ -16027,7 +15517,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_http_import_and_export_endpoints_round_trip() {
         let path = temp_db_path("serve-http-import-export");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
@@ -16631,7 +16121,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn http_serve_reports_bind_errors_and_timeout_helper_panics() {
         let path = temp_db_path("http-bind-error");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let guard = TcpListener::bind("127.0.0.1:0").expect("bind guard");
@@ -16653,7 +16143,7 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_http_handles_internal_errors_and_empty_connections() {
         let path = temp_db_path("http-internal-error");
-        let init = run(&vec!["init".to_string(), path.display().to_string()]);
+        let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");

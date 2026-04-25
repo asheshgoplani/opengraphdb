@@ -29,10 +29,13 @@ pub use ogdb_text::FullTextIndexDefinition;
 // unqualified. The validator is re-aliased to `_pure` because a thin
 // 3-LOC wrapper preserves the historical `Result<_, DbError>` signature.
 use ogdb_text::{
-    fulltext_index_path_for_name, fulltext_index_root_path_for_db,
+    fulltext_index_root_path_for_db,
     normalize_fulltext_index_definition as normalize_fulltext_index_definition_pure,
-    sanitize_index_component,
 };
+#[cfg(feature = "fulltext-search")]
+use ogdb_text::fulltext_index_path_for_name;
+#[cfg(any(feature = "fulltext-search", test))]
+use ogdb_text::sanitize_index_component;
 
 // Re-export the plain-data temporal primitives so every existing
 // in-core call site (the AST `MatchClause.temporal_filter` field, the
@@ -7960,6 +7963,7 @@ impl std::fmt::Debug for VectorIndexRuntime {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(not(feature = "fulltext-search"), allow(dead_code))]
 struct FullTextIndexRuntime {
     definition: FullTextIndexDefinition,
     path: PathBuf,
@@ -13044,9 +13048,9 @@ impl Database {
             let _ = query_text;
             let _ = k;
             let _ = prefilter;
-            return Err(QueryError::new(
+            Err(QueryError::new(
                 "fulltext-search feature is disabled".to_string(),
-            ));
+            ))
         }
 
         #[cfg(feature = "fulltext-search")]
@@ -19756,6 +19760,7 @@ impl Database {
                 }
                 entries.insert(node_id, vector);
             }
+            #[cfg_attr(not(feature = "vector-search"), allow(unused_mut))]
             let mut runtime = VectorIndexRuntime {
                 definition: index.definition.clone(),
                 entries,
@@ -19820,6 +19825,7 @@ impl Database {
         let snapshot_txn_id = self.current_snapshot_txn_id();
         for definition in self.meta.vector_index_catalog.iter().cloned() {
             let entries = self.collect_vector_index_entries(&definition, snapshot_txn_id)?;
+            #[cfg_attr(not(feature = "vector-search"), allow(unused_mut))]
             let mut runtime = VectorIndexRuntime {
                 definition: definition.clone(),
                 entries,
@@ -19845,6 +19851,7 @@ impl Database {
         let snapshot_txn_id = self.current_snapshot_txn_id();
         for definition in self.meta.vector_index_catalog.iter().cloned() {
             let entries = self.collect_vector_index_entries(&definition, snapshot_txn_id)?;
+            #[cfg_attr(not(feature = "vector-search"), allow(unused_mut))]
             let mut runtime = VectorIndexRuntime {
                 definition: definition.clone(),
                 entries,
@@ -19915,9 +19922,9 @@ impl Database {
 
         #[cfg(not(feature = "fulltext-search"))]
         {
-            return Err(DbError::InvalidArgument(
+            Err(DbError::InvalidArgument(
                 "fulltext-search feature is disabled".to_string(),
-            ));
+            ))
         }
 
         #[cfg(feature = "fulltext-search")]
