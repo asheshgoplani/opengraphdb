@@ -2,6 +2,7 @@
 members = [
   "crates/ogdb-core",
   "crates/ogdb-vector",
+  "crates/ogdb-types",
   "crates/ogdb-algorithms",
   "crates/ogdb-text",
   "crates/ogdb-temporal",

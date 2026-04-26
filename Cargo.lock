@@ -1998,6 +1998,7 @@ dependencies = [
  "ogdb-import",
  "ogdb-temporal",
  "ogdb-text",
+ "ogdb-types",
  "ogdb-vector",
  "proptest",
  "roaring",
@@ -2105,6 +2106,15 @@ version = "0.3.0"
 name = "ogdb-text"
 version = "0.3.0"
 dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ogdb-types"
+version = "0.3.0"
+dependencies = [
+ "ogdb-vector",
  "serde",
  "serde_json",
 ]
