@@ -80,6 +80,15 @@ use ogdb_import::{
 // WAL serialization layer) continues to resolve unqualified.
 pub use ogdb_types::{PropertyMap, PropertyValue};
 
+// Re-export the foundational property-bag record types so every existing
+// `use ogdb_core::ExportNode` / `use ogdb_core::ExportEdge` caller in the
+// workspace (today: only `ogdb-cli`) keeps compiling. Both types are
+// plain data with no methods or custom impls; their `properties:
+// PropertyMap` field already resolves through the `ogdb_types`
+// re-export above, so the new edge `ogdb-export → ogdb-types` is
+// strictly acyclic.
+pub use ogdb_export::{ExportEdge, ExportNode};
+
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 use std::fs::{File, OpenOptions};
@@ -998,27 +1007,6 @@ pub struct SchemaCatalog {
     pub labels: Vec<String>,
     pub edge_types: Vec<String>,
     pub property_keys: Vec<String>,
-}
-
-/// Export representation for one graph node.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExportNode {
-    pub id: u64,
-    pub labels: Vec<String>,
-    pub properties: PropertyMap,
-}
-
-/// Export representation for one graph edge.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExportEdge {
-    pub id: u64,
-    pub src: u64,
-    pub dst: u64,
-    pub edge_type: Option<String>,
-    pub properties: PropertyMap,
-    pub valid_from: Option<i64>,
-    pub valid_to: Option<i64>,
-    pub transaction_time_millis: i64,
 }
 
 /// B-tree index definition for one label and property key set.

@@ -12,6 +12,7 @@ members = [
   "crates/ogdb-e2e",
   "crates/ogdb-bench",
   "crates/ogdb-eval",
+  "crates/ogdb-export",
   "crates/ogdb-tck",
   "crates/ogdb-ffi",
   "crates/ogdb-python",

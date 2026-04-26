@@ -22,6 +22,7 @@ ogdb-text = { path = "../ogdb-text" }
 ogdb-temporal = { path = "../ogdb-temporal" }
 ogdb-types = { path = "../ogdb-types" }
 ogdb-import = { path = "../ogdb-import", default-features = false }
+ogdb-export = { path = "../ogdb-export" }
 lz4_flex = "0.11.6"
 instant-distance = { version = "0.6.1", optional = true }
 roaring = "0.10"
