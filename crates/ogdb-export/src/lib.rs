@@ -2,11 +2,11 @@
 //! `ogdb-core` (6th facet of the 7-crate split: vector → algorithms →
 //! text → temporal → import → types → **export**).
 //!
-//! Public surface (when populated by Phase 3 of the GREEN commit):
-//! * `ExportNode` — 3 fields (`id: u64`, `labels: Vec<String>`,
+//! Public surface:
+//! * [`ExportNode`] — 3 fields (`id: u64`, `labels: Vec<String>`,
 //!   `properties: ogdb_types::PropertyMap`). Returned by
 //!   `ogdb_core::Database::export_nodes` (which stays in `ogdb-core`).
-//! * `ExportEdge` — 8 fields (`id`, `src`, `dst`, `edge_type`,
+//! * [`ExportEdge`] — 8 fields (`id`, `src`, `dst`, `edge_type`,
 //!   `properties`, `valid_from`, `valid_to`,
 //!   `transaction_time_millis`). Returned by
 //!   `ogdb_core::Database::export_edges`.
@@ -33,7 +33,98 @@
 //! `plan/ogdb-core-split-export-runtime`.
 //!
 //! See `.planning/ogdb-core-split-export/PLAN.md` for rationale.
-//!
-//! **RED state (this commit):** this file is doc-only. The two record
-//! struct definitions are still in `crates/ogdb-core/src/lib.rs:1003-1023`
-//! and will be moved here in Phase 3 of the GREEN commit.
+
+use ogdb_types::PropertyMap;
+
+/// Export representation for one graph node.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportNode {
+    pub id: u64,
+    pub labels: Vec<String>,
+    pub properties: PropertyMap,
+}
+
+/// Export representation for one graph edge.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ExportEdge {
+    pub id: u64,
+    pub src: u64,
+    pub dst: u64,
+    pub edge_type: Option<String>,
+    pub properties: PropertyMap,
+    pub valid_from: Option<i64>,
+    pub valid_to: Option<i64>,
+    pub transaction_time_millis: i64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ogdb_types::PropertyValue;
+
+    #[test]
+    fn export_node_default_construction_has_empty_collections() {
+        let n = ExportNode {
+            id: 0,
+            labels: Vec::new(),
+            properties: PropertyMap::new(),
+        };
+        assert_eq!(n.id, 0);
+        assert!(n.labels.is_empty());
+        assert!(n.properties.is_empty());
+    }
+
+    #[test]
+    fn export_edge_default_construction_has_empty_properties() {
+        let e = ExportEdge {
+            id: 0,
+            src: 0,
+            dst: 0,
+            edge_type: None,
+            properties: PropertyMap::new(),
+            valid_from: None,
+            valid_to: None,
+            transaction_time_millis: 0,
+        };
+        assert!(e.properties.is_empty());
+        assert!(e.edge_type.is_none());
+        assert!(e.valid_from.is_none());
+        assert!(e.valid_to.is_none());
+    }
+
+    #[test]
+    fn export_node_clone_preserves_property_bag() {
+        let mut props = PropertyMap::new();
+        props.insert("k".into(), PropertyValue::String("v".into()));
+        let n = ExportNode {
+            id: 1,
+            labels: vec!["L".into()],
+            properties: props,
+        };
+        let cloned = n.clone();
+        assert_eq!(n, cloned);
+        assert_eq!(
+            cloned.properties.get("k"),
+            Some(&PropertyValue::String("v".into()))
+        );
+    }
+
+    #[test]
+    fn export_edge_clone_preserves_bitemporal_triplet() {
+        let e = ExportEdge {
+            id: 5,
+            src: 1,
+            dst: 2,
+            edge_type: Some("KNOWS".into()),
+            properties: PropertyMap::new(),
+            valid_from: Some(100),
+            valid_to: Some(200),
+            transaction_time_millis: 150,
+        };
+        let cloned = e.clone();
+        assert_eq!(e, cloned);
+        assert_eq!(cloned.valid_from, Some(100));
+        assert_eq!(cloned.valid_to, Some(200));
+        assert_eq!(cloned.transaction_time_millis, 150);
+    }
+}
