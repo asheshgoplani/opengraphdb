@@ -544,3 +544,21 @@ tests:
     command: "cd frontend && npx playwright test e2e/migration-guide-snippets.spec.ts"
     purpose: "Guards docs/MIGRATION-FROM-NEO4J.md against snippet rot. 11 e2e tests run every documented Cypher + curl snippet against a live target/release/ogdb serve --http and verify expected output. Catches API drift in /query, /schema, vector search, and migration-specific patterns (LABEL syntax, id() function, CREATE INDEX). Without this, migration guide silently breaks as the API evolves."
     added: 2026-04-25
+
+  - id: ogdb-types-extraction
+    task: impl-ogdb-types-extraction
+    crate: ogdb-types
+    test: api_smoke
+    function: []
+    command: "cargo test -p ogdb-types --tests"
+    purpose: "Guards the 6th monolith-split extraction — crates/ogdb-types/ owns PropertyValue (11-variant enum) + Serialize/Deserialize/Eq/PartialOrd/Ord + PropertyMap alias. 8 api_smoke tests pin the public surface + ordering invariants (incl. cross-variant rank) + serde roundtrip. ogdb-types depends on ogdb-vector for compare_f32_vectors on Vector variant; DAG strictly acyclic."
+    added: 2026-04-26
+
+  - id: ogdb-types-reexport-shim
+    task: impl-ogdb-types-extraction
+    crate: ogdb-core
+    test: ogdb_types_reexport_shim
+    function: []
+    command: "cargo test -p ogdb-core --test ogdb_types_reexport_shim"
+    purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_types::{PropertyMap, PropertyValue}. ALL 558 source-level downstream references (across ogdb-cli/ffi/python/node/bolt/eval/e2e/bench) rely on this shim. 4 asserts on TypeId + API shape catch silent re-collapse or symbol drift."
+    added: 2026-04-26
