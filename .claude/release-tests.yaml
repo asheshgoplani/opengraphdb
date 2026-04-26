@@ -580,3 +580,21 @@ tests:
     command: "cargo test -p ogdb-cli --test http_post_bare_return"
     purpose: "HTTP parity for bare-RETURN-literal: POST /query body={\"query\":\"RETURN 1 AS x\"} must return row_count=1 with x=1. Catches silent regression in the embedded vs HTTP semantic alignment for the simplest possible Cypher."
     added: 2026-04-26
+
+  - id: ogdb-export-extraction
+    task: impl-ogdb-core-split-export
+    crate: ogdb-export
+    test: api_smoke
+    function: []
+    command: "cargo test -p ogdb-export --tests"
+    purpose: "Guards the 7th monolith-split extraction — crates/ogdb-export/ owns ExportNode (3 fields) + ExportEdge (8 fields) plain-data records. Previously BLOCKED on PropertyMap cycle; unblocked by 2026-04-26 ogdb-types extraction. ogdb-export depends on ogdb-types; strictly acyclic."
+    added: 2026-04-26
+
+  - id: ogdb-export-reexport-shim
+    task: impl-ogdb-core-split-export
+    crate: ogdb-core
+    test: ogdb_export_reexport_shim
+    function: []
+    command: "cargo test -p ogdb-core --test ogdb_export_reexport_shim"
+    purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_export::{ExportEdge, ExportNode}. 16 downstream call sites in ogdb-cli/src/lib.rs rely on the shim. 4 asserts incl. Database round-trip catch silent re-collapse or symbol drift."
+    added: 2026-04-26
