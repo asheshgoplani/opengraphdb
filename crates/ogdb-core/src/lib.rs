@@ -2713,12 +2713,35 @@ fn expression_references_within(expr: &CypherExpression, bound: &BTreeSet<String
     referenced.is_subset(bound)
 }
 
+/// Internal variable name carried by the synthetic unit-row source planted
+/// for bare `RETURN` / `WITH` (no MATCH / UNWIND / etc. preceding). The
+/// name is intentionally long and unidiomatic to avoid colliding with any
+/// user-bound identifier — `Project` and `Aggregate` never enumerate it,
+/// so it stays invisible in the output regardless of collisions.
+const BARE_RETURN_SYNTHETIC_VARIABLE: &str = "__ogdb_internal_bare_return_unit_row__";
+
+/// Build the implicit single-empty-row source that every Cypher query has
+/// before its first clause. Used when `aggregate_and_project` is called
+/// without an upstream plan (e.g. `RETURN 1 AS x` standing alone) — per
+/// Cypher semantics the projection still runs once. We model this by
+/// reusing `UnwindList`'s existing `input: None` handling: unwinding a
+/// one-element list yields exactly one row regardless of graph state.
+fn synthetic_unit_row_source() -> LogicalPlan {
+    LogicalPlan::UnwindList {
+        input: None,
+        expression: CypherExpression::ListLiteral(vec![CypherExpression::Literal(
+            CypherLiteral::Integer(1),
+        )]),
+        variable: BARE_RETURN_SYNTHETIC_VARIABLE.to_string(),
+    }
+}
+
 fn aggregate_and_project(
-    input: LogicalPlan,
+    input: Option<LogicalPlan>,
     items: &[ProjectionItem],
     distinct: bool,
 ) -> LogicalPlan {
-    let mut plan = input;
+    let mut plan = input.unwrap_or_else(synthetic_unit_row_source);
     if distinct
         || items
             .iter()
@@ -2784,14 +2807,7 @@ fn build_logical_plan(model: &SemanticModel) -> Result<LogicalPlan, PlanError> {
                 targets: value.targets.clone(),
             },
             CypherClause::With(value) => {
-                let mut out = aggregate_and_project(
-                    current.unwrap_or(LogicalPlan::Scan {
-                        label: None,
-                        variable: None,
-                    }),
-                    &value.items,
-                    value.distinct,
-                );
+                let mut out = aggregate_and_project(current, &value.items, value.distinct);
                 if let Some(predicate) = &value.where_predicate {
                     out = LogicalPlan::Filter {
                         input: Box::new(out),
@@ -2817,10 +2833,7 @@ fn build_logical_plan(model: &SemanticModel) -> Result<LogicalPlan, PlanError> {
 
     if let Some(return_clause) = &model.query.return_clause {
         let mut out = aggregate_and_project(
-            plan.unwrap_or(LogicalPlan::Scan {
-                label: None,
-                variable: None,
-            }),
+            plan.take(),
             &return_clause.items,
             return_clause.distinct,
         );
