@@ -562,3 +562,21 @@ tests:
     command: "cargo test -p ogdb-core --test ogdb_types_reexport_shim"
     purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_types::{PropertyMap, PropertyValue}. ALL 558 source-level downstream references (across ogdb-cli/ffi/python/node/bolt/eval/e2e/bench) rely on this shim. 4 asserts on TypeId + API shape catch silent re-collapse or symbol drift."
     added: 2026-04-26
+
+  - id: bare-return-literal-row-count
+    task: fix-bare-return-literal-row-count
+    crate: ogdb-core
+    test: bare_return_literal
+    function: []
+    command: "cargo test -p ogdb-core --test bare_return_literal"
+    purpose: "Guards the synthetic-unit-row plan that fixes bare-RETURN-literal Cypher (e.g. RETURN 1 AS x returning 1 row instead of 0). 3 cases: single literal, multi-projection, MATCH-empty-graph guard (still 0 rows). Catches re-introduction of the empty-source-rows-short-circuit bug."
+    added: 2026-04-26
+
+  - id: http-post-bare-return
+    task: fix-bare-return-literal-row-count
+    crate: ogdb-cli
+    test: http_post_bare_return
+    function: []
+    command: "cargo test -p ogdb-cli --test http_post_bare_return"
+    purpose: "HTTP parity for bare-RETURN-literal: POST /query body={\"query\":\"RETURN 1 AS x\"} must return row_count=1 with x=1. Catches silent regression in the embedded vs HTTP semantic alignment for the simplest possible Cypher."
+    added: 2026-04-26
