@@ -2038,6 +2038,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ogdb-export"
+version = "0.3.0"
+dependencies = [
+ "ogdb-types",
+]
+
+[[package]]
 name = "ogdb-ffi"
 version = "0.3.0"
 dependencies = [
