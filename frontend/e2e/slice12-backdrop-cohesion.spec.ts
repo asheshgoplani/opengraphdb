@@ -113,6 +113,13 @@ async function playgroundCanvasBox(
 }
 
 test.describe('slice 12 — backdrop cohesion + depth', () => {
+  // The slice-12 visual gates assert dark-theme tonal/vignette properties.
+  // The default theme switched from 'dark' → 'system' in 2778f4c (so
+  // first-time visitors respect prefers-color-scheme); under headless
+  // Chromium with no system preference, 'system' resolves to light mode
+  // and these assertions invert. Pin to dark for this whole describe.
+  test.use({ colorScheme: 'dark' })
+
   test('shared backdrop carries from landing to playground (ΔE76 < 8)', async ({
     page,
   }) => {
