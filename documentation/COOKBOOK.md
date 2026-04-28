@@ -120,7 +120,7 @@ crate's `lib.rs`); the `temporal_diff` round-trip is covered by the existing
 unit test at `crates/ogdb-cli/src/lib.rs:14631`. Latency: not yet benchmarked.
 The MCP transport is a thin wrapper over the existing query, vector, text, and
 temporal paths, so per-tool latency tracks the underlying engine numbers (rows
-3, 7, 8 of `docs/BENCHMARKS.md`).
+3, 7, 8 of `documentation/BENCHMARKS.md`).
 
 **Related skills.** [`skills/graph-explore/SKILL.md`](../skills/graph-explore/SKILL.md)
 shows how an agent should use `browse_schema`, `search_nodes`, and `subgraph` to
@@ -169,7 +169,7 @@ labels, and the node's properties:
 ]
 ```
 
-**How to verify and cite.** From `docs/BENCHMARKS.md` row 8: hybrid retrieval
+**How to verify and cite.** From `documentation/BENCHMARKS.md` row 8: hybrid retrieval
 (vector kNN + 1-hop) p50 / p95 / p99 = **243 / 378 / 422 μs** on 1 000 nodes ×
 100 queries × dim=16, on the i9-10920X bench box (cold cache, no warmup). The
 0.38 ms p95 is 200× under the 80 ms best-in-class threshold from spec B.3.
@@ -235,7 +235,7 @@ curl -s -X POST $BASE/query \
 { "columns": ["c"], "rows": [[2]] }
 ```
 
-**How to verify and cite.** From `docs/BENCHMARKS.md` row 7: enrichment
+**How to verify and cite.** From `documentation/BENCHMARKS.md` row 7: enrichment
 round-trip `t_persist` p50 / p95 / p99 = **38.8 / 44.2 / 113.2 ms** on 100
 documents × (10 entities + 15 edges per doc), measured on
 `crates/ogdb-eval/src/drivers/ai_agent.rs::enrichment_roundtrip`. Storage
@@ -414,7 +414,7 @@ migration cost / value calculation.
    `Authorization: Bearer <token>` header path); user model is single-tier.
    Neo4j role-based access does not have a one-to-one mapping yet.
 
-**How to verify and cite.** No latency comparison row in `docs/BENCHMARKS.md`
+**How to verify and cite.** No latency comparison row in `documentation/BENCHMARKS.md`
 maps to this recipe — the migration story is functional, not a perf claim.
 Bulk-ingest performance (BENCHMARKS row 1) is currently a known loss vs Kuzu
 and Memgraph; if your migration is dominated by an initial historical load,
@@ -473,7 +473,7 @@ jobs:
           MIN_PASS_RATE: "0.85"
         run: |
           PR=$(jq -r '[.metrics[] | select(.name|endswith(".pass_rate")) | .value] | min' \
-                 docs/evaluation-runs/baseline-latest.json)
+                 documentation/evaluation-runs/baseline-latest.json)
           awk -v pr="$PR" -v min="$MIN_PASS_RATE" \
             'BEGIN { if (pr+0 < min+0) { exit 1 } }'
 ```
@@ -505,13 +505,13 @@ runs against. See Recipe 5 for the spec format.
 - [`skills/graph-explore/SKILL.md`](../skills/graph-explore/SKILL.md) — mini-cookbook for graph discovery.
 - [`skills/ogdb-cypher/SKILL.md`](../skills/ogdb-cypher/SKILL.md) — mini-cookbook for Cypher generation.
 - [`skills/schema-advisor/SKILL.md`](../skills/schema-advisor/SKILL.md) — mini-cookbook for schema design.
-- [`docs/BENCHMARKS.md`](BENCHMARKS.md) — every cited latency number, with reproducibility notes.
+- [`documentation/BENCHMARKS.md`](BENCHMARKS.md) — every cited latency number, with reproducibility notes.
 - [`README.md`](../README.md) — project status, install, license.
 
 ## What is deliberately not in this cookbook
 
 A "multi-agent shared knowledge graph (concurrent writes + MVCC)" recipe is
-omitted on purpose. `docs/BENCHMARKS.md` row 9 documents that the kernel is
+omitted on purpose. `documentation/BENCHMARKS.md` row 9 documents that the kernel is
 single-writer today; the published `concurrent_rate` measurement uses one DB
 per thread, which is mechanical, not a real concurrent-write number. Shipping
 a recipe that pretends concurrent writes already work would violate the

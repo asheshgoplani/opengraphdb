@@ -121,7 +121,7 @@ const PATTERNS: Pattern[] = [
       'Hand the LLM your schema, get back a Cypher query, execute it against the real engine — no plain-English query runtime shipping in the DB.',
     language: 'python',
     code: LLM_TO_CYPHER,
-    docHref: '/docs/ai-integration/llm-to-cypher.md',
+    docHref: '/documentation/ai-integration/llm-to-cypher.md',
   },
   {
     title: 'Sentence embeddings + hybrid RRF search',
@@ -129,7 +129,7 @@ const PATTERNS: Pattern[] = [
       'Store vectors on nodes, then rank with vector + full-text fused via Reciprocal Rank Fusion in one round-trip — no sidecar search store to keep in sync.',
     language: 'python',
     code: EMBED_AND_SEARCH,
-    docHref: '/docs/ai-integration/embeddings-hybrid-rrf.md',
+    docHref: '/documentation/ai-integration/embeddings-hybrid-rrf.md',
   },
   {
     title: 'cosmos.gl visualization as an MCP tool',
@@ -137,7 +137,7 @@ const PATTERNS: Pattern[] = [
       'Wrap the frontend renderer as an MCP server so any agent can request a PNG of a graph slice — visual output, not prose, when that is what the task needs.',
     language: 'typescript',
     code: COSMOS_MCP,
-    docHref: '/docs/ai-integration/cosmos-mcp-tool.md',
+    docHref: '/documentation/ai-integration/cosmos-mcp-tool.md',
   },
   {
     title: 'Multi-agent shared knowledge graph',
@@ -145,7 +145,7 @@ const PATTERNS: Pattern[] = [
       'Three agents open the same .ogdb file. MVCC snapshot isolation means writers never block readers and every agent sees a consistent view.',
     language: 'python',
     code: MULTI_AGENT_KG,
-    docHref: '/docs/ai-integration/multi-agent-shared-kg.md',
+    docHref: '/documentation/ai-integration/multi-agent-shared-kg.md',
   },
 ]
 

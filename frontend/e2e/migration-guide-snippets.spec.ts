@@ -1,10 +1,10 @@
-// RED-phase failing test for `docs/MIGRATION-FROM-NEO4J.md`. Mirrors the
+// RED-phase failing test for `documentation/MIGRATION-FROM-NEO4J.md`. Mirrors the
 // bring-up pattern from `frontend/e2e/cookbook-snippets-runnable.spec.ts`:
 // spawns a release `ogdb` against a fresh tmp `.ogdb`, healthchecks, runs
 // every Cypher snippet from Section 7 against the live HTTP `/query` route,
 // and shape-asserts the prose for the other six sections.
 //
-// Until `docs/MIGRATION-FROM-NEO4J.md` lands, the doc-existence assertions
+// Until `documentation/MIGRATION-FROM-NEO4J.md` lands, the doc-existence assertions
 // fail and the per-section content checks short-circuit on the missing file.
 // After Phase 8 of `.planning/neo4j-migration-guide/PLAN.md` ships, every
 // test passes.
@@ -21,7 +21,7 @@ import { join } from 'path'
 
 const REPO_ROOT = join(process.cwd(), '..')
 const OGDB_BIN = join(REPO_ROOT, 'target', 'release', 'ogdb')
-const GUIDE_PATH = join(REPO_ROOT, 'docs', 'MIGRATION-FROM-NEO4J.md')
+const GUIDE_PATH = join(REPO_ROOT, 'documentation', 'MIGRATION-FROM-NEO4J.md')
 
 // Distinct port from the cookbook spec (8181) so the two specs can run
 // concurrently without colliding on bind.
@@ -81,7 +81,7 @@ async function waitForHealthy(timeoutMs: number): Promise<void> {
 
 function readGuide(): string {
   if (!existsSync(GUIDE_PATH)) {
-    throw new Error(`docs/MIGRATION-FROM-NEO4J.md does not exist at ${GUIDE_PATH}`)
+    throw new Error(`documentation/MIGRATION-FROM-NEO4J.md does not exist at ${GUIDE_PATH}`)
   }
   return readFileSync(GUIDE_PATH, 'utf-8')
 }
@@ -329,8 +329,8 @@ test.describe('migration-from-neo4j guide — runnable + honesty-asserted', () =
     // and inline citations. PLAN Section B + Section C list these exactly.
     const requiredTargets: { href: string; abs: string }[] = [
       { href: 'LICENSE', abs: join(REPO_ROOT, 'LICENSE') },
-      { href: 'docs/COOKBOOK.md', abs: join(REPO_ROOT, 'docs', 'COOKBOOK.md') },
-      { href: 'docs/BENCHMARKS.md', abs: join(REPO_ROOT, 'docs', 'BENCHMARKS.md') },
+      { href: 'documentation/COOKBOOK.md', abs: join(REPO_ROOT, 'documentation', 'COOKBOOK.md') },
+      { href: 'documentation/BENCHMARKS.md', abs: join(REPO_ROOT, 'documentation', 'BENCHMARKS.md') },
       {
         href: 'crates/ogdb-tck/README.md',
         abs: join(REPO_ROOT, 'crates', 'ogdb-tck', 'README.md'),

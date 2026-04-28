@@ -57,7 +57,7 @@ fn run(suite: &str, run_id: &str, metrics: Vec<(&str, f64, bool)>) -> Evaluation
 }
 
 /// Test 5: full pipeline from a baseline-history JSON ARRAY (shape of
-/// `docs/evaluation-runs/baseline-YYYY-MM-DD.json`) to a regression
+/// `documentation/evaluation-runs/baseline-YYYY-MM-DD.json`) to a regression
 /// report. Must tolerate non-skill-quality neighbours in the array.
 #[test]
 fn integration_with_diff_history_file() {

@@ -15,7 +15,7 @@
 //! Release-only: debug builds of brute-force distance math run 5–10×
 //! slower than release and would false-fail this gate without signal.
 //!
-//! Measurement methodology (per `docs/BENCHMARKS.md` "Methodology" and
+//! Measurement methodology (per `documentation/BENCHMARKS.md` "Methodology" and
 //! mirroring `crates/ogdb-eval/src/drivers/multi_iter.rs`): one warm-up
 //! iteration plus `MEASURED_ITERS = 5` measured iterations against the
 //! same pre-warmed HNSW index. Each iteration computes its own p95 over

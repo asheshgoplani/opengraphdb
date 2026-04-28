@@ -52,16 +52,16 @@ test.describe('F4 — AI Integration section (Slice R2)', () => {
     }
   })
 
-  test('each card links to /docs/ai-integration/<pattern>.md', async ({ page }) => {
+  test('each card links to /documentation/ai-integration/<pattern>.md', async ({ page }) => {
     await page.goto('/')
     const cards = page.locator('[data-testid="ai-pattern-card"]')
     await expect(cards).toHaveCount(4)
 
     for (let i = 0; i < 4; i++) {
-      const link = cards.nth(i).locator('a[href*="/docs/ai-integration/"]')
+      const link = cards.nth(i).locator('a[href*="/documentation/ai-integration/"]')
       await expect(link).toHaveAttribute(
         'href',
-        /\/docs\/ai-integration\/[a-z0-9-]+\.md$/,
+        /\/documentation\/ai-integration\/[a-z0-9-]+\.md$/,
       )
     }
   })

@@ -1,6 +1,6 @@
 # OpenGraphDB for Neo4j developers — a 5-minute migration guide
 
-> Companion to [`docs/COOKBOOK.md`](COOKBOOK.md). Every code snippet on this
+> Companion to [`documentation/COOKBOOK.md`](COOKBOOK.md). Every code snippet on this
 > page is exercised by `frontend/e2e/migration-guide-snippets.spec.ts` on
 > every PR.
 
@@ -107,7 +107,7 @@ binary (`crates/ogdb-cli/src/lib.rs:3179-3441`):
 - HTTP transport: `POST /mcp/tools`, `POST /mcp/invoke`.
 
 There's no Neo4j vector-plugin call to translate because there's no plugin
-call — see [`docs/COOKBOOK.md`](COOKBOOK.md) Recipe 2 for a runnable
+call — see [`documentation/COOKBOOK.md`](COOKBOOK.md) Recipe 2 for a runnable
 `POST /rag/search` snippet that fuses HNSW kNN + 1-hop graph + BM25 in one
 round-trip.
 
@@ -117,7 +117,7 @@ Recipe 1.
 
 ## 5. Performance characteristics — wins and losses
 
-Numbers below are verbatim from [`docs/BENCHMARKS.md`](BENCHMARKS.md)
+Numbers below are verbatim from [`documentation/BENCHMARKS.md`](BENCHMARKS.md)
 Section 2 (i9-10920X, cold-first-run, no warmup).
 
 **Wins (apples-to-apples or clears spec threshold):**
@@ -194,9 +194,9 @@ by `frontend/e2e/migration-guide-snippets.spec.ts`.
 
 ## See also
 
-- [`docs/COOKBOOK.md`](COOKBOOK.md) — recipe-level how-to (Recipe 1: MCP;
+- [`documentation/COOKBOOK.md`](COOKBOOK.md) — recipe-level how-to (Recipe 1: MCP;
   Recipe 2: hybrid retrieval; Recipe 6: migration mechanics).
-- [`docs/BENCHMARKS.md`](BENCHMARKS.md) — every cited latency / throughput
+- [`documentation/BENCHMARKS.md`](BENCHMARKS.md) — every cited latency / throughput
   number, with reproducibility notes.
 - [`crates/ogdb-tck/README.md`](../crates/ogdb-tck/README.md) — how to
   compute your own openCypher TCK pass rate.

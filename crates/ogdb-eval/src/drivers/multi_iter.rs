@@ -28,7 +28,7 @@
 //!    median output: even at N=5 the tail is too noisy to publish.
 //!
 //! Single-shot p99.9 should not be trusted; the manifest gate requires
-//! N≥5 median for tail comparisons. See `docs/BENCHMARKS.md`
+//! N≥5 median for tail comparisons. See `documentation/BENCHMARKS.md`
 //! "Methodology" for the operator-facing version of this contract.
 
 use std::collections::BTreeMap;

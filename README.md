@@ -1,169 +1,76 @@
 # OpenGraphDB
 
-**The single-file graph DB Rust devs reach for. Embeds in Rust, Python, and Node. Cypher. MCP-ready. Apache 2.0.**
+**An embeddable, Cypher-speaking graph database with vector + full-text + RDF + MCP built in. Single binary. Single file. Apache 2.0.**
 
 ---
 
-OpenGraphDB embeds in your Rust, Python, or Node app — or runs as a single `ogdb serve` process. Cypher queries, MVCC, WAL, and an MCP surface for AI tools. No JVM. No separate search index to keep in sync.
-
-> **Architecture baseline:** See `ARCHITECTURE.md` for locked technical decisions. See `CHANGELOG.md` for the latest released version.
-
 ## The Idea
 
-There's no good embeddable graph database that is truly open source, speaks Cypher, and works natively with AI tools. Neo4j requires a server and is AGPL. KuzuDB was the closest alternative but was abandoned in October 2025. We're building what should exist.
+There is no good embeddable graph database that is truly open source, speaks Cypher, and works natively with AI tools. Neo4j requires a JVM server and is AGPL. KuzuDB was the closest alternative but was abandoned in October 2025. OpenGraphDB is what should exist.
 
-```
-ogdb init mydata.ogdb
-ogdb create-node mydata.ogdb
-ogdb add-edge mydata.ogdb 0 1
-ogdb neighbors mydata.ogdb 0
-ogdb hop mydata.ogdb 0 3
-ogdb checkpoint mydata.ogdb
-ogdb backup mydata.ogdb mydata.backup.ogdb
-```
+It embeds in your Rust, Python, or Node app — or runs as a single `ogdb serve` process. Cypher queries, MVCC, WAL, and an MCP surface for AI tools. No JVM. No separate search index to keep in sync.
 
-One binary. One file. That's it.
-
-## Current CLI Surface (Implemented)
+## 30-second Quickstart
 
 ```bash
-ogdb [--format <table|json|jsonl|csv|tsv>] [--db <path>] <command> ...
-ogdb init (<path> | --db <path>) [--page-size <power-of-two>=64]
-ogdb info (<path> | --db <path>)
-ogdb metrics (<path> | --db <path>)
-ogdb stats (<path> | --db <path>)
-ogdb schema (<path> | --db <path>)
-ogdb checkpoint (<path> | --db <path>)
-ogdb backup <src-path> <dst-path> [--online] [--compact]
-ogdb query (<path> | --db <path>) [--format <table|json|jsonl|csv|tsv>] [query]
-ogdb shell (<path> | --db <path>) [--commands <q1;q2;...> | --script <path>]
-ogdb mcp (<path> | --db <path>) (--request <json-rpc-request> | --stdio [--max-requests <n>])
-ogdb serve (<path> | --db <path>) [--bind <addr> | --port <port>] [--bolt|--http|--grpc] [--max-requests <n>]
-ogdb import (<path> | --db <path>) <src-path> [--format <csv|json|jsonl>] [--batch-size <n>] [--continue-on-error]
-ogdb export (<path> | --db <path>) <dst-path> [--format <csv|json|jsonl>] [--label <label>] [--edge-type <type>] [--node-id-range <start:end>]
-ogdb import-rdf (<path> | --db <path>) <src-path> [--format <ttl|nt|xml|jsonld|nq>] [--base-uri <uri>] [--schema-only] [--batch-size <n>] [--continue-on-error]
-ogdb export-rdf (<path> | --db <path>) <dst-path> [--format <ttl|nt|xml|jsonld>]
-ogdb validate-shacl (<path> | --db <path>) <shapes-path>
-ogdb create-node (<path> | --db <path>) [--labels <l1,l2,...>] [--props <k=type:value;...>]
-ogdb add-edge (<path> | --db <path>) <src> <dst> [--type <edge-type>] [--props <k=type:value;...>]
-ogdb neighbors (<path> | --db <path>) <src> [--format <table|json|jsonl|csv|tsv>]
-ogdb incoming (<path> | --db <path>) <dst> [--format <table|json|jsonl|csv|tsv>]
-ogdb hop-in (<path> | --db <path>) <dst> <hops> [--format <table|json|jsonl|csv|tsv>]
-ogdb hop (<path> | --db <path>) <src> <hops> [--format <table|json|jsonl|csv|tsv>]
+# 1. Build (one-time)
+cargo build --release -p ogdb-cli
+
+# 2. Open a database, write a node, query it
+./target/release/ogdb init mydata.ogdb
+./target/release/ogdb create-node mydata.ogdb --labels Person --props name=string:Ada
+./target/release/ogdb query mydata.ogdb "MATCH (p:Person) RETURN p.name"
 ```
 
-`shell` now supports interactive REPL mode (line editing/history/completion) when no `--commands`/`--script` input is provided in a TTY, and piped stdin script mode in non-interactive contexts.
-`query` expects a single optional query argument; quote multi-token queries (for example, `"MATCH (n) RETURN n"`).
-`serve --http` defaults to `127.0.0.1:8080` and `serve --bolt` defaults to `0.0.0.0:7687`; `--port` overrides only the port component when `--bind` is omitted.
-`CALL db.index.fulltext.queryNodes(...)` accepts 1, 2, or 3 arguments (`query`, `(index, query)`, `(index, query, k)`) with default `k=10`.
-For CSV graph import/export, the CLI uses paired files: `<base>.nodes.csv` and `<base>.edges.csv`.
+Embed in Rust:
 
-Implemented and covered by tests: WAL logging + recovery, `checkpoint`, `backup` (including online and compact modes), machine-readable `--format` output on query/read traversal/shell command paths, full property-graph `import`/`export` (`csv`, `json`, `jsonl`) with auto format detection, streaming batch commits, `--continue-on-error`, and export filters (`--label`, `--edge-type`, `--node-id-range`), `schema`/`stats`/`metrics`, reverse traversal commands (`incoming`, `hop-in`), property-aware node/edge writes (`--labels`, `--type`, `--props`), typed scalar properties (`bool`, `i64`, `f64`, `string`, `bytes`), Roaring-bitmap label membership indexing with `find_nodes_by_label(...)`, property-filter query form (`find nodes <key=type:value>`), label-filter query form (`find nodes label <label>`), read/write transaction APIs (`begin_read`, `begin_write`, commit/rollback), optimistic multi-writer + snapshot coordination in `SharedDatabase`, observability APIs (`db.metrics()`, `db.query_profiled(...)`), MCP JSON-RPC adapter (`--request` and `--stdio`), Bolt/HTTP/gRPC server modes, Prometheus metrics endpoint (`/metrics/prometheus`), RBAC + audit logging + token auth integration, WAL-based replication APIs, WASM-oriented builds, and expanded GQL compatibility (`OPTIONAL MATCH`, `UNION`, `EXISTS`, pattern comprehension, CASE semantics).
-Also implemented and covered by tests: RDF import/export (`ttl`, `nt`, `xml`, `jsonld`, `nq`) via `import-rdf`/`export-rdf`, ontology mapping (`owl:Class`, `owl:ObjectProperty`, `owl:DatatypeProperty`), `rdfs:subClassOf` hierarchy import, URI/prefix round-tripping, blank-node and named-graph handling, and `--schema-only`/`--base-uri` RDF options.
-Also implemented and covered by tests: SHACL Core subset validation via `validate-shacl`, including `sh:targetClass` (IRI local-name matching to graph labels) and `sh:property` constraints with `sh:minCount >= 1`.
-Also implemented: cucumber-backed openCypher TCK harness (`ogdb-tck`), crash/durability acceptance suite, benchmark gate harnesses in `ogdb-bench` (with dedicated strict threshold tests), optional `tracing` instrumentation (`query > plan > execute > storage_op`), and transparent LZ4/ZSTD page compression with legacy uncompressed-page readability.
-Also implemented and covered by tests: auto-indexing heuristics (frequent `(label, property_key)` filter tracking + threshold-triggered B-tree index creation), worst-case-optimal join (WCOJ) + factorized expansion for multi-variable Cypher expand chains, `ogdb-cli migrate` (schema migration with `--dry-run` / all-or-nothing apply), append-only temporal node version chains with background compaction, and memory/disk budget validation gates (`<500MB` RSS + `<1GB` on-disk at 1M nodes + 5M edges). See `CHANGELOG.md` for the full list.
+```rust
+use ogdb_core::Database;
 
-## What We're Going For
+let mut db = Database::open("mydata.ogdb")?;
+let id = db.create_node(&["Person".into()], &Default::default())?;
+let rows = db.query("MATCH (p:Person) RETURN p")?;
+```
 
-- **Embeddable** — use as a Rust/Python/JS library or standalone CLI
-- **Cypher / GQL** — the query language developers already know
-- **Graph + Vector + Full-text** in one engine, not three
-- **RDF/TTL import** — bring your ontologies, query them with Cypher
-- **MCP server built-in** — plug into Claude, Cursor, or any AI agent
-- **Rust, columnar storage, MVCC, WAL** — the boring, correct foundations
+## What's in the box
 
-## Benchmark Harness (Pre-Implementation)
+- **Embeddable** — link as a Rust crate, call from Python/Node bindings, or run `ogdb serve` for HTTP/Bolt/gRPC.
+- **Cypher / GQL** — the query language developers already know, with `OPTIONAL MATCH`, `UNION`, `EXISTS`, pattern comprehension, and CASE semantics.
+- **AI-native** — MCP server built in (20 tools), hybrid retrieval (vector kNN + 1-hop + RRF), and graph-feature reranking — all in one engine, not three.
 
-We include a synthetic storage-model benchmark to pressure-test the `CSR+delta` vs hybrid decision before full engine code exists.
+## Documentation
+
+- **[documentation/BENCHMARKS.md](documentation/BENCHMARKS.md)** — competitive baseline (N=5 medians) versus Neo4j, Memgraph, KuzuDB. Wins, losses, and follow-ups, all reproducible.
+- **[documentation/COOKBOOK.md](documentation/COOKBOOK.md)** — seven runnable AI-agent recipes (MCP, hybrid retrieval, doc → KG, time-travel, skill-quality eval, Neo4j migration, CI regression). Every snippet exercised by e2e tests on every PR.
+- **[documentation/MIGRATION-FROM-NEO4J.md](documentation/MIGRATION-FROM-NEO4J.md)** — three differences that matter, Cypher-by-Cypher mapping, and where the latency comes from.
+
+The full public-docs index is in [`documentation/README.md`](documentation/README.md).
+
+## CLI
 
 ```bash
-source "$HOME/.cargo/env"
-cargo run --release -p ogdb-bench
+ogdb init mydata.ogdb              # create a fresh database file
+ogdb create-node mydata.ogdb       # write a node
+ogdb query mydata.ogdb "MATCH (n) RETURN n"
+ogdb serve --http mydata.ogdb      # HTTP / MCP / Prometheus on :8080
+ogdb mcp --stdio mydata.ogdb       # speak MCP over stdio for Claude/Cursor/Goose
+ogdb backup mydata.ogdb backup.ogdb --online --compact
 ```
 
-For heavier stress runs:
+The full surface includes `import`/`export` (CSV, JSON, JSONL), `import-rdf`/`export-rdf` (Turtle, N-Triples, RDF/XML, JSON-LD, N-Quads), `validate-shacl`, `checkpoint`, `metrics`, `schema`, `stats`, `info`, `shell` (interactive REPL), and read traversals (`neighbors`, `incoming`, `hop`, `hop-in`).
 
 ```bash
-source "$HOME/.cargo/env"
-cargo run --release -p ogdb-bench -- \
-  --nodes 1000000 \
-  --edges-per-node 16 \
-  --ops 600000 \
-  --hot-node-share 0.01 \
-  --hot-access-share 0.97 \
-  --delta-threshold 0.01 \
-  --mem-segment-edges 4096
+ogdb --help        # full command reference
 ```
 
-Interpretation follows `ARCHITECTURE.md` gates:
-- keep CSR+delta if write share <= 10%, compaction stall p95 <= 50ms, and mixed-load traversal regression <= 20%
-- reconsider hybrid if repeated runs at >=30% writes show compaction stall p95 > 200ms or traversal regression > 30%
+## Contributing
 
-Latest benchmark summary and policy log: `BENCHMARKS.md`.
+OpenGraphDB is greenfield and contributor-friendly. Storage engines, query optimization, vector search, RDF tooling, MCP integrations, and developer experience are all open lanes.
 
-## TCK Harness
-
-Run the openCypher TCK harness against a local checkout of the TCK repository:
-
-```bash
-source "$HOME/.cargo/env"
-cargo run --release -p ogdb-tck -- /path/to/openCypher/tck --floor 0.50
-```
-
-The harness parses `.feature` files, executes supported scenario query steps via `Database::query(...)`, and reports pass/fail/skip plus Tier-1 category coverage.
-
-## Development Workflow
-
-Implementation is now test-first and log-driven.
-
-```bash
-./scripts/test.sh
-```
-
-Changelog structure check:
-
-```bash
-./scripts/changelog-check.sh
-```
-
-Coverage gate (strict active-crate floor):
-
-```bash
-./scripts/coverage.sh
-```
-
-Current policy: `ogdb-core` + `ogdb-cli` must stay at or above 98% line coverage with at most 600 uncovered lines.
-
-Method and progress logs:
-- `docs/TDD-METHODOLOGY.md`
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md`
-- `docs/VERSIONING.md`
-- `CHANGELOG.md`
-- `AGENTS.md` (workflow contract)
-
-CI and review policy:
-- `.github/workflows/ci.yml`
-- `.github/PULL_REQUEST_TEMPLATE.md`
-
-## Looking for Contributors
-
-This is a greenfield project. Everything is being built from scratch.
-
-**Areas we need help with:**
-
-- Storage engines (buffer pools, WAL, crash recovery)
-- Query engines (parsing, optimization, execution)
-- Rust systems programming
-- Vector search / HNSW
-- RDF and knowledge graphs
-- AI agent tooling / MCP
-- Developer experience and documentation
-
-If any of this interests you, please reach out. Open an issue, start a discussion, or just say hello. Every contribution matters.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the test-first workflow, coverage gate, TCK harness, and what every PR should include.
 
 → [Issues](https://github.com/asheshgoplani/opengraphdb/issues) · [Discussions](https://github.com/asheshgoplani/opengraphdb/discussions)
 
 ## License
 
-Apache 2.0
+Apache 2.0 — see [LICENSE](LICENSE).

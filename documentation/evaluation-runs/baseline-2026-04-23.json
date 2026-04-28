@@ -401,7 +401,7 @@
       }
     },
     "environment": {},
-    "notes": "vector kNN + 1-hop expansion; 100 queries over 1000 nodes (dim=16). NDCG@10 DEFERRED: no BEIR corpus in-tree — see docs/BENCHMARKS.md"
+    "notes": "vector kNN + 1-hop expansion; 100 queries over 1000 nodes (dim=16). NDCG@10 DEFERRED: no BEIR corpus in-tree — see documentation/BENCHMARKS.md"
   },
   {
     "schema_version": "1.0",
