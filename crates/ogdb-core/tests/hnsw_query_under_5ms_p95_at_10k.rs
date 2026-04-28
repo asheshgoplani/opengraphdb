@@ -14,6 +14,16 @@
 //!
 //! Release-only: debug builds of brute-force distance math run 5–10×
 //! slower than release and would false-fail this gate without signal.
+//!
+//! Measurement methodology (per `docs/BENCHMARKS.md` "Methodology" and
+//! mirroring `crates/ogdb-eval/src/drivers/multi_iter.rs`): one warm-up
+//! iteration plus `MEASURED_ITERS = 5` measured iterations against the
+//! same pre-warmed HNSW index. Each iteration computes its own p95 over
+//! `QUERIES` searches; the gate then asserts the **median p95 across the
+//! 5 measured iters** is ≤ `P95_BUDGET`. Single-shot p95 is too noisy to
+//! gate on under sustained host load (background processes, CI shoulder,
+//! neighbour VMs); the median of N=5 is the contract used elsewhere in
+//! the project for tail metrics.
 
 use std::env;
 use std::fs;
@@ -26,6 +36,8 @@ const N: usize = 10_000;
 const D: usize = 384;
 const QUERIES: usize = 100;
 const WARMUP: usize = 10;
+const MEASURED_ITERS: usize = 5;
+const WARMUP_ITERS: usize = 1;
 const P95_BUDGET: Duration = Duration::from_millis(5);
 
 fn test_dir(tag: &str) -> PathBuf {
@@ -64,6 +76,17 @@ fn percentile(mut samples: Vec<Duration>, pct: f64) -> Duration {
     samples.sort();
     let idx = ((samples.len() as f64 - 1.0) * pct / 100.0).round() as usize;
     samples[idx.min(samples.len() - 1)]
+}
+
+/// Lower-median across `samples`. Matches `lower_median` in
+/// `crates/ogdb-eval/src/drivers/multi_iter.rs`: for even-count samples
+/// returns the lower of the two middle values, so the reported number
+/// always corresponds to a real iteration's measurement.
+fn median_duration(samples: &[Duration]) -> Duration {
+    debug_assert!(!samples.is_empty());
+    let mut sorted = samples.to_vec();
+    sorted.sort();
+    sorted[(sorted.len() - 1) / 2]
 }
 
 #[test]
@@ -110,26 +133,49 @@ fn hnsw_query_under_5ms_p95_at_10k() {
             .expect("warmup search");
     }
 
-    let mut samples = Vec::with_capacity(QUERIES);
-    for qi in 0..QUERIES {
-        let q = rand_unit_vec(1_000_000 + qi as u64, D);
-        let t = Instant::now();
-        let _ = db
-            .vector_search("embedding_idx", &q, 10, None)
-            .expect("search");
-        samples.push(t.elapsed());
+    // Outer loop: WARMUP_ITERS throw-away iters + MEASURED_ITERS measured
+    // iters. Each iter runs QUERIES distinct searches against the same
+    // pre-built index and computes its own p95. Distinct query seeds per
+    // iter so we exercise different graph paths each pass — matches what
+    // a real workload sees and avoids accidentally medianing an already-
+    // cached single query's latency.
+    let mut iter_p95s: Vec<Duration> = Vec::with_capacity(MEASURED_ITERS);
+    let total_iters = WARMUP_ITERS + MEASURED_ITERS;
+    for iter in 0..total_iters {
+        let mut samples = Vec::with_capacity(QUERIES);
+        let seed_base = 1_000_000 + (iter as u64) * (QUERIES as u64);
+        for qi in 0..QUERIES {
+            let q = rand_unit_vec(seed_base + qi as u64, D);
+            let t = Instant::now();
+            let _ = db
+                .vector_search("embedding_idx", &q, 10, None)
+                .expect("search");
+            samples.push(t.elapsed());
+        }
+        let p50 = percentile(samples.clone(), 50.0);
+        let p95 = percentile(samples.clone(), 95.0);
+        let p99 = percentile(samples, 99.0);
+        if iter < WARMUP_ITERS {
+            eprintln!(
+                "hnsw_query_10k_d384 iter={iter} (warm-up, discarded) p50={p50:?} p95={p95:?} p99={p99:?}"
+            );
+        } else {
+            eprintln!("hnsw_query_10k_d384 iter={iter} p50={p50:?} p95={p95:?} p99={p99:?}");
+            iter_p95s.push(p95);
+        }
     }
 
-    let p50 = percentile(samples.clone(), 50.0);
-    let p95 = percentile(samples.clone(), 95.0);
-    let p99 = percentile(samples, 99.0);
-    eprintln!("hnsw_query_10k_d384 p50={p50:?} p95={p95:?} p99={p99:?} (budget p95 ≤ {P95_BUDGET:?})");
+    let median_p95 = median_duration(&iter_p95s);
+    eprintln!(
+        "hnsw_query_10k_d384 median p95 across {MEASURED_ITERS} iters = {median_p95:?} \
+         (budget ≤ {P95_BUDGET:?}); per-iter p95s = {iter_p95s:?}"
+    );
 
     assert!(
-        p95 <= P95_BUDGET,
-        "p95 query latency {p95:?} exceeds budget {P95_BUDGET:?} \
-         at N={N}, d={D}; HNSW backend not active or under-tuned \
-         (see Phase 5 in PLAN.md)"
+        median_p95 <= P95_BUDGET,
+        "median p95 query latency {median_p95:?} across {MEASURED_ITERS} iters \
+         exceeds budget {P95_BUDGET:?} at N={N}, d={D}; per-iter p95s = {iter_p95s:?}; \
+         HNSW backend not active or under-tuned (see Phase 5 in PLAN.md)"
     );
 
     let _ = fs::remove_dir_all(&dir);
