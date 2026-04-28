@@ -8,12 +8,12 @@ if [[ ! -f "$CHANGELOG_FILE" ]]; then
   exit 1
 fi
 
-if ! rg -q '^## \[Unreleased\]' "$CHANGELOG_FILE"; then
+if ! grep -qE '^## \[Unreleased\]' "$CHANGELOG_FILE"; then
   echo "CHANGELOG.md must contain a '## [Unreleased]' section."
   exit 1
 fi
 
-if ! rg -q '^### (Added|Changed|Fixed|Removed|Security)' "$CHANGELOG_FILE"; then
+if ! grep -qE '^### (Added|Changed|Fixed|Removed|Security)' "$CHANGELOG_FILE"; then
   echo "CHANGELOG.md should use standard section headings (Added/Changed/Fixed/Removed/Security)."
   exit 1
 fi
