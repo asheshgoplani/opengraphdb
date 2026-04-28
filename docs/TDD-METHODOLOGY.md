@@ -44,9 +44,9 @@ and record the coverage gap in `CHANGELOG.md` under `Unreleased`.
 
 ## Documentation Sources of Truth
 
-- Architecture decisions: `ARCHITECTURE.md`
-- Versioning policy: `docs/VERSIONING.md`
-- Canonical changelog: `CHANGELOG.md`
-- Implementation readiness and gates: `IMPLEMENTATION-READY.md`
-- Benchmark outcomes and policy: `BENCHMARKS.md`
-- PR checklist template: `.github/PULL_REQUEST_TEMPLATE.md`
+- Architecture decisions: `../ARCHITECTURE.md`
+- Versioning policy: `VERSIONING.md`
+- Canonical changelog: `../CHANGELOG.md`
+- Implementation readiness and gates: `../IMPLEMENTATION-READY.md`
+- Benchmark outcomes and policy: `../documentation/BENCHMARKS.md`
+- PR checklist template: `../.github/PULL_REQUEST_TEMPLATE.md`

@@ -211,7 +211,7 @@ pub fn hybrid_retrieval(
         .insert("nodes".to_string(), metric(n_nodes as f64, "count", true));
     run.notes = format!(
         "vector kNN + 1-hop expansion; {n_queries} queries over {n_nodes} nodes (dim={DIM}). \
-         NDCG@10 DEFERRED: no BEIR corpus in-tree — see docs/BENCHMARKS.md"
+         NDCG@10 DEFERRED: no BEIR corpus in-tree — see documentation/BENCHMARKS.md"
     );
     Ok(run)
 }

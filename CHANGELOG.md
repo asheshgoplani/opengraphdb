@@ -49,6 +49,16 @@ Themes: monolith-split (7 facets carved out of `ogdb-core` into `ogdb-vector` / 
 - HNSW `hnsw_query_under_5ms_p95_at_10k` acceptance gate now drives 5 measurement iterations with a warm-up pass and asserts the median p95 ≤ 5ms (was a single-shot p95 prone to timing flake under load); shipped median p95 = 4.62ms on a quiet host. Aligns with the IS-1 + publish_baseline N=5 median methodology.
 - `README.md`, `AGENTS.md`, `IMPLEMENTATION-READY.md`, `docs/IMPLEMENTATION-LOG.md`, `docs/TDD-METHODOLOGY.md`, `docs/VERSIONING.md`, `scripts/workflow-check.sh`, `frontend` audit closeouts: scrubbed private absolute paths (`/Users/...`, `/home/...`) and aligned GitHub URLs to `asheshgoplani/opengraphdb` for the upcoming public push; `.planning/` removed from tracking (now under `.gitignore`).
 
+### Changed
+- Documentation reorganized into a public/internal split: user-facing docs (`BENCHMARKS.md`, `COOKBOOK.md`, `MIGRATION-FROM-NEO4J.md`, `AI-NATIVE-FEATURES.md`, `ai-integration/`, `evaluation-runs/`) moved from `docs/` to a new `documentation/` folder with a `documentation/README.md` index; `docs/` now holds contributor-only material (`TDD-METHODOLOGY.md`, `VERSIONING.md`).
+- `README.md` rewritten as a lean public-facing intro (~80 lines): tagline, the gap OpenGraphDB fills, 30-second quickstart with a Rust embed example, three-bullet positioning, links to `documentation/`, compact CLI surface, and a contributor pointer.
+- `CONTRIBUTING.md` expanded to absorb dev-workflow content lifted from the old README (test/coverage scripts, coverage gate, TCK harness, benchmark harness, areas-we-need-help-with).
+- E2E test paths, Rust source comments, frontend `docHref` URLs (`AIIntegrationSection.tsx`), and `.claude/release-tests.yaml` purpose strings updated to reference `documentation/...` instead of `docs/...`.
+
+### Removed
+- Pre-implementation `BENCHMARKS.md` at the repo root (storage-model decision policy file, superseded by `documentation/BENCHMARKS.md`).
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` (internal milestone tracker, no longer relevant post-0.3.0) and `docs/FRONTEND-SPEC.md` (internal frontend spec).
+
 ## [0.3.0] - 2026-04-23
 
 Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo-seed (canonical movies/social/fraud/movielens datasets + seed-demo.sh), fix-wcoj-deadlock (WCOJ planner/executor termination guards), movielens-import (scripts/convert-movielens.py + download-movielens.sh), reposition R1–R6 (Power/Schema tabs backed by real `ogdb serve` endpoints, fake playground tabs removed), UX slices 10–15 (premium graph quality gates on /playground), clippy + npm + doc hygiene sweep, CORS + HTTP security hardening (body cap 413, export auth 401, stream timeouts, header caps 431, Content-Length parse 400, Bolt 100 MiB cap), WAL v2 durability (labels + property bytes survive sidecar loss), SI phantom-read caveat documented and pinned by tests, perf bundle 805 KB → 62 KB.

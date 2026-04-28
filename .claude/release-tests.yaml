@@ -299,7 +299,7 @@ tests:
     test: publish_baseline
     function: []
     command: "OGDB_EVAL_BASELINE_JSON=/tmp/baseline.json cargo test -p ogdb-eval --release --test publish_baseline -- --nocapture"
-    purpose: "Release-mode harness that re-runs the 0.3.0 competitive baseline (14 EvaluationRun metrics across ingest / point-read / 2-hop / LDBC IS-1 / Graphalytics / scaling-10K / enrichment / rerank / hybrid) and serializes the full JSON array to $OGDB_EVAL_BASELINE_JSON. Env-gated (silent skip without OGDB_EVAL_BASELINE_JSON) so plain `cargo test` does NOT trigger it — keeps dev loop fast. Guards docs/BENCHMARKS.md + docs/evaluation-runs/baseline-2026-04-23.json against silent schema drift."
+    purpose: "Release-mode harness that re-runs the 0.3.0 competitive baseline (14 EvaluationRun metrics across ingest / point-read / 2-hop / LDBC IS-1 / Graphalytics / scaling-10K / enrichment / rerank / hybrid) and serializes the full JSON array to $OGDB_EVAL_BASELINE_JSON. Env-gated (silent skip without OGDB_EVAL_BASELINE_JSON) so plain `cargo test` does NOT trigger it — keeps dev loop fast. Guards documentation/BENCHMARKS.md + documentation/evaluation-runs/baseline-2026-04-23.json against silent schema drift."
     added: 2026-04-23
 
   - id: http-mcp-endpoint
@@ -497,7 +497,7 @@ tests:
     test: e2e/cookbook-snippets-runnable
     function: []
     command: "cd frontend && npx playwright test e2e/cookbook-snippets-runnable.spec.ts"
-    purpose: "Guards docs/COOKBOOK.md against snippet rot. 9 e2e tests run every documented snippet (curl + Python + Node) against a live target/release/ogdb serve --http and verify the expected output. Catches API drift (e.g. /mcp/invoke payload shape, /rag/search response format, /query body structure). Without this, cookbook recipes silently break as the API evolves."
+    purpose: "Guards documentation/COOKBOOK.md against snippet rot. 9 e2e tests run every documented snippet (curl + Python + Node) against a live target/release/ogdb serve --http and verify the expected output. Catches API drift (e.g. /mcp/invoke payload shape, /rag/search response format, /query body structure). Without this, cookbook recipes silently break as the API evolves."
     added: 2026-04-25
 
   - id: stability-sweep-blockers-fix
@@ -542,7 +542,7 @@ tests:
     test: e2e/migration-guide-snippets
     function: []
     command: "cd frontend && npx playwright test e2e/migration-guide-snippets.spec.ts"
-    purpose: "Guards docs/MIGRATION-FROM-NEO4J.md against snippet rot. 11 e2e tests run every documented Cypher + curl snippet against a live target/release/ogdb serve --http and verify expected output. Catches API drift in /query, /schema, vector search, and migration-specific patterns (LABEL syntax, id() function, CREATE INDEX). Without this, migration guide silently breaks as the API evolves."
+    purpose: "Guards documentation/MIGRATION-FROM-NEO4J.md against snippet rot. 11 e2e tests run every documented Cypher + curl snippet against a live target/release/ogdb serve --http and verify expected output. Catches API drift in /query, /schema, vector search, and migration-specific patterns (LABEL syntax, id() function, CREATE INDEX). Without this, migration guide silently breaks as the API evolves."
     added: 2026-04-25
 
   - id: ogdb-types-extraction

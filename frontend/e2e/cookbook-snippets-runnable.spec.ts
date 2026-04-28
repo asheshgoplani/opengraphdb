@@ -1,10 +1,10 @@
-// RED-phase failing test for `docs/COOKBOOK.md`. Mirrors the bring-up pattern
+// RED-phase failing test for `documentation/COOKBOOK.md`. Mirrors the bring-up pattern
 // from `frontend/e2e/rdf-import-real.spec.ts`: spawns a release `ogdb` against
 // a fresh tmp `.ogdb`, healthchecks, exercises every HTTP snippet the cookbook
 // promises is runnable. The whole describe block skips in CI when the release
 // binary is absent — locally `ensureReleaseBinary()` builds it on demand.
 //
-// Until `docs/COOKBOOK.md` lands the `cookbook doc exists` test fails outright
+// Until `documentation/COOKBOOK.md` lands the `cookbook doc exists` test fails outright
 // and the per-recipe content checks short-circuit on the missing file. After
 // Phase 8 of `.planning/ai-agent-cookbook/PLAN.md` ships, every test passes.
 
@@ -19,7 +19,7 @@ import { join } from 'path'
 // (playwright.config.ts lives there). The repo root sits one directory above.
 const REPO_ROOT = join(process.cwd(), '..')
 const OGDB_BIN = join(REPO_ROOT, 'target', 'release', 'ogdb')
-const COOKBOOK_PATH = join(REPO_ROOT, 'docs', 'COOKBOOK.md')
+const COOKBOOK_PATH = join(REPO_ROOT, 'documentation', 'COOKBOOK.md')
 
 const SERVE_PORT = 8181
 const HEALTH_URL = `http://127.0.0.1:${SERVE_PORT}/health`
@@ -80,7 +80,7 @@ async function waitForHealthy(timeoutMs: number): Promise<void> {
 
 function readCookbook(): string {
   if (!existsSync(COOKBOOK_PATH)) {
-    throw new Error(`docs/COOKBOOK.md does not exist at ${COOKBOOK_PATH}`)
+    throw new Error(`documentation/COOKBOOK.md does not exist at ${COOKBOOK_PATH}`)
   }
   return readFileSync(COOKBOOK_PATH, 'utf-8')
 }

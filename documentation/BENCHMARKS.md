@@ -3,8 +3,8 @@
 **Measurement date:** 2026-04-25
 **Branch:** `perf/rebaseline-multi-run` (off `main` @ `91c789b`)
 **Harness:** `crates/ogdb-eval` — `RunAllConfig::full` via `cli_runner::run_all`, plus `graphalytics::{run_bfs, run_pagerank}` and `criterion_ingest::ingest_criterion_dir`. Source: `crates/ogdb-eval/tests/publish_baseline.rs`.
-**Raw run JSON:** [`docs/evaluation-runs/baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json) (15 `EvaluationRun`s, schema v1.0; 12 medianed core + 3 single-shot post-pass).
-**Historical baseline:** [`docs/evaluation-runs/baseline-2026-04-23.json`](evaluation-runs/baseline-2026-04-23.json) preserved for diff-engine longitudinal comparisons.
+**Raw run JSON:** [`documentation/evaluation-runs/baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json) (15 `EvaluationRun`s, schema v1.0; 12 medianed core + 3 single-shot post-pass).
+**Historical baseline:** [`documentation/evaluation-runs/baseline-2026-04-23.json`](evaluation-runs/baseline-2026-04-23.json) preserved for diff-engine longitudinal comparisons.
 
 ## Scope and honesty policy
 
@@ -121,4 +121,4 @@ All published-competitor numbers above are from `/tmp/evaluator-metrics-spec-202
 
 ## 7. Auto-generated summary
 
-A mechanically-generated per-metric table (one row per `(suite, subsuite, metric)`) is written alongside the baseline JSON at [`docs/evaluation-runs/auto-summary.md`](evaluation-runs/auto-summary.md) by `ogdb_eval::drivers::cli_runner::write_benchmarks_md`. That file is the raw data behind this document; this document is the hand-curated narrative on top.
+A mechanically-generated per-metric table (one row per `(suite, subsuite, metric)`) is written alongside the baseline JSON at [`documentation/evaluation-runs/auto-summary.md`](evaluation-runs/auto-summary.md) by `ogdb_eval::drivers::cli_runner::write_benchmarks_md`. That file is the raw data behind this document; this document is the hand-curated narrative on top.
