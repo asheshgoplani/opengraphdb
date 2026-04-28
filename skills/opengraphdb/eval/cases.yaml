@@ -1,0 +1,144 @@
+{
+  "skill": "opengraphdb",
+  "version": "0.1.0",
+  "description": "Eval suite for the master OpenGraphDB skill — covers cross-cutting workflows (MCP, hybrid retrieval, GraphRAG, time-travel, sub-skill routing, performance honesty, migration framing) so the skill_quality driver can score it the same way it scores the four narrow skills.",
+
+  "cases": [
+    {
+      "name": "mcp-bring-up",
+      "difficulty": "easy",
+      "input": "I want to wire OpenGraphDB to Claude Code over MCP. What's the shortest path from a fresh repo to a tool I can call?",
+      "expected": {
+        "must_contain": ["mcp", "tools", "ogdb"],
+        "must_not_contain": ["AGPL", "JVM", "sidecar"],
+        "pattern": "(ogdb\\s+mcp\\s+--stdio|/mcp/tools|/mcp/invoke|browse_schema)"
+      },
+      "scoring": {
+        "names_mcp_tool_or_endpoint": 1,
+        "uses_stdio_or_http_correctly": 1,
+        "mentions_browse_schema_first": 0.5,
+        "no_python_sidecar": 0.5
+      }
+    },
+    {
+      "name": "hybrid-retrieval-shape",
+      "difficulty": "medium",
+      "input": "Build a single round-trip that fuses vector kNN over Review.embedding with full-text over Review.text and 1-hop graph context. Show me the request body shape.",
+      "context": {
+        "schema": {
+          "labels": ["Place", "Review"],
+          "edge_types": ["HAS_REVIEW"],
+          "property_keys": ["name", "city", "text", "embedding"]
+        }
+      },
+      "expected": {
+        "must_contain": ["embedding", "k", "rag/search"],
+        "must_not_contain": ["Pinecone", "Lucene", "Weaviate"],
+        "pattern": "(/rag/search|hybrid.*queryNodes|RRF|vector_distance.*text_search)"
+      },
+      "scoring": {
+        "uses_rag_search_or_hybrid_call": 1,
+        "knows_dim_must_match_index": 1,
+        "fuses_vector_and_text": 1,
+        "mentions_rrf_or_score_fusion": 0.5,
+        "mentions_1hop_context": 0.5
+      }
+    },
+    {
+      "name": "graphrag-ingest-then-cypher",
+      "difficulty": "medium",
+      "input": "Ingest this paragraph as a document, then write a Cypher query that returns every entity pair that the extractor linked: 'Alice works with Bob on the OpenGraphDB cookbook.'",
+      "expected": {
+        "must_contain": ["rag/ingest", "MATCH", "RETURN"],
+        "must_not_contain": ["LOAD CSV", "shortestPath()"],
+        "pattern": "(rag/ingest.*PlainText|rag/ingest.*content)\\s.*MATCH\\s*\\([\\w]+\\)-\\[.*\\]->\\([\\w]+\\)"
+      },
+      "scoring": {
+        "uses_rag_ingest": 1,
+        "produces_valid_cypher": 1,
+        "matches_entity_pair_pattern": 1,
+        "mentions_t_persist_or_latency": 0.5
+      }
+    },
+    {
+      "name": "time-travel-correctness",
+      "difficulty": "medium",
+      "input": "Show me how to ask 'what edges existed at 2026-04-19 09:00 UTC' against the database. I have edges with valid_from / valid_to set.",
+      "expected": {
+        "must_contain": ["AT TIME", "MATCH"],
+        "must_not_contain": ["WHERE r.valid_from <"],
+        "pattern": "AT\\s+TIME\\s+\\d+|temporal_diff"
+      },
+      "scoring": {
+        "uses_at_time_extension": 1,
+        "milliseconds_in_cypher_or_seconds_for_temporal_diff": 1,
+        "no_manual_valid_from_filter": 1,
+        "names_temporal_filter_field": 0.5
+      }
+    },
+    {
+      "name": "subskill-routing",
+      "difficulty": "easy",
+      "input": "I have a 50k-row CSV of suppliers and need to load it into a fresh DB, then design indexes for fast lookup by supplier_id and city. Which sub-skills do I descend into and in what order?",
+      "expected": {
+        "must_contain": ["data-import", "schema-advisor"],
+        "must_not_contain": ["LOAD CSV"],
+        "pattern": "(data-import.*schema-advisor|schema-advisor.*data-import|first.*data-import|then.*schema-advisor)"
+      },
+      "scoring": {
+        "names_data_import_subskill": 1,
+        "names_schema_advisor_subskill": 1,
+        "explains_order": 1,
+        "mentions_merge_idempotency_or_unwind": 0.5
+      }
+    },
+    {
+      "name": "perf-honest-framing",
+      "difficulty": "hard",
+      "input": "Should I use OpenGraphDB to handle 50 concurrent writers committing thousands of edges per second from a fleet of agents? Be honest about what works and what doesn't.",
+      "expected": {
+        "must_contain": ["single-writer", "concurrent"],
+        "must_not_contain": ["yes, fully supported", "no problem"],
+        "pattern": "(single[- ]writer|kernel[- ]limited|N=4|shard|coordinator|MVCC.*not yet)"
+      },
+      "scoring": {
+        "flags_single_writer_kernel": 1,
+        "names_workaround_shard_or_coordinate": 1,
+        "cites_benchmarks_row_or_section": 1,
+        "does_not_overclaim": 1,
+        "explains_why_per_db_per_thread_is_mechanical": 0.5
+      }
+    },
+    {
+      "name": "common-pitfall-bare-return",
+      "difficulty": "easy",
+      "input": "I ran `MATCH (n:Person) RETURN n LIMIT 5` and got back rows like `i64:0`, `i64:1` instead of the names. What's wrong?",
+      "expected": {
+        "must_contain": ["RETURN", "properties"],
+        "pattern": "(RETURN\\s+n\\.name|RETURN\\s+properties\\(n\\)|bare\\s+node.*id)"
+      },
+      "scoring": {
+        "explains_bare_node_returns_id": 1,
+        "suggests_n_dot_property_or_properties_n": 1,
+        "no_misdiagnosis": 1
+      }
+    },
+    {
+      "name": "neo4j-migration-three-deltas",
+      "difficulty": "hard",
+      "input": "We're moving an embedded use case off Neo4j Community for licensing reasons. What are the three differences I should plan for, and what runs unchanged?",
+      "expected": {
+        "must_contain": ["Apache", "single-file", "MCP"],
+        "must_not_contain": ["AuraDB cluster", "fabric replication"],
+        "pattern": "(AGPL|Apache 2\\.0|single[- ]file|JVM-free|MCP|Bolt v1)"
+      },
+      "scoring": {
+        "names_apache_2_vs_agpl": 1,
+        "names_single_file_vs_jvm": 1,
+        "names_ai_native_primitives_or_mcp": 1,
+        "flags_bolt_v1_only": 0.5,
+        "flags_apoc_does_not_port": 0.5
+      }
+    }
+  ]
+}
