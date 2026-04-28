@@ -138,7 +138,6 @@ Current policy: `ogdb-core` + `ogdb-cli` must stay at or above 98% line coverage
 
 Method and progress logs:
 - `docs/TDD-METHODOLOGY.md`
-- `docs/IMPLEMENTATION-LOG.md`
 - `docs/FULL-IMPLEMENTATION-CHECKLIST.md`
 - `docs/VERSIONING.md`
 - `CHANGELOG.md`

@@ -152,7 +152,7 @@ export function DisconnectedState() {
           </span>
           <span aria-hidden="true">·</span>
           <a
-            href="https://github.com/innotrade/opengraphdb#getting-started"
+            href="https://github.com/asheshgoplani/opengraphdb#getting-started"
             target="_blank"
             rel="noreferrer noopener"
             className="text-white/65 underline-offset-4 hover:text-white hover:underline"

@@ -22,6 +22,7 @@
 .planning-v1-engine/
 .research/
 /tasks/
+docs/IMPLEMENTATION-LOG.md
 
 # Project-root Claude Code instructions (developer-local)
 /CLAUDE.md
