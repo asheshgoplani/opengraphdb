@@ -29,7 +29,10 @@ fn temp_db_path(tag: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("system time before unix epoch")
         .as_nanos();
-    path.push(format!("ogdb-auditregress-{tag}-{}-{ts}.ogdb", process::id()));
+    path.push(format!(
+        "ogdb-auditregress-{tag}-{}-{ts}.ogdb",
+        process::id()
+    ));
     path
 }
 
@@ -83,7 +86,10 @@ fn read_full_response(stream: &mut TcpStream) -> (u16, String) {
     (status, body.to_string())
 }
 
-fn spawn_http_server(tag: &str, max_requests: u64) -> (String, thread::JoinHandle<ogdb_cli::CliResult>, PathBuf) {
+fn spawn_http_server(
+    tag: &str,
+    max_requests: u64,
+) -> (String, thread::JoinHandle<ogdb_cli::CliResult>, PathBuf) {
     let path = temp_db_path(tag);
     cleanup(&path);
     let init = run(&["init".to_string(), path.display().to_string()]);
@@ -142,7 +148,10 @@ fn import_created_nodes_is_a_count_not_the_highest_id() {
     stream.flush().expect("flush /import request");
 
     let (status, raw_body) = read_full_response(&mut stream);
-    assert_eq!(status, 200, "expected 200 OK from /import; got status={status}, body={raw_body}");
+    assert_eq!(
+        status, 200,
+        "expected 200 OK from /import; got status={status}, body={raw_body}"
+    );
 
     let json: serde_json::Value =
         serde_json::from_str(&raw_body).expect("import response must be json");
@@ -171,10 +180,17 @@ fn import_created_nodes_is_a_count_not_the_highest_id() {
         .get("highest_node_id")
         .and_then(|v| v.as_u64())
         .expect("highest_node_id must be present");
-    assert_eq!(highest, 100, "highest_node_id should expose the allocator ceiling: {json}");
+    assert_eq!(
+        highest, 100,
+        "highest_node_id should expose the allocator ceiling: {json}"
+    );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }
 
@@ -215,7 +231,11 @@ fn invalid_cypher_returns_400_not_500() {
     );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }
 
@@ -239,9 +259,16 @@ fn query_payload_missing_query_field_returns_400() {
     stream.flush().expect("flush missing-query request");
 
     let (status, raw_body) = read_full_response(&mut stream);
-    assert_eq!(status, 400, "missing `query` field must be 400; got {status}, body={raw_body}");
+    assert_eq!(
+        status, 400,
+        "missing `query` field must be 400; got {status}, body={raw_body}"
+    );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }

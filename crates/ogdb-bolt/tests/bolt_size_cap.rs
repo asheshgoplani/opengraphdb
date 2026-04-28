@@ -68,7 +68,9 @@ fn connect_with_retry(addr: &str) -> TcpStream {
 }
 
 fn write_handshake(stream: &mut TcpStream) {
-    stream.write_all(&BOLT_MAGIC.to_be_bytes()).expect("write magic");
+    stream
+        .write_all(&BOLT_MAGIC.to_be_bytes())
+        .expect("write magic");
     stream
         .write_all(&BOLT_VERSION_1.to_be_bytes())
         .expect("write proposed v1");
@@ -99,10 +101,7 @@ fn bolt_chunked_message_exceeding_cap_is_rejected_without_killing_server() {
 
     // Bind-then-drop to reserve a free port so the server can take it.
     let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
-    let addr = probe
-        .local_addr()
-        .expect("probe addr")
-        .to_string();
+    let addr = probe.local_addr().expect("probe addr").to_string();
     drop(probe);
 
     let shared_for_serve = shared.clone();
@@ -110,9 +109,7 @@ fn bolt_chunked_message_exceeding_cap_is_rejected_without_killing_server() {
     // max_requests=2 lets the server finish the well-formed probe after the
     // oversized message drops the first connection. serve counts requests
     // across the budget, not per-connection, so we pick 2 to be safe.
-    let serve_handle = thread::spawn(move || {
-        serve(shared_for_serve, &addr_for_serve, Some(2))
-    });
+    let serve_handle = thread::spawn(move || serve(shared_for_serve, &addr_for_serve, Some(2)));
 
     // Attacker connection: complete handshake, then stream chunks exceeding cap.
     let mut attacker = connect_with_retry(&addr);

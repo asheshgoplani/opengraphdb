@@ -55,10 +55,20 @@ fn property_value_has_eleven_variants() {
         PropertyValue::Bytes(vec![0xDE, 0xAD, 0xBE, 0xEF]),
         PropertyValue::Vector(vec![1.0_f32, 2.0, 3.0]),
         PropertyValue::Date(20_000),
-        PropertyValue::DateTime { micros: 1_700_000_000_000_000, tz_offset_minutes: 60 },
-        PropertyValue::Duration { months: 1, days: 2, nanos: 3 },
+        PropertyValue::DateTime {
+            micros: 1_700_000_000_000_000,
+            tz_offset_minutes: 60,
+        },
+        PropertyValue::Duration {
+            months: 1,
+            days: 2,
+            nanos: 3,
+        },
         PropertyValue::List(vec![PropertyValue::I64(1)]),
-        PropertyValue::Map(BTreeMap::from([("k".to_string(), PropertyValue::Bool(false))])),
+        PropertyValue::Map(BTreeMap::from([(
+            "k".to_string(),
+            PropertyValue::Bool(false),
+        )])),
     ];
     assert_eq!(variants.len(), 11);
     // Derives from the original type must survive the move.
@@ -95,14 +105,24 @@ fn serde_round_trip_preserves_every_variant() {
         (PropertyValue::F64(1.5), r#"{"F64":1.5}"#),
         (PropertyValue::String("hi".into()), r#"{"String":"hi"}"#),
         (PropertyValue::Bytes(vec![1, 2, 3]), r#"{"Bytes":[1,2,3]}"#),
-        (PropertyValue::Vector(vec![1.0, 2.0]), r#"{"Vector":[1.0,2.0]}"#),
+        (
+            PropertyValue::Vector(vec![1.0, 2.0]),
+            r#"{"Vector":[1.0,2.0]}"#,
+        ),
         (PropertyValue::Date(123), r#"{"Date":123}"#),
         (
-            PropertyValue::DateTime { micros: 100, tz_offset_minutes: 60 },
+            PropertyValue::DateTime {
+                micros: 100,
+                tz_offset_minutes: 60,
+            },
             r#"{"DateTime":{"micros":100,"tz_offset_minutes":60}}"#,
         ),
         (
-            PropertyValue::Duration { months: 1, days: 2, nanos: 3 },
+            PropertyValue::Duration {
+                months: 1,
+                days: 2,
+                nanos: 3,
+            },
             r#"{"Duration":{"months":1,"days":2,"nanos":3}}"#,
         ),
         (
@@ -124,11 +144,23 @@ fn ord_orders_within_numeric_family() {
     // the Cypher `MIN()` / `MAX()` aggregations and for `BTreeSet`
     // ordering of mixed numeric properties.
     use std::cmp::Ordering;
-    assert_eq!(PropertyValue::I64(1).cmp(&PropertyValue::I64(2)), Ordering::Less);
-    assert_eq!(PropertyValue::F64(1.0).cmp(&PropertyValue::I64(2)), Ordering::Less);
-    assert_eq!(PropertyValue::I64(2).cmp(&PropertyValue::F64(1.5)), Ordering::Greater);
+    assert_eq!(
+        PropertyValue::I64(1).cmp(&PropertyValue::I64(2)),
+        Ordering::Less
+    );
+    assert_eq!(
+        PropertyValue::F64(1.0).cmp(&PropertyValue::I64(2)),
+        Ordering::Less
+    );
+    assert_eq!(
+        PropertyValue::I64(2).cmp(&PropertyValue::F64(1.5)),
+        Ordering::Greater
+    );
     // Same numeric value cross-type: I64(2) vs F64(2.0) ties under total_cmp.
-    assert_eq!(PropertyValue::I64(2).cmp(&PropertyValue::F64(2.0)), Ordering::Equal);
+    assert_eq!(
+        PropertyValue::I64(2).cmp(&PropertyValue::F64(2.0)),
+        Ordering::Equal
+    );
 }
 
 #[test]

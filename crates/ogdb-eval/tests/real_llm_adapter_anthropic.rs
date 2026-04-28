@@ -79,7 +79,10 @@ async fn anthropic_formats_correct_request_body() {
         resp.text, "MATCH (p:Person) RETURN p",
         "adapter must extract content[0].text"
     );
-    assert!(resp.latency_us > 0, "latency must be measured, not synthesised");
+    assert!(
+        resp.latency_us > 0,
+        "latency must be measured, not synthesised"
+    );
 
     // Verify the actual request body: model, max_tokens, messages[0].role,
     // messages[0].content. wiremock records every match in order.
@@ -92,8 +95,8 @@ async fn anthropic_formats_correct_request_body() {
         1,
         "exactly one request must reach the mock server"
     );
-    let body: serde_json::Value = serde_json::from_slice(&received[0].body)
-        .expect("request body must be JSON");
+    let body: serde_json::Value =
+        serde_json::from_slice(&received[0].body).expect("request body must be JSON");
     assert_eq!(body["model"], "claude-haiku-4-5");
     assert_eq!(body["max_tokens"], 1024);
     let messages = body["messages"].as_array().expect("messages array");

@@ -140,18 +140,12 @@ pub fn run_pagerank(
         "iterations".to_string(),
         metric(iterations as f64, "count", false),
     );
-    run.metrics.insert(
-        "nodes".to_string(),
-        metric(n as f64, "nodes", true),
-    );
-    run.metrics.insert(
-        "setup_us".to_string(),
-        metric(setup_us, "us", false),
-    );
-    run.metrics.insert(
-        "iter_us".to_string(),
-        metric(iter_us, "us", false),
-    );
+    run.metrics
+        .insert("nodes".to_string(), metric(n as f64, "nodes", true));
+    run.metrics
+        .insert("setup_us".to_string(), metric(setup_us, "us", false));
+    run.metrics
+        .insert("iter_us".to_string(), metric(iter_us, "us", false));
     run.notes = format!("PageRank {iterations} iters, damping={damping}, n={n}");
     Ok(PageRankResult { run, scores })
 }

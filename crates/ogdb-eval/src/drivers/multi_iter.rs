@@ -163,7 +163,9 @@ pub fn median_aggregate(iters: &[Vec<EvaluationRun>]) -> Vec<EvaluationRun> {
     for (iter_idx, runs) in iters.iter().enumerate() {
         for r in runs {
             let key: Key = (r.suite.clone(), r.subsuite.clone(), r.dataset.clone());
-            let acc = groups.entry(key).or_insert_with(|| GroupAcc::new(r.clone()));
+            let acc = groups
+                .entry(key)
+                .or_insert_with(|| GroupAcc::new(r.clone()));
             acc.last_seen_run = r.clone();
             acc.last_seen_iter = iter_idx;
             for (name, m) in &r.metrics {

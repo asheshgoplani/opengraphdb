@@ -186,7 +186,10 @@ pub fn run_all(cfg: &RunAllConfig) -> Result<Vec<EvaluationRun>, RunAllError> {
     // ── scaling 10K ──────────────────────────────────────────────────────
     if cfg.include_scaling_10k {
         let scaling_dir = cfg.workdir.join("scaling");
-        runs.push(scaling::run_tier(&scaling_dir, scaling::ScalingTier::Tier10K)?);
+        runs.push(scaling::run_tier(
+            &scaling_dir,
+            scaling::ScalingTier::Tier10K,
+        )?);
     }
 
     Ok(runs)
@@ -277,7 +280,11 @@ pub fn append_skill_quality_run_with_adapter(
     };
     run.environment.insert(
         "suite_status".into(),
-        if degraded { "degraded".into() } else { "ok".into() },
+        if degraded {
+            "degraded".into()
+        } else {
+            "ok".into()
+        },
     );
     runs.push(run);
     Ok(())

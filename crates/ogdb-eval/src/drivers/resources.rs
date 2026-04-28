@@ -69,17 +69,18 @@ where
     let mut run = evaluation_run_skeleton("resources", &subsuite, dataset);
     run.metrics
         .insert("rss_peak_mb".to_string(), metric(rss_peak_mb, "MB", false));
-    run.metrics
-        .insert("rss_final_mb".to_string(), metric(rss_final_mb, "MB", false));
+    run.metrics.insert(
+        "rss_final_mb".to_string(),
+        metric(rss_final_mb, "MB", false),
+    );
     run.metrics
         .insert("disk_mb".to_string(), metric(disk_mb, "MB", false));
     run.metrics
         .insert("cpu_user_s".to_string(), metric(cpu_user_s, "s", false));
     run.metrics
         .insert("elapsed_s".to_string(), metric(elapsed_s, "s", false));
-    run.notes = format!(
-        "resources around {workload_suite}.{workload_subsuite}; linux-only proc probes"
-    );
+    run.notes =
+        format!("resources around {workload_suite}.{workload_subsuite}; linux-only proc probes");
     Ok(run)
 }
 

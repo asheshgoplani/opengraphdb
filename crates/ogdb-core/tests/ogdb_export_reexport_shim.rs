@@ -112,14 +112,12 @@ fn exported_records_round_trip_via_database_helpers_through_shim() {
         .add_typed_edge(0, 1, "KNOWS", &edge_props)
         .expect("add typed edge");
 
-    let nodes_via_core: Vec<ogdb_core::ExportNode> =
-        db.export_nodes().expect("export nodes");
+    let nodes_via_core: Vec<ogdb_core::ExportNode> = db.export_nodes().expect("export nodes");
     let nodes_via_export: Vec<ogdb_export::ExportNode> = nodes_via_core.clone();
     assert_eq!(nodes_via_core.len(), 2);
     assert_eq!(nodes_via_core, nodes_via_export);
 
-    let edges_via_core: Vec<ogdb_core::ExportEdge> =
-        db.export_edges().expect("export edges");
+    let edges_via_core: Vec<ogdb_core::ExportEdge> = db.export_edges().expect("export edges");
     let edges_via_export: Vec<ogdb_export::ExportEdge> = edges_via_core.clone();
     assert_eq!(edges_via_core.len(), 1);
     assert_eq!(edges_via_core, edges_via_export);

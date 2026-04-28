@@ -79,10 +79,7 @@ pub fn temporal_filter_matches(
 /// `ogdb-core`) adapts the error via
 /// `.map_err(DbError::InvalidArgument)`.
 #[inline]
-pub fn validate_valid_window(
-    valid_from: Option<i64>,
-    valid_to: Option<i64>,
-) -> Result<(), String> {
+pub fn validate_valid_window(valid_from: Option<i64>, valid_to: Option<i64>) -> Result<(), String> {
     if let (Some(from), Some(to)) = (valid_from, valid_to) {
         if to <= from {
             return Err("valid_to must be greater than valid_from".to_string());

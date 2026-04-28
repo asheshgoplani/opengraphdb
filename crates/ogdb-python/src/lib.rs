@@ -166,7 +166,11 @@ fn property_value_to_json(value: &PropertyValue) -> Value {
             .into_iter()
             .collect(),
         ),
-        PropertyValue::Duration { months, days, nanos } => Value::Object(
+        PropertyValue::Duration {
+            months,
+            days,
+            nanos,
+        } => Value::Object(
             [
                 ("months".to_string(), Value::Number((*months).into())),
                 ("days".to_string(), Value::Number((*days).into())),
@@ -631,11 +635,18 @@ fn property_value_to_py_object(py: Python<'_>, value: &PropertyValue) -> PyObjec
                 .expect("python dict set should succeed");
             dict.into_py(py)
         }
-        PropertyValue::Duration { months, days, nanos } => {
+        PropertyValue::Duration {
+            months,
+            days,
+            nanos,
+        } => {
             let dict = PyDict::new_bound(py);
-            dict.set_item("months", *months).expect("python dict set should succeed");
-            dict.set_item("days", *days).expect("python dict set should succeed");
-            dict.set_item("nanos", *nanos).expect("python dict set should succeed");
+            dict.set_item("months", *months)
+                .expect("python dict set should succeed");
+            dict.set_item("days", *days)
+                .expect("python dict set should succeed");
+            dict.set_item("nanos", *nanos)
+                .expect("python dict set should succeed");
             dict.into_py(py)
         }
         PropertyValue::List(values) => {

@@ -130,7 +130,10 @@ fn send(addr: &str, method: &str, path: &str, extra_headers: &[(&str, &str)]) ->
     }
 }
 
-fn spawn_http_server(tag: &str, max_requests: u64) -> (String, thread::JoinHandle<ogdb_cli::CliResult>, PathBuf) {
+fn spawn_http_server(
+    tag: &str,
+    max_requests: u64,
+) -> (String, thread::JoinHandle<ogdb_cli::CliResult>, PathBuf) {
     let path = temp_db_path(tag);
     cleanup(&path);
     let init = run(&["init".to_string(), path.display().to_string()]);
@@ -183,7 +186,11 @@ fn http_response_carries_cors_headers_for_cross_origin_get() {
     assert!(schema.get("labels").is_some(), "schema missing labels key");
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve exit nonzero: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve exit nonzero: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }
 
@@ -210,7 +217,8 @@ fn http_options_preflight_returns_204_with_full_cors_headers() {
     );
 
     assert_eq!(
-        response.status, 204,
+        response.status,
+        204,
         "expected 204 on OPTIONS preflight; got headers: {:?}, body: {}",
         response.headers,
         String::from_utf8_lossy(&response.body)
@@ -233,13 +241,15 @@ fn http_options_preflight_returns_204_with_full_cors_headers() {
         .get("access-control-allow-headers")
         .expect("preflight missing Access-Control-Allow-Headers");
     assert!(
-        allow_headers
-            .to_ascii_lowercase()
-            .contains("content-type"),
+        allow_headers.to_ascii_lowercase().contains("content-type"),
         "preflight Access-Control-Allow-Headers must include Content-Type, got: {allow_headers}"
     );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve exit nonzero: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve exit nonzero: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }

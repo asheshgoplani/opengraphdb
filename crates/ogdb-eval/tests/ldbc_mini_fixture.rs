@@ -25,8 +25,10 @@ fn ldbc_mini_is_deterministic_across_rebuilds() {
     let dir_b = TempDir::new().expect("temp dir b");
     let a = build_ldbc_mini(&dir_a.path().join("a.ogdb")).expect("a");
     let b = build_ldbc_mini(&dir_b.path().join("b.ogdb")).expect("b");
-    assert_eq!(a.adjacency, b.adjacency,
-        "fixture must be deterministic — same seed must yield same edges");
+    assert_eq!(
+        a.adjacency, b.adjacency,
+        "fixture must be deterministic — same seed must yield same edges"
+    );
 }
 
 #[test]
@@ -34,7 +36,13 @@ fn ldbc_mini_adjacency_indexes_are_in_range() {
     let dir = TempDir::new().expect("temp dir");
     let mini: LdbcMini = build_ldbc_mini(&dir.path().join("graph.ogdb")).expect("build");
     for (src, dst) in &mini.adjacency {
-        assert!((*src as usize) < mini.person_count, "src {src} out of range");
-        assert!((*dst as usize) < mini.person_count, "dst {dst} out of range");
+        assert!(
+            (*src as usize) < mini.person_count,
+            "src {src} out of range"
+        );
+        assert!(
+            (*dst as usize) < mini.person_count,
+            "dst {dst} out of range"
+        );
     }
 }

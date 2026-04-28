@@ -5,8 +5,8 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, VecDeque};
 // Re-export the public vector primitive types so every existing
 // `use ogdb_core::VectorDistanceMetric;` caller in the workspace
 // keeps compiling byte-for-byte identically after the extraction.
-pub use ogdb_vector::{VectorDistanceMetric, VectorIndexDefinition};
 use ogdb_vector::{compare_f32_vectors, parse_vector_literal_text, vector_distance};
+pub use ogdb_vector::{VectorDistanceMetric, VectorIndexDefinition};
 
 // Re-export the plain-data algorithm types so every existing
 // `use ogdb_core::{ShortestPathOptions, GraphPath, Subgraph, SubgraphEdge};`
@@ -28,14 +28,14 @@ pub use ogdb_text::FullTextIndexDefinition;
 // `Database::rebuild_fulltext_indexes_from_catalog`) resolve the names
 // unqualified. The validator is re-aliased to `_pure` because a thin
 // 3-LOC wrapper preserves the historical `Result<_, DbError>` signature.
-use ogdb_text::{
-    fulltext_index_root_path_for_db,
-    normalize_fulltext_index_definition as normalize_fulltext_index_definition_pure,
-};
 #[cfg(feature = "fulltext-search")]
 use ogdb_text::fulltext_index_path_for_name;
 #[cfg(any(feature = "fulltext-search", test))]
 use ogdb_text::sanitize_index_component;
+use ogdb_text::{
+    fulltext_index_root_path_for_db,
+    normalize_fulltext_index_definition as normalize_fulltext_index_definition_pure,
+};
 
 // Re-export the plain-data temporal primitives so every existing
 // in-core call site (the AST `MatchClause.temporal_filter` field, the
@@ -2820,11 +2820,8 @@ fn build_logical_plan(model: &SemanticModel) -> Result<LogicalPlan, PlanError> {
     }
 
     if let Some(return_clause) = &model.query.return_clause {
-        let mut out = aggregate_and_project(
-            plan.take(),
-            &return_clause.items,
-            return_clause.distinct,
-        );
+        let mut out =
+            aggregate_and_project(plan.take(), &return_clause.items, return_clause.distinct);
         if !return_clause.order_by.is_empty() {
             out = LogicalPlan::Sort {
                 input: Box::new(out),
@@ -8356,8 +8353,13 @@ impl<'a> ReadTransaction<'a> {
         k: usize,
         config: &RrfConfig,
     ) -> Result<Vec<RagResult>, DbError> {
-        self.db
-            .hybrid_rag_retrieve_rrf_at(query_embedding, query_text, k, config, self.snapshot_txn_id)
+        self.db.hybrid_rag_retrieve_rrf_at(
+            query_embedding,
+            query_text,
+            k,
+            config,
+            self.snapshot_txn_id,
+        )
     }
 
     pub fn out_degree_stats(&self) -> Result<OutDegreeStats, DbError> {
@@ -8979,8 +8981,13 @@ impl<'a> ReadSnapshot<'a> {
         k: usize,
         config: &RrfConfig,
     ) -> Result<Vec<RagResult>, DbError> {
-        self.guard
-            .hybrid_rag_retrieve_rrf_at(query_embedding, query_text, k, config, self.snapshot_txn_id)
+        self.guard.hybrid_rag_retrieve_rrf_at(
+            query_embedding,
+            query_text,
+            k,
+            config,
+            self.snapshot_txn_id,
+        )
     }
 
     pub fn out_degree_stats(&self) -> Result<OutDegreeStats, DbError> {
@@ -10895,7 +10902,6 @@ impl NodePropertyStore {
         );
         Ok(())
     }
-
 
     fn read_page(&self, page_id: u64, out: &mut [u8]) -> Result<(), DbError> {
         self.validate_page_buffer_len(out.len())?;
@@ -14485,8 +14491,7 @@ impl Database {
                 }
                 let mut rows = Vec::<BTreeMap<String, RuntimeValue>>::new();
                 for row in input_rows {
-                    let list_value =
-                        self.evaluate_expression(expression, &row, snapshot_txn_id)?;
+                    let list_value = self.evaluate_expression(expression, &row, snapshot_txn_id)?;
                     let values = match list_value {
                         RuntimeValue::Property(PropertyValue::List(values)) => values,
                         _ => continue,
@@ -14827,13 +14832,11 @@ impl Database {
                 ..
             } => {
                 let input_rows = if let Some(input) = input {
-                    rows_from_batches(
-                        &self.execute_physical_plan_batches_traced(
-                            input,
-                            snapshot_txn_id,
-                            trace,
-                        )?,
-                    )
+                    rows_from_batches(&self.execute_physical_plan_batches_traced(
+                        input,
+                        snapshot_txn_id,
+                        trace,
+                    )?)
                 } else {
                     vec![BTreeMap::<String, RuntimeValue>::new()]
                 };
@@ -14846,8 +14849,7 @@ impl Database {
                 }
                 let mut rows = Vec::<BTreeMap<String, RuntimeValue>>::new();
                 for row in input_rows {
-                    let list_value =
-                        self.evaluate_expression(expression, &row, snapshot_txn_id)?;
+                    let list_value = self.evaluate_expression(expression, &row, snapshot_txn_id)?;
                     let values = match list_value {
                         RuntimeValue::Property(PropertyValue::List(values)) => values,
                         _ => continue,
@@ -18380,15 +18382,13 @@ impl Database {
 
         for (level_idx, resolution) in sorted_resolutions.iter().enumerate() {
             let level = level_idx as u32;
-            let raw_communities =
-                self.community_leiden_at(None, *resolution, snapshot_txn_id)?;
+            let raw_communities = self.community_leiden_at(None, *resolution, snapshot_txn_id)?;
             if raw_communities.is_empty() {
                 continue;
             }
 
             // Remap raw community IDs to globally unique IDs
-            let unique_raw_ids: BTreeSet<u64> =
-                raw_communities.iter().map(|(_, c)| *c).collect();
+            let unique_raw_ids: BTreeSet<u64> = raw_communities.iter().map(|(_, c)| *c).collect();
             let mut remap = BTreeMap::<u64, u64>::new();
             for (i, raw_id) in unique_raw_ids.iter().enumerate() {
                 remap.insert(*raw_id, community_id_offset + i as u64);
@@ -18454,8 +18454,7 @@ impl Database {
                     }
                 }
 
-                let mut top_properties: Vec<(String, u64)> =
-                    property_counts.into_iter().collect();
+                let mut top_properties: Vec<(String, u64)> = property_counts.into_iter().collect();
                 top_properties.sort_by_key(|b| std::cmp::Reverse(b.1));
                 top_properties.truncate(10);
 
@@ -18512,7 +18511,11 @@ impl Database {
 
                 // Register parent-child relationship
                 if let Some(parent_id) = parent_community_id {
-                    hierarchy.children.entry(parent_id).or_default().push(*comm_id);
+                    hierarchy
+                        .children
+                        .entry(parent_id)
+                        .or_default()
+                        .push(*comm_id);
                 }
 
                 // Store members for leaf level (finest granularity, level 0)
@@ -19170,8 +19173,7 @@ impl Database {
             None
         };
 
-        let prefilter: Option<RoaringBitmap> = if let Some(target_community) = config.community_id
-        {
+        let prefilter: Option<RoaringBitmap> = if let Some(target_community) = config.community_id {
             let cmap = community_by_node.as_ref().unwrap();
             let mut bitmap = RoaringBitmap::new();
             for (node_id, cid) in cmap {
@@ -19235,7 +19237,11 @@ impl Database {
                 let scored: Vec<(u64, f32)> = vector_results
                     .into_iter()
                     .map(|(node_id, dist)| {
-                        let dist = if dist.is_finite() { dist.max(0.0) } else { f32::MAX };
+                        let dist = if dist.is_finite() {
+                            dist.max(0.0)
+                        } else {
+                            f32::MAX
+                        };
                         (node_id, 1.0 / (1.0 + dist))
                     })
                     .collect();
@@ -19247,12 +19253,8 @@ impl Database {
         if config.signals.contains(&RetrievalSignal::GraphTraversal)
             && !query_text.trim().is_empty()
         {
-            let anchors = self.entity_link_at(
-                query_text,
-                10,
-                prefilter.as_ref(),
-                snapshot_txn_id,
-            )?;
+            let anchors =
+                self.entity_link_at(query_text, 10, prefilter.as_ref(), snapshot_txn_id)?;
             if !anchors.is_empty() {
                 let graph_results = self.graph_traversal_retrieve_at(
                     &anchors,
@@ -19306,7 +19308,9 @@ impl Database {
             }
             TemporalScope::ValidTime => 0,
         };
-        Ok(temporal_filter_matches(filter, valid_from, valid_to, tx_time))
+        Ok(temporal_filter_matches(
+            filter, valid_from, valid_to, tx_time,
+        ))
     }
 
     fn rebuild_property_indexes_from_catalog(&mut self) -> Result<(), DbError> {
@@ -20479,9 +20483,8 @@ impl Database {
         // sidecar writes — pretty-printing adds ~2× the bytes and ~3× the
         // CPU time. On-disk format is identical to what `serde_json::from_str`
         // parses, so no migration concern.
-        let encoded =
-            serde_json::to_vec(&self.meta.to_persisted(&self.node_temporal_versions))
-                .expect("known-serializable type");
+        let encoded = serde_json::to_vec(&self.meta.to_persisted(&self.node_temporal_versions))
+            .expect("known-serializable type");
         let meta_path = meta_path_for_db(&self.path);
         let mut file = OpenOptions::new()
             .write(true)
@@ -21415,13 +21418,11 @@ impl Database {
                     let properties: PropertyMap = if props_len == 0 {
                         PropertyMap::new()
                     } else {
-                        serde_json::from_slice(&bytes[offset..offset + props_len]).map_err(
-                            |e| {
-                                DbError::Corrupt(format!(
-                                    "wal v2 create_node: props json decode failed: {e}"
-                                ))
-                            },
-                        )?
+                        serde_json::from_slice(&bytes[offset..offset + props_len]).map_err(|e| {
+                            DbError::Corrupt(format!(
+                                "wal v2 create_node: props json decode failed: {e}"
+                            ))
+                        })?
                     };
                     offset += props_len;
                     self.replay_wal_create_node_v2(
@@ -21531,7 +21532,8 @@ impl Database {
             for key in properties.keys() {
                 self.meta.property_key_registry.insert(key.clone());
             }
-            self.node_property_store.write_properties(idx, &properties)?;
+            self.node_property_store
+                .write_properties(idx, &properties)?;
         }
 
         Ok(())
@@ -21584,9 +21586,7 @@ impl Database {
 
         // Step 1: Parse document into sections
         let sections = match config.format {
-            DocumentFormat::Pdf => {
-                parse_pdf_sections(data).map_err(DbError::InvalidArgument)?
-            }
+            DocumentFormat::Pdf => parse_pdf_sections(data).map_err(DbError::InvalidArgument)?,
             DocumentFormat::Markdown => {
                 let text = std::str::from_utf8(data)
                     .map_err(|e| DbError::InvalidArgument(format!("Invalid UTF-8: {e}")))?;
@@ -21614,7 +21614,10 @@ impl Database {
             format!("{secs}Z")
         };
         let mut doc_props = PropertyMap::new();
-        doc_props.insert("title".to_string(), PropertyValue::String(config.title.clone()));
+        doc_props.insert(
+            "title".to_string(),
+            PropertyValue::String(config.title.clone()),
+        );
         doc_props.insert(
             "format".to_string(),
             PropertyValue::String(format!("{:?}", config.format)),
@@ -21626,7 +21629,10 @@ impl Database {
         if let Some(uri) = &config.source_uri {
             doc_props.insert("_uri".to_string(), PropertyValue::String(uri.clone()));
         }
-        doc_props.insert("ingested_at".to_string(), PropertyValue::String(ingested_at));
+        doc_props.insert(
+            "ingested_at".to_string(),
+            PropertyValue::String(ingested_at),
+        );
         let doc_node_id = self.create_node_with(&["Document".to_string()], &doc_props)?;
 
         // Step 3: Ensure indexes exist (ignore if already present)
@@ -21660,8 +21666,14 @@ impl Database {
         for (idx, section) in sections.iter().enumerate() {
             // Create :Section node
             let mut section_props = PropertyMap::new();
-            section_props.insert("title".to_string(), PropertyValue::String(section.title.clone()));
-            section_props.insert("level".to_string(), PropertyValue::I64(section.level as i64));
+            section_props.insert(
+                "title".to_string(),
+                PropertyValue::String(section.title.clone()),
+            );
+            section_props.insert(
+                "level".to_string(),
+                PropertyValue::I64(section.level as i64),
+            );
             section_props.insert("index".to_string(), PropertyValue::I64(idx as i64));
             if let Some(ps) = section.page_start {
                 section_props.insert("page_start".to_string(), PropertyValue::I64(ps as i64));
@@ -21693,10 +21705,20 @@ impl Database {
                 let chunks = chunk_content(&section.content, config.max_chunk_words);
                 for (chunk_idx, chunk_text) in chunks.iter().enumerate() {
                     let mut content_props = PropertyMap::new();
-                    content_props.insert("text".to_string(), PropertyValue::String(chunk_text.clone()));
-                    content_props.insert("title".to_string(), PropertyValue::String(section.title.clone()));
-                    content_props.insert("chunk_index".to_string(), PropertyValue::I64(chunk_idx as i64));
-                    content_props.insert("section_index".to_string(), PropertyValue::I64(idx as i64));
+                    content_props.insert(
+                        "text".to_string(),
+                        PropertyValue::String(chunk_text.clone()),
+                    );
+                    content_props.insert(
+                        "title".to_string(),
+                        PropertyValue::String(section.title.clone()),
+                    );
+                    content_props.insert(
+                        "chunk_index".to_string(),
+                        PropertyValue::I64(chunk_idx as i64),
+                    );
+                    content_props
+                        .insert("section_index".to_string(), PropertyValue::I64(idx as i64));
                     content_props.insert(
                         "word_count".to_string(),
                         PropertyValue::I64(chunk_text.split_whitespace().count() as i64),
@@ -21706,10 +21728,8 @@ impl Database {
                     if let Some(embed_fn) = &config.embed_fn {
                         let embedding = embed_fn(chunk_text);
                         if !embedding.is_empty() {
-                            content_props.insert(
-                                "embedding".to_string(),
-                                PropertyValue::Vector(embedding),
-                            );
+                            content_props
+                                .insert("embedding".to_string(), PropertyValue::Vector(embedding));
                         }
                     }
 
@@ -21732,7 +21752,10 @@ impl Database {
         for (from_idx, to_idx) in &cross_refs {
             if *from_idx < section_node_ids.len() && *to_idx < section_node_ids.len() {
                 let mut ref_props = PropertyMap::new();
-                ref_props.insert("type".to_string(), PropertyValue::String("mention".to_string()));
+                ref_props.insert(
+                    "type".to_string(),
+                    PropertyValue::String("mention".to_string()),
+                );
                 self.add_typed_edge(
                     section_node_ids[*from_idx],
                     section_node_ids[*to_idx],
@@ -31647,13 +31670,7 @@ mod tests {
             .expect("rtl")
             .is_empty());
         assert!(!db
-            .expand_neighbors_for_node(
-                n0,
-                RelationshipDirection::Undirected,
-                None,
-                None,
-                snapshot,
-            )
+            .expand_neighbors_for_node(n0, RelationshipDirection::Undirected, None, None, snapshot,)
             .expect("undir")
             .is_empty());
         assert!(db
@@ -40140,9 +40157,9 @@ mod tests {
         db.query("CREATE (a:Person {name: 'Alice'})-[:KNOWS]->(b:Person {name: 'Bob'})")
             .expect("seed data");
 
-        let (result, trace) =
-            db.query_with_trace("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.name, b.name")
-                .expect("query_with_trace must succeed");
+        let (result, trace) = db
+            .query_with_trace("MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.name, b.name")
+            .expect("query_with_trace must succeed");
 
         assert!(result.row_count() > 0, "query must return rows");
         assert!(
@@ -40228,10 +40245,7 @@ mod tests {
             .1;
         for &node in &cluster_a[1..] {
             let comm = communities.iter().find(|(n, _)| *n == node).unwrap().1;
-            assert_eq!(
-                comm, comm_a,
-                "Nodes in cluster A should share a community"
-            );
+            assert_eq!(comm, comm_a, "Nodes in cluster A should share a community");
         }
 
         // Nodes in cluster B should share a community
@@ -40242,13 +40256,13 @@ mod tests {
             .1;
         for &node in &cluster_b[1..] {
             let comm = communities.iter().find(|(n, _)| *n == node).unwrap().1;
-            assert_eq!(
-                comm, comm_b,
-                "Nodes in cluster B should share a community"
-            );
+            assert_eq!(comm, comm_b, "Nodes in cluster B should share a community");
         }
 
-        assert_ne!(comm_a, comm_b, "Two clusters should be in different communities");
+        assert_ne!(
+            comm_a, comm_b,
+            "Two clusters should be in different communities"
+        );
 
         cleanup_db_artifacts(&path);
     }
@@ -40325,10 +40339,7 @@ mod tests {
             for _ in 0..5 {
                 let label = format!("Group{cluster}");
                 let n = db
-                    .create_node_with(
-                        &[label],
-                        &PropertyMap::new(),
-                    )
+                    .create_node_with(&[label], &PropertyMap::new())
                     .expect("create node");
                 cluster_nodes.push(n);
             }
@@ -40477,8 +40488,16 @@ The results show improvement.
 
         let result = db.ingest_document(markdown, &config).unwrap();
 
-        assert!(result.section_count >= 3, "Should have at least 3 sections, got {}", result.section_count);
-        assert!(result.content_count >= 3, "Should have at least 3 content chunks, got {}", result.content_count);
+        assert!(
+            result.section_count >= 3,
+            "Should have at least 3 sections, got {}",
+            result.section_count
+        );
+        assert!(
+            result.content_count >= 3,
+            "Should have at least 3 content chunks, got {}",
+            result.content_count
+        );
         assert!(!result.vector_indexed, "No embed_fn means no vector index");
         assert!(result.text_indexed);
 
@@ -40525,7 +40544,11 @@ Another chapter.
 
         let result = db.ingest_document(markdown, &config).unwrap();
 
-        assert!(result.section_count >= 4, "Should have sections for both H1 and H2 headings, got {}", result.section_count);
+        assert!(
+            result.section_count >= 4,
+            "Should have sections for both H1 and H2 headings, got {}",
+            result.section_count
+        );
 
         cleanup_db_artifacts(&path);
     }
@@ -40548,7 +40571,11 @@ Another chapter.
 
         let result = db.ingest_document(text.as_bytes(), &config).unwrap();
 
-        assert!(result.content_count >= 4, "Should produce at least 4 chunks for 100 words at 30/chunk, got {}", result.content_count);
+        assert!(
+            result.content_count >= 4,
+            "Should produce at least 4 chunks for 100 words at 30/chunk, got {}",
+            result.content_count
+        );
 
         cleanup_db_artifacts(&path);
     }
@@ -40574,7 +40601,10 @@ Some content for embedding.
 
         let result = db.ingest_document(markdown, &config).unwrap();
 
-        assert!(result.vector_indexed, "Should report vector indexing when embed_fn provided");
+        assert!(
+            result.vector_indexed,
+            "Should report vector indexing when embed_fn provided"
+        );
         assert!(result.content_count >= 1);
 
         cleanup_db_artifacts(&path);
@@ -40635,7 +40665,11 @@ Body text here.
 
         let result = db.ingest_document(markdown, &config).unwrap();
 
-        assert!(db.node_count() >= 3, "Expected at least Document + Section + Content nodes, got {}", db.node_count());
+        assert!(
+            db.node_count() >= 3,
+            "Expected at least Document + Section + Content nodes, got {}",
+            db.node_count()
+        );
 
         let doc_props = db.node_properties(result.document_node_id).unwrap();
         assert_eq!(
@@ -40659,12 +40693,16 @@ Body text here.
             ..IngestConfig::default()
         };
 
-        let result = db.ingest_document(b"Some plain text content.", &config).unwrap();
+        let result = db
+            .ingest_document(b"Some plain text content.", &config)
+            .unwrap();
 
         let doc_props = db.node_properties(result.document_node_id).unwrap();
         assert_eq!(
             doc_props.get("_uri"),
-            Some(&PropertyValue::String("https://example.com/doc.txt".to_string()))
+            Some(&PropertyValue::String(
+                "https://example.com/doc.txt".to_string()
+            ))
         );
 
         cleanup_db_artifacts(&path);
@@ -40768,12 +40806,8 @@ Body text here.
         db.add_typed_edge(_n1, _n2, "RELATED", &PropertyMap::new())
             .expect("add edge");
 
-        db.create_fulltext_index(
-            "content_idx",
-            Some("Document"),
-            &["content".to_string()],
-        )
-        .expect("create fulltext index");
+        db.create_fulltext_index("content_idx", Some("Document"), &["content".to_string()])
+            .expect("create fulltext index");
         db.create_vector_index(
             "vec_idx",
             Some("Document"),
@@ -40802,7 +40836,10 @@ Body text here.
         let results = db
             .hybrid_rag_retrieve_rrf(&[1.0, 0.0, 0.0], "machine learning", 10, &full_config)
             .expect("full rrf retrieve");
-        assert!(!results.is_empty(), "Full three-signal hybrid should find results");
+        assert!(
+            !results.is_empty(),
+            "Full three-signal hybrid should find results"
+        );
 
         // k=0 returns empty
         let empty = db

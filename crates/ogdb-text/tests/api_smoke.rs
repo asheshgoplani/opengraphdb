@@ -15,8 +15,7 @@ use std::path::{Path, PathBuf};
 
 use ogdb_text::{
     fulltext_index_path_for_name, fulltext_index_root_path_for_db,
-    normalize_fulltext_index_definition, sanitize_index_component,
-    FullTextIndexDefinition,
+    normalize_fulltext_index_definition, sanitize_index_component, FullTextIndexDefinition,
 };
 
 #[test]
@@ -34,11 +33,10 @@ fn definition_is_plain_data_with_full_derive_surface() {
     let b = a.clone();
     assert_eq!(a, b);
     assert!(a <= b); // Ord preserved
-    // Debug + Serialize + Deserialize survive the move (WAL records
-    // encode this struct via serde).
+                     // Debug + Serialize + Deserialize survive the move (WAL records
+                     // encode this struct via serde).
     let json = serde_json::to_string(&a).expect("serialize");
-    let round: FullTextIndexDefinition =
-        serde_json::from_str(&json).expect("deserialize");
+    let round: FullTextIndexDefinition = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(round, a);
     assert!(format!("{a:?}").contains("a_idx"));
 }
@@ -61,12 +59,8 @@ fn normalize_accepts_valid_input() {
 
 #[test]
 fn normalize_rejects_empty_name() {
-    let err = normalize_fulltext_index_definition(
-        "   ",
-        Some("Doc"),
-        &["title".to_string()],
-    )
-    .expect_err("blank name must error");
+    let err = normalize_fulltext_index_definition("   ", Some("Doc"), &["title".to_string()])
+        .expect_err("blank name must error");
     assert!(
         err.contains("name cannot be empty"),
         "expected empty-name error, got: {err}",
@@ -85,12 +79,8 @@ fn normalize_rejects_empty_property_keys() {
 
 #[test]
 fn normalize_rejects_blank_property_key() {
-    let err = normalize_fulltext_index_definition(
-        "idx",
-        Some("Doc"),
-        &["   ".to_string()],
-    )
-    .expect_err("blank key must error");
+    let err = normalize_fulltext_index_definition("idx", Some("Doc"), &["   ".to_string()])
+        .expect_err("blank key must error");
     assert!(
         err.contains("property key cannot be empty"),
         "expected blank-key error, got: {err}",
@@ -114,9 +104,8 @@ fn normalize_rejects_duplicate_property_keys() {
 
 #[test]
 fn normalize_treats_blank_label_as_none() {
-    let def =
-        normalize_fulltext_index_definition("idx", Some("   "), &["k".to_string()])
-            .expect("blank label → None");
+    let def = normalize_fulltext_index_definition("idx", Some("   "), &["k".to_string()])
+        .expect("blank label → None");
     assert_eq!(def.label, None, "blank label should become None");
 }
 
@@ -144,7 +133,10 @@ fn sanitize_preserves_alphanumerics_and_separators() {
 
 #[test]
 fn sanitize_replaces_unsafe_characters_with_underscore() {
-    assert_eq!(sanitize_index_component("name with space"), "name_with_space");
+    assert_eq!(
+        sanitize_index_component("name with space"),
+        "name_with_space"
+    );
     assert_eq!(sanitize_index_component("path/traversal"), "path_traversal");
     assert_eq!(sanitize_index_component("unicode:é"), "unicode__");
 }

@@ -146,7 +146,9 @@ pub struct CaseDiagnostic {
 pub fn parse_spec(json: &str) -> Result<SkillSpec, SkillQualityError> {
     let raw: serde_json::Value = serde_json::from_str(json)?;
     let Some(obj) = raw.as_object() else {
-        return Err(SkillQualityError::Invalid("spec root must be a JSON object"));
+        return Err(SkillQualityError::Invalid(
+            "spec root must be a JSON object",
+        ));
     };
     if !obj.get("cases").map(|v| v.is_array()).unwrap_or(false) {
         return Err(SkillQualityError::Invalid(
@@ -339,10 +341,7 @@ fn slugify(s: &str) -> String {
 /// Full pipeline: load every spec in `specs_dir`, drive the adapter once
 /// per case, score, aggregate, return a single `EvaluationRun` with
 /// `suite = "skill_quality"`.
-pub fn run(
-    specs_dir: &Path,
-    adapter: &dyn LlmAdapter,
-) -> Result<EvaluationRun, SkillQualityError> {
+pub fn run(specs_dir: &Path, adapter: &dyn LlmAdapter) -> Result<EvaluationRun, SkillQualityError> {
     let specs = load_specs_from_dir(specs_dir)?;
 
     let max_version = specs

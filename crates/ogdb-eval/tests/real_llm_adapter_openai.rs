@@ -80,8 +80,8 @@ async fn openai_formats_correct_request_body() {
         .await
         .expect("wiremock records requests");
     assert_eq!(received.len(), 1, "exactly one request");
-    let body: serde_json::Value = serde_json::from_slice(&received[0].body)
-        .expect("request body must be JSON");
+    let body: serde_json::Value =
+        serde_json::from_slice(&received[0].body).expect("request body must be JSON");
     assert_eq!(body["model"], "gpt-4o-mini");
     let messages = body["messages"].as_array().expect("messages array");
     assert_eq!(messages.len(), 1);

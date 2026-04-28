@@ -76,10 +76,7 @@ fn threshold_configurable_via_env() {
     );
 
     // Build baseline (0.90) + current (0.828) ⇒ 8% drop.
-    let baseline = skill_quality_run(
-        "sq-baseline",
-        vec![("pass_rate_ogdb_cypher", 0.90)],
-    );
+    let baseline = skill_quality_run("sq-baseline", vec![("pass_rate_ogdb_cypher", 0.90)]);
     let current = skill_quality_run(
         "sq-current",
         vec![("pass_rate_ogdb_cypher", 0.828)], // -8.0%
@@ -87,8 +84,7 @@ fn threshold_configurable_via_env() {
     let engine = DiffEngine::new(Threshold::default());
 
     // At default 5% threshold, 8% drop trips the gate.
-    let events_default =
-        engine.diff_skill_quality(&baseline, &current, default_threshold);
+    let events_default = engine.diff_skill_quality(&baseline, &current, default_threshold);
     let tripped_default = events_default
         .iter()
         .any(|e| matches!(e, RegressionEvent::SkillQualityDiff { .. }));
@@ -105,8 +101,7 @@ fn threshold_configurable_via_env() {
         "env=15.0 ⇒ threshold 15.0, got {}",
         raised_threshold
     );
-    let events_raised =
-        engine.diff_skill_quality(&baseline, &current, raised_threshold);
+    let events_raised = engine.diff_skill_quality(&baseline, &current, raised_threshold);
     let tripped_raised = events_raised
         .iter()
         .any(|e| matches!(e, RegressionEvent::SkillQualityDiff { .. }));

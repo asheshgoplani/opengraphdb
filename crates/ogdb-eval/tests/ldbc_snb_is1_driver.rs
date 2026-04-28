@@ -49,8 +49,7 @@ fn ldbc_snb_is1_emits_evaluation_run_with_qps_and_percentiles() {
     // the test wants STRICT inequality on the timed samples we measured. If
     // the timer resolution is too coarse for this on a fast box, the driver
     // sorts samples and we still expect >0 spread across 200 calls.
-    let _submission =
-        LdbcSubmission::from_run(&run).expect("LdbcSubmission must accept the run");
+    let _submission = LdbcSubmission::from_run(&run).expect("LdbcSubmission must accept the run");
 }
 
 #[test]
@@ -66,10 +65,7 @@ fn ldbc_snb_is1_emits_p99_9_latency_tail() {
         .get("p99_9_us")
         .expect("p99_9_us missing — spec requires full tail")
         .value;
-    assert!(
-        p99 <= p999,
-        "p99 {p99} should be ≤ p99.9 {p999}"
-    );
+    assert!(p99 <= p999, "p99 {p99} should be ≤ p99.9 {p999}");
 }
 
 #[test]
@@ -79,10 +75,6 @@ fn ldbc_snb_is1_query_count_matches_metric() {
     build_ldbc_mini(&db_path).expect("build mini");
 
     let run = run_is1(&db_path, 50).expect("run IS-1");
-    let queries = run
-        .metrics
-        .get("queries")
-        .expect("queries metric")
-        .value;
+    let queries = run.metrics.get("queries").expect("queries metric").value;
     assert_eq!(queries, 50.0);
 }

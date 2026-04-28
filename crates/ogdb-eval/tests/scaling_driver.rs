@@ -26,11 +26,7 @@ fn scaling_10k_tier_emits_populated_evaluation_run() {
     assert_eq!(run.subsuite, "10k");
     assert!(!run.dataset.is_empty());
 
-    let inserts = run
-        .metrics
-        .get("inserts")
-        .expect("inserts metric")
-        .value;
+    let inserts = run.metrics.get("inserts").expect("inserts metric").value;
     assert_eq!(inserts as u32, 10_000);
 
     let throughput = run
@@ -38,7 +34,10 @@ fn scaling_10k_tier_emits_populated_evaluation_run() {
         .get("insert_throughput")
         .expect("insert_throughput metric")
         .value;
-    assert!(throughput > 0.0, "throughput must be positive, got {throughput}");
+    assert!(
+        throughput > 0.0,
+        "throughput must be positive, got {throughput}"
+    );
     assert!(run.metrics["insert_throughput"].higher_is_better);
 
     let p50 = run.metrics.get("p50_us").expect("p50_us").value;
@@ -49,12 +48,11 @@ fn scaling_10k_tier_emits_populated_evaluation_run() {
         "percentiles ordered: got p50={p50} p95={p95} p99={p99}"
     );
 
-    let disk = run
-        .metrics
-        .get("file_size_mb")
-        .expect("file_size_mb")
-        .value;
-    assert!(disk > 0.0, "10K-node DB must have non-empty on-disk footprint");
+    let disk = run.metrics.get("file_size_mb").expect("file_size_mb").value;
+    assert!(
+        disk > 0.0,
+        "10K-node DB must have non-empty on-disk footprint"
+    );
 
     // RSS metric must exist even on platforms where it returns 0 (we always
     // emit the field so the diff engine has a stable schema).
@@ -81,10 +79,7 @@ fn scaling_100k_tier_emits_populated_evaluation_run() {
 
     assert_eq!(run.suite, "scaling");
     assert_eq!(run.subsuite, "100k");
-    assert_eq!(
-        run.metrics.get("inserts").unwrap().value as u32,
-        100_000
-    );
+    assert_eq!(run.metrics.get("inserts").unwrap().value as u32, 100_000);
     assert!(run.metrics.get("insert_throughput").unwrap().value > 0.0);
     assert!(run.metrics.contains_key("p50_us"));
     assert!(run.metrics.contains_key("p99_us"));

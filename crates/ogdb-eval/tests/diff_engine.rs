@@ -74,7 +74,11 @@ fn diff_engine_emits_regression_on_10pct_qps_drop() {
 
     let matched = events.iter().any(|e| match e {
         RegressionEvent::Regression {
-            metric, magnitude, baseline_value, current_value, ..
+            metric,
+            magnitude,
+            baseline_value,
+            current_value,
+            ..
         } => {
             metric == "qps"
                 && (*magnitude - 0.10).abs() < 0.005
@@ -123,10 +127,7 @@ fn diff_engine_flags_latency_regression_on_p99_increase() {
         } => metric == "read_p99_us" && *magnitude >= 0.10 && *magnitude <= 0.20,
         _ => false,
     });
-    assert!(
-        matched,
-        "expected p99 latency regression; got {events:#?}"
-    );
+    assert!(matched, "expected p99 latency regression; got {events:#?}");
 }
 
 /// Per-metric category threshold is respected: a 4% throughput drop crosses

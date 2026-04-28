@@ -55,7 +55,11 @@ fn loader_parses_yaml_shipped_spec() {
     assert_eq!(first.name, "basic-node-query");
     assert_eq!(
         first.expected.must_contain,
-        vec!["MATCH".to_string(), "Person".to_string(), "RETURN".to_string()]
+        vec![
+            "MATCH".to_string(),
+            "Person".to_string(),
+            "RETURN".to_string()
+        ]
     );
     assert_eq!(
         first.expected.must_not_contain,
@@ -98,9 +102,9 @@ fn loader_rejects_missing_cases() {
     let broken = r#"{ "skill": "noop", "version": "0.0.0" }"#;
     match parse_spec(broken) {
         Err(SkillQualityError::Invalid(_)) => {}
-        Err(other) => panic!(
-            "expected SkillQualityError::Invalid for spec missing `cases`, got {other:?}"
-        ),
+        Err(other) => {
+            panic!("expected SkillQualityError::Invalid for spec missing `cases`, got {other:?}")
+        }
         Ok(spec) => panic!("expected error for spec missing `cases`, got Ok({spec:?})"),
     }
 }

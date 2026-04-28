@@ -100,12 +100,8 @@ fn spawn_http_server(
 /// Send a request and read the full response (status, content-type header, body).
 fn send_request(addr: &str, method: &str, path: &str) -> (u16, String, String) {
     let mut stream = connect_with_retry(addr);
-    let request = format!(
-        "{method} {path} HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n",
-    );
-    stream
-        .write_all(request.as_bytes())
-        .expect("write request");
+    let request = format!("{method} {path} HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n",);
+    stream.write_all(request.as_bytes()).expect("write request");
     stream.flush().expect("flush request");
 
     let mut reader = BufReader::new(&mut stream);
@@ -125,14 +121,20 @@ fn send_request(addr: &str, method: &str, path: &str) -> (u16, String, String) {
             break;
         }
         if header.to_ascii_lowercase().starts_with("content-type:") {
-            content_type = header.split_once(':').map(|x| x.1)
+            content_type = header
+                .split_once(':')
+                .map(|x| x.1)
                 .map(|v| v.trim().to_string())
                 .unwrap_or_default();
         }
     }
     let mut body = Vec::new();
     let _ = reader.read_to_end(&mut body);
-    (status, content_type, String::from_utf8_lossy(&body).into_owned())
+    (
+        status,
+        content_type,
+        String::from_utf8_lossy(&body).into_owned(),
+    )
 }
 
 /// Count metric families by scanning unique `# TYPE <name> ...` lines. This is

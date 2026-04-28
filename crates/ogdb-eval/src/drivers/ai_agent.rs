@@ -68,14 +68,8 @@ pub fn enrichment_roundtrip(
         let mut ids = Vec::with_capacity(entities_per_doc as usize);
         for i in 0..entities_per_doc {
             let mut props = PropertyMap::new();
-            props.insert(
-                "doc_id".to_string(),
-                PropertyValue::I64(doc as i64),
-            );
-            props.insert(
-                "entity_ord".to_string(),
-                PropertyValue::I64(i as i64),
-            );
+            props.insert("doc_id".to_string(), PropertyValue::I64(doc as i64));
+            props.insert("entity_ord".to_string(), PropertyValue::I64(i as i64));
             let id = tx
                 .create_node_with(vec!["Entity".to_string()], props)
                 .map_err(|e| AiAgentError::Db(format!("create_node_with: {e}")))?;
@@ -88,13 +82,8 @@ pub fn enrichment_roundtrip(
             let src = ids[(e as usize) % ids.len()];
             let dst = ids[(e as usize + 1) % ids.len()];
             if src != dst {
-                tx.add_typed_edge(
-                    src,
-                    dst,
-                    "MENTIONS".to_string(),
-                    PropertyMap::new(),
-                )
-                .map_err(|e| AiAgentError::Db(format!("add_typed_edge: {e}")))?;
+                tx.add_typed_edge(src, dst, "MENTIONS".to_string(), PropertyMap::new())
+                    .map_err(|e| AiAgentError::Db(format!("add_typed_edge: {e}")))?;
             }
         }
         tx.commit()
@@ -102,7 +91,11 @@ pub fn enrichment_roundtrip(
         latencies_us.push(t0.elapsed().as_secs_f64() * 1_000_000.0);
     }
     let wall_s = started.elapsed().as_secs_f64();
-    let docs_per_sec = if wall_s > 0.0 { n_docs as f64 / wall_s } else { 0.0 };
+    let docs_per_sec = if wall_s > 0.0 {
+        n_docs as f64 / wall_s
+    } else {
+        0.0
+    };
     let (p50, p95, p99, p999) = percentiles_extended(&latencies_us);
 
     let mut run = evaluation_run_skeleton("ai_agent", "enrichment_roundtrip", "synthetic");
@@ -162,10 +155,7 @@ pub fn hybrid_retrieval(
         for i in 0..n_nodes {
             let vec = random_vector(&mut rng, DIM);
             let mut props = PropertyMap::new();
-            props.insert(
-                "ord".to_string(),
-                PropertyValue::I64(i as i64),
-            );
+            props.insert("ord".to_string(), PropertyValue::I64(i as i64));
             props.insert("embedding".to_string(), PropertyValue::Vector(vec));
             let id = tx
                 .create_node_with(vec!["Entity".to_string()], props)
@@ -255,12 +245,8 @@ pub fn concurrent_writes(
             let mut committed = 0u32;
             for _ in 0..ops_per_thread {
                 let mut tx = db.begin_write();
-                let a = tx
-                    .create_node()
-                    .map_err(|e| format!("create_node: {e}"))?;
-                let b2 = tx
-                    .create_node()
-                    .map_err(|e| format!("create_node: {e}"))?;
+                let a = tx.create_node().map_err(|e| format!("create_node: {e}"))?;
+                let b2 = tx.create_node().map_err(|e| format!("create_node: {e}"))?;
                 tx.add_edge(a, b2).map_err(|e| format!("add_edge: {e}"))?;
                 tx.commit().map_err(|e| format!("commit: {e}"))?;
                 committed += 1;
@@ -284,8 +270,10 @@ pub fn concurrent_writes(
     };
 
     let mut run = evaluation_run_skeleton("ai_agent", "concurrent_writes", "synthetic");
-    run.metrics
-        .insert("threads".to_string(), metric(n_threads as f64, "count", true));
+    run.metrics.insert(
+        "threads".to_string(),
+        metric(n_threads as f64, "count", true),
+    );
     run.metrics.insert(
         "commits_total".to_string(),
         metric(total_commits as f64, "count", true),
@@ -299,10 +287,8 @@ pub fn concurrent_writes(
     // schema field; the note discloses the limitation.
     run.metrics
         .insert("conflict_rate".to_string(), metric(0.0, "fraction", false));
-    run.metrics.insert(
-        "elapsed_s".to_string(),
-        metric(wall_s, "s", false),
-    );
+    run.metrics
+        .insert("elapsed_s".to_string(), metric(wall_s, "s", false));
     run.notes = format!(
         "{n_threads} threads × {ops_per_thread} ops; separate DB per thread (single-writer kernel). \
          True contention-aware conflict_rate requires multi-writer — DEFERRED."

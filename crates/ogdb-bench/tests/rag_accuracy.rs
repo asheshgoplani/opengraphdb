@@ -1,4 +1,6 @@
-use ogdb_core::{Database, DocumentFormat, Header, IngestConfig, RagResult, RetrievalSignal, RrfConfig};
+use ogdb_core::{
+    Database, DocumentFormat, Header, IngestConfig, RagResult, RetrievalSignal, RrfConfig,
+};
 use tempfile::TempDir;
 
 fn fake_embed(text: &str, dims: usize) -> Vec<f32> {

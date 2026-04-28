@@ -4,9 +4,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::drivers::skill_quality::{
-    AdapterResponse, EvalCase, LlmAdapter, SkillQualityError,
-};
+use crate::drivers::skill_quality::{AdapterResponse, EvalCase, LlmAdapter, SkillQualityError};
 
 use super::{post_with_retry, RetryPolicy, DEFAULT_TIMEOUT_MS, TIMEOUT_MS_ENV};
 
@@ -34,9 +32,8 @@ impl AnthropicAdapter {
     /// Read URL / key / model from env. `Err(Adapter("ANTHROPIC_API_KEY …"))`
     /// if the key is absent.
     pub fn from_env() -> Result<Self, SkillQualityError> {
-        let api_key = std::env::var(API_KEY_ENV).map_err(|_| {
-            SkillQualityError::Adapter(format!("{API_KEY_ENV} not set"))
-        })?;
+        let api_key = std::env::var(API_KEY_ENV)
+            .map_err(|_| SkillQualityError::Adapter(format!("{API_KEY_ENV} not set")))?;
         let url = std::env::var(API_URL_ENV).unwrap_or_else(|_| DEFAULT_URL.to_string());
         let model = std::env::var(MODEL_ENV).unwrap_or_else(|_| DEFAULT_MODEL.to_string());
         Self::with_config(url, api_key, model, RetryPolicy::from_env())

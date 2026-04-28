@@ -44,9 +44,7 @@ pub fn run_is1(db_path: &Path, query_count: u32) -> Result<EvaluationRun, Is1Err
     let started = Instant::now();
     for i in 0..query_count {
         let person_id = (i as i64) % person_count;
-        let cypher = format!(
-            "MATCH (p:Person {{id: {person_id}}}) RETURN p.firstName, p.lastName"
-        );
+        let cypher = format!("MATCH (p:Person {{id: {person_id}}}) RETURN p.firstName, p.lastName");
         let q_start = Instant::now();
         let result = db
             .query(&cypher)
@@ -92,7 +90,8 @@ pub fn run_is1(db_path: &Path, query_count: u32) -> Result<EvaluationRun, Is1Err
     }
 
     let mut run = evaluation_run_skeleton("ldbc_snb", "IS-1", "ldbc-mini-sf0");
-    run.metrics.insert("qps".to_string(), metric(qps, "qps", true));
+    run.metrics
+        .insert("qps".to_string(), metric(qps, "qps", true));
     run.metrics
         .insert("p50_us".to_string(), metric(p50, "us", false));
     run.metrics
@@ -105,8 +104,7 @@ pub fn run_is1(db_path: &Path, query_count: u32) -> Result<EvaluationRun, Is1Err
         "queries".to_string(),
         metric(query_count as f64, "count", true),
     );
-    run.notes = format!(
-        "IS-1 Profile of Person; {query_count} queries against {person_count} persons"
-    );
+    run.notes =
+        format!("IS-1 Profile of Person; {query_count} queries against {person_count} persons");
     Ok(run)
 }

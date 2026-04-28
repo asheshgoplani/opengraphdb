@@ -124,9 +124,7 @@ fn post_json(addr: &str, path: &str, bearer: Option<&str>, body: &str) -> HttpRe
         "POST {path} HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\nContent-Type: application/json\r\n{auth_header}Content-Length: {}\r\n\r\n{body}",
         body.len(),
     );
-    stream
-        .write_all(request.as_bytes())
-        .expect("write request");
+    stream.write_all(request.as_bytes()).expect("write request");
     stream.flush().expect("flush request");
     read_full_response(&mut stream)
 }
@@ -147,10 +145,7 @@ where
     pre_init(&path);
 
     let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
-    let bind_addr = probe
-        .local_addr()
-        .expect("probe local addr")
-        .to_string();
+    let bind_addr = probe.local_addr().expect("probe local addr").to_string();
     drop(probe);
 
     let serve_args = vec![
@@ -222,9 +217,7 @@ fn http_mcp_tools_returns_tool_descriptors() {
             .unwrap_or_else(|| panic!("tool missing string `name`: {tool}"));
         assert!(!name.is_empty(), "tool name must be non-empty");
         assert!(
-            tool.get("description")
-                .and_then(Value::as_str)
-                .is_some(),
+            tool.get("description").and_then(Value::as_str).is_some(),
             "tool `{name}` missing string `description`",
         );
         assert!(
@@ -269,7 +262,8 @@ fn http_mcp_tools_returns_tool_descriptors() {
 fn http_mcp_invoke_executes_cypher_against_real_db() {
     let (addr, handle, path) = spawn_http_server("invoke-cypher", 1);
 
-    let body = r#"{"name":"execute_cypher","arguments":{"query":"MATCH (n) RETURN count(n) AS c"}}"#;
+    let body =
+        r#"{"name":"execute_cypher","arguments":{"query":"MATCH (n) RETURN count(n) AS c"}}"#;
     let response = post_json(&addr, "/mcp/invoke", None, body);
     assert_eq!(
         response.status, 200,

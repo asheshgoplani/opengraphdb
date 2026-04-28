@@ -95,15 +95,15 @@ pub fn run_tier(db_dir: &Path, tier: ScalingTier) -> Result<EvaluationRun, Scali
     let on_disk_bytes = dir_disk_bytes(db_dir);
     let rss_bytes = process_rss_bytes();
 
-    let mut run = evaluation_run_skeleton("scaling", tier.label(), &format!("synthetic-{}", tier.label()));
-    run.metrics.insert(
-        "inserts".to_string(),
-        metric(n as f64, "count", true),
+    let mut run = evaluation_run_skeleton(
+        "scaling",
+        tier.label(),
+        &format!("synthetic-{}", tier.label()),
     );
-    run.metrics.insert(
-        "insert_secs".to_string(),
-        metric(insert_secs, "s", false),
-    );
+    run.metrics
+        .insert("inserts".to_string(), metric(n as f64, "count", true));
+    run.metrics
+        .insert("insert_secs".to_string(), metric(insert_secs, "s", false));
     run.metrics.insert(
         "insert_throughput".to_string(),
         metric(insert_throughput, "elem/s", true),

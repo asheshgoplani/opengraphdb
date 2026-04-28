@@ -32,7 +32,10 @@ fn ingests_two_benchmarks_into_two_evaluation_runs() {
     let dir = TempDir::new().expect("temp dir");
     let root = dir.path().join("criterion");
     write_estimates(
-        &root.join("write_throughput").join("create_nodes").join("new"),
+        &root
+            .join("write_throughput")
+            .join("create_nodes")
+            .join("new"),
         3_000_000_000.0, // 3 s mean
         2_900_000_000.0, // 2.9 s median
     );
@@ -80,5 +83,8 @@ fn skips_directories_without_estimates_json() {
     let root = dir.path().join("criterion");
     fs::create_dir_all(root.join("orphan_group").join("orphan_bench")).expect("mkdir");
     let runs = ingest_criterion_dir(&root).expect("ingest");
-    assert!(runs.is_empty(), "no estimates.json => no runs, got {runs:?}");
+    assert!(
+        runs.is_empty(),
+        "no estimates.json => no runs, got {runs:?}"
+    );
 }

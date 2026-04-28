@@ -20,8 +20,7 @@ fn crate_path(rel: &str) -> PathBuf {
 
 fn read_to_string(rel: &str) -> String {
     let p = crate_path(rel);
-    std::fs::read_to_string(&p)
-        .unwrap_or_else(|e| panic!("reading {}: {e}", p.display()))
+    std::fs::read_to_string(&p).unwrap_or_else(|e| panic!("reading {}: {e}", p.display()))
 }
 
 #[test]

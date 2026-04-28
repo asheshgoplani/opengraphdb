@@ -57,10 +57,7 @@ fn open_or_init(db_dir: &Path) -> Result<Database, ThroughputError> {
 ///
 /// Edges connect each new node to one previously-inserted node (when any
 /// exist) so we exercise both node and edge write paths.
-pub fn ingest_streaming(
-    db_dir: &Path,
-    budget: Duration,
-) -> Result<EvaluationRun, ThroughputError> {
+pub fn ingest_streaming(db_dir: &Path, budget: Duration) -> Result<EvaluationRun, ThroughputError> {
     if budget.is_zero() {
         return Err(ThroughputError::Invalid("budget must be > 0"));
     }
@@ -91,14 +88,26 @@ pub fn ingest_streaming(
         }
     }
     let elapsed_s = started.elapsed().as_secs_f64();
-    let nodes_per_sec = if elapsed_s > 0.0 { node_total as f64 / elapsed_s } else { 0.0 };
-    let edges_per_sec = if elapsed_s > 0.0 { edge_total as f64 / elapsed_s } else { 0.0 };
+    let nodes_per_sec = if elapsed_s > 0.0 {
+        node_total as f64 / elapsed_s
+    } else {
+        0.0
+    };
+    let edges_per_sec = if elapsed_s > 0.0 {
+        edge_total as f64 / elapsed_s
+    } else {
+        0.0
+    };
 
     let mut run = evaluation_run_skeleton("throughput", "ingest_streaming", "synthetic");
-    run.metrics
-        .insert("nodes_per_sec".to_string(), metric(nodes_per_sec, "nodes/s", true));
-    run.metrics
-        .insert("edges_per_sec".to_string(), metric(edges_per_sec, "edges/s", true));
+    run.metrics.insert(
+        "nodes_per_sec".to_string(),
+        metric(nodes_per_sec, "nodes/s", true),
+    );
+    run.metrics.insert(
+        "edges_per_sec".to_string(),
+        metric(edges_per_sec, "edges/s", true),
+    );
     run.metrics.insert(
         "nodes_total".to_string(),
         metric(node_total as f64, "count", true),
@@ -156,7 +165,11 @@ pub fn ingest_bulk(db_dir: &Path, n_nodes: u32) -> Result<EvaluationRun, Through
             .map_err(|e| ThroughputError::Db(format!("commit: {e}")))?;
     }
     let elapsed_s = started.elapsed().as_secs_f64();
-    let nodes_per_sec = if elapsed_s > 0.0 { n_nodes as f64 / elapsed_s } else { 0.0 };
+    let nodes_per_sec = if elapsed_s > 0.0 {
+        n_nodes as f64 / elapsed_s
+    } else {
+        0.0
+    };
     let disk_mb = dir_disk_bytes(db_dir) as f64 / (1024.0 * 1024.0);
 
     let mut run = evaluation_run_skeleton("throughput", "ingest_bulk", "synthetic");
@@ -170,7 +183,10 @@ pub fn ingest_bulk(db_dir: &Path, n_nodes: u32) -> Result<EvaluationRun, Through
     );
     run.metrics
         .insert("disk_mb".to_string(), metric(disk_mb, "MB", false));
-    run.notes = format!("bulk ingest; {n_nodes} nodes + {} edges", n_nodes.saturating_sub(1));
+    run.notes = format!(
+        "bulk ingest; {n_nodes} nodes + {} edges",
+        n_nodes.saturating_sub(1)
+    );
     Ok(run)
 }
 
@@ -199,16 +215,19 @@ pub fn read_point(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Throughp
         samples_us.push(t0.elapsed().as_secs_f64() * 1_000_000.0);
     }
     let wall_s = started.elapsed().as_secs_f64();
-    let qps = if wall_s > 0.0 { samples as f64 / wall_s } else { 0.0 };
+    let qps = if wall_s > 0.0 {
+        samples as f64 / wall_s
+    } else {
+        0.0
+    };
     let (p50, p95, p99, p999) = percentiles_extended(&samples_us);
 
     let mut run = evaluation_run_skeleton("throughput", "read_point", "synthetic");
     insert_tail(&mut run, p50, p95, p99, p999);
-    run.metrics.insert("qps".to_string(), metric(qps, "qps", true));
-    run.metrics.insert(
-        "samples".to_string(),
-        metric(samples as f64, "count", true),
-    );
+    run.metrics
+        .insert("qps".to_string(), metric(qps, "qps", true));
+    run.metrics
+        .insert("samples".to_string(), metric(samples as f64, "count", true));
     run.notes = format!("neighbors() point lookup; {samples} samples over {node_count} nodes");
     Ok(run)
 }
@@ -244,12 +263,17 @@ pub fn read_traversal(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Thro
         std::hint::black_box(total_second_hop);
     }
     let wall_s = started.elapsed().as_secs_f64();
-    let qps = if wall_s > 0.0 { samples as f64 / wall_s } else { 0.0 };
+    let qps = if wall_s > 0.0 {
+        samples as f64 / wall_s
+    } else {
+        0.0
+    };
     let (p50, p95, p99, p999) = percentiles_extended(&samples_us);
 
     let mut run = evaluation_run_skeleton("throughput", "read_traversal_2hop", "synthetic");
     insert_tail(&mut run, p50, p95, p99, p999);
-    run.metrics.insert("qps".to_string(), metric(qps, "qps", true));
+    run.metrics
+        .insert("qps".to_string(), metric(qps, "qps", true));
     run.notes = format!("2-hop expansion; {samples} seeds over {node_count} nodes");
     Ok(run)
 }
@@ -262,8 +286,7 @@ pub fn mutation(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Throughput
         return Err(ThroughputError::Invalid("samples must be > 0"));
     }
     let db_path = db_dir.join(DB_FILE);
-    let mut db =
-        Database::open(&db_path).map_err(|e| ThroughputError::Db(format!("open: {e}")))?;
+    let mut db = Database::open(&db_path).map_err(|e| ThroughputError::Db(format!("open: {e}")))?;
     let node_count = db.node_count();
     if node_count == 0 {
         return Err(ThroughputError::Db("empty database".into()));
@@ -276,10 +299,7 @@ pub fn mutation(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Throughput
         let id = xorshift(&mut rng) % node_count;
         let labels: Vec<String> = Vec::new();
         let mut props = PropertyMap::new();
-        props.insert(
-            "touched".to_string(),
-            PropertyValue::I64(i as i64),
-        );
+        props.insert("touched".to_string(), PropertyValue::I64(i as i64));
         let t0 = Instant::now();
         // ogdb-core does not expose a per-node set_property on the public
         // surface without going through a write-tx; we call create_node_with
@@ -291,14 +311,19 @@ pub fn mutation(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Throughput
         let _ = tx
             .create_node_with(labels, props)
             .map_err(|e| ThroughputError::Db(format!("create_node_with: {e}")))?;
-        let _ = tx.add_edge(id, id.saturating_add(1).min(node_count - 1))
+        let _ = tx
+            .add_edge(id, id.saturating_add(1).min(node_count - 1))
             .map_err(|e| ThroughputError::Db(format!("add_edge: {e}")))?;
         tx.commit()
             .map_err(|e| ThroughputError::Db(format!("commit: {e}")))?;
         samples_us.push(t0.elapsed().as_secs_f64() * 1_000_000.0);
     }
     let wall_s = started.elapsed().as_secs_f64();
-    let updates_per_sec = if wall_s > 0.0 { samples as f64 / wall_s } else { 0.0 };
+    let updates_per_sec = if wall_s > 0.0 {
+        samples as f64 / wall_s
+    } else {
+        0.0
+    };
     let (p50, p95, p99, p999) = percentiles_extended(&samples_us);
     let rss_after = process_rss_bytes();
 
@@ -316,16 +341,17 @@ pub fn mutation(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Throughput
             false,
         ),
     );
-    run.notes = format!(
-        "per-update write-tx; {samples} mutations, one begin_write+commit each"
-    );
+    run.notes = format!("per-update write-tx; {samples} mutations, one begin_write+commit each");
     Ok(run)
 }
 
 fn insert_tail(run: &mut EvaluationRun, p50: f64, p95: f64, p99: f64, p999: f64) {
-    run.metrics.insert("p50_us".to_string(), metric(p50, "us", false));
-    run.metrics.insert("p95_us".to_string(), metric(p95, "us", false));
-    run.metrics.insert("p99_us".to_string(), metric(p99, "us", false));
+    run.metrics
+        .insert("p50_us".to_string(), metric(p50, "us", false));
+    run.metrics
+        .insert("p95_us".to_string(), metric(p95, "us", false));
+    run.metrics
+        .insert("p99_us".to_string(), metric(p99, "us", false));
     run.metrics
         .insert("p99_9_us".to_string(), metric(p999, "us", false));
 }

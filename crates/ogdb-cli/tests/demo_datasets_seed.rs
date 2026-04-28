@@ -37,7 +37,12 @@ fn datasets_fixture_canonical_names_smoke_test() {
     // (movielens/airroutes/got/wikidata). This test locks the contract that
     // scripts/seed-demo.sh already enforces, independent of dataset schema.
     let datasets_dir = repo_root().join("datasets");
-    let canonical = ["movielens.json", "airroutes.json", "got.json", "wikidata.json"];
+    let canonical = [
+        "movielens.json",
+        "airroutes.json",
+        "got.json",
+        "wikidata.json",
+    ];
     let stale = ["movies.json", "social.json", "fraud.json"];
 
     for name in canonical {

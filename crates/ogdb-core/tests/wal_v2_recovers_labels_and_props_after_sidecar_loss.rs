@@ -64,10 +64,7 @@ fn hard_power_loss_destroys_sidecars_but_wal_v2_recovers_labels_and_props() {
                 PropertyValue::String(format!("node-{i}")),
             );
             let _ = tx
-                .create_node_with(
-                    vec!["Foo".to_string(), "Bar".to_string()],
-                    props,
-                )
+                .create_node_with(vec!["Foo".to_string(), "Bar".to_string()], props)
                 .expect("create node with labels + props");
         }
         let _summary = tx.commit().expect("commit tx");

@@ -45,10 +45,7 @@ fn test_dir(tag: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let dir = env::temp_dir().join(format!(
-        "ogdb-hnsw-{tag}-{}-{now}",
-        std::process::id()
-    ));
+    let dir = env::temp_dir().join(format!("ogdb-hnsw-{tag}-{}-{now}", std::process::id()));
     fs::create_dir_all(&dir).expect("create test dir");
     dir
 }
@@ -107,10 +104,7 @@ fn hnsw_query_under_5ms_p95_at_10k() {
         let v = rand_unit_vec(i as u64, D);
         db.create_node_with(
             &["Doc".to_string()],
-            &PropertyMap::from([(
-                "embedding".to_string(),
-                PropertyValue::Vector(v),
-            )]),
+            &PropertyMap::from([("embedding".to_string(), PropertyValue::Vector(v))]),
         )
         .expect("create node");
     }

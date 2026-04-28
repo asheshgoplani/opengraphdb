@@ -17,8 +17,8 @@
 //! @11653-11878).
 
 use ogdb_import::{
-    chunk_content, detect_cross_references, parse_plaintext_sections,
-    DocumentFormat, IngestConfig, IngestResult, ParsedSection,
+    chunk_content, detect_cross_references, parse_plaintext_sections, DocumentFormat, IngestConfig,
+    IngestResult, ParsedSection,
 };
 
 #[test]
@@ -41,8 +41,8 @@ fn document_format_serde_roundtrip() {
     // ogdb-cli surfaces DocumentFormat via JSON output; pin the
     // serde-derived format byte-for-byte so the wire format does
     // not drift across the move.
-    let json = serde_json::to_string(&DocumentFormat::Markdown)
-        .expect("DocumentFormat must serialize");
+    let json =
+        serde_json::to_string(&DocumentFormat::Markdown).expect("DocumentFormat must serialize");
     assert_eq!(json, "\"Markdown\"");
     let back: DocumentFormat =
         serde_json::from_str("\"Pdf\"").expect("DocumentFormat must deserialize");
@@ -108,8 +108,7 @@ fn ingest_result_serde_roundtrip() {
         vector_indexed: true,
     };
     let json = serde_json::to_string(&r).expect("IngestResult must serialize");
-    let back: IngestResult =
-        serde_json::from_str(&json).expect("IngestResult must round-trip");
+    let back: IngestResult = serde_json::from_str(&json).expect("IngestResult must round-trip");
     assert_eq!(back.document_node_id, 1);
     assert!(back.vector_indexed);
 }

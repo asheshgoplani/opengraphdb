@@ -82,10 +82,7 @@ async fn local_adapter_honors_url_env() {
         "adapter must extract choices[0].message.content"
     );
 
-    let received: Vec<Request> = server
-        .received_requests()
-        .await
-        .expect("wiremock records");
+    let received: Vec<Request> = server.received_requests().await.expect("wiremock records");
     assert_eq!(received.len(), 1, "exactly one POST");
 
     // Local servers do NOT require auth — the adapter must omit the
@@ -101,8 +98,8 @@ async fn local_adapter_honors_url_env() {
     );
 
     // Body must carry the configured model + the OpenAI-compatible shape.
-    let body: serde_json::Value = serde_json::from_slice(&received[0].body)
-        .expect("request body must be JSON");
+    let body: serde_json::Value =
+        serde_json::from_slice(&received[0].body).expect("request body must be JSON");
     assert_eq!(body["model"], "llama-3-8b", "model must come from env");
     let messages = body["messages"].as_array().expect("messages array");
     assert_eq!(messages.len(), 1);

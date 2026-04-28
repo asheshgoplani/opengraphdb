@@ -38,10 +38,7 @@ fn movielens_dataset_imports_with_startnode_endnode_shape() {
     let db = temp_db_path("movielens-import");
     cleanup(&db);
 
-    let init = run(&[
-        "init".to_string(),
-        db.display().to_string(),
-    ]);
+    let init = run(&["init".to_string(), db.display().to_string()]);
     assert_eq!(init.exit_code, 0, "init failed: {}", init.stderr);
 
     let out = run(&[

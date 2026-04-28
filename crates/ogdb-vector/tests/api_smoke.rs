@@ -10,8 +10,8 @@
 //! crates/ogdb-core/src/lib.rs into crates/ogdb-vector/src/lib.rs.
 
 use ogdb_vector::{
-    compare_f32_vectors, parse_vector_literal_text, vector_distance,
-    VectorDistanceMetric, VectorIndexDefinition,
+    compare_f32_vectors, parse_vector_literal_text, vector_distance, VectorDistanceMetric,
+    VectorIndexDefinition,
 };
 
 #[test]
@@ -61,8 +61,7 @@ fn cosine_distance_of_identical_vectors_is_zero() {
 fn euclidean_distance_is_l2_norm_of_diff() {
     let l = [0.0_f32, 0.0];
     let r = [3.0_f32, 4.0];
-    let d = vector_distance(VectorDistanceMetric::Euclidean, &l, &r)
-        .expect("same-length vectors");
+    let d = vector_distance(VectorDistanceMetric::Euclidean, &l, &r).expect("same-length vectors");
     assert!((d - 5.0).abs() < 1e-5, "sqrt(9+16)=5, got {d}");
 }
 
@@ -72,8 +71,7 @@ fn dot_product_distance_is_negative_dot() {
     // cosine/euclidean. Regressing this flips query ordering silently.
     let l = [1.0_f32, 2.0, 3.0];
     let r = [1.0_f32, 1.0, 1.0];
-    let d = vector_distance(VectorDistanceMetric::DotProduct, &l, &r)
-        .expect("same-length vectors");
+    let d = vector_distance(VectorDistanceMetric::DotProduct, &l, &r).expect("same-length vectors");
     assert!((d + 6.0).abs() < 1e-5, "-(1+2+3) = -6, got {d}");
 }
 
@@ -118,10 +116,7 @@ fn parse_vector_literal_text_rejects_unbracketed_or_garbage() {
 fn compare_f32_vectors_orders_by_length_then_lex() {
     use std::cmp::Ordering;
     // Length mismatch: shorter is Less.
-    assert_eq!(
-        compare_f32_vectors(&[1.0], &[1.0, 0.0]),
-        Ordering::Less,
-    );
+    assert_eq!(compare_f32_vectors(&[1.0], &[1.0, 0.0]), Ordering::Less,);
     // Equal length: lex compare via total_cmp (NaN-safe).
     assert_eq!(
         compare_f32_vectors(&[1.0, 2.0], &[1.0, 3.0]),

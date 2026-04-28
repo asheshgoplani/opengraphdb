@@ -11,9 +11,16 @@ fn ingest_streaming_emits_nodes_per_second_metric() {
         .expect("ingest_streaming");
     assert_eq!(run.suite, "throughput");
     assert_eq!(run.subsuite, "ingest_streaming");
-    let m = run.metrics.get("nodes_per_sec").expect("nodes_per_sec metric");
+    let m = run
+        .metrics
+        .get("nodes_per_sec")
+        .expect("nodes_per_sec metric");
     assert!(m.higher_is_better);
-    assert!(m.value > 0.0, "expected positive throughput, got {}", m.value);
+    assert!(
+        m.value > 0.0,
+        "expected positive throughput, got {}",
+        m.value
+    );
     assert!(run.metrics.contains_key("edges_per_sec"));
     assert!(run.metrics.contains_key("elapsed_s"));
 }
@@ -42,7 +49,11 @@ fn read_point_emits_latency_percentiles() {
     let run = throughput::read_point(dir.path(), 1_000).expect("read_point");
     assert_eq!(run.subsuite, "read_point");
     for key in ["p50_us", "p95_us", "p99_us", "p99_9_us"] {
-        let v = run.metrics.get(key).unwrap_or_else(|| panic!("{key} missing")).value;
+        let v = run
+            .metrics
+            .get(key)
+            .unwrap_or_else(|| panic!("{key} missing"))
+            .value;
         assert!(v >= 0.0, "{key} should be non-negative, got {v}");
     }
     let p95 = run.metrics.get("p95_us").unwrap().value;

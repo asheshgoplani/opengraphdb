@@ -46,10 +46,7 @@ fn pass_rate_math_is_ratio_of_passed_to_total() {
         pass_rate.value
     );
 
-    let total = run
-        .metrics
-        .get("total_cases")
-        .expect("total_cases metric");
+    let total = run.metrics.get("total_cases").expect("total_cases metric");
     assert_eq!(total.value, 4.0);
 
     let failed = run
@@ -78,9 +75,21 @@ fn per_difficulty_breakdown_emitted() {
         .expect("pass_rate_medium");
     let hard = run.metrics.get("pass_rate_hard").expect("pass_rate_hard");
 
-    assert!((easy.value - 0.5).abs() < 1e-9, "easy 1/2 ⇒ 0.5, got {}", easy.value);
-    assert!((medium.value - 1.0).abs() < 1e-9, "medium 1/1 ⇒ 1.0, got {}", medium.value);
-    assert!((hard.value - 0.0).abs() < 1e-9, "hard 0/1 ⇒ 0.0, got {}", hard.value);
+    assert!(
+        (easy.value - 0.5).abs() < 1e-9,
+        "easy 1/2 ⇒ 0.5, got {}",
+        easy.value
+    );
+    assert!(
+        (medium.value - 1.0).abs() < 1e-9,
+        "medium 1/1 ⇒ 1.0, got {}",
+        medium.value
+    );
+    assert!(
+        (hard.value - 0.0).abs() < 1e-9,
+        "hard 0/1 ⇒ 0.0, got {}",
+        hard.value
+    );
 
     for m in [easy, medium, hard] {
         assert!(m.higher_is_better);

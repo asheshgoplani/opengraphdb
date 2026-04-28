@@ -231,10 +231,8 @@ impl DiffEngine {
                 continue;
             }
 
-            let severity = crate::skill_regression::severity_for_pct(
-                delta_pct.abs(),
-                threshold_pct,
-            );
+            let severity =
+                crate::skill_regression::severity_for_pct(delta_pct.abs(), threshold_pct);
 
             events.push(RegressionEvent::SkillQualityDiff {
                 skill: skill_name,
@@ -279,10 +277,7 @@ pub struct JsonlHistory;
 
 impl JsonlHistory {
     pub fn append(run: &EvaluationRun, path: &Path) -> Result<(), EvalError> {
-        let mut file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(path)?;
+        let mut file = OpenOptions::new().create(true).append(true).open(path)?;
         let line = serde_json::to_string(run)?;
         file.write_all(line.as_bytes())?;
         file.write_all(b"\n")?;
@@ -315,11 +310,7 @@ impl LdbcSubmission {
     /// Render an EvaluationRun as an LDBC SNB audit-report-compatible JSON
     /// value. See PLAN.md "Cross-Vendor Comparison Layer".
     pub fn from_run(run: &EvaluationRun) -> Result<serde_json::Value, EvalError> {
-        let throughput_qps = run
-            .metrics
-            .get("qps")
-            .map(|m| m.value)
-            .unwrap_or(0.0);
+        let throughput_qps = run.metrics.get("qps").map(|m| m.value).unwrap_or(0.0);
 
         let p50 = run.metrics.get("p50_us").map(|m| m.value);
         let p95 = run.metrics.get("p95_us").map(|m| m.value);

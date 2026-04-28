@@ -23,8 +23,7 @@ use tempfile::tempdir;
 #[test]
 fn run_warmup_pass_drives_reads_and_writes_and_returns_report() {
     let dir = tempdir().unwrap();
-    let report: WarmupReport =
-        run_warmup_pass(dir.path()).expect("warmup pass must succeed");
+    let report: WarmupReport = run_warmup_pass(dir.path()).expect("warmup pass must succeed");
 
     assert!(
         report.streaming_writes > 0,

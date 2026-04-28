@@ -111,8 +111,8 @@ fn ogdb_temporal_helpers_are_callable_via_ogdb_temporal_root() {
     ));
 
     assert!(ogdb_temporal::validate_valid_window(Some(100), Some(200)).is_ok());
-    let err = ogdb_temporal::validate_valid_window(Some(200), Some(100))
-        .expect_err("inverted window");
+    let err =
+        ogdb_temporal::validate_valid_window(Some(200), Some(100)).expect_err("inverted window");
     assert_eq!(err, "valid_to must be greater than valid_from");
 }
 

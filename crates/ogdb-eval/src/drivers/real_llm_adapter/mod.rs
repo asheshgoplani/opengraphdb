@@ -7,9 +7,7 @@
 //! ogdb-eval` never touches the network — `provider_from_env()` defaults
 //! to `Provider::Mock` and the factory returns `DeterministicMockAdapter`.
 
-use crate::drivers::skill_quality::{
-    AdapterResponse, EvalCase, LlmAdapter, SkillQualityError,
-};
+use crate::drivers::skill_quality::{AdapterResponse, EvalCase, LlmAdapter, SkillQualityError};
 
 #[cfg(feature = "llm-anthropic")]
 pub mod anthropic;
@@ -168,9 +166,7 @@ where
             Err(e) => {
                 let transient = e.is_timeout() || e.is_connect();
                 if transient && attempt < retry.max_retries {
-                    std::thread::sleep(std::time::Duration::from_millis(
-                        retry.base_ms << attempt,
-                    ));
+                    std::thread::sleep(std::time::Duration::from_millis(retry.base_ms << attempt));
                     attempt += 1;
                     continue;
                 }

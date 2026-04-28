@@ -44,9 +44,7 @@ pub fn normalize_fulltext_index_definition(
         return Err("fulltext index name cannot be empty".to_string());
     }
     if property_keys.is_empty() {
-        return Err(
-            "fulltext index must include at least one property key".to_string(),
-        );
+        return Err("fulltext index must include at least one property key".to_string());
     }
     let mut normalized = Vec::<String>::new();
     let mut seen = BTreeSet::<String>::new();

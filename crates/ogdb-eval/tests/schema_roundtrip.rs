@@ -49,7 +49,9 @@ fn sample_run() -> EvaluationRun {
 #[test]
 fn schema_roundtrip_preserves_all_fields() {
     let original = sample_run();
-    let json = original.to_json().expect("to_json must succeed for valid run");
+    let json = original
+        .to_json()
+        .expect("to_json must succeed for valid run");
     let parsed = EvaluationRun::from_json(&json).expect("from_json must succeed for valid JSON");
     assert_eq!(
         original, parsed,

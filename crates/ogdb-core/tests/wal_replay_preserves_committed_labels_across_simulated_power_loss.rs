@@ -65,8 +65,11 @@ fn committed_nodes_and_labels_survive_drop_plus_reopen() {
         let mut db = Database::init(&db_path, Header::default_v1()).expect("init db");
         let mut tx = db.begin_write();
         for _ in 0..10 {
-            tx.create_node_with(vec!["Foo".to_string(), "Bar".to_string()], Default::default())
-                .expect("create node with labels");
+            tx.create_node_with(
+                vec!["Foo".to_string(), "Bar".to_string()],
+                Default::default(),
+            )
+            .expect("create node with labels");
         }
         let _summary = tx.commit().expect("commit txn");
         // `db` drops here — file handles close, no additional fsync.

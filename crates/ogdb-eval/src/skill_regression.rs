@@ -153,10 +153,7 @@ pub fn generate_skill_regression_report(
             .collect();
         failing_cases.sort_by(|a, b| a.case_name.cmp(&b.case_name));
 
-        let case_names: Vec<&str> = failing_cases
-            .iter()
-            .map(|c| c.case_name.as_str())
-            .collect();
+        let case_names: Vec<&str> = failing_cases.iter().map(|c| c.case_name.as_str()).collect();
         let suggested_next_plan = format!(
             "plan/skill-quality-{}-fix — {} failing case(s): {}",
             skill_display,
@@ -177,10 +174,7 @@ pub fn generate_skill_regression_report(
 
     regressed_skills.sort_by(|a, b| a.skill.cmp(&b.skill));
 
-    let total_failing_cases: usize = regressed_skills
-        .iter()
-        .map(|r| r.failing_cases.len())
-        .sum();
+    let total_failing_cases: usize = regressed_skills.iter().map(|r| r.failing_cases.len()).sum();
 
     let summary = SkillRegressionSummary {
         overall_pass_rate_baseline: overall_baseline,

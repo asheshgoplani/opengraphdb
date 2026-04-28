@@ -16,9 +16,7 @@ use std::path::Path;
 use ogdb_eval::drivers::cli_runner::{
     append_skill_quality_run, append_skill_quality_run_with_adapter, write_benchmarks_md,
 };
-use ogdb_eval::drivers::skill_quality::{
-    AdapterResponse, EvalCase, LlmAdapter, SkillQualityError,
-};
+use ogdb_eval::drivers::skill_quality::{AdapterResponse, EvalCase, LlmAdapter, SkillQualityError};
 use ogdb_eval::EvaluationRun;
 use tempfile::TempDir;
 
@@ -93,7 +91,10 @@ fn skill_quality_run_has_one_pass_rate_per_skill() {
         .keys()
         .filter(|k| {
             k.starts_with("pass_rate_")
-                && !matches!(k.as_str(), "pass_rate_easy" | "pass_rate_medium" | "pass_rate_hard")
+                && !matches!(
+                    k.as_str(),
+                    "pass_rate_easy" | "pass_rate_medium" | "pass_rate_hard"
+                )
         })
         .collect();
 

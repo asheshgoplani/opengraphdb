@@ -23,10 +23,7 @@ fn test_dir(tag: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let dir = env::temp_dir().join(format!(
-        "ogdb-hnsw-{tag}-{}-{now}",
-        std::process::id()
-    ));
+    let dir = env::temp_dir().join(format!("ogdb-hnsw-{tag}-{}-{now}", std::process::id()));
     fs::create_dir_all(&dir).expect("create test dir");
     dir
 }
@@ -71,10 +68,7 @@ fn hnsw_matches_brute_force_on_tiny_fixture() {
         let id = db
             .create_node_with(
                 &["Doc".to_string()],
-                &PropertyMap::from([(
-                    "embedding".to_string(),
-                    PropertyValue::Vector(v.clone()),
-                )]),
+                &PropertyMap::from([("embedding".to_string(), PropertyValue::Vector(v.clone()))]),
             )
             .expect("create node");
         ids.push(id);

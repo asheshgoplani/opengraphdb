@@ -34,10 +34,7 @@ fn test_dir(tag: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let dir = env::temp_dir().join(format!(
-        "ogdb-hnsw-{tag}-{}-{now}",
-        std::process::id()
-    ));
+    let dir = env::temp_dir().join(format!("ogdb-hnsw-{tag}-{}-{now}", std::process::id()));
     fs::create_dir_all(&dir).expect("create test dir");
     dir
 }
@@ -83,10 +80,7 @@ fn concurrent_inserts_do_not_corrupt_index() {
         let v = rand_unit_vec(i as u64, D);
         db.create_node_with(
             &["Doc".to_string()],
-            &PropertyMap::from([(
-                "embedding".to_string(),
-                PropertyValue::Vector(v),
-            )]),
+            &PropertyMap::from([("embedding".to_string(), PropertyValue::Vector(v))]),
         )
         .expect("create node");
     }
@@ -136,10 +130,7 @@ fn concurrent_inserts_do_not_corrupt_index() {
         let mut db = shared.lock().expect("lock writer");
         db.create_node_with(
             &["Doc".to_string()],
-            &PropertyMap::from([(
-                "embedding".to_string(),
-                PropertyValue::Vector(v),
-            )]),
+            &PropertyMap::from([("embedding".to_string(), PropertyValue::Vector(v))]),
         )
         .expect("writer create_node_with");
     }

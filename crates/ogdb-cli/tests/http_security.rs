@@ -114,7 +114,10 @@ where
     (bind_addr, handle, path)
 }
 
-fn spawn_http_server(tag: &str, max_requests: u64) -> (String, thread::JoinHandle<ogdb_cli::CliResult>, PathBuf) {
+fn spawn_http_server(
+    tag: &str,
+    max_requests: u64,
+) -> (String, thread::JoinHandle<ogdb_cli::CliResult>, PathBuf) {
     spawn_http_server_with_init(tag, max_requests, |_| {})
 }
 
@@ -176,7 +179,9 @@ fn export_without_token_returns_401_when_users_are_registered() {
     let request = format!(
         "POST /export HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n",
     );
-    stream.write_all(request.as_bytes()).expect("write /export request");
+    stream
+        .write_all(request.as_bytes())
+        .expect("write /export request");
     stream.flush().expect("flush /export request");
     let (status, line) = read_status_line(&mut stream).expect("status line");
     assert_eq!(
@@ -189,7 +194,9 @@ fn export_without_token_returns_401_when_users_are_registered() {
     let request = format!(
         "POST /export HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\nAuthorization: Bearer not-the-token\r\nContent-Type: application/json\r\nContent-Length: 0\r\n\r\n",
     );
-    stream.write_all(request.as_bytes()).expect("write bad-token request");
+    stream
+        .write_all(request.as_bytes())
+        .expect("write bad-token request");
     stream.flush().expect("flush bad-token request");
     let (status, line) = read_status_line(&mut stream).expect("status line");
     assert_eq!(
@@ -253,9 +260,7 @@ fn slow_loris_connection_is_closed_by_server_timeout() {
     // Server may still be running under max_requests budget; join best-effort
     // by making a final well-formed request to unblock it.
     let mut closer = connect_with_retry(&addr);
-    let ok_request = format!(
-        "GET /health HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n",
-    );
+    let ok_request = format!("GET /health HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n",);
     let _ = closer.write_all(ok_request.as_bytes());
     let _ = closer.flush();
     let _ = read_status_line(&mut closer);
@@ -272,9 +277,7 @@ fn too_many_headers_returns_431() {
     let (addr, handle, path) = spawn_http_server("header-count", 1);
 
     let mut stream = connect_with_retry(&addr);
-    let mut request = format!(
-        "GET /health HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n",
-    );
+    let mut request = format!("GET /health HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n",);
     for i in 0..101 {
         request.push_str(&format!("X-Flood-{i}: y\r\n"));
     }
@@ -323,9 +326,7 @@ fn malformed_content_length_returns_400() {
 
     // Server must still accept the next request — prove it by hitting /health.
     let mut stream = connect_with_retry(&addr);
-    let request = format!(
-        "GET /health HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n",
-    );
+    let request = format!("GET /health HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n",);
     stream
         .write_all(request.as_bytes())
         .expect("write follow-up /health");

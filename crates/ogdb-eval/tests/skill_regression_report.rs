@@ -73,7 +73,10 @@ fn diag(
         passed,
         score,
         latency_us: 1_000,
-        expected_must_contain: expected_must_contain.into_iter().map(String::from).collect(),
+        expected_must_contain: expected_must_contain
+            .into_iter()
+            .map(String::from)
+            .collect(),
         expected_pattern: expected_pattern.map(String::from),
         actual_response: actual_response.to_string(),
     }
@@ -97,8 +100,8 @@ fn report_lists_failing_cases_per_skill() {
         "skill_quality-all-current",
         vec![
             ("pass_rate", 0.70),
-            ("pass_rate_ogdb_cypher", 0.50),   // regressed: 2 of 4 failing
-            ("pass_rate_data_import", 1.00),   // unchanged
+            ("pass_rate_ogdb_cypher", 0.50), // regressed: 2 of 4 failing
+            ("pass_rate_data_import", 1.00), // unchanged
             ("pass_rate_graph_explore", 1.00), // unchanged
         ],
     );
@@ -197,7 +200,9 @@ fn report_lists_failing_cases_per_skill() {
     assert_eq!(first.expected_pattern.as_deref(), Some("MATCH"));
 
     assert!(
-        regressed.suggested_next_plan.contains("plan/skill-quality-"),
+        regressed
+            .suggested_next_plan
+            .contains("plan/skill-quality-"),
         "suggested_next_plan must start with a plan/ prefix; got {}",
         regressed.suggested_next_plan
     );

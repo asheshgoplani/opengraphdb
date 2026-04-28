@@ -166,7 +166,9 @@ fn snapshot(db: &Database) -> Snapshot {
             .into_iter()
             .collect();
         node_labels.push(labels);
-        let props = db.node_properties(id).expect("read node_properties in snapshot");
+        let props = db
+            .node_properties(id)
+            .expect("read node_properties in snapshot");
         let mut pairs: Vec<(String, String)> = props
             .into_iter()
             .map(|(k, v)| (k, format!("{:?}", v)))

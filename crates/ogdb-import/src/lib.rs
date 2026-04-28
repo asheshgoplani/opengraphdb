@@ -95,8 +95,7 @@ pub struct ParsedSection {
 pub fn parse_pdf_sections(data: &[u8]) -> Result<Vec<ParsedSection>, String> {
     use lopdf::Document as PdfDocument;
 
-    let doc = PdfDocument::load_mem(data)
-        .map_err(|e| format!("Failed to parse PDF: {e}"))?;
+    let doc = PdfDocument::load_mem(data).map_err(|e| format!("Failed to parse PDF: {e}"))?;
 
     let page_count = doc.get_pages().len();
     let mut sections: Vec<ParsedSection> = Vec::new();
@@ -123,8 +122,7 @@ pub fn parse_pdf_sections(data: &[u8]) -> Result<Vec<ParsedSection>, String> {
                 && !trimmed.ends_with('.')
                 && (trimmed == trimmed.to_uppercase()
                     || trimmed.split_whitespace().all(|w| {
-                        w.chars().next().map(|c| c.is_uppercase()).unwrap_or(false)
-                            || w.len() <= 3
+                        w.chars().next().map(|c| c.is_uppercase()).unwrap_or(false) || w.len() <= 3
                     }));
 
             if is_heading && !current_text.trim().is_empty() {
@@ -270,7 +268,11 @@ pub fn parse_plaintext_sections(text: &str, max_chunk_words: usize) -> Vec<Parse
     if words.is_empty() {
         return Vec::new();
     }
-    let chunk_size = if max_chunk_words == 0 { words.len() } else { max_chunk_words };
+    let chunk_size = if max_chunk_words == 0 {
+        words.len()
+    } else {
+        max_chunk_words
+    };
     words
         .chunks(chunk_size)
         .enumerate()
@@ -339,7 +341,8 @@ mod tests {
             ParsedSection {
                 title: "Results and Discussion".to_string(),
                 level: 2,
-                content: "As described in Graph Algorithms Overview, the results show improvement.".to_string(),
+                content: "As described in Graph Algorithms Overview, the results show improvement."
+                    .to_string(),
                 page_start: None,
                 page_end: None,
             },

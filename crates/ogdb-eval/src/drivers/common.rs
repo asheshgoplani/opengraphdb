@@ -65,7 +65,9 @@ pub fn percentiles(samples_us: &[f64]) -> (f64, f64, f64) {
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let pick = |p: f64| -> f64 {
         let n = sorted.len();
-        let idx = ((p * n as f64).ceil() as usize).saturating_sub(1).min(n - 1);
+        let idx = ((p * n as f64).ceil() as usize)
+            .saturating_sub(1)
+            .min(n - 1);
         sorted[idx]
     };
     (pick(0.50), pick(0.95), pick(0.99))
@@ -82,7 +84,9 @@ pub fn percentiles_extended(samples_us: &[f64]) -> (f64, f64, f64, f64) {
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
     let pick = |p: f64| -> f64 {
         let n = sorted.len();
-        let idx = ((p * n as f64).ceil() as usize).saturating_sub(1).min(n - 1);
+        let idx = ((p * n as f64).ceil() as usize)
+            .saturating_sub(1)
+            .min(n - 1);
         sorted[idx]
     };
     (pick(0.50), pick(0.95), pick(0.99), pick(0.999))

@@ -12,8 +12,7 @@ fn run_all_produces_evaluation_runs_for_every_driver() {
     let runs = run_all(&cfg).expect("run_all");
 
     // Every driver family must appear at least once.
-    let suites: std::collections::BTreeSet<_> =
-        runs.iter().map(|r| r.suite.clone()).collect();
+    let suites: std::collections::BTreeSet<_> = runs.iter().map(|r| r.suite.clone()).collect();
     for expected in ["throughput", "ldbc_snb", "ai_agent", "resources"] {
         assert!(
             suites.contains(expected),

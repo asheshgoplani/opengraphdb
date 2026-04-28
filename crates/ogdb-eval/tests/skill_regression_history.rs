@@ -123,7 +123,10 @@ fn integration_with_diff_history_file() {
         "end-to-end must surface ≥ 1 regressed skill; got {report:#?}"
     );
     assert!(
-        report.regressed_skills.iter().any(|r| r.skill == "ogdb-cypher"),
+        report
+            .regressed_skills
+            .iter()
+            .any(|r| r.skill == "ogdb-cypher"),
         "ogdb-cypher must be flagged as regressed; got {:#?}",
         report.regressed_skills
     );

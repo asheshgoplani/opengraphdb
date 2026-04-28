@@ -6,9 +6,9 @@
 
 use std::collections::BTreeMap;
 
+use ogdb_eval::drivers::cli_runner::RunAllConfig;
 use ogdb_eval::drivers::governor::{detect_governor, try_set_governor, GovernorState};
 use ogdb_eval::drivers::multi_iter::{median_aggregate, run_warmup_then_iters};
-use ogdb_eval::drivers::cli_runner::RunAllConfig;
 use ogdb_eval::{BinaryInfo, EvaluationRun, Metric, Platform};
 use tempfile::tempdir;
 
@@ -16,23 +16,43 @@ fn synthetic_run(suite: &str, subsuite: &str, qps: f64, p99_9: f64) -> Evaluatio
     let mut metrics = BTreeMap::new();
     metrics.insert(
         "qps".into(),
-        Metric { value: qps, unit: "qps".into(), higher_is_better: true },
+        Metric {
+            value: qps,
+            unit: "qps".into(),
+            higher_is_better: true,
+        },
     );
     metrics.insert(
         "p50_us".into(),
-        Metric { value: qps * 0.01, unit: "us".into(), higher_is_better: false },
+        Metric {
+            value: qps * 0.01,
+            unit: "us".into(),
+            higher_is_better: false,
+        },
     );
     metrics.insert(
         "p95_us".into(),
-        Metric { value: qps * 0.02, unit: "us".into(), higher_is_better: false },
+        Metric {
+            value: qps * 0.02,
+            unit: "us".into(),
+            higher_is_better: false,
+        },
     );
     metrics.insert(
         "p99_us".into(),
-        Metric { value: qps * 0.04, unit: "us".into(), higher_is_better: false },
+        Metric {
+            value: qps * 0.04,
+            unit: "us".into(),
+            higher_is_better: false,
+        },
     );
     metrics.insert(
         "p99_9_us".into(),
-        Metric { value: p99_9, unit: "us".into(), higher_is_better: false },
+        Metric {
+            value: p99_9,
+            unit: "us".into(),
+            higher_is_better: false,
+        },
     );
     EvaluationRun {
         schema_version: "1.0".into(),
@@ -63,7 +83,14 @@ fn median_aggregate_takes_median_of_each_metric() {
     // Five iters of one EvaluationRun. qps values: 100, 200, 300, 400, 500.
     // Median = 300. p99_9 should be excluded (per spec, still noisy at N=5).
     let iters: Vec<Vec<EvaluationRun>> = (0..5)
-        .map(|i| vec![synthetic_run("throughput", "ingest_streaming", 100.0 * (i as f64 + 1.0), 9999.0)])
+        .map(|i| {
+            vec![synthetic_run(
+                "throughput",
+                "ingest_streaming",
+                100.0 * (i as f64 + 1.0),
+                9999.0,
+            )]
+        })
         .collect();
 
     let medians = median_aggregate(&iters);
@@ -97,11 +124,24 @@ fn median_aggregate_groups_by_suite_subsuite_dataset() {
         .collect();
 
     let medians = median_aggregate(&iters);
-    assert_eq!(medians.len(), 2, "two distinct (suite,subsuite,dataset) groups");
-    let streaming = medians.iter().find(|r| r.subsuite == "ingest_streaming").unwrap();
+    assert_eq!(
+        medians.len(),
+        2,
+        "two distinct (suite,subsuite,dataset) groups"
+    );
+    let streaming = medians
+        .iter()
+        .find(|r| r.subsuite == "ingest_streaming")
+        .unwrap();
     let read_point = medians.iter().find(|r| r.subsuite == "read_point").unwrap();
-    assert!((streaming.metrics["qps"].value - 101.0).abs() < 1e-9, "median of [100,101,102]");
-    assert!((read_point.metrics["qps"].value - 1010.0).abs() < 1e-9, "median of [1000,1010,1020]");
+    assert!(
+        (streaming.metrics["qps"].value - 101.0).abs() < 1e-9,
+        "median of [100,101,102]"
+    );
+    assert!(
+        (read_point.metrics["qps"].value - 1010.0).abs() < 1e-9,
+        "median of [1000,1010,1020]"
+    );
 }
 
 #[test]
@@ -152,8 +192,16 @@ fn run_warmup_then_iters_runs_warmup_and_returns_n_iter_groups_excluding_warmup(
             .filter(|r| r.suite == "throughput" && r.subsuite == "ingest_streaming")
             .count()
     };
-    assert_eq!(count_streaming(&groups[0]), 1, "warmup must not pollute iter 1");
-    assert_eq!(count_streaming(&groups[1]), 1, "warmup must not pollute iter 2");
+    assert_eq!(
+        count_streaming(&groups[0]),
+        1,
+        "warmup must not pollute iter 1"
+    );
+    assert_eq!(
+        count_streaming(&groups[1]),
+        1,
+        "warmup must not pollute iter 2"
+    );
 }
 
 #[test]
@@ -165,7 +213,10 @@ fn detect_governor_returns_some_on_linux_or_none_on_unsupported() {
     // and to return a value our caller can branch on.
     match g {
         GovernorState::Available(name) => {
-            assert!(!name.is_empty(), "governor name must not be empty when reported as available");
+            assert!(
+                !name.is_empty(),
+                "governor name must not be empty when reported as available"
+            );
         }
         GovernorState::Unavailable => {}
     }
@@ -180,5 +231,8 @@ fn try_set_governor_returns_err_when_not_writeable() {
     // accept either outcome but never a panic.
     let _ = try_set_governor("performance");
     // Touch the no-op return path explicitly.
-    assert!(true, "try_set_governor must not panic regardless of permissions");
+    assert!(
+        true,
+        "try_set_governor must not panic regardless of permissions"
+    );
 }

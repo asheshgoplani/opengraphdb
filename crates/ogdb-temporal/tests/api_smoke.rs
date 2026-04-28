@@ -15,8 +15,7 @@
 //! @19861 and `parse_edge_valid_window` @5641 bodies).
 
 use ogdb_temporal::{
-    temporal_filter_matches, validate_valid_window, TemporalFilter,
-    TemporalScope,
+    temporal_filter_matches, validate_valid_window, TemporalFilter, TemporalScope,
 };
 
 #[test]
@@ -122,8 +121,8 @@ fn validate_valid_window_accepts_all_open_combinations() {
 
 #[test]
 fn validate_valid_window_rejects_inverted_or_zero_width() {
-    let err_inverted = validate_valid_window(Some(200), Some(100))
-        .expect_err("inverted window must be rejected");
+    let err_inverted =
+        validate_valid_window(Some(200), Some(100)).expect_err("inverted window must be rejected");
     assert!(
         err_inverted.contains("valid_to must be greater than valid_from"),
         "got: {err_inverted}",
@@ -143,7 +142,6 @@ fn validate_valid_window_error_message_pins_in_core_format() {
     // (ogdb-core lib.rs:5648) wraps it via DbError::InvalidArgument(_)
     // and surfaces it to Cypher CREATE callers + the ogdb-e2e harness.
     // Changing this message is a user-visible breaking change.
-    let err = validate_valid_window(Some(200), Some(100))
-        .expect_err("inverted window");
+    let err = validate_valid_window(Some(200), Some(100)).expect_err("inverted window");
     assert_eq!(err, "valid_to must be greater than valid_from");
 }

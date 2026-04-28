@@ -103,26 +103,18 @@ fn ogdb_text_helpers_are_callable_via_ogdb_text_root() {
     //
     // We assert the callable paths here (not just type identities)
     // because free fns cannot be compared via TypeId.
-    let def = ogdb_text::normalize_fulltext_index_definition(
-        "call_idx",
-        Some("Doc"),
-        &["k".to_string()],
-    )
-    .expect("validator callable");
+    let def =
+        ogdb_text::normalize_fulltext_index_definition("call_idx", Some("Doc"), &["k".to_string()])
+            .expect("validator callable");
     assert_eq!(def.name, "call_idx");
 
-    let root = ogdb_text::fulltext_index_root_path_for_db(
-        std::path::Path::new("/tmp/ogdb-x"),
-    );
+    let root = ogdb_text::fulltext_index_root_path_for_db(std::path::Path::new("/tmp/ogdb-x"));
     assert!(root.to_string_lossy().ends_with(".ogdb.ftindex"));
 
     let slug = ogdb_text::sanitize_index_component("has space");
     assert_eq!(slug, "has_space");
 
-    let per = ogdb_text::fulltext_index_path_for_name(
-        std::path::Path::new("/tmp/ogdb-y"),
-        "x y",
-    );
+    let per = ogdb_text::fulltext_index_path_for_name(std::path::Path::new("/tmp/ogdb-y"), "x y");
     assert!(per.to_string_lossy().ends_with(".ogdb.ftindex/x_y"));
 }
 

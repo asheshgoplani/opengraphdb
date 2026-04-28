@@ -4,9 +4,7 @@
 
 use std::time::{Duration, Instant};
 
-use crate::drivers::skill_quality::{
-    AdapterResponse, EvalCase, LlmAdapter, SkillQualityError,
-};
+use crate::drivers::skill_quality::{AdapterResponse, EvalCase, LlmAdapter, SkillQualityError};
 
 use super::{post_with_retry, RetryPolicy, DEFAULT_TIMEOUT_MS, TIMEOUT_MS_ENV};
 

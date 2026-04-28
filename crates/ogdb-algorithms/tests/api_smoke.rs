@@ -11,8 +11,7 @@
 //! crates/ogdb-core/src/lib.rs into crates/ogdb-algorithms/src/lib.rs.
 
 use ogdb_algorithms::{
-    label_propagation, leiden, louvain, GraphPath, ShortestPathOptions,
-    Subgraph, SubgraphEdge,
+    label_propagation, leiden, louvain, GraphPath, ShortestPathOptions, Subgraph, SubgraphEdge,
 };
 
 #[test]
@@ -101,8 +100,16 @@ fn label_propagation_respects_disjoint_components() {
     let visible = vec![0u64, 1, 2, 3];
     let result = label_propagation(&adjacency, &visible);
     let label_of = |node: u64| result.iter().find(|(n, _)| *n == node).unwrap().1;
-    assert_eq!(label_of(0), label_of(1), "connected pair must share a label");
-    assert_eq!(label_of(2), label_of(3), "connected pair must share a label");
+    assert_eq!(
+        label_of(0),
+        label_of(1),
+        "connected pair must share a label"
+    );
+    assert_eq!(
+        label_of(2),
+        label_of(3),
+        "connected pair must share a label"
+    );
     assert_ne!(label_of(0), label_of(2), "disjoint components must differ");
 }
 

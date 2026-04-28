@@ -78,10 +78,7 @@ async fn adapter_handles_rate_limit_429() {
         resp.text, "MATCH (p:Person)",
         "third attempt's body must be surfaced"
     );
-    let received = server
-        .received_requests()
-        .await
-        .expect("wiremock records");
+    let received = server.received_requests().await.expect("wiremock records");
     assert_eq!(
         received.len(),
         3,

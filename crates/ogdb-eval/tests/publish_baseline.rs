@@ -31,9 +31,7 @@
 
 use std::path::{Path, PathBuf};
 
-use ogdb_eval::drivers::cli_runner::{
-    append_skill_quality_run, write_benchmarks_md, RunAllConfig,
-};
+use ogdb_eval::drivers::cli_runner::{append_skill_quality_run, write_benchmarks_md, RunAllConfig};
 use ogdb_eval::drivers::governor::{detect_governor, try_set_governor, GovernorState};
 use ogdb_eval::drivers::multi_iter::{median_aggregate, run_warmup_then_iters};
 use ogdb_eval::drivers::{criterion_ingest, graphalytics};
@@ -142,7 +140,10 @@ fn run_post_pass(workdir: &Path, runs: &mut Vec<EvaluationRun>) {
             eprintln!(
                 "  graphalytics BFS: levels={} nodes_visited={}",
                 r.metrics.get("levels").map(|m| m.value).unwrap_or(0.0),
-                r.metrics.get("nodes_visited").map(|m| m.value).unwrap_or(0.0)
+                r.metrics
+                    .get("nodes_visited")
+                    .map(|m| m.value)
+                    .unwrap_or(0.0)
             );
             runs.push(r);
         }
@@ -157,8 +158,7 @@ fn run_post_pass(workdir: &Path, runs: &mut Vec<EvaluationRun>) {
     }
 
     let criterion_root = PathBuf::from(
-        std::env::var("OGDB_EVAL_CRITERION_DIR")
-            .unwrap_or_else(|_| "target/criterion".to_string()),
+        std::env::var("OGDB_EVAL_CRITERION_DIR").unwrap_or_else(|_| "target/criterion".to_string()),
     );
     match criterion_ingest::ingest_criterion_dir(&criterion_root) {
         Ok(mut ci_runs) => {

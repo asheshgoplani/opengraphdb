@@ -79,7 +79,9 @@ fn wal_replay_fills_node_id_gap_instead_of_erroring() {
     // carry only node_id, so labels come from meta which is empty on this
     // gap path).
     for id in 0..7u64 {
-        let labels = db.node_labels(id).expect("node_labels for padded/applied id");
+        let labels = db
+            .node_labels(id)
+            .expect("node_labels for padded/applied id");
         assert!(
             labels.is_empty(),
             "v1 WAL gap-fill produces empty labels for node {id}; got {labels:?}"

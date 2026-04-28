@@ -38,10 +38,7 @@ fn test_dir(tag: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let dir = env::temp_dir().join(format!(
-        "ogdb-hnsw-{tag}-{}-{now}",
-        std::process::id()
-    ));
+    let dir = env::temp_dir().join(format!("ogdb-hnsw-{tag}-{}-{now}", std::process::id()));
     fs::create_dir_all(&dir).expect("create test dir");
     dir
 }
@@ -103,10 +100,7 @@ fn hnsw_recall_at_10_over_0_95_at_10k() {
         let id = db
             .create_node_with(
                 &["Doc".to_string()],
-                &PropertyMap::from([(
-                    "embedding".to_string(),
-                    PropertyValue::Vector(v.clone()),
-                )]),
+                &PropertyMap::from([("embedding".to_string(), PropertyValue::Vector(v.clone()))]),
             )
             .expect("create node");
         corpus.push((id, v));
@@ -135,8 +129,7 @@ fn hnsw_recall_at_10_over_0_95_at_10k() {
             .collect();
         truth.sort_by(|a, b| a.1.total_cmp(&b.1).then_with(|| a.0.cmp(&b.0)));
         truth.truncate(K);
-        let truth_ids: std::collections::BTreeSet<u64> =
-            truth.iter().map(|(id, _)| *id).collect();
+        let truth_ids: std::collections::BTreeSet<u64> = truth.iter().map(|(id, _)| *id).collect();
 
         let got = db
             .vector_search("embedding_idx", &q, K, None)

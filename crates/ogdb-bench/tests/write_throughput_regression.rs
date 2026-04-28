@@ -71,10 +71,7 @@ fn create_nodes_throughput_above_10k_elems_per_sec() {
     let samples: Vec<f64> = (0..BATCHES).map(measure_create_nodes_batch).collect();
     // Best-of-3 avoids spurious failures from noisy CI VMs while still gating
     // on a ~300x improvement over current ~32 elem/s.
-    let best = samples
-        .iter()
-        .cloned()
-        .fold(f64::NEG_INFINITY, f64::max);
+    let best = samples.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
 
     assert!(
         best > MIN_ELEMS_PER_SEC,

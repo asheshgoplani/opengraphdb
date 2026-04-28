@@ -80,10 +80,7 @@ fn export_edge_has_eight_pub_fields() {
     assert_eq!(e.src, 1u64);
     assert_eq!(e.dst, 2u64);
     assert_eq!(e.edge_type.as_deref(), Some("KNOWS"));
-    assert_eq!(
-        e.properties.get("since"),
-        Some(&PropertyValue::I64(2020))
-    );
+    assert_eq!(e.properties.get("since"), Some(&PropertyValue::I64(2020)));
     assert_eq!(e.valid_from, Some(1_700_000_000_000));
     assert_eq!(e.valid_to, None);
     assert_eq!(e.transaction_time_millis, 1_700_000_500_000);

@@ -33,7 +33,10 @@ fn temp_db_path(tag: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("system time before unix epoch")
         .as_nanos();
-    path.push(format!("ogdb-unwind-http-{tag}-{}-{ts}.ogdb", process::id()));
+    path.push(format!(
+        "ogdb-unwind-http-{tag}-{}-{ts}.ogdb",
+        process::id()
+    ));
     path
 }
 
@@ -156,7 +159,11 @@ fn http_post_query_accepts_unwind_literal_list() {
         .get("rows")
         .and_then(serde_json::Value::as_array)
         .unwrap_or_else(|| panic!("payload.rows must be an array; payload={payload}"));
-    assert_eq!(rows.len(), 3, "rows array must have 3 entries; got {rows:?}");
+    assert_eq!(
+        rows.len(),
+        3,
+        "rows array must have 3 entries; got {rows:?}"
+    );
 
     let mut seen = Vec::<i64>::new();
     for row in rows {

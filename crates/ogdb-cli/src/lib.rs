@@ -1,8 +1,8 @@
 use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use ogdb_core::{
     Database, DbError, DocumentFormat, EnrichedRagResult, ExportEdge, ExportNode, Header,
-    IngestConfig, PropertyMap, PropertyValue, QueryResult,
-    SharedDatabase, ShortestPathOptions, VectorDistanceMetric, WriteConcurrencyMode,
+    IngestConfig, PropertyMap, PropertyValue, QueryResult, SharedDatabase, ShortestPathOptions,
+    VectorDistanceMetric, WriteConcurrencyMode,
 };
 use oxrdf::{BlankNode, GraphName, Literal, NamedNode, NamedOrBlankNode, Quad, Term};
 use oxrdfio::{JsonLdProfileSet, RdfFormat, RdfParser, RdfSerializer};
@@ -2439,9 +2439,7 @@ fn execute_mcp_search_nodes_tool(
         .collect::<Vec<_>>()
         .join(" OR ");
 
-    let cypher = format!(
-        "MATCH (n{label_filter}) WHERE {where_clause} RETURN n LIMIT {limit}"
-    );
+    let cypher = format!("MATCH (n{label_filter}) WHERE {where_clause} RETURN n LIMIT {limit}");
 
     let output = execute_query_with_format(db_path, &cypher, QueryOutputFormat::Json)
         .map_err(|e| e.to_string())?;
@@ -3751,8 +3749,7 @@ fn rag_results_to_json(results: &[EnrichedRagResult]) -> Value {
 
 /// Minimal base64 decoder (standard alphabet).
 fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
-    const TABLE: &[u8; 64] =
-        b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     let mut lookup = [255u8; 256];
     for (i, &c) in TABLE.iter().enumerate() {
         lookup[c as usize] = i as u8;
@@ -4346,9 +4343,8 @@ fn dispatch_http_request(
             let metrics = snapshot.metrics()?;
             prom_metrics::refresh_state_gauges(metrics.node_count, metrics.edge_count, db_path);
             drop(snapshot);
-            let body = prom_metrics::encode().map_err(|e| {
-                CliError::Runtime(format!("prometheus encode failed: {e}"))
-            })?;
+            let body = prom_metrics::encode()
+                .map_err(|e| CliError::Runtime(format!("prometheus encode failed: {e}")))?;
             Ok(http_text_response(
                 200,
                 "OK",
@@ -4562,7 +4558,13 @@ fn dispatch_http_request(
                 }
             };
             let base_uri = http_query_param(&request.path, "base_uri");
-            handle_http_rdf_import(shared_db, db_path, &request.body, format, base_uri.as_deref())
+            handle_http_rdf_import(
+                shared_db,
+                db_path,
+                &request.body,
+                format,
+                base_uri.as_deref(),
+            )
         }
         ("POST", "/export") => {
             let content_type = http_content_type(&request.headers);
@@ -4677,17 +4679,11 @@ fn dispatch_http_request(
         ("POST", "/rag/search") => {
             let body: Value = serde_json::from_slice(&request.body)
                 .map_err(|e| CliError::Runtime(format!("invalid json: {e}")))?;
-            let query_text = body
-                .get("query")
-                .and_then(|v| v.as_str())
-                .unwrap_or("");
+            let query_text = body.get("query").and_then(|v| v.as_str()).unwrap_or("");
             let embedding: Option<Vec<f32>> = body
                 .get("embedding")
                 .and_then(|v| serde_json::from_value(v.clone()).ok());
-            let k = body
-                .get("k")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(10) as usize;
+            let k = body.get("k").and_then(|v| v.as_u64()).unwrap_or(10) as usize;
             let community_id = body.get("community_id").and_then(|v| v.as_u64());
             let snapshot = shared_db.read_snapshot()?;
             match snapshot.rag_hybrid_search(query_text, embedding.as_deref(), k, community_id) {
@@ -4718,16 +4714,27 @@ fn dispatch_http_request(
                 "Markdown" | "markdown" | "md" => DocumentFormat::Markdown,
                 _ => DocumentFormat::PlainText,
             };
-            let data: Vec<u8> = if let Some(b64) = body.get("content_base64").and_then(|v| v.as_str()) {
-                match base64_decode(b64) {
-                    Ok(bytes) => bytes,
-                    Err(msg) => return Ok(http_error(400, "Bad Request", format!("invalid base64: {msg}"))),
-                }
-            } else if let Some(text) = body.get("content").and_then(|v| v.as_str()) {
-                text.as_bytes().to_vec()
-            } else {
-                return Ok(http_error(400, "Bad Request", "content or content_base64 required"));
-            };
+            let data: Vec<u8> =
+                if let Some(b64) = body.get("content_base64").and_then(|v| v.as_str()) {
+                    match base64_decode(b64) {
+                        Ok(bytes) => bytes,
+                        Err(msg) => {
+                            return Ok(http_error(
+                                400,
+                                "Bad Request",
+                                format!("invalid base64: {msg}"),
+                            ))
+                        }
+                    }
+                } else if let Some(text) = body.get("content").and_then(|v| v.as_str()) {
+                    text.as_bytes().to_vec()
+                } else {
+                    return Ok(http_error(
+                        400,
+                        "Bad Request",
+                        "content or content_base64 required",
+                    ));
+                };
             let source_uri = body
                 .get("source_uri")
                 .and_then(|v| v.as_str())
@@ -4841,11 +4848,7 @@ fn handle_http_mcp_invoke(db_path: &str, body: &[u8]) -> HttpResponseMessage {
             } else {
                 "Internal Server Error"
             };
-            http_json_response(
-                status,
-                reason,
-                serde_json::json!({ "error": message }),
-            )
+            http_json_response(status, reason, serde_json::json!({ "error": message }))
         }
     }
 }
@@ -4869,8 +4872,9 @@ fn handle_trace_sse(
 
     // Authenticate (same pattern as /query)
     let user = if let Some(auth_value) = http_header_value(&request.headers, "authorization") {
-        let token = parse_bearer_token(auth_value)
-            .ok_or_else(|| CliError::Runtime("authorization header must be Bearer <token>".to_string()))?;
+        let token = parse_bearer_token(auth_value).ok_or_else(|| {
+            CliError::Runtime("authorization header must be Bearer <token>".to_string())
+        })?;
         shared_db
             .authenticate_token(token)?
             .ok_or_else(|| CliError::Runtime("invalid bearer token".to_string()))?
@@ -4884,7 +4888,10 @@ fn handle_trace_sse(
         "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n{}\r\n",
         HTTP_CORS_HEADERS,
     );
-    io_runtime(stream.write_all(header.as_bytes()), "failed to write SSE header")?;
+    io_runtime(
+        stream.write_all(header.as_bytes()),
+        "failed to write SSE header",
+    )?;
     io_runtime(stream.flush(), "failed to flush SSE header")?;
 
     // Execute query with real traversal tracing
@@ -5004,8 +5011,7 @@ fn handle_serve_http(
                 continue;
             }
             HttpReadOutcome::Request(request) => {
-                let route_label =
-                    prom_metrics::route_label(&request.method, &request.path);
+                let route_label = prom_metrics::route_label(&request.method, &request.path);
                 let is_mutating = request.method == "POST";
                 if is_mutating {
                     prom_metrics::TXN_ACTIVE.inc();
@@ -5017,7 +5023,8 @@ fn handle_serve_http(
                     let sse_status = match handle_trace_sse(&shared_db, &request, &mut stream) {
                         Ok(()) => 200u16,
                         Err(err) => {
-                            let response = http_error(500, "Internal Server Error", err.to_string());
+                            let response =
+                                http_error(500, "Internal Server Error", err.to_string());
                             let _ = write_http_response(&mut stream, response);
                             500
                         }
@@ -5228,8 +5235,7 @@ fn handle_http_rdf_import(
 
     let write_outcome = shared_db
         .with_write(|db| -> Result<(ImportProgress, u64, u64), DbError> {
-            let mut batcher =
-                ImportBatcher::new_with_mode(db, RDF_IMPORT_HTTP_BATCH, false, true);
+            let mut batcher = ImportBatcher::new_with_mode(db, RDF_IMPORT_HTTP_BATCH, false, true);
             for record in records {
                 batcher.mark_processed();
                 batcher
@@ -6657,7 +6663,11 @@ fn to_cypher_edge_case(name: &str) -> String {
             continue;
         }
         if ch.is_ascii_uppercase() {
-            let prev = if i > 0 { chars.get(i - 1).copied() } else { None };
+            let prev = if i > 0 {
+                chars.get(i - 1).copied()
+            } else {
+                None
+            };
             let next = chars.get(i + 1).copied();
             let prev_lower_or_digit =
                 prev.is_some_and(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
@@ -7225,7 +7235,11 @@ fn property_value_to_rdf_literal(value: &PropertyValue) -> Literal {
             Literal::from(format!("vector:{}", format_vector_literal(value)))
         }
         PropertyValue::Date(value) => Literal::from(format!("date:{value}")),
-        PropertyValue::Duration { months, days, nanos } => Literal::from(format!("duration:{months}:{days}:{nanos}")),
+        PropertyValue::Duration {
+            months,
+            days,
+            nanos,
+        } => Literal::from(format!("duration:{months}:{days}:{nanos}")),
         PropertyValue::DateTime {
             micros,
             tz_offset_minutes,
@@ -7534,7 +7548,11 @@ fn property_value_to_export_json(value: &PropertyValue) -> Value {
             .into_iter()
             .collect(),
         ),
-        PropertyValue::Duration { months, days, nanos } => Value::Object(
+        PropertyValue::Duration {
+            months,
+            days,
+            nanos,
+        } => Value::Object(
             [
                 ("months".to_string(), Value::Number((*months).into())),
                 ("days".to_string(), Value::Number((*days).into())),
@@ -7576,7 +7594,11 @@ fn property_value_to_export_csv(value: &PropertyValue) -> String {
             micros,
             tz_offset_minutes,
         } => format!("datetime:{micros}:{tz_offset_minutes}"),
-        PropertyValue::Duration { months, days, nanos } => format!("duration:{months}:{days}:{nanos}"),
+        PropertyValue::Duration {
+            months,
+            days,
+            nanos,
+        } => format!("duration:{months}:{days}:{nanos}"),
         PropertyValue::List(values) => format!(
             "list:[{}]",
             values
@@ -7993,7 +8015,11 @@ fn format_property_value(value: &PropertyValue) -> String {
             micros,
             tz_offset_minutes,
         } => format!("datetime:{micros}:{tz_offset_minutes}"),
-        PropertyValue::Duration { months, days, nanos } => format!("duration:{months}:{days}:{nanos}"),
+        PropertyValue::Duration {
+            months,
+            days,
+            nanos,
+        } => format!("duration:{months}:{days}:{nanos}"),
         PropertyValue::List(values) => format!(
             "list:[{}]",
             values
@@ -8794,9 +8820,11 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["info".to_string(),
+        let out = run(&[
+            "info".to_string(),
             "--db".to_string(),
-            path.display().to_string()]);
+            path.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("node_count=0"));
         assert!(out.stdout.contains("edge_count=0"));
@@ -8923,10 +8951,12 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["--format".to_string(),
+        let out = run(&[
+            "--format".to_string(),
             "json".to_string(),
             "info".to_string(),
-            path.display().to_string()]);
+            path.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         let value: serde_json::Value = serde_json::from_str(&out.stdout).expect("valid json");
         assert_eq!(value["row_count"], 1);
@@ -8946,9 +8976,11 @@ mod tests {
     #[test]
     fn init_requires_page_size_value_when_flag_present() {
         let path = temp_db_path("missing-pagesize-value");
-        let out = run(&["init".to_string(),
+        let out = run(&[
+            "init".to_string(),
             path.display().to_string(),
-            "--page-size".to_string()]);
+            "--page-size".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("--page-size"));
         assert!(out.stderr.contains("required"));
@@ -8957,9 +8989,11 @@ mod tests {
     #[test]
     fn init_rejects_unknown_flag() {
         let path = temp_db_path("unknown-flag");
-        let out = run(&["init".to_string(),
+        let out = run(&[
+            "init".to_string(),
             path.display().to_string(),
-            "--unknown".to_string()]);
+            "--unknown".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("unexpected argument"));
     }
@@ -8974,10 +9008,12 @@ mod tests {
     #[test]
     fn returns_usage_error_for_invalid_page_size() {
         let path = temp_db_path("bad-pagesize");
-        let out = run(&["init".to_string(),
+        let out = run(&[
+            "init".to_string(),
             path.display().to_string(),
             "--page-size".to_string(),
-            "3000".to_string()]);
+            "3000".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("power of two"));
     }
@@ -8985,10 +9021,12 @@ mod tests {
     #[test]
     fn returns_usage_error_for_too_small_page_size() {
         let path = temp_db_path("small-pagesize");
-        let out = run(&["init".to_string(),
+        let out = run(&[
+            "init".to_string(),
             path.display().to_string(),
             "--page-size".to_string(),
-            "32".to_string()]);
+            "32".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains(">= 64"));
     }
@@ -8996,10 +9034,12 @@ mod tests {
     #[test]
     fn returns_usage_error_for_non_numeric_page_size() {
         let path = temp_db_path("bad-pagesize-string");
-        let out = run(&["init".to_string(),
+        let out = run(&[
+            "init".to_string(),
             path.display().to_string(),
             "--page-size".to_string(),
-            "not-a-number".to_string()]);
+            "not-a-number".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("--page-size"));
         assert!(out.stderr.contains("invalid value"));
@@ -9049,44 +9089,54 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
-        let info_json = run(&["info".to_string(),
+        let info_json = run(&[
+            "info".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "json".to_string()]);
+            "json".to_string(),
+        ]);
         assert_eq!(info_json.exit_code, 0);
         let info_value: serde_json::Value =
             serde_json::from_str(&info_json.stdout).expect("valid info json");
         assert_eq!(info_value["rows"][0]["node_count"], "2");
         assert_eq!(info_value["rows"][0]["edge_count"], "1");
 
-        let stats_jsonl = run(&["stats".to_string(),
+        let stats_jsonl = run(&[
+            "stats".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "jsonl".to_string()]);
+            "jsonl".to_string(),
+        ]);
         assert_eq!(stats_jsonl.exit_code, 0);
         let stats_row: serde_json::Value =
             serde_json::from_str(stats_jsonl.stdout.trim()).expect("valid stats jsonl");
         assert_eq!(stats_row["max_out_degree"], "1");
 
-        let schema_csv = run(&["schema".to_string(),
+        let schema_csv = run(&[
+            "schema".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "csv".to_string()]);
+            "csv".to_string(),
+        ]);
         assert_eq!(schema_csv.exit_code, 0);
         assert!(schema_csv
             .stdout
             .starts_with("path,model,node_labels,edge_types,property_keys,node_count,edge_count"));
         assert!(schema_csv.stdout.contains(",property_graph_minimal,"));
 
-        let metrics_json = run(&["metrics".to_string(),
+        let metrics_json = run(&[
+            "metrics".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "json".to_string()]);
+            "json".to_string(),
+        ]);
         assert_eq!(metrics_json.exit_code, 0);
         let metrics_value: serde_json::Value =
             serde_json::from_str(&metrics_json.stdout).expect("valid metrics json");
@@ -9107,18 +9157,24 @@ mod tests {
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "1".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "2".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "2".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "2".to_string(),
-            "3".to_string()]);
+            "3".to_string(),
+        ]);
 
         let out = run(&["stats".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
@@ -9140,10 +9196,12 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
         let out = run(&["schema".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
@@ -9164,41 +9222,49 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let n0 = run(&["create-node".to_string(),
+        let n0 = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
             "Person,Employee".to_string(),
             "--props".to_string(),
-            "age=i64:42;name=string:alice;active=bool:true".to_string()]);
+            "age=i64:42;name=string:alice;active=bool:true".to_string(),
+        ]);
         assert_eq!(n0.exit_code, 0);
         assert!(n0.stdout.contains("node_id=0"));
 
-        let n1 = run(&["create-node".to_string(),
+        let n1 = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
             "Person".to_string(),
             "--props".to_string(),
-            "age=i64:7;name=string:bob;active=bool:false".to_string()]);
+            "age=i64:7;name=string:bob;active=bool:false".to_string(),
+        ]);
         assert_eq!(n1.exit_code, 0);
         assert!(n1.stdout.contains("node_id=1"));
 
-        let e0 = run(&["add-edge".to_string(),
+        let e0 = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
             "--props".to_string(),
-            "weight=f64:0.75".to_string()]);
+            "weight=f64:0.75".to_string(),
+        ]);
         assert_eq!(e0.exit_code, 0);
         assert!(e0.stdout.contains("edge_id=0"));
 
-        let e1 = run(&["add-edge".to_string(),
+        let e1 = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
             "0".to_string(),
             "--type".to_string(),
             "KNOWS".to_string(),
             "--props".to_string(),
-            "since=i64:2024;proof=bytes:00ff".to_string()]);
+            "since=i64:2024;proof=bytes:00ff".to_string(),
+        ]);
         assert_eq!(e1.exit_code, 0);
         assert!(e1.stdout.contains("edge_id=1"));
 
@@ -9227,10 +9293,12 @@ mod tests {
         )
         .expect("write migration script");
 
-        let out = run(&["migrate".to_string(),
+        let out = run(&[
+            "migrate".to_string(),
             path.display().to_string(),
             script.display().to_string(),
-            "--dry-run".to_string()]);
+            "--dry-run".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("[DRY-RUN] ADD LABEL Person"));
         assert!(out.stdout.contains("[DRY-RUN] ADD LABEL Company"));
@@ -9256,11 +9324,13 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         fs::write(&script, "ADD LABEL Person\n").expect("write migration script");
 
-        let out = run(&["migrate".to_string(),
+        let out = run(&[
+            "migrate".to_string(),
             "--db".to_string(),
             path.display().to_string(),
             script.display().to_string(),
-            "--dry-run".to_string()]);
+            "--dry-run".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("[DRY-RUN] ADD LABEL Person"));
         assert!(out.stdout.contains("1 action(s) would be applied"));
@@ -9282,9 +9352,11 @@ mod tests {
         )
         .expect("write migration script");
 
-        let out = run(&["migrate".to_string(),
+        let out = run(&[
+            "migrate".to_string(),
             path.display().to_string(),
-            script.display().to_string()]);
+            script.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("[APPLIED] ADD LABEL Person"));
         assert!(out.stdout.contains("[APPLIED] ADD LABEL Company"));
@@ -9319,9 +9391,11 @@ mod tests {
             "ADD LABEL TempLabel\nADD EDGE_TYPE TEMP_REL\nADD PROPERTY_KEY temp_prop\n",
         )
         .expect("write add script");
-        let add_out = run(&["migrate".to_string(),
+        let add_out = run(&[
+            "migrate".to_string(),
             path.display().to_string(),
-            add_script.display().to_string()]);
+            add_script.display().to_string(),
+        ]);
         assert_eq!(add_out.exit_code, 0);
 
         fs::write(
@@ -9329,9 +9403,11 @@ mod tests {
             "DROP LABEL TempLabel\nDROP EDGE_TYPE TEMP_REL\nDROP PROPERTY_KEY temp_prop\n",
         )
         .expect("write drop script");
-        let drop_out = run(&["migrate".to_string(),
+        let drop_out = run(&[
+            "migrate".to_string(),
             path.display().to_string(),
-            drop_script.display().to_string()]);
+            drop_script.display().to_string(),
+        ]);
         assert_eq!(drop_out.exit_code, 0);
         assert!(drop_out.stdout.contains("[APPLIED] DROP LABEL TempLabel"));
         assert!(drop_out
@@ -9364,9 +9440,11 @@ mod tests {
         fs::write(&script, "ADD LABEL Person\nRENAME LABEL Person TO User\n")
             .expect("write invalid migration script");
 
-        let out = run(&["migrate".to_string(),
+        let out = run(&[
+            "migrate".to_string(),
             path.display().to_string(),
-            script.display().to_string()]);
+            script.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("line 2"));
         assert!(out.stderr.contains("unrecognized directive"));
@@ -9388,9 +9466,11 @@ mod tests {
         )
         .expect("write migration script");
 
-        let out = run(&["migrate".to_string(),
+        let out = run(&[
+            "migrate".to_string(),
             path.display().to_string(),
-            script.display().to_string()]);
+            script.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("2 action(s) applied successfully"));
 
@@ -9445,10 +9525,12 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
         let out = run(&["metrics".to_string(), path.display().to_string()]);
         assert_eq!(out.exit_code, 0);
@@ -9479,29 +9561,37 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let info_missing = run(&["info".to_string(),
+        let info_missing = run(&[
+            "info".to_string(),
             path.display().to_string(),
-            "--format".to_string()]);
+            "--format".to_string(),
+        ]);
         assert_eq!(info_missing.exit_code, 2);
         assert!(info_missing.stderr.contains("--format"));
 
-        let stats_bad = run(&["stats".to_string(),
+        let stats_bad = run(&[
+            "stats".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "xml".to_string()]);
+            "xml".to_string(),
+        ]);
         assert_eq!(stats_bad.exit_code, 2);
         assert!(stats_bad.stderr.contains("invalid value"));
         assert!(stats_bad.stderr.contains("xml"));
 
-        let metrics_missing = run(&["metrics".to_string(),
+        let metrics_missing = run(&[
+            "metrics".to_string(),
             path.display().to_string(),
-            "--format".to_string()]);
+            "--format".to_string(),
+        ]);
         assert_eq!(metrics_missing.exit_code, 2);
         assert!(metrics_missing.stderr.contains("--format"));
 
-        let schema_unknown = run(&["schema".to_string(),
+        let schema_unknown = run(&[
+            "schema".to_string(),
             path.display().to_string(),
-            "--bad-flag".to_string()]);
+            "--bad-flag".to_string(),
+        ]);
         assert_eq!(schema_unknown.exit_code, 2);
         assert!(schema_unknown.stderr.contains("unexpected argument"));
 
@@ -9544,14 +9634,18 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), src.display().to_string()]);
         let _ = run(&["create-node".to_string(), src.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             src.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
-        let out = run(&["backup".to_string(),
+        let out = run(&[
+            "backup".to_string(),
             src.display().to_string(),
-            dst.display().to_string()]);
+            dst.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("backup_created"));
 
@@ -9584,9 +9678,11 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         fs::write(&dst, []).expect("create dst file");
 
-        let out = run(&["backup".to_string(),
+        let out = run(&[
+            "backup".to_string(),
             src.display().to_string(),
-            dst.display().to_string()]);
+            dst.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("already exists"));
 
@@ -9604,23 +9700,29 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), src.display().to_string()]);
         let _ = run(&["create-node".to_string(), src.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             src.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
-        let online = run(&["backup".to_string(),
+        let online = run(&[
+            "backup".to_string(),
             src.display().to_string(),
             dst_online.display().to_string(),
-            "--online".to_string()]);
+            "--online".to_string(),
+        ]);
         assert_eq!(online.exit_code, 0);
         assert!(online.stdout.contains("backup_created"));
 
-        let compact = run(&["backup".to_string(),
+        let compact = run(&[
+            "backup".to_string(),
             src.display().to_string(),
             dst_compact.display().to_string(),
             "--online".to_string(),
-            "--compact".to_string()]);
+            "--compact".to_string(),
+        ]);
         assert_eq!(compact.exit_code, 0);
         assert!(compact.stdout.contains("backup_created"));
 
@@ -9639,10 +9741,12 @@ mod tests {
         let init = run(&["init".to_string(), src.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["backup".to_string(),
+        let out = run(&[
+            "backup".to_string(),
             src.display().to_string(),
             dst.display().to_string(),
-            "--compact".to_string()]);
+            "--compact".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("--online"));
 
@@ -9657,47 +9761,59 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
-        let neighbors = run(&["query".to_string(),
+        let neighbors = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "neighbors".to_string(),
-            "0".to_string()]);
+            "0".to_string(),
+        ]);
         assert_eq!(neighbors.exit_code, 0);
         assert!(neighbors.stdout.contains("count=1"));
         assert!(neighbors.stdout.contains("neighbors=1"));
 
-        let stats = run(&["query".to_string(),
+        let stats = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "stats".to_string()]);
+            "stats".to_string(),
+        ]);
         assert_eq!(stats.exit_code, 0);
         assert!(stats.stdout.contains("node_count=2"));
 
-        let hop = run(&["query".to_string(),
+        let hop = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "hop".to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(hop.exit_code, 0);
         assert!(hop.stdout.contains("reachable_count=1"));
         assert!(hop.stdout.contains("level1=1"));
 
-        let incoming = run(&["query".to_string(),
+        let incoming = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "incoming".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(incoming.exit_code, 0);
         assert!(incoming.stdout.contains("dst=1"));
         assert!(incoming.stdout.contains("incoming=0"));
 
-        let hop_in = run(&["query".to_string(),
+        let hop_in = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "hop-in".to_string(),
             "1".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(hop_in.exit_code, 0);
         assert!(hop_in.stdout.contains("dst=1"));
         assert!(hop_in.stdout.contains("reachable_count=1"));
@@ -9713,24 +9829,32 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create = run(&["query".to_string(),
+        let create = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "create node".to_string()]);
+            "create node".to_string(),
+        ]);
         assert_eq!(create.exit_code, 0);
         assert!(create.stdout.contains("node_id=0"));
 
-        let _ = run(&["query".to_string(),
+        let _ = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "create node".to_string()]);
-        let add = run(&["query".to_string(),
+            "create node".to_string(),
+        ]);
+        let add = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "add edge 0 1".to_string()]);
+            "add edge 0 1".to_string(),
+        ]);
         assert_eq!(add.exit_code, 0);
         assert!(add.stdout.contains("edge_id=0"));
 
-        let info = run(&["query".to_string(),
+        let info = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "info".to_string()]);
+            "info".to_string(),
+        ]);
         assert_eq!(info.exit_code, 0);
         assert!(info.stdout.contains("node_count=2"));
         assert!(info.stdout.contains("edge_count=1"));
@@ -9745,16 +9869,20 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create = run(&["query".to_string(),
+        let create = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "CREATE (n:Person {name: 'Alice', age: 42})".to_string()]);
+            "CREATE (n:Person {name: 'Alice', age: 42})".to_string(),
+        ]);
         assert_eq!(create.exit_code, 0);
 
-        let select = run(&["query".to_string(),
+        let select = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "MATCH (n:Person) RETURN n.name AS name, n.age AS age".to_string()]);
+            "MATCH (n:Person) RETURN n.name AS name, n.age AS age".to_string(),
+        ]);
         assert_eq!(select.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&select.stdout).expect("valid cypher json");
@@ -9780,18 +9908,22 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create = run(&["query".to_string(),
+        let create = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "UNWIND range(1, 7) AS i CREATE (:Person {id: i})".to_string()]);
+            "UNWIND range(1, 7) AS i CREATE (:Person {id: i})".to_string(),
+        ]);
         assert_eq!(
             create.exit_code, 0,
             "UNWIND+CREATE must succeed: stderr={}",
             create.stderr
         );
 
-        let info = run(&["query".to_string(),
+        let info = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "info".to_string()]);
+            "info".to_string(),
+        ]);
         assert_eq!(info.exit_code, 0);
         assert!(
             info.stdout.contains("node_count=7"),
@@ -9799,11 +9931,13 @@ mod tests {
             info.stdout
         );
 
-        let select = run(&["query".to_string(),
+        let select = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "MATCH (n:Person) RETURN n.id AS id".to_string()]);
+            "MATCH (n:Person) RETURN n.id AS id".to_string(),
+        ]);
         assert_eq!(select.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&select.stdout).expect("valid cypher json");
@@ -9820,37 +9954,49 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&["query".to_string(),
+        let _ = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "CREATE (a:Person {name: 'Alice'})".to_string()]);
-        let _ = run(&["query".to_string(),
+            "CREATE (a:Person {name: 'Alice'})".to_string(),
+        ]);
+        let _ = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "CREATE (b:Person {name: 'Bob'})".to_string()]);
-        let _ = run(&["query".to_string(),
+            "CREATE (b:Person {name: 'Bob'})".to_string(),
+        ]);
+        let _ = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "MATCH (a:Person {name: 'Alice'}), (b:Person {name: 'Bob'}) CREATE (a)-[:KNOWS]->(b)"
-                .to_string()]);
+                .to_string(),
+        ]);
 
-        let create_index = run(&["query".to_string(),
+        let create_index = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "CREATE INDEX ON :Person(name)".to_string()]);
+            "CREATE INDEX ON :Person(name)".to_string(),
+        ]);
         assert_eq!(create_index.exit_code, 0);
 
-        let list_indexes = run(&["query".to_string(),
+        let list_indexes = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "CALL db.indexes()".to_string()]);
+            "CALL db.indexes()".to_string(),
+        ]);
         assert_eq!(list_indexes.exit_code, 0);
         let indexes_json: serde_json::Value =
             serde_json::from_str(&list_indexes.stdout).expect("valid indexes json");
         assert!(indexes_json["row_count"].as_u64().unwrap_or(0) >= 1);
 
-        let shortest_path = run(&["query".to_string(),
+        let shortest_path = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "CALL db.algo.shortestPath(0, 1)".to_string()]);
+            "CALL db.algo.shortestPath(0, 1)".to_string(),
+        ]);
         assert_eq!(shortest_path.exit_code, 0);
         let shortest_json: serde_json::Value =
             serde_json::from_str(&shortest_path.stdout).expect("valid shortest path json");
@@ -9867,10 +10013,12 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["query".to_string(),
+        let out = run(&[
+            "query".to_string(),
             "--db".to_string(),
             path.display().to_string(),
-            "info".to_string()]);
+            "info".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("node_count=0"));
 
@@ -9884,11 +10032,13 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["query".to_string(),
+        let out = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "info".to_string(),
             "--format".to_string(),
-            "json".to_string()]);
+            "json".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         let value: serde_json::Value = serde_json::from_str(&out.stdout).expect("valid json");
         assert_eq!(value["row_count"], 1);
@@ -9911,9 +10061,11 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["query".to_string(),
+        let out = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "   ".to_string()]);
+            "   ".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("empty query string"));
 
@@ -9927,10 +10079,12 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["query".to_string(),
+        let out = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "gibberish".to_string(),
-            "tokens".to_string()]);
+            "tokens".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("unsupported query"));
 
@@ -9944,9 +10098,11 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["query".to_string(),
+        let out = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "schema".to_string()]);
+            "schema".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("model=property_graph_minimal"));
 
@@ -9960,33 +10116,41 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&["create-node".to_string(),
+        let _ = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--props".to_string(),
-            "name=string:alice;age=i64:42".to_string()]);
-        let _ = run(&["create-node".to_string(),
+            "name=string:alice;age=i64:42".to_string(),
+        ]);
+        let _ = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--props".to_string(),
-            "name=string:alice;age=i64:7".to_string()]);
+            "name=string:alice;age=i64:7".to_string(),
+        ]);
 
-        let table = run(&["query".to_string(),
+        let table = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "find".to_string(),
             "nodes".to_string(),
-            "name=string:alice".to_string()]);
+            "name=string:alice".to_string(),
+        ]);
         assert_eq!(table.exit_code, 0);
         assert!(table.stdout.contains("property_key=name"));
         assert!(table.stdout.contains("property_value=string:alice"));
         assert!(table.stdout.contains("count=2"));
         assert!(table.stdout.contains("node_ids=0,1"));
 
-        let json = run(&["query".to_string(),
+        let json = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
             "find".to_string(),
             "nodes".to_string(),
-            "name=string:alice".to_string()]);
+            "name=string:alice".to_string(),
+        ]);
         assert_eq!(json.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&json.stdout).expect("valid find-nodes json");
@@ -10005,38 +10169,48 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let _ = run(&["create-node".to_string(),
+        let _ = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
-            "Person".to_string()]);
-        let _ = run(&["create-node".to_string(),
+            "Person".to_string(),
+        ]);
+        let _ = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
-            "Person,Employee".to_string()]);
-        let _ = run(&["create-node".to_string(),
+            "Person,Employee".to_string(),
+        ]);
+        let _ = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
-            "Admin".to_string()]);
+            "Admin".to_string(),
+        ]);
 
-        let table = run(&["query".to_string(),
+        let table = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "find".to_string(),
             "nodes".to_string(),
             "label".to_string(),
-            "Person".to_string()]);
+            "Person".to_string(),
+        ]);
         assert_eq!(table.exit_code, 0);
         assert!(table.stdout.contains("label=Person"));
         assert!(table.stdout.contains("count=2"));
         assert!(table.stdout.contains("node_ids=0,1"));
 
-        let json = run(&["query".to_string(),
+        let json = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
             "find".to_string(),
             "nodes".to_string(),
             "label".to_string(),
-            "Person".to_string()]);
+            "Person".to_string(),
+        ]);
         assert_eq!(json.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&json.stdout).expect("valid find-nodes-by-label json");
@@ -10052,11 +10226,13 @@ mod tests {
     #[test]
     fn query_find_nodes_returns_runtime_error_for_missing_database() {
         let missing = temp_db_path("query-find-missing");
-        let out = run(&["query".to_string(),
+        let out = run(&[
+            "query".to_string(),
             missing.display().to_string(),
             "find".to_string(),
             "nodes".to_string(),
-            "name=string:alice".to_string()]);
+            "name=string:alice".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("io error"));
     }
@@ -10064,12 +10240,14 @@ mod tests {
     #[test]
     fn query_find_nodes_by_label_returns_runtime_error_for_missing_database() {
         let missing = temp_db_path("query-find-label-missing");
-        let out = run(&["query".to_string(),
+        let out = run(&[
+            "query".to_string(),
             missing.display().to_string(),
             "find".to_string(),
             "nodes".to_string(),
             "label".to_string(),
-            "Person".to_string()]);
+            "Person".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("io error"));
     }
@@ -10081,14 +10259,18 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
-        let out = run(&["query".to_string(),
+        let out = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "metrics".to_string()]);
+            "metrics".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("wal_size_bytes="));
         assert!(out.stdout.contains("delta_buffer_edge_count=0"));
@@ -10103,24 +10285,30 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let missing_value = run(&["query".to_string(),
+        let missing_value = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "--format".to_string()]);
+            "--format".to_string(),
+        ]);
         assert_eq!(missing_value.exit_code, 2);
         assert!(missing_value.stderr.contains("--format"));
 
-        let missing_query = run(&["query".to_string(),
+        let missing_query = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
-            "json".to_string()]);
+            "json".to_string(),
+        ]);
         assert_eq!(missing_query.exit_code, 2);
         assert!(missing_query.stderr.contains("empty query string"));
 
-        let bad_value = run(&["query".to_string(),
+        let bad_value = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "xml".to_string(),
-            "info".to_string()]);
+            "info".to_string(),
+        ]);
         assert_eq!(bad_value.exit_code, 2);
         assert!(bad_value.stderr.contains("invalid value"));
         assert!(bad_value.stderr.contains("xml"));
@@ -10136,16 +10324,20 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
-        let info_json = run(&["query".to_string(),
+        let info_json = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "info".to_string()]);
+            "info".to_string(),
+        ]);
         assert_eq!(info_json.exit_code, 0);
         let info_value: serde_json::Value =
             serde_json::from_str(&info_json.stdout).expect("valid info json");
@@ -10153,34 +10345,40 @@ mod tests {
         assert_eq!(info_value["rows"][0]["node_count"], "2");
         assert_eq!(info_value["rows"][0]["edge_count"], "1");
 
-        let stats_json = run(&["query".to_string(),
+        let stats_json = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "stats".to_string()]);
+            "stats".to_string(),
+        ]);
         assert_eq!(stats_json.exit_code, 0);
         let stats_value: serde_json::Value =
             serde_json::from_str(&stats_json.stdout).expect("valid stats json");
         assert_eq!(stats_value["rows"][0]["max_out_degree"], "1");
 
-        let schema_json = run(&["query".to_string(),
+        let schema_json = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "schema".to_string()]);
+            "schema".to_string(),
+        ]);
         assert_eq!(schema_json.exit_code, 0);
         let schema_value: serde_json::Value =
             serde_json::from_str(&schema_json.stdout).expect("valid schema json");
         assert_eq!(schema_value["rows"][0]["model"], "property_graph_minimal");
         assert_eq!(schema_value["rows"][0]["node_count"], "2");
 
-        let hop_in_jsonl = run(&["query".to_string(),
+        let hop_in_jsonl = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "jsonl".to_string(),
             "hop-in".to_string(),
             "1".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(hop_in_jsonl.exit_code, 0);
         let row: serde_json::Value =
             serde_json::from_str(hop_in_jsonl.stdout.trim()).expect("valid hop-in jsonl");
@@ -10199,11 +10397,13 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let stats_json = run(&["query".to_string(),
+        let stats_json = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "stats".to_string()]);
+            "stats".to_string(),
+        ]);
         assert_eq!(stats_json.exit_code, 0);
         let value: serde_json::Value =
             serde_json::from_str(&stats_json.stdout).expect("valid stats json");
@@ -10220,17 +10420,21 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
-        let json_out = run(&["query".to_string(),
+        let json_out = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
             "neighbors".to_string(),
-            "0".to_string()]);
+            "0".to_string(),
+        ]);
         assert_eq!(json_out.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&json_out.stdout).expect("valid json output");
@@ -10240,13 +10444,15 @@ mod tests {
         assert_eq!(json_value["rows"][0]["src"], "0");
         assert_eq!(json_value["rows"][0]["dst"], "1");
 
-        let jsonl_out = run(&["query".to_string(),
+        let jsonl_out = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "jsonl".to_string(),
             "hop".to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(jsonl_out.exit_code, 0);
         let lines: Vec<&str> = jsonl_out.stdout.lines().collect();
         assert_eq!(lines.len(), 1);
@@ -10256,30 +10462,36 @@ mod tests {
         assert_eq!(jsonl_value["level"], "1");
         assert_eq!(jsonl_value["node"], "1");
 
-        let csv_out = run(&["query".to_string(),
+        let csv_out = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "csv".to_string(),
             "neighbors".to_string(),
-            "0".to_string()]);
+            "0".to_string(),
+        ]);
         assert_eq!(csv_out.exit_code, 0);
         assert!(csv_out.stdout.starts_with("src,dst\n0,1"));
 
-        let tsv_out = run(&["query".to_string(),
+        let tsv_out = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "tsv".to_string(),
             "incoming".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(tsv_out.exit_code, 0);
         assert!(tsv_out.stdout.starts_with("dst\tsrc\n1\t0"));
 
-        let table_out = run(&["query".to_string(),
+        let table_out = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "table".to_string(),
             "neighbors".to_string(),
-            "0".to_string()]);
+            "0".to_string(),
+        ]);
         assert_eq!(table_out.exit_code, 0);
         assert!(table_out.stdout.contains("count=1"));
         assert!(table_out.stdout.contains("neighbors=1"));
@@ -10294,25 +10506,31 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create_json = run(&["query".to_string(),
+        let create_json = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "json".to_string(),
-            "create node".to_string()]);
+            "create node".to_string(),
+        ]);
         assert_eq!(create_json.exit_code, 0);
         let create_value: serde_json::Value =
             serde_json::from_str(&create_json.stdout).expect("valid create json");
         assert_eq!(create_value["row_count"], 1);
         assert_eq!(create_value["rows"][0]["node_id"], "0");
 
-        let _ = run(&["query".to_string(),
+        let _ = run(&[
+            "query".to_string(),
             path.display().to_string(),
-            "create node".to_string()]);
-        let add_jsonl = run(&["query".to_string(),
+            "create node".to_string(),
+        ]);
+        let add_jsonl = run(&[
+            "query".to_string(),
             path.display().to_string(),
             "--format".to_string(),
             "jsonl".to_string(),
-            "add edge 0 1".to_string()]);
+            "add edge 0 1".to_string(),
+        ]);
         assert_eq!(add_jsonl.exit_code, 0);
         let row: serde_json::Value =
             serde_json::from_str(add_jsonl.stdout.trim()).expect("valid edge jsonl");
@@ -10330,10 +10548,12 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["shell".to_string(),
+        let out = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
-            "create node; create node; add edge 0 1; neighbors 0".to_string()]);
+            "create node; create node; add edge 0 1; neighbors 0".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("commands_executed=4"));
         assert!(out.stdout.contains("[4] neighbors 0"));
@@ -10382,10 +10602,12 @@ mod tests {
         )
         .expect("write script");
 
-        let out = run(&["shell".to_string(),
+        let out = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--script".to_string(),
-            script.display().to_string()]);
+            script.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("commands_executed=4"));
         assert!(out.stdout.contains("edge_count=1"));
@@ -10401,12 +10623,14 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let json_out = run(&["shell".to_string(),
+        let json_out = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "create node; create node; add edge 0 1; neighbors 0".to_string(),
             "--format".to_string(),
-            "json".to_string()]);
+            "json".to_string(),
+        ]);
         assert_eq!(json_out.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&json_out.stdout).expect("valid shell json");
@@ -10415,12 +10639,14 @@ mod tests {
         assert_eq!(json_value["rows"][3]["result_columns"], "src,dst");
         assert_eq!(json_value["rows"][3]["result_row_count"], "1");
 
-        let csv_out = run(&["shell".to_string(),
+        let csv_out = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "stats".to_string(),
             "--format".to_string(),
-            "csv".to_string()]);
+            "csv".to_string(),
+        ]);
         assert_eq!(csv_out.exit_code, 0);
         assert!(csv_out
             .stdout
@@ -10438,10 +10664,12 @@ mod tests {
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["shell".to_string(),
+        let out = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--script".to_string(),
-            missing_script.display().to_string()]);
+            missing_script.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("failed to read script file"));
 
@@ -10471,9 +10699,11 @@ mod tests {
         )
         .expect("write edges csv");
 
-        let out = run(&["import".to_string(),
+        let out = run(&[
+            "import".to_string(),
             path.display().to_string(),
-            input_base.display().to_string()]);
+            input_base.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=2"));
@@ -10539,20 +10769,24 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let json_out = run(&["import".to_string(),
+        let json_out = run(&[
+            "import".to_string(),
             path.display().to_string(),
             json_input.display().to_string(),
             "--format".to_string(),
-            "json".to_string()]);
+            "json".to_string(),
+        ]);
         assert_eq!(json_out.exit_code, 0);
         assert!(json_out.stdout.contains("imported_nodes=2"));
         assert!(json_out.stdout.contains("imported_edges=1"));
         assert!(json_out.stdout.contains("total_nodes=2"));
         assert!(json_out.stdout.contains("total_edges=1"));
 
-        let jsonl_out = run(&["import".to_string(),
+        let jsonl_out = run(&[
+            "import".to_string(),
             path.display().to_string(),
-            jsonl_input.display().to_string()]);
+            jsonl_input.display().to_string(),
+        ]);
         assert_eq!(jsonl_out.exit_code, 0);
         assert!(jsonl_out.stdout.contains("imported_nodes=1"));
         assert!(jsonl_out.stdout.contains("imported_edges=1"));
@@ -10593,12 +10827,14 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&["import".to_string(),
+        let out = run(&[
+            "import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--batch-size".to_string(),
             "2".to_string(),
-            "--continue-on-error".to_string()]);
+            "--continue-on-error".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=1"));
@@ -10607,11 +10843,13 @@ mod tests {
         assert!(out.stdout.contains("total_nodes=2"));
         assert!(out.stdout.contains("total_edges=1"));
 
-        let strict_out = run(&["import".to_string(),
+        let strict_out = run(&[
+            "import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--batch-size".to_string(),
-            "2".to_string()]);
+            "2".to_string(),
+        ]);
         assert_eq!(strict_out.exit_code, 1);
         assert!(strict_out.stderr.contains("invalid jsonl record"));
 
@@ -10635,12 +10873,14 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&["import".to_string(),
+        let out = run(&[
+            "import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--batch-size".to_string(),
             "1".to_string(),
-            "--atomic".to_string()]);
+            "--atomic".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=1"));
@@ -10685,10 +10925,12 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&["import".to_string(),
+        let out = run(&[
+            "import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
-            "--atomic".to_string()]);
+            "--atomic".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("invalid jsonl record"));
 
@@ -10718,11 +10960,13 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&["import".to_string(),
+        let out = run(&[
+            "import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--atomic".to_string(),
-            "--continue-on-error".to_string()]);
+            "--continue-on-error".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("cannot be used with"));
 
@@ -10744,11 +10988,13 @@ mod tests {
         )
         .expect("write import jsonl");
 
-        let out = run(&["import".to_string(),
+        let out = run(&[
+            "import".to_string(),
             path.display().to_string(),
             jsonl_input.display().to_string(),
             "--batch-size".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=0"));
@@ -10778,33 +11024,41 @@ mod tests {
         assert_eq!(init.exit_code, 0);
 
         fs::write(&no_ext_input, "{}").expect("write no-ext input");
-        let no_detect = run(&["import".to_string(),
+        let no_detect = run(&[
+            "import".to_string(),
             path.display().to_string(),
-            no_ext_input.display().to_string()]);
+            no_ext_input.display().to_string(),
+        ]);
         assert_eq!(no_detect.exit_code, 1);
         assert!(no_detect
             .stderr
             .contains("unable to determine import format"));
 
-        let bad_format = run(&["import".to_string(),
+        let bad_format = run(&[
+            "import".to_string(),
             path.display().to_string(),
             no_ext_input.display().to_string(),
             "--format".to_string(),
-            "xml".to_string()]);
+            "xml".to_string(),
+        ]);
         assert_eq!(bad_format.exit_code, 2);
         assert!(bad_format.stderr.contains("invalid value"));
         assert!(bad_format.stderr.contains("xml"));
 
         fs::write(&bad_json, "{]").expect("write bad json");
-        let json_out = run(&["import".to_string(),
+        let json_out = run(&[
+            "import".to_string(),
             path.display().to_string(),
-            bad_json.display().to_string()]);
+            bad_json.display().to_string(),
+        ]);
         assert_eq!(json_out.exit_code, 1);
         assert!(json_out.stderr.contains("invalid json import payload"));
 
-        let missing_out = run(&["import".to_string(),
+        let missing_out = run(&[
+            "import".to_string(),
             path.display().to_string(),
-            missing.display().to_string()]);
+            missing.display().to_string(),
+        ]);
         assert_eq!(missing_out.exit_code, 1);
         assert!(missing_out.stderr.contains("failed to open import source"));
 
@@ -10820,9 +11074,11 @@ mod tests {
         let input = temp_file_path("import-missing-db-message-input", "json");
         fs::write(&input, "{\"nodes\":[],\"edges\":[]}").expect("write import json");
 
-        let out = run(&["import".to_string(),
+        let out = run(&[
+            "import".to_string(),
             missing_db.display().to_string(),
-            input.display().to_string()]);
+            input.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert_eq!(
             out.stderr.trim(),
@@ -10867,9 +11123,11 @@ mod tests {
             .add_typed_edge(0, 1, "KNOWS", &edge_props)
             .expect("add edge");
 
-        let csv_cmd = run(&["export".to_string(),
+        let csv_cmd = run(&[
+            "export".to_string(),
             path.display().to_string(),
-            csv_base.display().to_string()]);
+            csv_base.display().to_string(),
+        ]);
         assert_eq!(csv_cmd.exit_code, 0);
         assert!(csv_cmd.stdout.contains("exported_nodes=2"));
         assert!(csv_cmd.stdout.contains("exported_edges=1"));
@@ -10926,9 +11184,11 @@ mod tests {
         assert_eq!(edge_row_0.get(since_idx).expect("since"), "2020");
         assert_eq!(edge_row_0.get(weight_idx).expect("weight"), "0.9");
 
-        let json_cmd = run(&["export".to_string(),
+        let json_cmd = run(&[
+            "export".to_string(),
             path.display().to_string(),
-            json_out.display().to_string()]);
+            json_out.display().to_string(),
+        ]);
         assert_eq!(json_cmd.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&json_out).expect("read json"))
@@ -10943,11 +11203,13 @@ mod tests {
         );
         assert_eq!(json_value["edges"][0]["type"], "KNOWS");
 
-        let jsonl_cmd = run(&["export".to_string(),
+        let jsonl_cmd = run(&[
+            "export".to_string(),
             path.display().to_string(),
             jsonl_out.display().to_string(),
             "--format".to_string(),
-            "jsonl".to_string()]);
+            "jsonl".to_string(),
+        ]);
         assert_eq!(jsonl_cmd.exit_code, 0);
         let jsonl_text = fs::read_to_string(&jsonl_out).expect("read jsonl");
         assert!(jsonl_text.contains("\"kind\":\"node\""));
@@ -11004,7 +11266,8 @@ mod tests {
             .add_typed_edge(0, 2, "WORKS_AT", &PropertyMap::new())
             .expect("add works_at");
 
-        let cmd = run(&["export".to_string(),
+        let cmd = run(&[
+            "export".to_string(),
             path.display().to_string(),
             json_out.display().to_string(),
             "--label".to_string(),
@@ -11012,7 +11275,8 @@ mod tests {
             "--edge-type".to_string(),
             "KNOWS".to_string(),
             "--node-id-range".to_string(),
-            "0:1".to_string()]);
+            "0:1".to_string(),
+        ]);
         assert_eq!(cmd.exit_code, 0);
         let json_value: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(&json_out).expect("read json"))
@@ -11040,36 +11304,44 @@ mod tests {
         assert_eq!(init.exit_code, 0);
         fs::write(&dst, "already-there").expect("write existing destination");
 
-        let bad_format = run(&["export".to_string(),
+        let bad_format = run(&[
+            "export".to_string(),
             path.display().to_string(),
             no_ext.display().to_string(),
             "--format".to_string(),
-            "xml".to_string()]);
+            "xml".to_string(),
+        ]);
         assert_eq!(bad_format.exit_code, 2);
         assert!(bad_format.stderr.contains("invalid value"));
         assert!(bad_format.stderr.contains("xml"));
 
-        let missing_format = run(&["export".to_string(),
+        let missing_format = run(&[
+            "export".to_string(),
             path.display().to_string(),
-            no_ext.display().to_string()]);
+            no_ext.display().to_string(),
+        ]);
         assert_eq!(missing_format.exit_code, 1);
         assert!(missing_format
             .stderr
             .contains("unable to determine export format"));
 
-        let exists = run(&["export".to_string(),
+        let exists = run(&[
+            "export".to_string(),
             path.display().to_string(),
-            dst.display().to_string()]);
+            dst.display().to_string(),
+        ]);
         assert_eq!(exists.exit_code, 1);
         assert!(exists.stderr.contains("export destination already exists"));
 
-        let bad_range = run(&["export".to_string(),
+        let bad_range = run(&[
+            "export".to_string(),
             path.display().to_string(),
             temp_file_path("export-bad-range", "json")
                 .display()
                 .to_string(),
             "--node-id-range".to_string(),
-            "bad".to_string()]);
+            "bad".to_string(),
+        ]);
         assert_eq!(bad_range.exit_code, 1);
         assert!(bad_range.stderr.contains("invalid --node-id-range value"));
 
@@ -11077,14 +11349,15 @@ mod tests {
         let mut bad_parent = temp_file_path("export-missing-parent", "dir");
         bad_parent.set_extension("no_such_dir");
         let unwritable_dst = bad_parent.join("out.json");
-        let init_unwritable = run(&["init".to_string(),
-            path_unwritable.display().to_string()]);
+        let init_unwritable = run(&["init".to_string(), path_unwritable.display().to_string()]);
         assert_eq!(init_unwritable.exit_code, 0);
-        let unwritable = run(&["export".to_string(),
+        let unwritable = run(&[
+            "export".to_string(),
             path_unwritable.display().to_string(),
             unwritable_dst.display().to_string(),
             "--format".to_string(),
-            "json".to_string()]);
+            "json".to_string(),
+        ]);
         assert_eq!(unwritable.exit_code, 1);
         assert!(unwritable.stderr.contains("failed to write export"));
 
@@ -11567,11 +11840,13 @@ mod tests {
         assert_eq!(init.exit_code, 0);
 
         fs::write(&existing_dst, "already there").expect("write existing output");
-        let exists = run(&["export-rdf".to_string(),
+        let exists = run(&[
+            "export-rdf".to_string(),
             path.display().to_string(),
             existing_dst.display().to_string(),
             "--format".to_string(),
-            "ttl".to_string()]);
+            "ttl".to_string(),
+        ]);
         assert_eq!(exists.exit_code, 1);
         assert!(exists.stderr.contains("export destination already exists"));
         fs::remove_file(&existing_dst).expect("cleanup existing output");
@@ -11585,11 +11860,13 @@ mod tests {
             ..PersistedRdfMeta::default()
         };
         save_rdf_meta(&path.display().to_string(), &bad_meta).expect("save bad rdf meta");
-        let invalid_prefix = run(&["export-rdf".to_string(),
+        let invalid_prefix = run(&[
+            "export-rdf".to_string(),
             path.display().to_string(),
             invalid_prefix_dst.display().to_string(),
             "--format".to_string(),
-            "ttl".to_string()]);
+            "ttl".to_string(),
+        ]);
         assert_eq!(invalid_prefix.exit_code, 1);
         assert!(invalid_prefix.stderr.contains("invalid stored rdf prefix"));
 
@@ -11647,11 +11924,13 @@ mod tests {
             ..PersistedRdfMeta::default()
         };
         save_rdf_meta(&path.display().to_string(), &fallback_meta).expect("save fallback meta");
-        let export_ok = run(&["export-rdf".to_string(),
+        let export_ok = run(&[
+            "export-rdf".to_string(),
             path.display().to_string(),
             fallback_export.display().to_string(),
             "--format".to_string(),
-            "nt".to_string()]);
+            "nt".to_string(),
+        ]);
         assert_eq!(export_ok.exit_code, 0);
         let rendered = fs::read_to_string(&fallback_export).expect("read fallback export");
         assert!(rendered.contains("http://schema.org/knows"));
@@ -11691,9 +11970,11 @@ ex:acme a schema:Organization ;
         )
         .expect("write rdf input");
 
-        let out = run(&["import-rdf".to_string(),
+        let out = run(&[
+            "import-rdf".to_string(),
             path.display().to_string(),
-            input.display().to_string()]);
+            input.display().to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=1"));
@@ -11762,10 +12043,12 @@ ex:a ex:knows ex:b .
         )
         .expect("write rdf input");
 
-        let out = run(&["import-rdf".to_string(),
+        let out = run(&[
+            "import-rdf".to_string(),
             path.display().to_string(),
             input.display().to_string(),
-            "--atomic".to_string()]);
+            "--atomic".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("imported_nodes=2"));
         assert!(out.stdout.contains("imported_edges=1"));
@@ -11782,8 +12065,7 @@ ex:a ex:knows ex:b .
     fn import_rdf_supports_base_uri_blank_nodes_and_named_graphs() {
         let base_uri_path = temp_db_path("import-rdf-base-uri");
         let base_uri_input = temp_file_path("import-rdf-base-uri-input", "ttl");
-        let init = run(&["init".to_string(),
-            base_uri_path.display().to_string()]);
+        let init = run(&["init".to_string(), base_uri_path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
         fs::write(
             &base_uri_input,
@@ -11794,11 +12076,13 @@ ex:a ex:knows ex:b .
         )
         .expect("write base-uri rdf input");
 
-        let base_out = run(&["import-rdf".to_string(),
+        let base_out = run(&[
+            "import-rdf".to_string(),
             base_uri_path.display().to_string(),
             base_uri_input.display().to_string(),
             "--base-uri".to_string(),
-            "http://example.com/people/".to_string()]);
+            "http://example.com/people/".to_string(),
+        ]);
         assert_eq!(base_out.exit_code, 0);
 
         let base_db = Database::open(&base_uri_path).expect("open base-uri db");
@@ -11825,11 +12109,13 @@ _:b1 <http://schema.org/name> "Blanky" <http://example.com/g1> .
         )
         .expect("write nquads input");
 
-        let nq_out = run(&["import-rdf".to_string(),
+        let nq_out = run(&[
+            "import-rdf".to_string(),
             nq_path.display().to_string(),
             nq_input.display().to_string(),
             "--format".to_string(),
-            "nq".to_string()]);
+            "nq".to_string(),
+        ]);
         assert_eq!(nq_out.exit_code, 0);
 
         let nq_db = Database::open(&nq_path).expect("open nq db");
@@ -11904,10 +12190,12 @@ ex:alice a ex:Employee ;
         )
         .expect("write ontology input");
 
-        let out = run(&["import-rdf".to_string(),
+        let out = run(&[
+            "import-rdf".to_string(),
             path.display().to_string(),
             input.display().to_string(),
-            "--schema-only".to_string()]);
+            "--schema-only".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
 
         let db = Database::open(&path).expect("open db");
@@ -11980,16 +12268,20 @@ ex:acme a schema:Organization ;
         )
         .expect("write import ttl");
 
-        let import_out = run(&["import-rdf".to_string(),
+        let import_out = run(&[
+            "import-rdf".to_string(),
             path.display().to_string(),
-            import_input.display().to_string()]);
+            import_input.display().to_string(),
+        ]);
         assert_eq!(import_out.exit_code, 0);
 
-        let export_out = run(&["export-rdf".to_string(),
+        let export_out = run(&[
+            "export-rdf".to_string(),
             path.display().to_string(),
             export_output.display().to_string(),
             "--format".to_string(),
-            "ttl".to_string()]);
+            "ttl".to_string(),
+        ]);
         assert_eq!(export_out.exit_code, 0);
         assert!(export_out.stdout.contains("exported_triples="));
         let rendered = fs::read_to_string(&export_output).expect("read rdf output");
@@ -11997,12 +12289,13 @@ ex:acme a schema:Organization ;
         assert!(rendered.contains("@prefix schema:"));
         assert!(rendered.contains("schema:worksAt"));
 
-        let init_roundtrip = run(&["init".to_string(),
-            roundtrip_path.display().to_string()]);
+        let init_roundtrip = run(&["init".to_string(), roundtrip_path.display().to_string()]);
         assert_eq!(init_roundtrip.exit_code, 0);
-        let reimport_out = run(&["import-rdf".to_string(),
+        let reimport_out = run(&[
+            "import-rdf".to_string(),
             roundtrip_path.display().to_string(),
-            export_output.display().to_string()]);
+            export_output.display().to_string(),
+        ]);
         assert_eq!(reimport_out.exit_code, 0);
         let reimport_db = Database::open(&roundtrip_path).expect("open roundtrip db");
         let john_nodes = reimport_db.find_nodes_by_property(
@@ -12042,37 +12335,45 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         fs::write(&no_ext_input, "<s> <p> <o> .").expect("write no-ext rdf input");
 
-        let no_detect = run(&["import-rdf".to_string(),
+        let no_detect = run(&[
+            "import-rdf".to_string(),
             path.display().to_string(),
-            no_ext_input.display().to_string()]);
+            no_ext_input.display().to_string(),
+        ]);
         assert_eq!(no_detect.exit_code, 1);
         assert!(no_detect
             .stderr
             .contains("unable to determine import-rdf format"));
 
-        let bad_format = run(&["import-rdf".to_string(),
+        let bad_format = run(&[
+            "import-rdf".to_string(),
             path.display().to_string(),
             no_ext_input.display().to_string(),
             "--format".to_string(),
-            "csv".to_string()]);
+            "csv".to_string(),
+        ]);
         assert_eq!(bad_format.exit_code, 2);
         assert!(bad_format.stderr.contains("invalid value"));
 
-        let bad_export_format = run(&["export-rdf".to_string(),
+        let bad_export_format = run(&[
+            "export-rdf".to_string(),
             path.display().to_string(),
             temp_file_path("rdf-bad-export-format", "ttl")
                 .display()
                 .to_string(),
             "--format".to_string(),
-            "nq".to_string()]);
+            "nq".to_string(),
+        ]);
         assert_eq!(bad_export_format.exit_code, 2);
         assert!(bad_export_format.stderr.contains("invalid value"));
 
-        let atomic_conflict = run(&["import-rdf".to_string(),
+        let atomic_conflict = run(&[
+            "import-rdf".to_string(),
             path.display().to_string(),
             no_ext_input.display().to_string(),
             "--atomic".to_string(),
-            "--continue-on-error".to_string()]);
+            "--continue-on-error".to_string(),
+        ]);
         assert_eq!(atomic_conflict.exit_code, 2);
         assert!(atomic_conflict.stderr.contains("cannot be used with"));
 
@@ -12111,23 +12412,29 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let commands_out = run(&["shell".to_string(),
+        let commands_out = run(&[
+            "shell".to_string(),
             path.display().to_string(),
-            "--commands".to_string()]);
+            "--commands".to_string(),
+        ]);
         assert_eq!(commands_out.exit_code, 2);
         assert!(commands_out.stderr.contains("--commands"));
 
-        let script_out = run(&["shell".to_string(),
+        let script_out = run(&[
+            "shell".to_string(),
             path.display().to_string(),
-            "--script".to_string()]);
+            "--script".to_string(),
+        ]);
         assert_eq!(script_out.exit_code, 2);
         assert!(script_out.stderr.contains("--script"));
 
-        let format_out = run(&["shell".to_string(),
+        let format_out = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "info".to_string(),
-            "--format".to_string()]);
+            "--format".to_string(),
+        ]);
         assert_eq!(format_out.exit_code, 2);
         assert!(format_out.stderr.contains("--format"));
 
@@ -12143,30 +12450,36 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         fs::write(&script, "info\n").expect("write script");
 
-        let unknown = run(&["shell".to_string(),
+        let unknown = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--bad".to_string(),
-            "x".to_string()]);
+            "x".to_string(),
+        ]);
         assert_eq!(unknown.exit_code, 2);
         assert!(unknown.stderr.contains("unexpected argument"));
 
-        let both = run(&["shell".to_string(),
+        let both = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "info".to_string(),
             "--script".to_string(),
-            script.display().to_string()]);
+            script.display().to_string(),
+        ]);
         assert_eq!(both.exit_code, 2);
         assert!(both
             .stderr
             .contains("choose either --commands or --script, not both"));
 
-        let bad_format = run(&["shell".to_string(),
+        let bad_format = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
             "info".to_string(),
             "--format".to_string(),
-            "xml".to_string()]);
+            "xml".to_string(),
+        ]);
         assert_eq!(bad_format.exit_code, 2);
         assert!(bad_format.stderr.contains("invalid value"));
         assert!(bad_format.stderr.contains("xml"));
@@ -12182,10 +12495,12 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["shell".to_string(),
+        let out = run(&[
+            "shell".to_string(),
             path.display().to_string(),
             "--commands".to_string(),
-            " ; ; ".to_string()]);
+            " ; ; ".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out
             .stderr
@@ -12211,22 +12526,28 @@ ex:acme a schema:Organization ;
         assert!(n1.stdout.contains("node_id=1"));
         assert!(n2.stdout.contains("node_id=2"));
 
-        let e0 = run(&["add-edge".to_string(),
+        let e0 = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
-        let e1 = run(&["add-edge".to_string(),
+            "1".to_string(),
+        ]);
+        let e1 = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "2".to_string()]);
+            "2".to_string(),
+        ]);
         assert_eq!(e0.exit_code, 0);
         assert_eq!(e1.exit_code, 0);
         assert!(e0.stdout.contains("edge_id=0"));
         assert!(e1.stdout.contains("edge_id=1"));
 
-        let neighbors = run(&["neighbors".to_string(),
+        let neighbors = run(&[
+            "neighbors".to_string(),
             path.display().to_string(),
-            "0".to_string()]);
+            "0".to_string(),
+        ]);
         assert_eq!(neighbors.exit_code, 0);
         assert!(neighbors.stdout.contains("src=0"));
         assert!(neighbors.stdout.contains("count=2"));
@@ -12262,10 +12583,12 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["add-edge".to_string(),
+        let out = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "abc".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("invalid value"));
         assert!(out.stderr.contains("src"));
@@ -12280,10 +12603,12 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&["add-edge".to_string(),
+        let out = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "99".to_string()]);
+            "99".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("unknown node id"));
 
@@ -12296,50 +12621,62 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let create_missing_labels = run(&["create-node".to_string(),
+        let create_missing_labels = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
-            "--labels".to_string()]);
+            "--labels".to_string(),
+        ]);
         assert_eq!(create_missing_labels.exit_code, 2);
         assert!(create_missing_labels.stderr.contains("--labels"));
 
-        let create_missing_props = run(&["create-node".to_string(),
+        let create_missing_props = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
-            "--props".to_string()]);
+            "--props".to_string(),
+        ]);
         assert_eq!(create_missing_props.exit_code, 2);
         assert!(create_missing_props.stderr.contains("--props"));
 
-        let create_unknown = run(&["create-node".to_string(),
+        let create_unknown = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--bad".to_string(),
-            "x".to_string()]);
+            "x".to_string(),
+        ]);
         assert_eq!(create_unknown.exit_code, 2);
         assert!(create_unknown.stderr.contains("unexpected argument"));
 
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let add_missing_type = run(&["add-edge".to_string(),
+        let add_missing_type = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
-            "--type".to_string()]);
+            "--type".to_string(),
+        ]);
         assert_eq!(add_missing_type.exit_code, 2);
         assert!(add_missing_type.stderr.contains("--type"));
 
-        let add_missing_props = run(&["add-edge".to_string(),
+        let add_missing_props = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
-            "--props".to_string()]);
+            "--props".to_string(),
+        ]);
         assert_eq!(add_missing_props.exit_code, 2);
         assert!(add_missing_props.stderr.contains("--props"));
 
-        let add_unknown = run(&["add-edge".to_string(),
+        let add_unknown = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
             "--bad".to_string(),
-            "x".to_string()]);
+            "x".to_string(),
+        ]);
         assert_eq!(add_unknown.exit_code, 2);
         assert!(add_unknown.stderr.contains("unexpected argument"));
 
@@ -13133,9 +13470,11 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["neighbors".to_string(),
+        let out = run(&[
+            "neighbors".to_string(),
             path.display().to_string(),
-            "abc".to_string()]);
+            "abc".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("invalid value"));
         assert!(out.stderr.contains("src"));
@@ -13150,9 +13489,11 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&["neighbors".to_string(),
+        let out = run(&[
+            "neighbors".to_string(),
             path.display().to_string(),
-            "99".to_string()]);
+            "99".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("unknown node id"));
 
@@ -13168,20 +13509,26 @@ ex:acme a schema:Organization ;
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "1".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
-            "2".to_string()]);
+            "2".to_string(),
+        ]);
 
-        let neighbors_json = run(&["neighbors".to_string(),
+        let neighbors_json = run(&[
+            "neighbors".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "--format".to_string(),
-            "json".to_string()]);
+            "json".to_string(),
+        ]);
         assert_eq!(neighbors_json.exit_code, 0);
         let neighbors_value: serde_json::Value =
             serde_json::from_str(&neighbors_json.stdout).expect("valid neighbors json");
@@ -13189,30 +13536,36 @@ ex:acme a schema:Organization ;
         assert_eq!(neighbors_value["rows"][0]["src"], "0");
         assert_eq!(neighbors_value["rows"][0]["dst"], "1");
 
-        let incoming_tsv = run(&["incoming".to_string(),
+        let incoming_tsv = run(&[
+            "incoming".to_string(),
             path.display().to_string(),
             "1".to_string(),
             "--format".to_string(),
-            "tsv".to_string()]);
+            "tsv".to_string(),
+        ]);
         assert_eq!(incoming_tsv.exit_code, 0);
         assert_eq!(incoming_tsv.stdout.trim(), "dst\tsrc\n1\t0");
 
-        let hop_jsonl = run(&["hop".to_string(),
+        let hop_jsonl = run(&[
+            "hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "2".to_string(),
             "--format".to_string(),
-            "jsonl".to_string()]);
+            "jsonl".to_string(),
+        ]);
         assert_eq!(hop_jsonl.exit_code, 0);
         let hop_lines: Vec<&str> = hop_jsonl.stdout.lines().collect();
         assert_eq!(hop_lines.len(), 2);
 
-        let hop_in_csv = run(&["hop-in".to_string(),
+        let hop_in_csv = run(&[
+            "hop-in".to_string(),
             path.display().to_string(),
             "2".to_string(),
             "2".to_string(),
             "--format".to_string(),
-            "csv".to_string()]);
+            "csv".to_string(),
+        ]);
         assert_eq!(hop_in_csv.exit_code, 0);
         assert!(hop_in_csv
             .stdout
@@ -13228,35 +13581,43 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let neighbors_bad = run(&["neighbors".to_string(),
+        let neighbors_bad = run(&[
+            "neighbors".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "--format".to_string(),
-            "xml".to_string()]);
+            "xml".to_string(),
+        ]);
         assert_eq!(neighbors_bad.exit_code, 2);
         assert!(neighbors_bad.stderr.contains("invalid value"));
         assert!(neighbors_bad.stderr.contains("xml"));
 
-        let incoming_missing = run(&["incoming".to_string(),
+        let incoming_missing = run(&[
+            "incoming".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "--format".to_string()]);
+            "--format".to_string(),
+        ]);
         assert_eq!(incoming_missing.exit_code, 2);
         assert!(incoming_missing.stderr.contains("--format"));
 
-        let hop_unknown = run(&["hop".to_string(),
+        let hop_unknown = run(&[
+            "hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
-            "--x".to_string()]);
+            "--x".to_string(),
+        ]);
         assert_eq!(hop_unknown.exit_code, 2);
         assert!(hop_unknown.stderr.contains("unexpected argument"));
 
-        let hop_in_unknown = run(&["hop-in".to_string(),
+        let hop_in_unknown = run(&[
+            "hop-in".to_string(),
             path.display().to_string(),
             "0".to_string(),
             "1".to_string(),
-            "--x".to_string()]);
+            "--x".to_string(),
+        ]);
         assert_eq!(hop_in_unknown.exit_code, 2);
         assert!(hop_in_unknown.stderr.contains("unexpected argument"));
 
@@ -13273,18 +13634,24 @@ ex:acme a schema:Organization ;
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "2".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "2".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
-            "2".to_string()]);
+            "2".to_string(),
+        ]);
 
-        let out = run(&["incoming".to_string(),
+        let out = run(&[
+            "incoming".to_string(),
             path.display().to_string(),
-            "2".to_string()]);
+            "2".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("dst=2"));
         assert!(out.stdout.contains("count=2"));
@@ -13308,9 +13675,11 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let out = run(&["incoming".to_string(),
+        let out = run(&[
+            "incoming".to_string(),
             path.display().to_string(),
-            "abc".to_string()]);
+            "abc".to_string(),
+        ]);
         assert_eq!(out.exit_code, 2);
         assert!(out.stderr.contains("invalid value"));
         assert!(out.stderr.contains("dst"));
@@ -13325,9 +13694,11 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&["incoming".to_string(),
+        let out = run(&[
+            "incoming".to_string(),
             path.display().to_string(),
-            "99".to_string()]);
+            "99".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("unknown node id"));
 
@@ -13345,23 +13716,31 @@ ex:acme a schema:Organization ;
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "3".to_string(),
-            "2".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "2".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
-            "2".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "2".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
-        let out = run(&["hop-in".to_string(),
+        let out = run(&[
+            "hop-in".to_string(),
             path.display().to_string(),
             "2".to_string(),
-            "3".to_string()]);
+            "3".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("dst=2"));
         assert!(out.stdout.contains("hops=3"));
@@ -13388,18 +13767,22 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let bad_dst = run(&["hop-in".to_string(),
+        let bad_dst = run(&[
+            "hop-in".to_string(),
             path.display().to_string(),
             "x".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(bad_dst.exit_code, 2);
         assert!(bad_dst.stderr.contains("invalid value"));
         assert!(bad_dst.stderr.contains("dst"));
 
-        let bad_hops = run(&["hop-in".to_string(),
+        let bad_hops = run(&[
+            "hop-in".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "x".to_string()]);
+            "x".to_string(),
+        ]);
         assert_eq!(bad_hops.exit_code, 2);
         assert!(bad_hops.stderr.contains("invalid value"));
         assert!(bad_hops.stderr.contains("hops"));
@@ -13414,10 +13797,12 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&["hop-in".to_string(),
+        let out = run(&[
+            "hop-in".to_string(),
             path.display().to_string(),
             "99".to_string(),
-            "2".to_string()]);
+            "2".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out
             .stderr
@@ -13438,31 +13823,43 @@ ex:acme a schema:Organization ;
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "1".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "2".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "2".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "1".to_string(),
-            "3".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "3".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "2".to_string(),
-            "3".to_string()]);
-        let _ = run(&["add-edge".to_string(),
+            "3".to_string(),
+        ]);
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "3".to_string(),
-            "4".to_string()]);
+            "4".to_string(),
+        ]);
 
-        let out = run(&["hop".to_string(),
+        let out = run(&[
+            "hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "3".to_string()]);
+            "3".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("src=0"));
         assert!(out.stdout.contains("hops=3"));
@@ -13481,10 +13878,12 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&["hop".to_string(),
+        let out = run(&[
+            "hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "0".to_string()]);
+            "0".to_string(),
+        ]);
         assert_eq!(out.exit_code, 0);
         assert!(out.stdout.contains("reachable_count=0"));
         assert!(!out.stdout.contains("level1="));
@@ -13508,18 +13907,22 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let bad_src = run(&["hop".to_string(),
+        let bad_src = run(&[
+            "hop".to_string(),
             path.display().to_string(),
             "x".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(bad_src.exit_code, 2);
         assert!(bad_src.stderr.contains("invalid value"));
         assert!(bad_src.stderr.contains("src"));
 
-        let bad_hops = run(&["hop".to_string(),
+        let bad_hops = run(&[
+            "hop".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "x".to_string()]);
+            "x".to_string(),
+        ]);
         assert_eq!(bad_hops.exit_code, 2);
         assert!(bad_hops.stderr.contains("invalid value"));
         assert!(bad_hops.stderr.contains("hops"));
@@ -13534,10 +13937,12 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
 
-        let out = run(&["hop".to_string(),
+        let out = run(&[
+            "hop".to_string(),
             path.display().to_string(),
             "99".to_string(),
-            "2".to_string()]);
+            "2".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("unknown node id for hop traversal"));
 
@@ -13566,66 +13971,82 @@ ex:acme a schema:Organization ;
         assert_eq!(missing_db_path.exit_code, 2);
         assert!(missing_db_path.stderr.contains("--db"));
 
-        let both_modes = run(&["mcp".to_string(),
+        let both_modes = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
             "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"tools/list\"}".to_string(),
-            "--stdio".to_string()]);
+            "--stdio".to_string(),
+        ]);
         assert_eq!(both_modes.exit_code, 2);
         assert!(both_modes.stderr.contains("--request"));
         assert!(both_modes.stderr.contains("--stdio"));
 
-        let max_without_stdio = run(&["mcp".to_string(),
+        let max_without_stdio = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
             "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}".to_string(),
             "--max-requests".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(max_without_stdio.exit_code, 2);
         assert!(max_without_stdio
             .stderr
             .contains("--max-requests is only valid with --stdio"));
 
-        let missing_request_value = run(&["mcp".to_string(),
+        let missing_request_value = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
-            "--request".to_string()]);
+            "--request".to_string(),
+        ]);
         assert_eq!(missing_request_value.exit_code, 2);
         assert!(missing_request_value.stderr.contains("--request"));
 
-        let missing_max_value = run(&["mcp".to_string(),
+        let missing_max_value = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--stdio".to_string(),
-            "--max-requests".to_string()]);
+            "--max-requests".to_string(),
+        ]);
         assert_eq!(missing_max_value.exit_code, 2);
         assert!(missing_max_value.stderr.contains("--max-requests"));
 
-        let invalid_max = run(&["mcp".to_string(),
+        let invalid_max = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--stdio".to_string(),
             "--max-requests".to_string(),
-            "abc".to_string()]);
+            "abc".to_string(),
+        ]);
         assert_eq!(invalid_max.exit_code, 2);
         assert!(invalid_max.stderr.contains("invalid value"));
 
-        let zero_max = run(&["mcp".to_string(),
+        let zero_max = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--stdio".to_string(),
             "--max-requests".to_string(),
-            "0".to_string()]);
+            "0".to_string(),
+        ]);
         assert_eq!(zero_max.exit_code, 2);
         assert!(zero_max.stderr.contains("--max-requests"));
 
-        let unknown_flag = run(&["mcp".to_string(),
+        let unknown_flag = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
-            "--not-a-flag".to_string()]);
+            "--not-a-flag".to_string(),
+        ]);
         assert_eq!(unknown_flag.exit_code, 2);
         assert!(unknown_flag.stderr.contains("unexpected argument"));
 
-        let stdio_ok = run(&["mcp".to_string(),
+        let stdio_ok = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--stdio".to_string(),
             "--max-requests".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(stdio_ok.exit_code, 0);
         assert!(stdio_ok
             .stdout
@@ -13641,21 +14062,25 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let initialize = run(&["mcp".to_string(),
+        let initialize = run(&[
+            "mcp".to_string(),
             "--db".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}".to_string()]);
+            "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\"}".to_string(),
+        ]);
         assert_eq!(initialize.exit_code, 0);
         let initialize_json: serde_json::Value =
             serde_json::from_str(&initialize.stdout).expect("valid initialize response");
         assert_eq!(initialize_json["result"]["serverInfo"]["name"], APP_NAME);
         assert_eq!(initialize_json["result"]["capabilities"]["tools"], true);
 
-        let tools_list = run(&["mcp".to_string(),
+        let tools_list = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}".to_string()]);
+            "{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":\"tools/list\"}".to_string(),
+        ]);
         assert_eq!(tools_list.exit_code, 0);
         let tools_json: serde_json::Value =
             serde_json::from_str(&tools_list.stdout).expect("valid tools/list response");
@@ -13672,10 +14097,12 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
         let ok_default_format = run(&["mcp".to_string(),
             path.display().to_string(),
@@ -13703,10 +14130,12 @@ ex:acme a schema:Organization ;
             .expect("string output")
             .contains("src\tdst"));
 
-        let bad_params_type = run(&["mcp".to_string(),
+        let bad_params_type = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":[]}".to_string()]);
+            "{\"jsonrpc\":\"2.0\",\"id\":5,\"method\":\"tools/call\",\"params\":[]}".to_string(),
+        ]);
         assert_eq!(bad_params_type.exit_code, 0);
         let bad_params_type_json: serde_json::Value =
             serde_json::from_str(&bad_params_type.stdout).expect("valid mcp error response");
@@ -13716,10 +14145,12 @@ ex:acme a schema:Organization ;
             .expect("error message")
             .contains("params must be an object"));
 
-        let missing_query = run(&["mcp".to_string(),
+        let missing_query = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{}}".to_string()]);
+            "{\"jsonrpc\":\"2.0\",\"id\":6,\"method\":\"tools/call\",\"params\":{}}".to_string(),
+        ]);
         assert_eq!(missing_query.exit_code, 0);
         let missing_query_json: serde_json::Value =
             serde_json::from_str(&missing_query.stdout).expect("valid mcp error response");
@@ -13765,28 +14196,34 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let parse_error = run(&["mcp".to_string(),
+        let parse_error = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{".to_string()]);
+            "{".to_string(),
+        ]);
         assert_eq!(parse_error.exit_code, 0);
         let parse_error_json: serde_json::Value =
             serde_json::from_str(&parse_error.stdout).expect("valid mcp parse-error response");
         assert_eq!(parse_error_json["error"]["code"], -32700);
 
-        let invalid_jsonrpc = run(&["mcp".to_string(),
+        let invalid_jsonrpc = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"1.0\",\"id\":9,\"method\":\"tools/list\"}".to_string()]);
+            "{\"jsonrpc\":\"1.0\",\"id\":9,\"method\":\"tools/list\"}".to_string(),
+        ]);
         assert_eq!(invalid_jsonrpc.exit_code, 0);
         let invalid_jsonrpc_json: serde_json::Value =
             serde_json::from_str(&invalid_jsonrpc.stdout).expect("valid mcp error response");
         assert_eq!(invalid_jsonrpc_json["error"]["code"], -32600);
 
-        let method_not_found = run(&["mcp".to_string(),
+        let method_not_found = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"unknown/method\"}".to_string()]);
+            "{\"jsonrpc\":\"2.0\",\"id\":10,\"method\":\"unknown/method\"}".to_string(),
+        ]);
         assert_eq!(method_not_found.exit_code, 0);
         let method_not_found_json: serde_json::Value =
             serde_json::from_str(&method_not_found.stdout).expect("valid mcp error response");
@@ -13807,10 +14244,12 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
         let input = concat!(
             "\n",
@@ -13876,10 +14315,12 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let tools_list = run(&["mcp".to_string(),
+        let tools_list = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
-            "{\"jsonrpc\":\"2.0\",\"id\":41,\"method\":\"tools/list\"}".to_string()]);
+            "{\"jsonrpc\":\"2.0\",\"id\":41,\"method\":\"tools/list\"}".to_string(),
+        ]);
         assert_eq!(tools_list.exit_code, 0);
         let tools_json: serde_json::Value =
             serde_json::from_str(&tools_list.stdout).expect("valid tools/list response");
@@ -13906,7 +14347,8 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let tools_list = run(&["mcp".to_string(),
+        let tools_list = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
             serde_json::json!({
@@ -13914,7 +14356,8 @@ ex:acme a schema:Organization ;
                 "id": 401,
                 "method": "tools/list"
             })
-            .to_string()]);
+            .to_string(),
+        ]);
         assert_eq!(tools_list.exit_code, 0);
         let tools_json: Value =
             serde_json::from_str(&tools_list.stdout).expect("valid tools/list response");
@@ -14132,10 +14575,12 @@ ex:acme a schema:Organization ;
                     "arguments": arguments,
                 }
             });
-            let out = run(&["mcp".to_string(),
+            let out = run(&[
+                "mcp".to_string(),
                 path.display().to_string(),
                 "--request".to_string(),
-                request.to_string()]);
+                request.to_string(),
+            ]);
             assert_eq!(out.exit_code, 0);
             serde_json::from_str(&out.stdout).expect("valid mcp tool response")
         };
@@ -14149,11 +14594,10 @@ ex:acme a schema:Organization ;
                 "k": 2
             }),
         );
-        assert!(
-            !vector_search["result"]["results"]
-                .as_array()
-                .expect("vector results array").is_empty()
-        );
+        assert!(!vector_search["result"]["results"]
+            .as_array()
+            .expect("vector results array")
+            .is_empty());
 
         let text_search = call_tool(
             403,
@@ -14164,11 +14608,10 @@ ex:acme a schema:Organization ;
                 "k": 2
             }),
         );
-        assert!(
-            !text_search["result"]["results"]
-                .as_array()
-                .expect("text results array").is_empty()
-        );
+        assert!(!text_search["result"]["results"]
+            .as_array()
+            .expect("text results array")
+            .is_empty());
 
         let temporal_diff = call_tool(
             404,
@@ -14730,11 +15173,13 @@ ex:acme a schema:Organization ;
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
 
-        let schema_no_args = run(&["mcp".to_string(),
+        let schema_no_args = run(&[
+            "mcp".to_string(),
             path.display().to_string(),
             "--request".to_string(),
             r#"{"jsonrpc":"2.0","id":51,"method":"tools/call","params":{"name":"schema"}}"#
-                .to_string()]);
+                .to_string(),
+        ]);
         assert_eq!(schema_no_args.exit_code, 0);
         let schema_no_args_json: serde_json::Value =
             serde_json::from_str(&schema_no_args.stdout).expect("schema without args response");
@@ -14850,41 +15295,53 @@ ex:acme a schema:Organization ;
         assert_eq!(missing_db_path.exit_code, 2);
         assert!(missing_db_path.stderr.contains("--db"));
 
-        let missing_bind_value = run(&["serve".to_string(),
+        let missing_bind_value = run(&[
+            "serve".to_string(),
             "x.ogdb".to_string(),
-            "--bind".to_string()]);
+            "--bind".to_string(),
+        ]);
         assert_eq!(missing_bind_value.exit_code, 2);
         assert!(missing_bind_value.stderr.contains("--bind"));
 
-        let missing_max_value = run(&["serve".to_string(),
+        let missing_max_value = run(&[
+            "serve".to_string(),
             "x.ogdb".to_string(),
-            "--max-requests".to_string()]);
+            "--max-requests".to_string(),
+        ]);
         assert_eq!(missing_max_value.exit_code, 2);
         assert!(missing_max_value.stderr.contains("--max-requests"));
 
-        let missing_port_value = run(&["serve".to_string(),
+        let missing_port_value = run(&[
+            "serve".to_string(),
             "x.ogdb".to_string(),
-            "--port".to_string()]);
+            "--port".to_string(),
+        ]);
         assert_eq!(missing_port_value.exit_code, 2);
         assert!(missing_port_value.stderr.contains("--port"));
 
-        let non_numeric_max = run(&["serve".to_string(),
+        let non_numeric_max = run(&[
+            "serve".to_string(),
             "x.ogdb".to_string(),
             "--max-requests".to_string(),
-            "abc".to_string()]);
+            "abc".to_string(),
+        ]);
         assert_eq!(non_numeric_max.exit_code, 2);
         assert!(non_numeric_max.stderr.contains("invalid value"));
 
-        let zero_max = run(&["serve".to_string(),
+        let zero_max = run(&[
+            "serve".to_string(),
             "x.ogdb".to_string(),
             "--max-requests".to_string(),
-            "0".to_string()]);
+            "0".to_string(),
+        ]);
         assert_eq!(zero_max.exit_code, 2);
         assert!(zero_max.stderr.contains("--max-requests"));
 
-        let unknown_flag = run(&["serve".to_string(),
+        let unknown_flag = run(&[
+            "serve".to_string(),
             "x.ogdb".to_string(),
-            "--unknown".to_string()]);
+            "--unknown".to_string(),
+        ]);
         assert_eq!(unknown_flag.exit_code, 2);
         assert!(unknown_flag.stderr.contains("unexpected argument"));
     }
@@ -14933,11 +15390,13 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_grpc_mode_reports_feature_gate_when_disabled() {
         let missing_path = temp_db_path("serve-grpc-disabled");
-        let out = run(&["serve".to_string(),
+        let out = run(&[
+            "serve".to_string(),
             missing_path.display().to_string(),
             "--grpc".to_string(),
             "--max-requests".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("gRPC support is not enabled"));
     }
@@ -14945,10 +15404,12 @@ ex:acme a schema:Organization ;
     #[test]
     fn serve_returns_runtime_error_for_missing_database() {
         let path = temp_db_path("serve-missing-db");
-        let out = run(&["serve".to_string(),
+        let out = run(&[
+            "serve".to_string(),
             path.display().to_string(),
             "--max-requests".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("io error"));
     }
@@ -15014,12 +15475,14 @@ ex:acme a schema:Organization ;
 
         let guard = TcpListener::bind("127.0.0.1:0").expect("bind guard listener");
         let addr = guard.local_addr().expect("guard local addr");
-        let out = run(&["serve".to_string(),
+        let out = run(&[
+            "serve".to_string(),
             path.display().to_string(),
             "--bind".to_string(),
             addr.to_string(),
             "--max-requests".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
         assert_eq!(out.exit_code, 1);
         assert!(out.stderr.contains("failed to bind"));
 
@@ -15035,10 +15498,12 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
         let bind_addr = probe.local_addr().expect("probe local addr");
@@ -15096,10 +15561,12 @@ ex:acme a schema:Organization ;
         assert_eq!(init.exit_code, 0);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
         let _ = run(&["create-node".to_string(), path.display().to_string()]);
-        let _ = run(&["add-edge".to_string(),
+        let _ = run(&[
+            "add-edge".to_string(),
             path.display().to_string(),
             "0".to_string(),
-            "1".to_string()]);
+            "1".to_string(),
+        ]);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
         let bind_addr = probe.local_addr().expect("probe local addr");
@@ -15164,12 +15631,14 @@ ex:acme a schema:Organization ;
         let path = temp_db_path("serve-bolt-roundtrip");
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let seeded = run(&["create-node".to_string(),
+        let seeded = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
             "Person".to_string(),
             "--props".to_string(),
-            "name=string:Alice".to_string()]);
+            "name=string:Alice".to_string(),
+        ]);
         assert_eq!(seeded.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
@@ -15258,12 +15727,14 @@ ex:acme a schema:Organization ;
         let path = temp_db_path("serve-http-roundtrip");
         let init = run(&["init".to_string(), path.display().to_string()]);
         assert_eq!(init.exit_code, 0);
-        let seeded = run(&["create-node".to_string(),
+        let seeded = run(&[
+            "create-node".to_string(),
             path.display().to_string(),
             "--labels".to_string(),
             "Person".to_string(),
             "--props".to_string(),
-            "name=string:Alice".to_string()]);
+            "name=string:Alice".to_string(),
+        ]);
         assert_eq!(seeded.exit_code, 0);
 
         let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
@@ -15424,7 +15895,8 @@ ex:acme a schema:Organization ;
             br#"{"query":"MATCH (n) RETURN n"}"#,
         );
         assert_eq!(
-            slow_status, 504,
+            slow_status,
+            504,
             "expected 504 Gateway Timeout, got {slow_status} body={:?}",
             String::from_utf8_lossy(&slow_body)
         );
@@ -15436,13 +15908,8 @@ ex:acme a schema:Organization ;
 
         // Clear the injected delay so we can confirm the server kept serving.
         env::set_var("OGDB_TEST_QUERY_DELAY_MS", "0");
-        let (fast_status, _fast_type, _fast_body) = send_http_request(
-            &addr,
-            "GET",
-            "/health",
-            &[],
-            &[],
-        );
+        let (fast_status, _fast_type, _fast_body) =
+            send_http_request(&addr, "GET", "/health", &[], &[]);
         assert_eq!(
             fast_status, 200,
             "server must stay up after a timed-out query"
@@ -15741,10 +16208,7 @@ ex:acme a schema:Organization ;
                         "content-type".to_string(),
                         "application/octet-stream".to_string(),
                     ),
-                    (
-                        "authorization".to_string(),
-                        "Bearer token-api".to_string(),
-                    ),
+                    ("authorization".to_string(), "Bearer token-api".to_string()),
                 ]),
                 body: Vec::new(),
             },
@@ -15760,10 +16224,7 @@ ex:acme a schema:Organization ;
                 path: "/export".to_string(),
                 headers: HashMap::from([
                     ("content-type".to_string(), "text/plain".to_string()),
-                    (
-                        "authorization".to_string(),
-                        "Bearer token-api".to_string(),
-                    ),
+                    ("authorization".to_string(), "Bearer token-api".to_string()),
                 ]),
                 body: br#"{"label":"Person"}"#.to_vec(),
             },
@@ -16027,8 +16488,8 @@ ex:acme a schema:Organization ;
         });
         let mut header_eof_client =
             TcpStream::connect(addr_header_eof).expect("connect header-eof listener");
-        let header_eof_request = read_http_request(&mut header_eof_client)
-            .expect("read header-eof request");
+        let header_eof_request =
+            read_http_request(&mut header_eof_client).expect("read header-eof request");
         let message = match header_eof_request {
             HttpReadOutcome::Request(msg) => msg,
             other => panic!("expected parsed header-eof request, got {other:?}"),

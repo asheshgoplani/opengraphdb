@@ -10,15 +10,11 @@ use tempfile::TempDir;
 #[test]
 fn enrichment_roundtrip_reports_t_persist_percentiles() {
     let dir = TempDir::new().unwrap();
-    let run =
-        ai_agent::enrichment_roundtrip(dir.path(), 20, 10, 15).expect("enrichment_roundtrip");
+    let run = ai_agent::enrichment_roundtrip(dir.path(), 20, 10, 15).expect("enrichment_roundtrip");
     assert_eq!(run.suite, "ai_agent");
     assert_eq!(run.subsuite, "enrichment_roundtrip");
     for key in ["t_persist_p50_us", "t_persist_p95_us", "t_persist_p99_us"] {
-        assert!(
-            run.metrics.contains_key(key),
-            "missing {key}"
-        );
+        assert!(run.metrics.contains_key(key), "missing {key}");
     }
     assert!(run.metrics.get("docs_per_sec").unwrap().value > 0.0);
 }
@@ -53,9 +49,6 @@ fn re_ranking_reports_candidates_and_p95() {
     let dir = TempDir::new().unwrap();
     let run = ai_agent::re_ranking(dir.path(), 200, 100).expect("re_ranking");
     assert_eq!(run.subsuite, "re_ranking");
-    assert_eq!(
-        run.metrics.get("candidates").unwrap().value as u32,
-        100
-    );
+    assert_eq!(run.metrics.get("candidates").unwrap().value as u32, 100);
     assert!(run.metrics.contains_key("p95_us"));
 }

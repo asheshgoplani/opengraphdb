@@ -6,9 +6,7 @@
 
 use std::fs;
 
-use ogdb_eval::drivers::skill_quality::{
-    run, AdapterResponse, EvalCase, MockAdapter,
-};
+use ogdb_eval::drivers::skill_quality::{run, AdapterResponse, EvalCase, MockAdapter};
 use ogdb_eval::{EvaluationRun, SCHEMA_VERSION};
 use tempfile::TempDir;
 

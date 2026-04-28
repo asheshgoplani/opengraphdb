@@ -32,8 +32,12 @@ fn bfs_visits_every_reachable_node_from_seed() {
 
     let expected = bfs_reference(&mini, SEED_PERSON_INDEX, u32::MAX);
 
-    let run = run_bfs(&db_path, mini.person_node_ids[SEED_PERSON_INDEX as usize], 16)
-        .expect("run BFS");
+    let run = run_bfs(
+        &db_path,
+        mini.person_node_ids[SEED_PERSON_INDEX as usize],
+        16,
+    )
+    .expect("run BFS");
 
     assert_eq!(run.suite, "graphalytics");
     assert_eq!(run.subsuite, "BFS");
@@ -57,8 +61,7 @@ fn pagerank_top5_matches_hardcoded_oracle() {
     let db_path = dir.path().join("graph.ogdb");
     let mini = build_ldbc_mini(&db_path).expect("build mini");
 
-    let result: PageRankResult =
-        run_pagerank(&db_path, PR_ITERATIONS, PR_DAMPING).expect("run PR");
+    let result: PageRankResult = run_pagerank(&db_path, PR_ITERATIONS, PR_DAMPING).expect("run PR");
     assert_eq!(result.run.suite, "graphalytics");
     assert_eq!(result.run.subsuite, "PageRank");
     let iterations = result
@@ -136,8 +139,9 @@ fn pagerank_reference(mini: &LdbcMini, iterations: u32, damping: f64) -> HashMap
     let mut scores: HashMap<u64, f64> = (0..n as u64).map(|i| (i, init)).collect();
 
     for _ in 0..iterations {
-        let mut next: HashMap<u64, f64> =
-            (0..n as u64).map(|i| (i, (1.0 - damping) / n as f64)).collect();
+        let mut next: HashMap<u64, f64> = (0..n as u64)
+            .map(|i| (i, (1.0 - damping) / n as f64))
+            .collect();
         let mut dangling = 0.0;
         for (&node, &score) in &scores {
             if let Some(neigh) = out.get(&node) {
