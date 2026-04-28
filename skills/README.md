@@ -23,6 +23,7 @@ npx @opengraphdb/skills install codex
 
 | Skill | What It Does | Example |
 |-------|-------------|---------|
+| `opengraphdb` | **Master / entry skill.** Cross-cutting workflow for AI agents driving OpenGraphDB end-to-end (MCP, Cypher essentials, hybrid retrieval, GraphRAG, time-travel, perf expectations, sub-skill routing). Start here, then descend. | "Wire OpenGraphDB to my agent and run a hybrid retrieval query" |
 | `ogdb-cypher` | Generates correct Cypher queries for OpenGraphDB | "Find all people who acted in movies directed by Spielberg" |
 | `graph-explore` | Guides systematic graph exploration | "Help me understand what's in this database" |
 | `schema-advisor` | Designs graph schemas from domain descriptions | "Design a schema for a healthcare system" |
@@ -42,6 +43,12 @@ Creates the following structure in your project:
 
 ```
 .claude/skills/
+  opengraphdb/
+    SKILL.md
+    scripts/quickstart.sh
+    references/cypher-coverage.md
+    references/benchmarks-snapshot.md
+    eval/cases.yaml
   ogdb-cypher/
     SKILL.md
     rules/cypher-patterns.md
