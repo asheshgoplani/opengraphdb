@@ -123,6 +123,6 @@ The architecture can evolve, but only through measured triggers.
 - [x] Workspace scaffolding created
 - [x] Core test and benchmark harness scaffolding created (`crates/ogdb-bench`)
 - [x] Initial storage decision benchmark run captured (`BENCHMARKS.md`)
-- [x] TDD method and implementation log established (`docs/TDD-METHODOLOGY.md`, `docs/IMPLEMENTATION-LOG.md`)
+- [x] TDD methodology established (`docs/TDD-METHODOLOGY.md`)
 - [x] Versioning policy established (`docs/VERSIONING.md`, workspace package version source)
 - [x] Canonical changelog established and wired into test workflow (`CHANGELOG.md`, `scripts/changelog-check.sh`)

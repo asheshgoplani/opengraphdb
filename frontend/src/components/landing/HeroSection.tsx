@@ -121,7 +121,7 @@ export function HeroSection() {
             className="min-w-44 border-white/20 bg-white/5 text-white hover:bg-white/10 hover:text-white"
           >
             <a
-              href="https://github.com/innotrade/opengraphdb"
+              href="https://github.com/asheshgoplani/opengraphdb"
               target="_blank"
               rel="noreferrer noopener"
             >

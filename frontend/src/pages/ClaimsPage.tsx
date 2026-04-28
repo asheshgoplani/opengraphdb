@@ -22,7 +22,7 @@ function evidenceHref(evidence: string | undefined): string | null {
   const path = match ? match[0] : trimmed.startsWith('e2e/') ? trimmed : null
   if (!path) return null
   const normalized = path.endsWith('.spec.ts') ? path : `${path}.spec.ts`
-  return `https://github.com/innotrade/opengraphdb/blob/main/frontend/${normalized}`
+  return `https://github.com/asheshgoplani/opengraphdb/blob/main/frontend/${normalized}`
 }
 
 export default function ClaimsPage() {
@@ -52,7 +52,7 @@ export default function ClaimsPage() {
             Back to landing
           </Link>
           <a
-            href="https://github.com/innotrade/opengraphdb"
+            href="https://github.com/asheshgoplani/opengraphdb"
             target="_blank"
             rel="noreferrer noopener"
             className="text-sm text-muted-foreground hover:text-foreground"

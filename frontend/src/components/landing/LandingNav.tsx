@@ -86,7 +86,7 @@ export function LandingNav() {
             }
           >
             <a
-              href="https://github.com/innotrade/opengraphdb"
+              href="https://github.com/asheshgoplani/opengraphdb"
               target="_blank"
               rel="noreferrer noopener"
               aria-label="OpenGraphDB on GitHub"

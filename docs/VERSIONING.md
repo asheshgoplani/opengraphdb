@@ -4,7 +4,7 @@ This document defines OpenGraphDB versioning and release discipline.
 
 ## Source of Truth
 
-- Project version is centralized in `/Users/ashesh/opengraphdb/Cargo.toml` under `[workspace.package].version`.
+- Project version is centralized in `./Cargo.toml` under `[workspace.package].version`.
 - Crates must inherit version from workspace metadata (`version.workspace = true`).
 
 ## Scheme

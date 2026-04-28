@@ -16,7 +16,7 @@ This repository uses strict test-first development for production code paths.
 - Every storage format change must include decode/encode and recovery tests.
 - Documentation must be updated in the same change when behavior or decisions change.
 - `CHANGELOG.md` must be updated under `Unreleased` for every completed change.
-- `docs/IMPLEMENTATION-LOG.md` and `CHANGELOG.md` must stay consistent (checked by `scripts/workflow-check.sh`).
+- `CHANGELOG.md` `Unreleased` section must contain at least one bullet (checked by `scripts/workflow-check.sh`).
 - CI must remain green for `scripts/test.sh` and `scripts/coverage.sh`.
 
 ## Coverage Policy
@@ -40,7 +40,7 @@ source "$HOME/.cargo/env"
 cargo test --workspace --all-targets
 ```
 
-and record the coverage gap in `docs/IMPLEMENTATION-LOG.md`.
+and record the coverage gap in `CHANGELOG.md` under `Unreleased`.
 
 ## Documentation Sources of Truth
 
@@ -49,5 +49,4 @@ and record the coverage gap in `docs/IMPLEMENTATION-LOG.md`.
 - Canonical changelog: `CHANGELOG.md`
 - Implementation readiness and gates: `IMPLEMENTATION-READY.md`
 - Benchmark outcomes and policy: `BENCHMARKS.md`
-- Step-by-step implementation trail: `docs/IMPLEMENTATION-LOG.md`
 - PR checklist template: `.github/PULL_REQUEST_TEMPLATE.md`
