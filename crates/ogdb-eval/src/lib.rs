@@ -2,6 +2,12 @@
 //! benchmarks, scaling probes, and UI/UX. See
 //! `.planning/evaluator-harness/PLAN.md` for full architecture.
 
+// Doc lists in this crate intentionally use parent-marker-aligned continuations
+// (e.g. nested explanations under `a.` / `b.` items align under their text);
+// rust 1.95's clippy::doc_overindented_list_items is overly aggressive about
+// this style and does not match the rendered HTML's intended visual hierarchy.
+#![allow(clippy::doc_overindented_list_items)]
+
 pub mod drivers;
 pub mod skill_regression;
 
