@@ -6,20 +6,21 @@
 
 OpenGraphDB embeds in your Rust, Python, or Node app — or runs as a single `ogdb serve` process. Cypher queries, MVCC, WAL, and an MCP surface for AI tools. No JVM. No separate search index to keep in sync.
 
-> **Architecture baseline:** See `ARCHITECTURE.md` for locked technical decisions. See `CHANGELOG.md` for the latest released version.
+> **Status: v0.3.0 — core engine, Cypher, import/export, server adapters, and MCP are implemented and test-gated**
+> **Architecture baseline:** See `ARCHITECTURE.md` for locked technical decisions
 
 ## The Idea
 
 There's no good embeddable graph database that is truly open source, speaks Cypher, and works natively with AI tools. Neo4j requires a server and is AGPL. KuzuDB was the closest alternative but was abandoned in October 2025. We're building what should exist.
 
 ```
-ogdb init mydata.ogdb
-ogdb create-node mydata.ogdb
-ogdb add-edge mydata.ogdb 0 1
-ogdb neighbors mydata.ogdb 0
-ogdb hop mydata.ogdb 0 3
-ogdb checkpoint mydata.ogdb
-ogdb backup mydata.ogdb mydata.backup.ogdb
+opengraphdb init mydata.ogdb
+opengraphdb create-node mydata.ogdb
+opengraphdb add-edge mydata.ogdb 0 1
+opengraphdb neighbors mydata.ogdb 0
+opengraphdb hop mydata.ogdb 0 3
+opengraphdb checkpoint mydata.ogdb
+opengraphdb backup mydata.ogdb mydata.backup.ogdb
 ```
 
 One binary. One file. That's it.
@@ -27,29 +28,29 @@ One binary. One file. That's it.
 ## Current CLI Surface (Implemented)
 
 ```bash
-ogdb [--format <table|json|jsonl|csv|tsv>] [--db <path>] <command> ...
-ogdb init (<path> | --db <path>) [--page-size <power-of-two>=64]
-ogdb info (<path> | --db <path>)
-ogdb metrics (<path> | --db <path>)
-ogdb stats (<path> | --db <path>)
-ogdb schema (<path> | --db <path>)
-ogdb checkpoint (<path> | --db <path>)
-ogdb backup <src-path> <dst-path> [--online] [--compact]
-ogdb query (<path> | --db <path>) [--format <table|json|jsonl|csv|tsv>] [query]
-ogdb shell (<path> | --db <path>) [--commands <q1;q2;...> | --script <path>]
-ogdb mcp (<path> | --db <path>) (--request <json-rpc-request> | --stdio [--max-requests <n>])
-ogdb serve (<path> | --db <path>) [--bind <addr> | --port <port>] [--bolt|--http|--grpc] [--max-requests <n>]
-ogdb import (<path> | --db <path>) <src-path> [--format <csv|json|jsonl>] [--batch-size <n>] [--continue-on-error]
-ogdb export (<path> | --db <path>) <dst-path> [--format <csv|json|jsonl>] [--label <label>] [--edge-type <type>] [--node-id-range <start:end>]
-ogdb import-rdf (<path> | --db <path>) <src-path> [--format <ttl|nt|xml|jsonld|nq>] [--base-uri <uri>] [--schema-only] [--batch-size <n>] [--continue-on-error]
-ogdb export-rdf (<path> | --db <path>) <dst-path> [--format <ttl|nt|xml|jsonld>]
-ogdb validate-shacl (<path> | --db <path>) <shapes-path>
-ogdb create-node (<path> | --db <path>) [--labels <l1,l2,...>] [--props <k=type:value;...>]
-ogdb add-edge (<path> | --db <path>) <src> <dst> [--type <edge-type>] [--props <k=type:value;...>]
-ogdb neighbors (<path> | --db <path>) <src> [--format <table|json|jsonl|csv|tsv>]
-ogdb incoming (<path> | --db <path>) <dst> [--format <table|json|jsonl|csv|tsv>]
-ogdb hop-in (<path> | --db <path>) <dst> <hops> [--format <table|json|jsonl|csv|tsv>]
-ogdb hop (<path> | --db <path>) <src> <hops> [--format <table|json|jsonl|csv|tsv>]
+opengraphdb [--format <table|json|jsonl|csv|tsv>] [--db <path>] <command> ...
+opengraphdb init (<path> | --db <path>) [--page-size <power-of-two>=64]
+opengraphdb info (<path> | --db <path>)
+opengraphdb metrics (<path> | --db <path>)
+opengraphdb stats (<path> | --db <path>)
+opengraphdb schema (<path> | --db <path>)
+opengraphdb checkpoint (<path> | --db <path>)
+opengraphdb backup <src-path> <dst-path> [--online] [--compact]
+opengraphdb query (<path> | --db <path>) [--format <table|json|jsonl|csv|tsv>] [query]
+opengraphdb shell (<path> | --db <path>) [--commands <q1;q2;...> | --script <path>]
+opengraphdb mcp (<path> | --db <path>) (--request <json-rpc-request> | --stdio [--max-requests <n>])
+opengraphdb serve (<path> | --db <path>) [--bind <addr> | --port <port>] [--bolt|--http|--grpc] [--max-requests <n>]
+opengraphdb import (<path> | --db <path>) <src-path> [--format <csv|json|jsonl>] [--batch-size <n>] [--continue-on-error]
+opengraphdb export (<path> | --db <path>) <dst-path> [--format <csv|json|jsonl>] [--label <label>] [--edge-type <type>] [--node-id-range <start:end>]
+opengraphdb import-rdf (<path> | --db <path>) <src-path> [--format <ttl|nt|xml|jsonld|nq>] [--base-uri <uri>] [--schema-only] [--batch-size <n>] [--continue-on-error]
+opengraphdb export-rdf (<path> | --db <path>) <dst-path> [--format <ttl|nt|xml|jsonld>]
+opengraphdb validate-shacl (<path> | --db <path>) <shapes-path>
+opengraphdb create-node (<path> | --db <path>) [--labels <l1,l2,...>] [--props <k=type:value;...>]
+opengraphdb add-edge (<path> | --db <path>) <src> <dst> [--type <edge-type>] [--props <k=type:value;...>]
+opengraphdb neighbors (<path> | --db <path>) <src> [--format <table|json|jsonl|csv|tsv>]
+opengraphdb incoming (<path> | --db <path>) <dst> [--format <table|json|jsonl|csv|tsv>]
+opengraphdb hop-in (<path> | --db <path>) <dst> <hops> [--format <table|json|jsonl|csv|tsv>]
+opengraphdb hop (<path> | --db <path>) <src> <hops> [--format <table|json|jsonl|csv|tsv>]
 ```
 
 `shell` now supports interactive REPL mode (line editing/history/completion) when no `--commands`/`--script` input is provided in a TTY, and piped stdin script mode in non-interactive contexts.
