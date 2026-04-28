@@ -1946,14 +1946,14 @@ dependencies = [
 
 [[package]]
 name = "ogdb-algorithms"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "ogdb-bench"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "criterion",
  "libc",
@@ -1965,14 +1965,14 @@ dependencies = [
 
 [[package]]
 name = "ogdb-bolt"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ogdb-core",
 ]
 
 [[package]]
 name = "ogdb-cli"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "clap",
  "csv",
@@ -1990,7 +1990,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-core"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "instant-distance",
  "lz4_flex",
@@ -2014,7 +2014,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-e2e"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ogdb-bolt",
  "ogdb-cli",
@@ -2024,7 +2024,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-eval"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "libc",
  "ogdb-core",
@@ -2040,14 +2040,14 @@ dependencies = [
 
 [[package]]
 name = "ogdb-export"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ogdb-types",
 ]
 
 [[package]]
 name = "ogdb-ffi"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ogdb-cli",
  "ogdb-core",
@@ -2056,7 +2056,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-fuzz"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "tempfile",
  "toml",
@@ -2064,7 +2064,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-import"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "lopdf",
  "pulldown-cmark",
@@ -2074,7 +2074,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-node"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "napi",
  "napi-build",
@@ -2086,7 +2086,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-python"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ogdb-cli",
  "ogdb-core",
@@ -2096,7 +2096,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-tck"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "cucumber",
  "ogdb-core",
@@ -2108,11 +2108,11 @@ dependencies = [
 
 [[package]]
 name = "ogdb-temporal"
-version = "0.3.0"
+version = "0.4.0"
 
 [[package]]
 name = "ogdb-text"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -2120,7 +2120,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-types"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "ogdb-vector",
  "serde",
@@ -2129,7 +2129,7 @@ dependencies = [
 
 [[package]]
 name = "ogdb-vector"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "serde",
 ]
