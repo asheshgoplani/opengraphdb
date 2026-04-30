@@ -1,3 +1,10 @@
+// DEPRECATED (S6): combined marketing + app router.
+// Replaced by the split build:
+//   - `MarketingRouter.tsx` (loaded via `marketing-main.tsx` → `index-marketing.html` → `dist-marketing/`)
+//   - `AppShellRouter.tsx`  (loaded via `app-main.tsx`       → `index-app.html`       → `dist-app/`)
+// Kept in tree because `main.tsx` and `index.html` (the legacy `npm run dev`
+// entry) still reach the heavy routes through it. S7 will retire the legacy
+// entry once the SPA is embedded in the `ogdb` binary; this file goes with it.
 import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
