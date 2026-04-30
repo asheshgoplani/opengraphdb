@@ -86,7 +86,7 @@ export default function ClaimsPage() {
           <div
             data-testid="claims-page-error"
             role="alert"
-            className="mt-10 rounded-lg border border-rose-400/40 bg-rose-500/10 p-6 text-sm text-rose-700 dark:text-rose-200"
+            className="mt-10 rounded-lg border border-destructive/50 bg-destructive/15 p-6 text-sm text-destructive dark:text-destructive"
           >
             Could not load <code>/claims-status.json</code>: {state.message}. Run{' '}
             <code className="rounded bg-muted px-1 font-mono">scripts/verify-claims.sh</code> to
@@ -150,12 +150,12 @@ export default function ClaimsPage() {
                       >
                         <td className="px-4 py-4">
                           {entry.status === 'green' ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-300">
+                            <span className="inline-flex items-center gap-1 text-accent dark:text-accent">
                               <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                               green
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-rose-600 dark:text-rose-300">
+                            <span className="inline-flex items-center gap-1 text-destructive dark:text-destructive">
                               <XCircle className="h-4 w-4" aria-hidden="true" />
                               red
                             </span>

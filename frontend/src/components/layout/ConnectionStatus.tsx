@@ -65,13 +65,13 @@ export function ConnectionStatus() {
     <div className="flex items-center gap-2 rounded-full border bg-background/60 px-3 py-1 text-xs">
       {model.variant === 'connected' ? (
         <span className="relative flex h-2 w-2">
-          <span className="absolute h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-          <span className="relative h-2 w-2 rounded-full bg-emerald-500" />
+          <span className="absolute h-full w-full animate-ping rounded-full bg-accent opacity-75" />
+          <span className="relative h-2 w-2 rounded-full bg-accent" />
         </span>
       ) : model.variant === 'disconnected' ? (
-        <span className="h-2 w-2 rounded-full bg-red-500" />
+        <span className="h-2 w-2 rounded-full bg-destructive" />
       ) : (
-        <span className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
+        <span className="h-2 w-2 rounded-full bg-primary animate-pulse" />
       )}
       <span className="font-medium text-foreground">{model.statusText}</span>
       {model.serverLabel ? (

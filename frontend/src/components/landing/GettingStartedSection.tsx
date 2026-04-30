@@ -89,12 +89,12 @@ export function GettingStartedSection() {
                   </p>
                 </div>
                 <div className="col-span-2 sm:col-span-1">
-                  <div className="relative overflow-hidden rounded-lg bg-slate-950 px-4 py-3 text-slate-50 shadow-inner">
+                  <div className="relative overflow-hidden rounded-lg bg-background px-4 py-3 text-foreground shadow-inner">
                     <Button
                       variant="ghost"
                       size="sm"
                       aria-label={isCopied ? 'Copied' : `Copy ${step.title.toLowerCase()} command`}
-                      className="absolute right-1.5 top-1.5 h-7 gap-1 rounded-md px-2 text-[11px] text-slate-300 hover:bg-slate-800 hover:text-white"
+                      className="absolute right-1.5 top-1.5 h-7 gap-1 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
                       onClick={() => {
                         void copyCommand(step.command, index)
                       }}

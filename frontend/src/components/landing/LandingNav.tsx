@@ -39,7 +39,7 @@ export function LandingNav() {
       className={`fixed inset-x-0 top-0 z-50 transition-all duration-300 ${
         scrolled
           ? 'border-b border-border/60 bg-background/85 text-foreground backdrop-blur-md'
-          : 'border-b border-transparent bg-transparent text-white'
+          : 'border-b border-transparent bg-transparent text-foreground'
       }`}
     >
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
@@ -50,7 +50,7 @@ export function LandingNav() {
           <span
             className={cn(
               'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
-              scrolled ? 'bg-primary/15 text-primary' : 'bg-white/10 text-white',
+              scrolled ? 'bg-primary/15 text-primary' : 'bg-muted/60 text-foreground',
             )}
           >
             <Logo size={18} aria-hidden="true" />
@@ -68,7 +68,7 @@ export function LandingNav() {
               className={`text-sm font-medium transition-colors ${
                 scrolled
                   ? 'text-muted-foreground hover:text-foreground'
-                  : 'text-white/70 hover:text-white'
+                  : 'text-foreground/85 hover:text-foreground'
               }`}
             >
               {item.label}
@@ -84,7 +84,7 @@ export function LandingNav() {
             className={
               scrolled
                 ? ''
-                : 'text-white/80 hover:bg-white/10 hover:text-white'
+                : 'text-foreground/85 hover:bg-muted/60 hover:text-foreground'
             }
           >
             <a

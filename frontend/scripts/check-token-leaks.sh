@@ -29,9 +29,10 @@ if [ "$COUNT" -gt 0 ]; then
   printf '%s\n' "$LEAKS"
 fi
 
-# Baseline recorded 2026-04-30 on branch fix/s0-token-leak-gate after expanding
-# regex to cover shadeless white/black, slash-shade variants, full Tailwind
-# numbered palette, and gradient prefixes (from/to/via).
-# Ratchet this number DOWN as palette tokens replace raw utilities.
-BASELINE=291
+# Baseline ratcheted DOWN per Slice S3 (token-leak cleanup): semantic-token
+# substitution swept playground + landing + page surfaces, leaving only the
+# planner-acknowledged irreducible marketing-only `bg-white text-slate-900`
+# hero CTAs as residual leaks. Ratchet this number DOWN as palette tokens
+# replace raw utilities; never UP.
+BASELINE=7
 test "$COUNT" -le "$BASELINE"

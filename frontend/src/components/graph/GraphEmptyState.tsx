@@ -72,15 +72,15 @@ export function GraphEmptyState({
           ))}
         </svg>
 
-        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-white/60">
+        <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
           <Link2 className="h-3 w-3" aria-hidden="true" />
           empty canvas
         </div>
 
-        <h3 className="font-display text-2xl font-medium tracking-tight text-white sm:text-3xl">
+        <h3 className="font-display text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
           {message}
         </h3>
-        <p className="mt-3 text-sm leading-relaxed text-white/55">{hint}</p>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{hint}</p>
       </div>
     </div>
   )

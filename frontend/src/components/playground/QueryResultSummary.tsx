@@ -34,14 +34,14 @@ export function QueryResultSummary({
         data-testid="query-result-summary"
         data-state="error"
         role="alert"
-        className="mx-3 mt-2 rounded-md border border-red-400/40 bg-red-500/5 px-3 py-2 font-mono text-[11px] text-red-200"
+        className="mx-3 mt-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 font-mono text-[11px] text-destructive"
       >
-        <p className="font-serif text-[12px] leading-tight text-red-100">Query failed</p>
-        <p className="mt-1 text-[10px] leading-snug text-red-200/85">{error}</p>
+        <p className="font-serif text-[12px] leading-tight text-destructive-foreground">Query failed</p>
+        <p className="mt-1 text-[10px] leading-snug text-destructive">{error}</p>
         {suggestion && (
-          <p className="mt-2 text-[10px] leading-snug text-red-100/90">
-            <span className="text-red-200/70">Try:</span>{' '}
-            <code className="rounded bg-red-500/10 px-1 py-[1px] text-red-50">{suggestion}</code>
+          <p className="mt-2 text-[10px] leading-snug text-destructive-foreground">
+            <span className="text-destructive/80">Try:</span>{' '}
+            <code className="rounded bg-destructive/15 px-1 py-[1px] text-destructive-foreground">{suggestion}</code>
           </p>
         )}
       </section>
@@ -53,7 +53,7 @@ export function QueryResultSummary({
       <section
         data-testid="query-result-summary"
         data-state="idle"
-        className="mx-3 mt-2 rounded-md border border-white/10 bg-background/60 px-3 py-1.5 font-mono text-[11px] text-white/55"
+        className="mx-3 mt-2 rounded-md border border-border/60 bg-background/60 px-3 py-1.5 font-mono text-[11px] text-muted-foreground"
       >
         Type Cypher or pick a guided query — then we'll tell you how many rows
         came back and which nodes are drawn.
@@ -75,12 +75,12 @@ export function QueryResultSummary({
       data-row-count={rowCount}
       data-visible-nodes={visibleNodes}
       className={cn(
-        'mx-3 mt-2 rounded-md border border-cyan-400/30 bg-cyan-500/5 px-3 py-1.5 font-mono text-[11px] text-white/85',
+        'mx-3 mt-2 rounded-md border border-accent/50 bg-accent/10 px-3 py-1.5 font-mono text-[11px] text-foreground/85',
       )}
     >
-      <span className="tabular-nums text-cyan-100">{line}</span>
+      <span className="tabular-nums text-accent-foreground">{line}</span>
       {queryLabel && (
-        <span className="ml-2 text-[10px] uppercase tracking-[0.14em] text-white/45">
+        <span className="ml-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
           · {queryLabel}
         </span>
       )}

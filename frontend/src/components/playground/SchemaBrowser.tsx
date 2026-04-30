@@ -147,10 +147,10 @@ export function SchemaBrowser({
         role="tree"
         aria-label="Schema"
         data-testid="schema-browser-empty"
-        className="rounded-lg border border-dashed border-white/15 bg-muted/20 px-3 py-4 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
+        className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-4 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
       >
-        <p className="font-serif text-[13px] leading-tight text-white/85">Schema will appear here</p>
-        <p className="mt-1 text-[10.5px] leading-snug text-white/50">
+        <p className="font-serif text-[13px] leading-tight text-foreground/85">Schema will appear here</p>
+        <p className="mt-1 text-[10.5px] leading-snug text-muted-foreground">
           Load a dataset or drag a .ttl onto the canvas to populate labels, relationships, and
           property keys.
         </p>
@@ -162,12 +162,12 @@ export function SchemaBrowser({
     <section
       role="tree"
       aria-label="Schema"
-      className="rounded-lg border border-white/10 bg-muted/30 px-3 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
+      className="rounded-lg border border-border/60 bg-muted/30 px-3 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
     >
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <Database className="h-3.5 w-3.5 text-cyan-300" />
-          <p className="font-serif text-[13px] tracking-tight text-white/90">Schema</p>
+          <Database className="h-3.5 w-3.5 text-accent" />
+          <p className="font-serif text-[13px] tracking-tight text-foreground">Schema</p>
         </div>
         <button
           type="button"
@@ -180,8 +180,8 @@ export function SchemaBrowser({
           className={cn(
             'rounded-full border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em] transition-all duration-200',
             ontologyMode
-              ? 'border-cyan-400/60 bg-cyan-500/20 text-cyan-100 shadow-[0_0_8px_rgba(34,211,238,0.35)]'
-              : 'border-white/15 bg-transparent text-white/55 hover:border-white/30 hover:text-white/80',
+              ? 'border-accent bg-accent/30 text-accent-foreground shadow-[0_0_8px_rgba(34,211,238,0.35)]'
+              : 'border-border bg-transparent text-muted-foreground hover:border-border hover:text-foreground/85',
           )}
         >
           Ontology
@@ -203,17 +203,17 @@ export function SchemaBrowser({
             }
           }}
         >
-          <div className="flex items-center gap-1 rounded px-1 py-0.5 text-white/75 hover:bg-white/5">
+          <div className="flex items-center gap-1 rounded px-1 py-0.5 text-foreground/85 hover:bg-muted/40">
             {labelsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            <Tag className="h-3 w-3 text-indigo-300" />
-            <span className="flex-1 font-mono uppercase tracking-[0.12em] text-[10px] text-white/65">
+            <Tag className="h-3 w-3 text-primary" />
+            <span className="flex-1 font-mono uppercase tracking-[0.12em] text-[10px] text-muted-foreground">
               Labels
             </span>
-            <span className="font-mono text-[10px] text-white/45">{summary.labels.length}</span>
+            <span className="font-mono text-[10px] text-muted-foreground/70">{summary.labels.length}</span>
           </div>
         </div>
         {labelsOpen && (
-          <ul className="ml-3 space-y-0.5 border-l border-white/10 pl-2" role="group">
+          <ul className="ml-3 space-y-0.5 border-l border-border/60 pl-2" role="group">
             {summary.labels.map((entry) => {
               const isSelected = selectedLabel === entry.label
               const isExpanded = expandedLabel === entry.label
@@ -228,8 +228,8 @@ export function SchemaBrowser({
                     className={cn(
                       'flex w-full items-center gap-1.5 rounded px-1 py-1 text-left transition-colors',
                       isSelected
-                        ? 'bg-cyan-500/15 text-cyan-100 shadow-[inset_0_0_0_1px_rgba(34,211,238,0.4)]'
-                        : 'text-white/75 hover:bg-white/5 hover:text-white/95',
+                        ? 'bg-accent/25 text-accent-foreground shadow-[inset_0_0_0_1px_rgba(34,211,238,0.4)]'
+                        : 'text-foreground/85 hover:bg-muted/40 hover:text-foreground',
                     )}
                   >
                     {isExpanded ? <ChevronDown className="h-3 w-3 shrink-0" /> : <ChevronRight className="h-3 w-3 shrink-0" />}
@@ -238,29 +238,29 @@ export function SchemaBrowser({
                       style={{ backgroundColor: colorForIndex(summary.labels.indexOf(entry)) }}
                     />
                     <span className="flex-1 truncate font-medium">{entry.label}</span>
-                    <span className="font-mono text-[10px] text-white/45">{entry.count}</span>
+                    <span className="font-mono text-[10px] text-muted-foreground/70">{entry.count}</span>
                   </button>
                   {isExpanded && (
                     <div
                       data-testid="schema-property-list"
-                      className="ml-5 mt-1 space-y-0.5 border-l border-white/10 pl-2 text-[11px]"
+                      className="ml-5 mt-1 space-y-0.5 border-l border-border/60 pl-2 text-[11px]"
                     >
                       {entry.parents.length > 0 && (
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
-                          subClassOf: <span className="text-cyan-300/80">{entry.parents.join(', ')}</span>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+                          subClassOf: <span className="text-accent">{entry.parents.join(', ')}</span>
                         </p>
                       )}
                       {entry.children.length > 0 && (
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">
-                          parent of: <span className="text-cyan-300/80">{entry.children.join(', ')}</span>
+                        <p className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
+                          parent of: <span className="text-accent">{entry.children.join(', ')}</span>
                         </p>
                       )}
                       {entry.propertyKeys.length === 0 ? (
-                        <p className="text-white/40 italic">No properties</p>
+                        <p className="text-muted-foreground/70 italic">No properties</p>
                       ) : (
                         entry.propertyKeys.map((key) => (
-                          <div key={key} className="flex items-center gap-1 text-white/60">
-                            <Hash className="h-2.5 w-2.5 text-white/35" />
+                          <div key={key} className="flex items-center gap-1 text-muted-foreground">
+                            <Hash className="h-2.5 w-2.5 text-muted-foreground/70" />
                             <span className="font-mono">{key}</span>
                           </div>
                         ))
@@ -287,22 +287,22 @@ export function SchemaBrowser({
             }
           }}
         >
-          <div className="flex items-center gap-1 rounded px-1 py-0.5 text-white/75 hover:bg-white/5">
+          <div className="flex items-center gap-1 rounded px-1 py-0.5 text-foreground/85 hover:bg-muted/40">
             {edgesOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            <LinkIcon className="h-3 w-3 text-emerald-300" />
-            <span className="flex-1 font-mono uppercase tracking-[0.12em] text-[10px] text-white/65">
+            <LinkIcon className="h-3 w-3 text-accent" />
+            <span className="flex-1 font-mono uppercase tracking-[0.12em] text-[10px] text-muted-foreground">
               Edge types
             </span>
-            <span className="font-mono text-[10px] text-white/45">{summary.edgeTypes.length}</span>
+            <span className="font-mono text-[10px] text-muted-foreground/70">{summary.edgeTypes.length}</span>
           </div>
         </div>
         {edgesOpen && (
-          <ul className="ml-3 space-y-0.5 border-l border-white/10 pl-2" role="group">
+          <ul className="ml-3 space-y-0.5 border-l border-border/60 pl-2" role="group">
             {summary.edgeTypes.map((entry) => (
-              <li key={entry.type} role="treeitem" className="flex items-center gap-1.5 rounded px-1 py-0.5 text-white/70">
-                <span className="h-[1px] w-3 bg-emerald-400/60" />
+              <li key={entry.type} role="treeitem" className="flex items-center gap-1.5 rounded px-1 py-0.5 text-foreground/85">
+                <span className="h-[1px] w-3 bg-accent/60" />
                 <span className="flex-1 truncate font-mono text-[11px]">{entry.type}</span>
-                <span className="font-mono text-[10px] text-white/45">{entry.count}</span>
+                <span className="font-mono text-[10px] text-muted-foreground/70">{entry.count}</span>
               </li>
             ))}
           </ul>
@@ -322,20 +322,20 @@ export function SchemaBrowser({
             }
           }}
         >
-          <div className="flex items-center gap-1 rounded px-1 py-0.5 text-white/75 hover:bg-white/5">
+          <div className="flex items-center gap-1 rounded px-1 py-0.5 text-foreground/85 hover:bg-muted/40">
             {propsOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            <Hash className="h-3 w-3 text-amber-300" />
-            <span className="flex-1 font-mono uppercase tracking-[0.12em] text-[10px] text-white/65">
+            <Hash className="h-3 w-3 text-primary" />
+            <span className="flex-1 font-mono uppercase tracking-[0.12em] text-[10px] text-muted-foreground">
               Property keys
             </span>
-            <span className="font-mono text-[10px] text-white/45">{summary.allPropertyKeys.length}</span>
+            <span className="font-mono text-[10px] text-muted-foreground/70">{summary.allPropertyKeys.length}</span>
           </div>
         </div>
         {propsOpen && (
-          <ul className="ml-3 space-y-0.5 border-l border-white/10 pl-2 text-[11px]" role="group">
+          <ul className="ml-3 space-y-0.5 border-l border-border/60 pl-2 text-[11px]" role="group">
             {summary.allPropertyKeys.map((key) => (
-              <li key={key} className="flex items-center gap-1 px-1 py-0.5 font-mono text-white/60">
-                <Hash className="h-2.5 w-2.5 text-white/35" />
+              <li key={key} className="flex items-center gap-1 px-1 py-0.5 font-mono text-muted-foreground">
+                <Hash className="h-2.5 w-2.5 text-muted-foreground/70" />
                 {key}
               </li>
             ))}
@@ -344,7 +344,7 @@ export function SchemaBrowser({
       </div>
 
       {selectedLabel && (
-        <p className="mt-3 rounded border border-cyan-400/30 bg-cyan-500/5 px-2 py-1.5 text-[10px] text-cyan-100/90">
+        <p className="mt-3 rounded border border-accent/50 bg-accent/10 px-2 py-1.5 text-[10px] text-accent-foreground">
           Filtering canvas to <span className="font-mono">{selectedLabel}</span>. Click the label again to clear.
         </p>
       )}

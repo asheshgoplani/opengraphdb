@@ -26,17 +26,17 @@ export function PowerModeToggle({ isActive, onToggle, className }: PowerModeTogg
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-serif text-[12px] leading-none tracking-tight transition-all duration-200',
         isActive
-          ? 'border-cyan-400/50 bg-cyan-500/15 text-cyan-100 shadow-[0_0_10px_rgba(34,211,238,0.28)]'
-          : 'border-white/15 bg-transparent text-white/65 hover:border-white/30 hover:text-white',
+          ? 'border-accent bg-accent/25 text-accent-foreground shadow-[0_0_10px_rgba(34,211,238,0.28)]'
+          : 'border-border bg-transparent text-muted-foreground hover:border-border hover:text-foreground',
         className,
       )}
     >
-      <Terminal className={cn('h-3 w-3', isActive ? 'text-cyan-200' : 'text-white/55')} />
+      <Terminal className={cn('h-3 w-3', isActive ? 'text-accent' : 'text-muted-foreground')} />
       Power mode
       <span
         className={cn(
           'ml-1 rounded-full border px-1.5 font-mono text-[9px] uppercase tracking-[0.14em]',
-          isActive ? 'border-cyan-300/50 text-cyan-200' : 'border-white/20 text-white/45',
+          isActive ? 'border-accent/60 text-accent' : 'border-border text-muted-foreground/70',
         )}
       >
         {isActive ? 'on' : 'off'}

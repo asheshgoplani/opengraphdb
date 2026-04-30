@@ -11,7 +11,7 @@ export function DatasetSwitcher({ activeDataset, onSwitch }: DatasetSwitcherProp
 
   return (
     <div className="space-y-2">
-      <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
+      <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
         Dataset
       </label>
       <select

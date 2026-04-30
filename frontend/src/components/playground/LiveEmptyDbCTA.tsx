@@ -119,18 +119,18 @@ export function LiveEmptyDbCTA({ serverUrl, onSeeded }: LiveEmptyDbCTAProps) {
     return (
       <section
         data-testid="live-empty-db-cta-done"
-        className="rounded-lg border border-emerald-400/40 bg-emerald-500/5 px-3 py-3 text-[11px] text-emerald-100/95"
+        className="rounded-lg border border-accent/40 bg-accent/10 px-3 py-3 text-[11px] text-accent"
       >
         <div className="flex items-start gap-2">
-          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+          <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
           <div>
-            <p className="font-serif text-[13px] leading-tight text-emerald-50">
+            <p className="font-serif text-[13px] leading-tight text-accent">
               Seeded live db
             </p>
-            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-emerald-200/80">
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-accent">
               {seedState.nodes} nodes · {seedState.edges} edges · Game of Thrones
             </p>
-            <p className="mt-2 text-[11px] leading-snug text-emerald-100/80">
+            <p className="mt-2 text-[11px] leading-snug text-accent">
               Run a guided query above to see the data.
             </p>
           </div>
@@ -142,15 +142,15 @@ export function LiveEmptyDbCTA({ serverUrl, onSeeded }: LiveEmptyDbCTAProps) {
   return (
     <section
       data-testid="live-empty-db-cta"
-      className="rounded-lg border border-amber-400/40 bg-amber-500/5 px-3 py-3 text-[11px] text-amber-100/90"
+      className="rounded-lg border border-primary/50 bg-primary/10 px-3 py-3 text-[11px] text-primary"
     >
       <div className="flex items-start gap-2">
-        <Database className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+        <Database className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div className="min-w-0 flex-1">
-          <p className="font-serif text-[13px] leading-tight text-amber-50">
+          <p className="font-serif text-[13px] leading-tight text-foreground">
             Live DB is empty
           </p>
-          <p className="mt-1 text-[11px] leading-snug text-amber-100/75">
+          <p className="mt-1 text-[11px] leading-snug text-primary/80">
             Live mode is on, but no labels or edges are in the connected database yet. Seed it with a bundled sample to make the guided queries return data.
           </p>
           <button
@@ -160,7 +160,7 @@ export function LiveEmptyDbCTA({ serverUrl, onSeeded }: LiveEmptyDbCTAProps) {
               void handleSeed()
             }}
             disabled={seedState.phase === 'seeding'}
-            className="mt-2 inline-flex items-center gap-1.5 rounded border border-amber-300/50 bg-amber-500/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-amber-50 hover:border-amber-200/70 hover:bg-amber-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+            className="mt-2 inline-flex items-center gap-1.5 rounded border border-primary/60 bg-primary/20 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.14em] text-foreground hover:border-primary/70 hover:bg-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {seedState.phase === 'seeding' ? (
               <>
@@ -175,14 +175,14 @@ export function LiveEmptyDbCTA({ serverUrl, onSeeded }: LiveEmptyDbCTAProps) {
             )}
           </button>
           {seedState.phase === 'error' && (
-            <p className="mt-2 inline-flex items-start gap-1 text-[10px] text-red-300">
+            <p className="mt-2 inline-flex items-start gap-1 text-[10px] text-destructive">
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
               <span>{seedState.message}</span>
             </p>
           )}
-          <p className="mt-2 text-[10px] leading-snug text-amber-100/55">
+          <p className="mt-2 text-[10px] leading-snug text-primary/70">
             Or drop a .ttl / .nt file on the RDF zone below, or run{' '}
-            <code className="rounded bg-black/30 px-1 py-px font-mono text-[10px] text-amber-50/85">
+            <code className="rounded bg-background/60 px-1 py-px font-mono text-[10px] text-foreground/85">
               ogdb import datasets/movielens.json
             </code>{' '}
             from the repo root.

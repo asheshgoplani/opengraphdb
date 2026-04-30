@@ -180,12 +180,12 @@ export function GeoCanvas({ graphData }: GeoCanvasProps) {
       </MapLibreMap>
       {tooltip ? (
         <div
-          className="pointer-events-none absolute z-10 rounded border border-slate-600/60 bg-slate-900/90 px-2 py-1.5 text-xs text-slate-100 shadow-lg backdrop-blur-sm"
+          className="pointer-events-none absolute z-10 rounded border border-border bg-card/90 px-2 py-1.5 text-xs text-foreground shadow-lg backdrop-blur-sm"
           style={{ left: tooltip.x + 12, top: tooltip.y - 40 }}
         >
           <p className="font-bold">{tooltip.code}</p>
-          <p className="text-slate-300">{tooltip.city}</p>
-          <p className="text-slate-400">{tooltip.connections} routes</p>
+          <p className="text-muted-foreground">{tooltip.city}</p>
+          <p className="text-muted-foreground">{tooltip.connections} routes</p>
         </div>
       ) : null}
     </div>
