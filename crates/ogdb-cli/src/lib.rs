@@ -16712,9 +16712,13 @@ ex:acme a schema:Organization ;
 
         let guard = TcpListener::bind("127.0.0.1:0").expect("bind guard");
         let addr = guard.local_addr().expect("guard addr");
-        let bind_err =
-            handle_serve_http(&path.display().to_string(), &addr.to_string(), Some(1), None)
-                .expect_err("bind in use should fail");
+        let bind_err = handle_serve_http(
+            &path.display().to_string(),
+            &addr.to_string(),
+            Some(1),
+            None,
+        )
+        .expect_err("bind in use should fail");
         assert!(bind_err.to_string().contains("failed to bind"));
 
         let timeout_panic = std::panic::catch_unwind(|| {
