@@ -7,24 +7,20 @@ import { GraphLegend } from './GraphLegend'
 import { GeoCanvas } from './GeoCanvas'
 import { useTraceAnimation } from './useTraceAnimation'
 import { TraceControls } from './TraceControls'
-import { CosmosCanvas } from '@/graph/cosmos/CosmosCanvas'
+import { ObsidianGraph } from '@/graph/obsidian/ObsidianGraph'
 
 interface GraphCanvasProps {
   graphData: GraphData
   isGeographic?: boolean
+  // Accepted for API compatibility with PlaygroundPage; trace/semantic/ontology
+  // overlays are rewired onto ObsidianGraph in a follow-up slice (S4 note).
   ontologyMode?: boolean
 }
 
-const getLinkNodeId = (n: GraphNode | string | number): string | number =>
-  typeof n === 'object' && n !== null ? n.id : n
-
-export function GraphCanvas({ graphData, isGeographic, ontologyMode }: GraphCanvasProps) {
+export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
   const selectNode = useGraphStore((s) => s.selectNode)
   const clearSelection = useGraphStore((s) => s.clearSelection)
   const selectedNodeId = useGraphStore((s) => s.selectedNodeId)
-  const trace = useGraphStore((s) => s.trace)
-  const semanticHighlights = useGraphStore((s) => s.semanticHighlights)
-  const semanticHoverId = useGraphStore((s) => s.semanticHoverId)
   const [hoveredNodeId, setHoveredNodeId] = useState<string | number | null>(null)
   useTraceAnimation()
 
@@ -44,22 +40,6 @@ export function GraphCanvas({ graphData, isGeographic, ontologyMode }: GraphCanv
     })
     return labels
   }, [uniqueLabels])
-
-  const traceNodeIds = trace?.traversedNodeIds
-  const traceActiveNodeId = trace?.activeNodeId ?? null
-
-  const traceEdgeIds = useMemo(() => {
-    if (!trace || trace.traversedNodeIds.size < 2) return new Set<string | number>()
-    const ids = new Set<string | number>()
-    for (const link of graphData.links) {
-      const srcId = getLinkNodeId(link.source as GraphNode | string | number)
-      const tgtId = getLinkNodeId(link.target as GraphNode | string | number)
-      if (trace.traversedNodeIds.has(srcId) && trace.traversedNodeIds.has(tgtId)) {
-        ids.add(link.id)
-      }
-    }
-    return ids
-  }, [trace?.traversedNodeIds, graphData.links])
 
   const handleNodeClick = useCallback(
     (node: GraphNode) => {
@@ -90,19 +70,13 @@ export function GraphCanvas({ graphData, isGeographic, ontologyMode }: GraphCanv
   return (
     <div className="relative h-full w-full">
       <AppBackdrop variant="playground" />
-      <CosmosCanvas
+      <ObsidianGraph
         graphData={graphData}
         onNodeClick={handleNodeClick}
         onNodeHover={handleNodeHover}
         onBackgroundClick={handleBackgroundClick}
         hoveredNodeId={hoveredNodeId}
         selectedNodeId={selectedNodeId}
-        traceActiveNodeId={traceActiveNodeId}
-        traceNodeIds={traceNodeIds}
-        traceEdgeIds={traceEdgeIds}
-        semanticHighlights={semanticHighlights}
-        semanticHoverId={semanticHoverId}
-        ontologyMode={ontologyMode}
       />
       <GraphLegend labels={uniqueLabels} labelIndex={labelIndex} />
       <TraceControls />
