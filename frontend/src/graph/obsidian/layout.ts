@@ -31,10 +31,12 @@ export function seedPositions(data: GraphData): Map<string | number, { x: number
       out.set(n.id, { x: qx + Math.cos(localAngle) * localR, y: qy + Math.sin(localAngle) * localR })
     })
   } else {
-    const R = Math.max(220, Math.min(700, 38 * Math.sqrt(nodes.length)))
+    // Spread radius scales with node count so a 100-node graph gets ~700px
+    // canvas, and a 10-node graph stays compact.
+    const R = Math.max(260, Math.min(900, 60 * Math.sqrt(nodes.length)))
     nodes.forEach((n: GraphNode, i: number) => {
       const angle = (i / Math.max(1, nodes.length)) * Math.PI * 2
-      const r = R * (0.35 + ((i * 0.61803) % 1) * 0.65)
+      const r = R * (0.4 + ((i * 0.61803) % 1) * 0.6)
       out.set(n.id, { x: Math.cos(angle) * r, y: Math.sin(angle) * r })
     })
   }
@@ -50,4 +52,55 @@ export function neighborSet(data: GraphData, nodeId: string | number): Set<strin
     if (t === nodeId) out.add(s)
   }
   return out
+}
+
+export function degreeMap(data: GraphData): Map<string | number, number> {
+  const out = new Map<string | number, number>()
+  for (const n of data.nodes) out.set(n.id, 0)
+  for (const l of data.links) {
+    const s = typeof l.source === 'object' ? l.source.id : l.source
+    const t = typeof l.target === 'object' ? l.target.id : l.target
+    out.set(s, (out.get(s) ?? 0) + 1)
+    out.set(t, (out.get(t) ?? 0) + 1)
+  }
+  return out
+}
+
+export interface ForceTuning {
+  chargeStrength: number
+  chargeDistanceMax: number
+  linkDistance: number
+  collideRadius: number
+  cooldownTime: number
+}
+
+// Tune the simulation by node count.
+// - charge formula from KG-viz research: -clamp(60, 30√n, 400) so a 100-node
+//   graph gets ~-300 (vs the d3 default of -30 that flattens past ~50 nodes).
+// - distanceMax(400) caps long-range repulsion for the >500-node perf win.
+// - link distance 60 is the canonical Obsidian feel; we widen with √n for
+//   larger graphs so they breathe instead of clumping.
+// - cooldownTime 8000ms for ≤500 nodes — the default 4000ms freezes the
+//   simulation mid-settle on dense graphs.
+export function tuneForces(nodeCount: number): ForceTuning {
+  const n = Math.max(1, nodeCount)
+  const chargeStrength = -Math.max(60, Math.min(400, 30 * Math.sqrt(n)))
+  const chargeDistanceMax = 400
+  const linkDistance = Math.max(60, Math.min(110, 50 + Math.sqrt(n) * 5))
+  const collideRadius = 22 + Math.min(20, Math.sqrt(n))
+  const cooldownTime = n <= 500 ? 8000 : 15000
+  return { chargeStrength, chargeDistanceMax, linkDistance, collideRadius, cooldownTime }
+}
+
+export interface LabelBox {
+  x: number
+  y: number
+  w: number
+  h: number
+  id: string | number
+}
+
+// Pure rect overlap (in world coords) — used by label-collision pass and tests.
+export function rectsOverlap(a: LabelBox, b: LabelBox): boolean {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 }
