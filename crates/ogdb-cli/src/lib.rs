@@ -445,6 +445,19 @@ struct ServeCommand {
     grpc: bool,
     #[arg(long, value_name = "N", value_parser = clap::value_parser!(u64).range(1..), help = "Stop after processing N requests")]
     max_requests: Option<u64>,
+    // Per-query execution budget for POST /query. Pre-fix this was only
+    // configurable via the OGDB_HTTP_QUERY_TIMEOUT_MS env var, which is
+    // process-global — concurrent tests that needed different budgets
+    // poisoned each other (the 80ms regression test was returning 504s on
+    // unrelated HTTP tests on slow CI). The flag scopes the budget to this
+    // serve invocation; env var is preserved as a fallback.
+    #[arg(
+        long = "query-timeout-ms",
+        value_name = "MS",
+        value_parser = clap::value_parser!(u64).range(1..),
+        help = "Per-query execution budget in milliseconds (HTTP only) [default: 10000, env: OGDB_HTTP_QUERY_TIMEOUT_MS]"
+    )]
+    query_timeout_ms: Option<u64>,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -852,6 +865,7 @@ fn run_inner(cli: Cli) -> Result<String, CliError> {
                 cmd.bolt,
                 cmd.http,
                 cmd.grpc,
+                cmd.query_timeout_ms,
             )
         }
         Commands::Import(cmd) => handle_import(
@@ -3484,6 +3498,11 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
     }
 }
 
+// 8 args is one over clippy's default threshold; fan-out matches the existing
+// pattern for handle_mcp / handle_serve_bolt / etc., and the alternative
+// (introducing a ServeOptions struct) is mechanical churn that buys nothing
+// at this single call site. Revisit if a fourth protocol-specific knob lands.
+#[allow(clippy::too_many_arguments)]
 fn handle_serve(
     db_path: &str,
     bind_addr: Option<&str>,
@@ -3492,6 +3511,7 @@ fn handle_serve(
     bolt_mode: bool,
     http_mode: bool,
     grpc_mode: bool,
+    query_timeout_ms: Option<u64>,
 ) -> Result<String, CliError> {
     if grpc_mode {
         let bind_addr = resolve_serve_bind_addr(bind_addr, port, ServeProtocol::Grpc);
@@ -3503,7 +3523,7 @@ fn handle_serve(
     }
     if http_mode {
         let bind_addr = resolve_serve_bind_addr(bind_addr, port, ServeProtocol::Http);
-        return handle_serve_http(db_path, &bind_addr, max_requests);
+        return handle_serve_http(db_path, &bind_addr, max_requests, query_timeout_ms);
     }
 
     let bind_addr = resolve_serve_bind_addr(bind_addr, port, ServeProtocol::Mcp);
@@ -4314,10 +4334,25 @@ fn authenticate_http_request(
     }
 }
 
+#[cfg(test)]
 fn dispatch_http_request(
     shared_db: &SharedDatabase,
     db_path: &str,
     request: HttpRequestMessage,
+) -> Result<HttpResponseMessage, CliError> {
+    dispatch_http_request_with_budget(shared_db, db_path, request, None)
+}
+
+// Identical to dispatch_http_request, but the caller can pin the per-query
+// execution budget for this serve invocation. None falls back to
+// http_query_exec_timeout() (env-var or default). The override exists so
+// concurrent server tests can each pick their own budget without poisoning
+// one another via the process-global env var.
+fn dispatch_http_request_with_budget(
+    shared_db: &SharedDatabase,
+    db_path: &str,
+    request: HttpRequestMessage,
+    query_budget_override: Option<Duration>,
 ) -> Result<HttpResponseMessage, CliError> {
     // Auth prologue — runs BEFORE any mutating handler. Pre-fix (audit F5.2),
     // /export and /rag/* had no auth check at all: any network-attached
@@ -4451,7 +4486,7 @@ fn dispatch_http_request(
             // the background while the HTTP handler returns 504 to the client.
             // This prevents a single pathological query from wedging the
             // accept loop and starving all other clients indefinitely.
-            let query_budget = http_query_exec_timeout();
+            let query_budget = query_budget_override.unwrap_or_else(http_query_exec_timeout);
             let (tx, rx) = std::sync::mpsc::channel();
             let shared_worker = shared_db.clone();
             let query_owned = query.to_string();
@@ -4934,7 +4969,9 @@ fn handle_serve_http(
     db_path: &str,
     bind_addr: &str,
     max_requests: Option<u64>,
+    query_timeout_ms: Option<u64>,
 ) -> Result<String, CliError> {
+    let query_budget_override = query_timeout_ms.map(|ms| Duration::from_millis(ms.max(1)));
     if !Path::new(db_path).exists() {
         if let Some(parent) = Path::new(db_path).parent() {
             if !parent.as_os_str().is_empty() && !parent.exists() {
@@ -5049,7 +5086,12 @@ fn handle_serve_http(
                     continue;
                 }
 
-                let response = match dispatch_http_request(&shared_db, db_path, request) {
+                let response = match dispatch_http_request_with_budget(
+                    &shared_db,
+                    db_path,
+                    request,
+                    query_budget_override,
+                ) {
                     Ok(response) => response,
                     Err(err) => http_error(500, "Internal Server Error", err.to_string()),
                 };
@@ -15747,6 +15789,12 @@ ex:acme a schema:Organization ;
             "--http".to_string(),
             "--bind".to_string(),
             bind_addr.to_string(),
+            // Pin a per-server query budget so this test is immune to
+            // OGDB_HTTP_QUERY_TIMEOUT_MS leakage from concurrent tests
+            // (the historic CI flake — see the comment on
+            // serve_http_enforces_per_query_execution_timeout).
+            "--query-timeout-ms".to_string(),
+            "5000".to_string(),
             "--max-requests".to_string(),
             "4".to_string(),
         ];
@@ -15854,10 +15902,16 @@ ex:acme a schema:Organization ;
     // Regression: POST /query used to run synchronously with no execution
     // budget, so a single pathological query (e.g. Cartesian product over a
     // huge graph) would pin the accept loop and starve every other client.
-    // The handler now caps each query at http_query_exec_timeout() and
+    // The handler now caps each query at the server's configured budget and
     // returns 504 on expiry while keeping the server up. We validate the
     // contract by driving a fast query past a deliberately tiny budget via
-    // the OGDB_HTTP_QUERY_TIMEOUT_MS / OGDB_TEST_QUERY_DELAY_MS env hooks.
+    // the new --query-timeout-ms flag (per-server, no env leakage to other
+    // concurrent tests) plus the OGDB_TEST_QUERY_DELAY_MS injection hook.
+    //
+    // CI history: the prior version of this test set OGDB_HTTP_QUERY_TIMEOUT_MS
+    // via env::set_var. Env vars are process-global, so on slow runners other
+    // HTTP server tests running in parallel inherited the 80ms budget and
+    // returned 504 instead of 200. Switching to the flag is the root-cause fix.
     #[test]
     fn serve_http_enforces_per_query_execution_timeout() {
         let path = temp_db_path("serve-http-query-timeout");
@@ -15868,10 +15922,9 @@ ex:acme a schema:Organization ;
         let bind_addr = probe.local_addr().expect("probe local addr");
         drop(probe);
 
-        // Inject: query budget 80ms, simulated per-query delay 800ms. Forces
-        // a timeout on the server side without depending on query complexity.
-        // Env must be set in the parent before the serve thread reads it.
-        env::set_var("OGDB_HTTP_QUERY_TIMEOUT_MS", "80");
+        // Inject: simulated per-query delay 800ms. The 80ms budget is now
+        // scoped to THIS serve invocation via --query-timeout-ms; other
+        // concurrent tests are unaffected.
         env::set_var("OGDB_TEST_QUERY_DELAY_MS", "800");
 
         let serve_args = vec![
@@ -15880,6 +15933,8 @@ ex:acme a schema:Organization ;
             "--http".to_string(),
             "--bind".to_string(),
             bind_addr.to_string(),
+            "--query-timeout-ms".to_string(),
+            "80".to_string(),
             "--max-requests".to_string(),
             "2".to_string(),
         ];
@@ -15915,7 +15970,6 @@ ex:acme a schema:Organization ;
             "server must stay up after a timed-out query"
         );
 
-        env::remove_var("OGDB_HTTP_QUERY_TIMEOUT_MS");
         env::remove_var("OGDB_TEST_QUERY_DELAY_MS");
 
         let serve_result = handle.join().expect("join http serve thread");
@@ -15925,6 +15979,71 @@ ex:acme a schema:Organization ;
         // above already prove the budget kicked in; serve_result asserts the
         // loop kept serving both requests after the timeout.
         assert!(serve_result.stdout.contains("requests_processed=2"));
+
+        fs::remove_file(&path).expect("cleanup db");
+        fs::remove_file(wal_path(&path)).expect("cleanup wal");
+    }
+
+    // Regression: --query-timeout-ms must take precedence over the
+    // OGDB_HTTP_QUERY_TIMEOUT_MS env var. Pre-fix the dispatch path read the
+    // env var unconditionally inside http_query_exec_timeout(), so a globally
+    // leaked env value (set by a parallel test) silently overrode the
+    // operator's intent. This test pins env=1ms while the flag asks for
+    // 10000ms; a fast query must complete normally (200), proving the flag
+    // wins. Without the override plumbing the query would 504 on the 1ms env
+    // budget. We restore the env after the request to keep blast radius
+    // narrow if a parallel test happens to read it during the assert window.
+    #[test]
+    fn serve_http_query_timeout_flag_overrides_env_var() {
+        let path = temp_db_path("serve-http-timeout-flag-override");
+        let init = run(&["init".to_string(), path.display().to_string()]);
+        assert_eq!(init.exit_code, 0);
+
+        let probe = TcpListener::bind("127.0.0.1:0").expect("bind probe listener");
+        let bind_addr = probe.local_addr().expect("probe local addr");
+        drop(probe);
+
+        env::set_var("OGDB_HTTP_QUERY_TIMEOUT_MS", "1");
+
+        let serve_args = vec![
+            "serve".to_string(),
+            path.display().to_string(),
+            "--http".to_string(),
+            "--bind".to_string(),
+            bind_addr.to_string(),
+            "--query-timeout-ms".to_string(),
+            "10000".to_string(),
+            "--max-requests".to_string(),
+            "1".to_string(),
+        ];
+        let handle = thread::spawn(move || run(&serve_args));
+        let addr = bind_addr.to_string();
+
+        let (status, _content_type, body) = send_http_request(
+            &addr,
+            "POST",
+            "/query",
+            &[("Content-Type", "application/json")],
+            br#"{"query":"RETURN 1 AS one"}"#,
+        );
+
+        env::remove_var("OGDB_HTTP_QUERY_TIMEOUT_MS");
+
+        assert_eq!(
+            status,
+            200,
+            "flag must override leaked env var; got status={status} body={:?}",
+            String::from_utf8_lossy(&body)
+        );
+        let body_text = String::from_utf8_lossy(&body);
+        assert!(
+            body_text.contains("\"row_count\""),
+            "expected query result body, got {body_text}"
+        );
+
+        let serve_result = handle.join().expect("join http serve thread");
+        assert_eq!(serve_result.exit_code, 0);
+        assert!(serve_result.stdout.contains("requests_processed=1"));
 
         fs::remove_file(&path).expect("cleanup db");
         fs::remove_file(wal_path(&path)).expect("cleanup wal");
@@ -15946,6 +16065,12 @@ ex:acme a schema:Organization ;
             "--http".to_string(),
             "--bind".to_string(),
             bind_addr.to_string(),
+            // Pin a per-server query budget so this test is immune to
+            // OGDB_HTTP_QUERY_TIMEOUT_MS leakage from concurrent tests
+            // (the historic CI flake — see the comment on
+            // serve_http_enforces_per_query_execution_timeout).
+            "--query-timeout-ms".to_string(),
+            "5000".to_string(),
             "--max-requests".to_string(),
             "6".to_string(),
         ];
@@ -16587,8 +16712,9 @@ ex:acme a schema:Organization ;
 
         let guard = TcpListener::bind("127.0.0.1:0").expect("bind guard");
         let addr = guard.local_addr().expect("guard addr");
-        let bind_err = handle_serve_http(&path.display().to_string(), &addr.to_string(), Some(1))
-            .expect_err("bind in use should fail");
+        let bind_err =
+            handle_serve_http(&path.display().to_string(), &addr.to_string(), Some(1), None)
+                .expect_err("bind in use should fail");
         assert!(bind_err.to_string().contains("failed to bind"));
 
         let timeout_panic = std::panic::catch_unwind(|| {
@@ -16614,8 +16740,9 @@ ex:acme a schema:Organization ;
         let addr_string = addr.to_string();
         let path_for_thread = path.display().to_string();
         let bind_for_thread = addr_string.clone();
-        let handle =
-            thread::spawn(move || handle_serve_http(&path_for_thread, &bind_for_thread, Some(1)));
+        let handle = thread::spawn(move || {
+            handle_serve_http(&path_for_thread, &bind_for_thread, Some(1), None)
+        });
 
         let empty_connection = connect_with_retry_timeout(&addr_string, Duration::from_secs(2));
         drop(empty_connection);
