@@ -29,12 +29,15 @@ export function Logo({ className, size = 24, variant = 'mark', ...rest }: LogoPr
         {...a11yProps}
         data-logo="opengraphdb-lockup"
       >
-        <line x1={32} y1={14} x2={14} y2={46} />
-        <line x1={32} y1={14} x2={50} y2={46} />
-        <line x1={14} y1={46} x2={50} y2={46} />
-        <circle cx={32} cy={14} r={6} fill="currentColor" stroke="none" />
-        <circle cx={14} cy={46} r={5} fill="currentColor" stroke="none" />
-        <circle cx={50} cy={46} r={5} fill="currentColor" stroke="none" />
+        <path d="M60 32 L46 7.75 L18 7.75 L4 32 L18 56.25 L46 56.25 Z" />
+        <g strokeWidth={1.5}>
+          <line x1={32} y1={16} x2={18} y2={40} />
+          <line x1={32} y1={16} x2={46} y2={40} />
+          <line x1={18} y1={40} x2={46} y2={40} />
+        </g>
+        <circle cx={32} cy={16} r={3} fill="currentColor" stroke="none" />
+        <circle cx={18} cy={40} r={2.5} fill="currentColor" stroke="none" />
+        <circle cx={46} cy={40} r={2.5} fill="currentColor" stroke="none" />
         <text
           x={76}
           y={44}
@@ -65,12 +68,15 @@ export function Logo({ className, size = 24, variant = 'mark', ...rest }: LogoPr
       {...a11yProps}
       data-logo="opengraphdb-mark"
     >
-      <line x1={32} y1={14} x2={14} y2={46} />
-      <line x1={32} y1={14} x2={50} y2={46} />
-      <line x1={14} y1={46} x2={50} y2={46} />
-      <circle cx={32} cy={14} r={6} fill="currentColor" stroke="none" />
-      <circle cx={14} cy={46} r={5} fill="currentColor" stroke="none" />
-      <circle cx={50} cy={46} r={5} fill="currentColor" stroke="none" />
+      <path d="M60 32 L46 7.75 L18 7.75 L4 32 L18 56.25 L46 56.25 Z" />
+      <g strokeWidth={1.5}>
+        <line x1={32} y1={16} x2={18} y2={40} />
+        <line x1={32} y1={16} x2={46} y2={40} />
+        <line x1={18} y1={40} x2={46} y2={40} />
+      </g>
+      <circle cx={32} cy={16} r={3} fill="currentColor" stroke="none" />
+      <circle cx={18} cy={40} r={2.5} fill="currentColor" stroke="none" />
+      <circle cx={46} cy={40} r={2.5} fill="currentColor" stroke="none" />
     </svg>
   )
 }
