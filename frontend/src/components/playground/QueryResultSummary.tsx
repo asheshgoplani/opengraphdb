@@ -78,7 +78,7 @@ export function QueryResultSummary({
         'mx-3 mt-2 rounded-md border border-accent/50 bg-accent/10 px-3 py-1.5 font-mono text-[11px] text-foreground/85',
       )}
     >
-      <span className="tabular-nums text-accent-foreground">{line}</span>
+      <span className="tabular-nums text-foreground">{line}</span>
       {queryLabel && (
         <span className="ml-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground/70">
           · {queryLabel}
