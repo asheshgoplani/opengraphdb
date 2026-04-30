@@ -460,7 +460,7 @@ export default function PlaygroundPage() {
             error={liveError || powerError}
           />
 
-          <main className="relative min-h-[55vh] flex-1 overflow-hidden md:min-h-0">
+          <main id="main" className="relative min-h-[55vh] flex-1 overflow-hidden md:min-h-0">
             <AnimatePresence mode="wait" initial={false}>
               {activeTab === 'graph' ? (
                 <motion.div

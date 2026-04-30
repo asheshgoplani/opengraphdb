@@ -8,7 +8,7 @@ export function AppShell({ children }: AppShellProps) {
   return (
     <div className="dark flex min-h-screen flex-col bg-[hsl(240,28%,7%)] text-foreground">
       <Header />
-      <main className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      <main id="main" className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {children}
       </main>
     </div>

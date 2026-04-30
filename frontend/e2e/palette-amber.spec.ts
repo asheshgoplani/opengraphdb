@@ -35,6 +35,8 @@ test.describe('AMBER-TERMINAL palette', () => {
       const el = document.querySelector('h1')!
       return getComputedStyle(el).animationDuration
     })
-    expect(dur).toBe('0.01ms')
+    // Chromium normalizes the override to seconds: 0.01ms === 1e-05s.
+    // Either string is valid — we just need the duration to be effectively zero.
+    expect(dur).toMatch(/^(0\.01ms|1e-05s)$/)
   })
 })
