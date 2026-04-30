@@ -16,7 +16,7 @@ export default function LandingPage() {
       <ClaimsRedBanner />
       <LandingNav />
 
-      <main>
+      <main id="main">
         <HeroSection />
         <SampleQueryPanel />
         <ShowcaseSection />

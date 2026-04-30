@@ -25,21 +25,21 @@ export function AppBackdrop({ variant = 'playground' }: AppBackdropProps) {
       className="pointer-events-none absolute inset-0"
       aria-hidden="true"
     >
-      {/* Base flat fill — the baseline navy so corners stay dark. */}
+      {/* Base flat fill — AMBER-TERMINAL deep warm-near-black so corners stay dark. */}
       <div
         className="pointer-events-none absolute inset-0"
-        style={{ backgroundColor: 'hsl(240, 32%, 5%)' }}
+        style={{ backgroundColor: 'hsl(24, 18%, 5%)' }}
       />
       {/* Vertical gradient — brighter at top, darker at bottom. Slice-12
-          gate requires top vs bottom luma delta ≥ 18 (stronger than
-          slice-11's 10). Alpha bumped from 0.22 → 0.30 at the top, and
-          from 0.10 → 0.14 at the midpoint. */}
+          gate requires top vs bottom luma delta ≥ 18. Hues warmed from
+          blue (220/225) to AMBER-TERMINAL primary (40°) so the wash reads
+          amber rather than indigo. */}
       <div
         data-testid="graph-backdrop-vgradient"
         className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
-            'linear-gradient(180deg, hsla(220, 75%, 58%, 0.30) 0%, hsla(225, 60%, 38%, 0.14) 42%, hsla(230, 30%, 6%, 0) 100%)',
+            'linear-gradient(180deg, hsla(40, 80%, 58%, 0.22) 0%, hsla(30, 60%, 38%, 0.12) 42%, hsla(24, 30%, 6%, 0) 100%)',
         }}
       />
       {/* Warm off-center radial to give the canvas perceived depth rather
@@ -47,7 +47,7 @@ export function AppBackdrop({ variant = 'playground' }: AppBackdropProps) {
       <div
         className="pointer-events-none absolute inset-0"
         style={{
-          backgroundImage: `radial-gradient(ellipse 65% 55% at 52% 38%, hsla(220, 75%, 60%, ${radialAlpha}), hsla(260, 55%, 32%, 0.07) 55%, transparent 80%)`,
+          backgroundImage: `radial-gradient(ellipse 65% 55% at 52% 38%, hsla(40, 90%, 58%, ${radialAlpha}), hsla(20, 65%, 32%, 0.07) 55%, transparent 80%)`,
         }}
       />
       {/* SVG dot grid — 28 px spacing, ~7.5% alpha. This is the visual cue
@@ -65,7 +65,7 @@ export function AppBackdrop({ variant = 'playground' }: AppBackdropProps) {
             height={28}
             patternUnits="userSpaceOnUse"
           >
-            <circle cx="1" cy="1" r="1" fill="rgba(160, 178, 220, 0.075)" />
+            <circle cx="1" cy="1" r="1" fill="rgba(255, 220, 180, 0.075)" />
           </pattern>
         </defs>
         <rect width="100%" height="100%" fill={`url(#ogdb-dot-grid-${variant})`} />

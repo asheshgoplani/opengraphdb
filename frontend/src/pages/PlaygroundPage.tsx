@@ -461,7 +461,7 @@ export default function PlaygroundPage() {
             error={liveError || powerError}
           />
 
-          <main className="relative min-h-[55vh] flex-1 overflow-hidden md:min-h-0">
+          <main id="main" className="relative min-h-[55vh] flex-1 overflow-hidden md:min-h-0">
             <AnimatePresence mode="wait" initial={false}>
               {activeTab === 'graph' ? (
                 <motion.div
@@ -490,12 +490,12 @@ export default function PlaygroundPage() {
                   data-schema-mode="active"
                   style={{
                     background:
-                      'linear-gradient(180deg, rgba(100,255,180,0.03) 0%, rgba(100,255,180,0.015) 100%), hsla(240, 10%, 8%, 0.6)',
+                      'linear-gradient(180deg, rgba(100,255,180,0.03) 0%, rgba(100,255,180,0.015) 100%), hsla(24, 18%, 7%, 0.6)',
                   }}
                 >
                   <div
                     data-testid="schema-browser-header"
-                    className="sticky top-0 z-20 border-b border-emerald-300/20 bg-gradient-to-r from-emerald-500/10 via-cyan-500/8 to-emerald-500/10 px-6 py-5 backdrop-blur-sm"
+                    className="sticky top-0 z-20 border-b border-border bg-gradient-to-r from-primary/20 via-primary/10 to-transparent px-6 py-5 backdrop-blur-sm"
                   >
                     <h1
                       className="font-display tracking-tight text-emerald-50"

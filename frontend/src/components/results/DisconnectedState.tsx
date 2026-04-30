@@ -108,7 +108,7 @@ export function DisconnectedState() {
     <div className="relative flex flex-1 items-center justify-center overflow-hidden p-6">
       <SkeletonPreview />
 
-      <div className="relative z-10 mx-auto w-full max-w-xl rounded-2xl border border-white/10 bg-[hsl(240,28%,8%)]/85 p-8 shadow-2xl shadow-black/40 backdrop-blur-md">
+      <div className="relative z-10 mx-auto w-full max-w-xl rounded-2xl border border-white/10 bg-card/85 p-8 shadow-2xl shadow-black/40 backdrop-blur-md">
         <div className="mb-5 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70">
           <Server className="h-[18px] w-[18px]" aria-hidden="true" />
         </div>
@@ -124,7 +124,7 @@ export function DisconnectedState() {
           . Start one in your terminal and the panel will connect itself.
         </p>
 
-        <div className="relative mt-6 overflow-hidden rounded-lg bg-[hsl(240,30%,5%)] px-4 py-3 ring-1 ring-white/10">
+        <div className="relative mt-6 overflow-hidden rounded-lg bg-background px-4 py-3 ring-1 ring-white/10">
           <Button
             variant="ghost"
             size="sm"

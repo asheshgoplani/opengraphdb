@@ -1,7 +1,7 @@
 export const GRAPH_THEME = {
-  bg: 'hsl(240, 32%, 5%)',
-  vignette: 'radial-gradient(ellipse 70% 60% at 50% 45%, hsla(226, 60%, 50%, 0.10), transparent 75%)',
-  gridDot: 'rgba(120, 130, 200, 0.07)',
+  bg: 'hsl(24, 18%, 5%)',
+  vignette: 'radial-gradient(ellipse 70% 60% at 50% 45%, hsla(40, 60%, 50%, 0.10), transparent 75%)',
+  gridDot: 'rgba(220, 200, 160, 0.07)',
   gridSize: 28,
 
   edge: 'rgba(148, 163, 255, 0.32)',

@@ -123,7 +123,7 @@ export function SampleQueryPanel() {
     <section
       ref={ref}
       id="demo"
-      className="dark scroll-mt-24 bg-[hsl(240,28%,7%)] py-20 sm:py-28"
+      className="dark scroll-mt-24 bg-background py-20 sm:py-28"
       aria-labelledby="sample-query-heading"
     >
       <div className="pointer-events-none absolute -z-0 mx-auto h-px w-full bg-gradient-to-r from-transparent via-white/10 to-transparent" />
@@ -151,7 +151,7 @@ export function SampleQueryPanel() {
         </div>
 
         <div
-          className={`mx-auto grid max-w-5xl grid-cols-1 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-2xl shadow-indigo-500/10 backdrop-blur lg:grid-cols-2 ${
+          className={`mx-auto grid max-w-5xl grid-cols-1 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-2xl shadow-amber-500/10 backdrop-blur lg:grid-cols-2 ${
             isInView ? 'animate-reveal-up animate-delay-200 animate-fill-both' : 'opacity-0'
           }`}
         >
