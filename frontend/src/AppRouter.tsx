@@ -42,7 +42,7 @@ export function AppRouter() {
     <Suspense
       fallback={
         <div className="flex h-screen items-center justify-center bg-background">
-          <p className="animate-pulse text-muted-foreground">Loading...</p>
+          <p className="animate-pulse text-muted-foreground">Loading…</p>
         </div>
       }
     >
