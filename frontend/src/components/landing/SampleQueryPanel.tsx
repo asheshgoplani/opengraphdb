@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import ForceGraph2D from 'react-force-graph-2d'
-import type { GraphData, GraphEdge, GraphNode } from '@/types/graph'
-import { GRAPH_THEME, paintGraphNode } from '@/graph/theme'
+import type { GraphData } from '@/types/graph'
+import { GRAPH_THEME } from '@/graph/theme'
+import { SmallObsidianGraph } from '@/graph/obsidian/SmallObsidianGraph'
 import { useSectionInView } from './useSectionInView'
 
 const QUERY = `MATCH (p:Person)-[:KNOWS]->(f)-[:WORKS_AT]->(c:Company)
@@ -207,43 +207,13 @@ export function SampleQueryPanel() {
               className="pointer-events-none absolute inset-0"
               style={{ backgroundImage: GRAPH_THEME.vignette }}
             />
-            <ForceGraph2D<GraphNode, GraphEdge>
+            <SmallObsidianGraph
               graphData={RESULT}
               width={dim.width}
               height={dim.height}
-              backgroundColor="rgba(0,0,0,0)"
-              nodeRelSize={1}
-              linkWidth={0.8}
-              linkCurvature={GRAPH_THEME.edgeCurvature}
-              linkColor={() => GRAPH_THEME.edge}
-              linkDirectionalArrowLength={4}
-              linkDirectionalArrowRelPos={0.92}
-              linkDirectionalArrowColor={() => GRAPH_THEME.edgeArrow}
-              linkDirectionalParticles={reducedMotion ? 0 : 1}
-              linkDirectionalParticleSpeed={GRAPH_THEME.particleSpeed}
-              linkDirectionalParticleColor={() => GRAPH_THEME.particleColor}
-              linkDirectionalParticleWidth={1.3}
-              linkLabel={(link) => (link as GraphEdge).type}
-              nodeLabel={(node) => (node as GraphNode).label ?? String((node as GraphNode).id)}
-              nodeCanvasObject={(node, ctx, scale) => {
-                const x = node.x ?? 0
-                const y = node.y ?? 0
-                const n = node as GraphNode
-                paintGraphNode(ctx, x, y, {
-                  label: n.labels?.[0],
-                  displayText: n.label,
-                  degree: 2,
-                  globalScale: scale,
-                  state: 'default',
-                })
-              }}
-              nodeCanvasObjectMode={() => 'replace'}
-              cooldownTime={reducedMotion ? 1500 : 8000}
-              d3AlphaDecay={reducedMotion ? 0.05 : GRAPH_THEME.alphaDecay}
-              d3VelocityDecay={GRAPH_THEME.velocityDecay}
-              enableNodeDrag={false}
-              enableZoomInteraction={false}
-              enablePanInteraction={false}
+              showLabels={showResult}
+              reducedMotion={reducedMotion}
+              amberOnly
             />
             <div className="pointer-events-none absolute bottom-3 right-3 rounded-md border border-border/60 bg-background/60 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
               {RESULT.nodes.length} nodes · {RESULT.links.length} edges · illustrative

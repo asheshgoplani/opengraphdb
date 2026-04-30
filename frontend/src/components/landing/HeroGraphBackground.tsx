@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import type { GraphData, GraphEdge, GraphNode } from '@/types/graph'
-import { GRAPH_THEME } from '@/graph/theme'
+import { NODE_PALETTE_DARK, EDGE_COLOR_DARK } from '@/graph/obsidian/colors'
 
-const PALETTE = ['#7AA2FF', '#8B5CF6', '#22D3EE', '#F472B6', '#34D399', '#FBBF24']
+const PALETTE = NODE_PALETTE_DARK
 
 function pseudoRandom(seed: number) {
   let s = seed % 2147483647
@@ -93,11 +93,11 @@ export function HeroGraphBackground() {
         backgroundColor="rgba(0,0,0,0)"
         nodeRelSize={1}
         linkWidth={0.6}
-        linkColor={() => GRAPH_THEME.edge}
+        linkColor={() => EDGE_COLOR_DARK}
         linkDirectionalParticles={reducedMotion ? 0 : 1}
         linkDirectionalParticleWidth={1.4}
-        linkDirectionalParticleSpeed={GRAPH_THEME.particleSpeed}
-        linkDirectionalParticleColor={() => GRAPH_THEME.particleColor}
+        linkDirectionalParticleSpeed={0.0035}
+        linkDirectionalParticleColor={() => 'hsl(40 95% 75%)'}
         nodeCanvasObject={(node, ctx) => {
           const x = node.x ?? 0
           const y = node.y ?? 0
