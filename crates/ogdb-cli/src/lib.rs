@@ -161,6 +161,10 @@ enum Commands {
     #[command(about = "Start a database server (Bolt, HTTP, gRPC, or MCP)")]
     Serve(ServeCommand),
     #[command(
+        about = "Start a demo database with movielens already imported and open the playground"
+    )]
+    Demo(DemoCommand),
+    #[command(
         name = "create-node",
         about = "Create a node with optional labels and properties"
     )]
@@ -459,6 +463,31 @@ struct ServeCommand {
         help = "Per-query execution budget in milliseconds (HTTP only) [default: 10000, env: OGDB_HTTP_QUERY_TIMEOUT_MS]"
     )]
     query_timeout_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Args)]
+struct DemoCommand {
+    // The DB path is taken from the global `--db` flag (which is `global =
+    // true`), so a local `--db` here would collide. Use `ogdb --db <path>
+    // demo` or `ogdb demo --db <path>` — both forms route the value through
+    // the global Cli.db_path field.
+    #[arg(
+        long,
+        default_value_t = 8080,
+        help = "Port for the HTTP server (0 = pick free)"
+    )]
+    port: u16,
+    #[arg(long, default_value = "127.0.0.1", help = "Bind address")]
+    bind: String,
+    #[arg(long, action = ArgAction::SetTrue, help = "Skip opening the browser")]
+    no_browser: bool,
+    #[arg(
+        long,
+        value_name = "N",
+        value_parser = clap::value_parser!(u64).range(1..),
+        help = "Stop after processing N HTTP requests (testing)"
+    )]
+    max_requests: Option<u64>,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -869,6 +898,13 @@ fn run_inner(cli: Cli) -> Result<String, CliError> {
                 cmd.query_timeout_ms,
             )
         }
+        Commands::Demo(cmd) => handle_demo(
+            global_db.map(str::to_string),
+            &cmd.bind,
+            cmd.port,
+            cmd.no_browser,
+            cmd.max_requests,
+        ),
         Commands::Import(cmd) => handle_import(
             &cmd.path,
             &cmd.src_path,
@@ -3529,6 +3565,91 @@ fn handle_serve(
 
     let bind_addr = resolve_serve_bind_addr(bind_addr, port, ServeProtocol::Mcp);
     handle_serve_mcp(db_path, &bind_addr, max_requests)
+}
+
+// Embedded movielens fixture so a release binary's `ogdb demo` works without
+// the source checkout next to it. Inflates the binary by ~5 MB; acceptable
+// per the S8 plan (open question #8: "yes, otherwise ogdb demo only works
+// in dev checkouts").
+const DEMO_MOVIELENS_FIXTURE: &[u8] = include_bytes!("../../../datasets/movielens.json");
+
+fn default_demo_db_path() -> String {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    format!("{home}/.ogdb/demo.ogdb")
+}
+
+fn seed_demo_movielens(db_path: &str) -> Result<(), CliError> {
+    // Stage the embedded fixture next to the demo db so handle_import (file-
+    // based) can stream it. Removed after the import either way (success or
+    // failure) so we don't litter the demo dir.
+    let parent = Path::new(db_path)
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map(Path::to_path_buf)
+        .unwrap_or_else(|| PathBuf::from("."));
+    let fixture_path = parent.join("demo-movielens.json");
+    fs::write(&fixture_path, DEMO_MOVIELENS_FIXTURE)
+        .map_err(|e| CliError::Runtime(format!("write demo fixture: {e}")))?;
+    let result = handle_import(
+        db_path,
+        &fixture_path.display().to_string(),
+        Some(QueryOutputFormat::Json),
+        10_000,
+        false,
+        false,
+    );
+    let _ = fs::remove_file(&fixture_path);
+    result.map(|_| ())
+}
+
+fn handle_demo(
+    db: Option<String>,
+    bind: &str,
+    port: u16,
+    no_browser: bool,
+    max_requests: Option<u64>,
+) -> Result<String, CliError> {
+    let db_path = db.unwrap_or_else(default_demo_db_path);
+    if !Path::new(&db_path).exists() {
+        if let Some(parent) = Path::new(&db_path).parent() {
+            if !parent.as_os_str().is_empty() && !parent.exists() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    CliError::Runtime(format!(
+                        "failed to create demo dir {}: {e}",
+                        parent.display()
+                    ))
+                })?;
+            }
+        }
+        // init_with_write_mode returns a SharedDatabase; drop it via `_`
+        // before seeding so handle_import can take its own Database handle
+        // (same dual-init pattern handle_serve_http uses).
+        let _ = SharedDatabase::init_with_write_mode(
+            &db_path,
+            Header::default_v1(),
+            WriteConcurrencyMode::MultiWriter {
+                max_retries: SERVER_MULTI_WRITER_RETRIES,
+            },
+        )?;
+        seed_demo_movielens(&db_path)?;
+    }
+
+    let bind_addr = format!("{bind}:{port}");
+    if !no_browser {
+        // Browser open is best-effort — headless / sandboxed envs (CI, WSL
+        // without DISPLAY) silently no-op. The serve loop runs regardless.
+        let url = if port == 0 {
+            // We don't know the port until handle_serve_http binds; for the
+            // user-facing path (port != 0) we open the literal URL. With
+            // port=0 the caller is necessarily a test (--no-browser is the
+            // expected pair), so this branch is only here for completeness.
+            format!("http://{bind}/")
+        } else {
+            format!("http://{bind_addr}/")
+        };
+        let _ = webbrowser::open(&url);
+    }
+    handle_serve_http(&db_path, &bind_addr, max_requests, None)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

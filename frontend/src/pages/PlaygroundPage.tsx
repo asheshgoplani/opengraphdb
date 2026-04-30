@@ -19,6 +19,7 @@ import { QueryResultSummary } from '@/components/playground/QueryResultSummary'
 import { SchemaBrowser } from '@/components/playground/SchemaBrowser'
 import { RDFDropzone } from '@/components/playground/RDFDropzone'
 import { LiveEmptyDbCTA } from '@/components/playground/LiveEmptyDbCTA'
+import { EmptyDbOverlay } from '@/components/playground/EmptyDbOverlay'
 import { CypherEditorPanel } from '@/components/query/CypherEditorPanel'
 import { QueryResultTable } from '@/components/query/QueryResultTable'
 import { StatusBar } from '@/components/layout/StatusBar'
@@ -462,6 +463,37 @@ export default function PlaygroundPage() {
           />
 
           <main id="main" className="relative min-h-[55vh] flex-1 overflow-hidden md:min-h-0">
+            <EmptyDbOverlay
+              onImport={() => {
+                // The RDFDropzone lives in the left aside; on small screens
+                // the aside is hidden, so we scroll the page (whichever
+                // overflow container holds the dropzone) until it's in view.
+                document
+                  .querySelector('[data-testid="rdf-dropzone-trigger"]')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }}
+              onSampleQuery={() => {
+                // Static mode + the first guided query gives the user data
+                // to look at without requiring the backend to actually have
+                // anything seeded. Live mode would still be empty.
+                if (isLiveMode) {
+                  setIsLiveMode(false)
+                }
+                const firstQuery = queries[0]
+                if (firstQuery) {
+                  void handleQueryRun(firstQuery.key)
+                }
+              }}
+              onConnect={() => {
+                // Connection settings live in the ConnectionBadge in the
+                // header. Until a dedicated drawer ships (out of S8 scope),
+                // scroll-focus the badge so the user spots the editable
+                // server URL.
+                document
+                  .querySelector('[data-testid="connection-badge"]')
+                  ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              }}
+            />
             <AnimatePresence mode="wait" initial={false}>
               {activeTab === 'graph' ? (
                 <motion.div
