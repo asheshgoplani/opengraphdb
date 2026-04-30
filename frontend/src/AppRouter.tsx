@@ -20,7 +20,6 @@ import LandingPage from './pages/LandingPage'
 // page has painted so the next-click navigation is warm.
 const PlaygroundPageLazy = lazy(() => import('./pages/PlaygroundPage'))
 const ClaimsPageLazy = lazy(() => import('./pages/ClaimsPage'))
-const AppLazy = lazy(() => import('./App'))
 
 export function AppRouter() {
   // Prefetch the heavy routes once the landing page has painted. Uses
@@ -31,7 +30,6 @@ export function AppRouter() {
     const prefetch = () => {
       void import('./pages/PlaygroundPage')
       void import('./pages/ClaimsPage')
-      void import('./App')
     }
     type RequestIdleWindow = Window & {
       requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
@@ -57,7 +55,11 @@ export function AppRouter() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/playground" element={<PlaygroundPageLazy />} />
         <Route path="/claims" element={<ClaimsPageLazy />} />
-        <Route path="/app" element={<AppLazy />} />
+        {/* QA bug #5 (2026-04-30): the dev router (legacy `npm run dev`) used
+            to render the heavy `<App />` component for /app, while the
+            production AppShellRouter already redirects /app→/playground.
+            Mirror the redirect here so behaviour matches across builds. */}
+        <Route path="/app" element={<Navigate to="/playground" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>

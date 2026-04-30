@@ -219,6 +219,11 @@ export default function PlaygroundPage() {
   const handlePowerQuery = async (cypher: string) => {
     if (!cypher.trim()) return
     setPowerError(null)
+    // QA bug #2/#3 (2026-04-30): clear liveError on the success path too.
+    // QueryResultSummary reads `error={liveError || powerError}`, so a
+    // stale liveError from a previous failure would otherwise mask both
+    // a successful 200-OK Cypher response and the 0-row empty-state.
+    setLiveError(null)
     setIsLiveLoading(true)
     const start = performance.now()
     try {

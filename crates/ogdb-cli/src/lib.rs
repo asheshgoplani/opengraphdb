@@ -4931,12 +4931,24 @@ fn dispatch_http_request_with_budget(
                     content_type: mime.to_string(),
                     body: bytes.to_vec(),
                 })
-            } else {
+            } else if let Some(bytes) = static_assets::index_html() {
+                // SPA-fallback: unknown non-API path — let React Router
+                // resolve it on the client.
                 Ok(HttpResponseMessage {
                     status: 200,
                     reason: "OK",
                     content_type: "text/html; charset=utf-8".to_string(),
-                    body: static_assets::index_html().to_vec(),
+                    body: bytes.to_vec(),
+                })
+            } else {
+                // No SPA embedded (binary built without `npm run build:app`).
+                // Serve the stub so the user gets actionable guidance instead
+                // of a panic, and so the API endpoints stay reachable.
+                Ok(HttpResponseMessage {
+                    status: 200,
+                    reason: "OK",
+                    content_type: "text/html; charset=utf-8".to_string(),
+                    body: static_assets::missing_spa_stub().to_vec(),
                 })
             }
         }
@@ -16790,6 +16802,62 @@ ex:acme a schema:Organization ;
         assert_eq!(message.method, "GET");
         assert_eq!(message.path, "/health");
         header_eof_thread.join().expect("join header-eof thread");
+
+        fs::remove_file(&path).expect("cleanup db");
+        fs::remove_file(wal_path(&path)).expect("cleanup wal");
+    }
+
+    // QA bug #1 regression (2026-04-30): a binary built without first running
+    // `npm run build:app` used to panic on every HTTP request because
+    // `static_assets::index_html()` called `expect("...must exist")` and the
+    // GET catch-all unconditionally fell through to it. This killed the
+    // `ogdb demo` subcommand on the first browser hit, taking out /health
+    // along with the missing-SPA fallback.
+    //
+    // The fix makes `index_html()` return `Option`, and the catch-all serves
+    // a small HTML stub when no SPA is embedded. In the default `cargo test`
+    // build no SPA is built, so this test exercises the "missing SPA" branch
+    // for free — and proves the JSON endpoints still respond.
+    #[test]
+    fn http_dispatch_serves_api_without_embedded_spa() {
+        let path = temp_db_path("http-dispatch-no-spa");
+        let shared = SharedDatabase::init(&path, Header::default_v1()).expect("init shared");
+        let db_path = path.to_str().expect("utf8 path");
+
+        let health = dispatch_http_request(
+            &shared,
+            db_path,
+            HttpRequestMessage {
+                method: "GET".to_string(),
+                path: "/health".to_string(),
+                headers: HashMap::new(),
+                body: Vec::new(),
+            },
+        )
+        .expect("health response");
+        assert_eq!(health.status, 200);
+        assert!(health.content_type.starts_with("application/json"));
+
+        let root = dispatch_http_request(
+            &shared,
+            db_path,
+            HttpRequestMessage {
+                method: "GET".to_string(),
+                path: "/".to_string(),
+                headers: HashMap::new(),
+                body: Vec::new(),
+            },
+        )
+        .expect("root response (no panic when SPA is missing)");
+        assert_eq!(root.status, 200);
+        assert!(root.content_type.starts_with("text/html"));
+        let body = String::from_utf8(root.body).expect("html utf8");
+        // Either the real SPA (when embedded) or the stub — both are valid;
+        // what matters for this regression is that we did not panic.
+        assert!(
+            body.contains("<div id=\"root") || body.contains("OpenGraphDB API is running"),
+            "root body should be SPA shell or missing-SPA stub: {body}"
+        );
 
         fs::remove_file(&path).expect("cleanup db");
         fs::remove_file(wal_path(&path)).expect("cleanup wal");

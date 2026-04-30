@@ -1,4 +1,5 @@
 import { ApiError, type BackendQueryResponse, type BackendSchemaResponse, type HealthStatus, type QueryResponse, type SchemaResponse, type TraceStepEvent } from '@/types/api'
+import { extractErrorMessage } from './error-message'
 
 export class ApiClient {
   constructor(private baseUrl: string) {}
@@ -13,8 +14,10 @@ export class ApiClient {
       },
     })
     if (!res.ok) {
-      const body = await res.json().catch(() => ({ message: res.statusText }))
-      throw new ApiError(body.message || res.statusText, res.status, body)
+      // QA bug #4 (2026-04-30): see error-message.ts for the contract —
+      // we now prefer body.error (what ogdb returns) over body.message.
+      const body = await res.json().catch(() => ({ error: res.statusText }))
+      throw new ApiError(extractErrorMessage(body, res.statusText), res.status, body)
     }
     return res.json()
   }
