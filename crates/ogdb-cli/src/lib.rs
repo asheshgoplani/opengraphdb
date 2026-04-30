@@ -26,6 +26,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 mod prom_metrics;
+mod static_assets;
 
 pub const APP_NAME: &str = "opengraphdb";
 const SERVER_MULTI_WRITER_RETRIES: usize = 3;
@@ -4796,7 +4797,29 @@ fn dispatch_http_request_with_budget(
             // Browsers require 2xx here before they will issue the actual request.
             Ok(http_preflight_response())
         }
-        ("GET", _) | ("POST", _) => Ok(http_error(
+        // Slice S7: any GET that didn't match an explicit API endpoint above
+        // falls through to the embedded SPA. `static_assets::lookup` returns
+        // a real file under `frontend/dist-app/` (e.g. `/assets/index-*.js`,
+        // `/favicon.ico`, `/`); anything else SPA-fallbacks to `index.html`
+        // so React Router can resolve the path on the client.
+        ("GET", _) => {
+            if let Some((bytes, mime)) = static_assets::lookup(&request.path) {
+                Ok(HttpResponseMessage {
+                    status: 200,
+                    reason: "OK",
+                    content_type: mime.to_string(),
+                    body: bytes.to_vec(),
+                })
+            } else {
+                Ok(HttpResponseMessage {
+                    status: 200,
+                    reason: "OK",
+                    content_type: "text/html; charset=utf-8".to_string(),
+                    body: static_assets::index_html().to_vec(),
+                })
+            }
+        }
+        ("POST", _) => Ok(http_error(
             404,
             "Not Found",
             format!("unknown endpoint: {}", request.path),
@@ -16422,7 +16445,11 @@ ex:acme a schema:Organization ;
             .to_string()
             .contains("export payload must be a json object"));
 
-        let unknown = dispatch_http_request(
+        // Slice S7 changed the contract for unknown GETs: they SPA-fallback
+        // to the embedded `index.html` (200, text/html) so React Router can
+        // resolve the route on the client. POSTs still 404 because there is
+        // no client-side fallback for write traffic.
+        let unknown_get = dispatch_http_request(
             &shared,
             db_path,
             HttpRequestMessage {
@@ -16432,8 +16459,28 @@ ex:acme a schema:Organization ;
                 body: Vec::new(),
             },
         )
-        .expect("unknown endpoint response");
-        assert_eq!(unknown.status, 404);
+        .expect("unknown GET response");
+        assert_eq!(
+            unknown_get.status, 200,
+            "unknown GET must SPA-fallback to index.html"
+        );
+        assert!(unknown_get.content_type.starts_with("text/html"));
+
+        let unknown_post = dispatch_http_request(
+            &shared,
+            db_path,
+            HttpRequestMessage {
+                method: "POST".to_string(),
+                path: "/missing-endpoint".to_string(),
+                headers: HashMap::new(),
+                body: Vec::new(),
+            },
+        )
+        .expect("unknown POST response");
+        assert_eq!(
+            unknown_post.status, 404,
+            "unknown POST must remain 404 (no SPA fallback for writes)"
+        );
 
         let method_not_allowed = dispatch_http_request(
             &shared,
