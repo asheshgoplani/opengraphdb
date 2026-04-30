@@ -5,7 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "dev:app": "vite --config vite.config.app.ts",
+    "build:legacy": "tsc -b && vite build",
+    "build:marketing": "tsc -b && vite build --config vite.config.marketing.ts",
+    "build:app": "tsc -b && vite build --config vite.config.app.ts",
+    "build": "npm run build:marketing && npm run build:app",
     "test:unit": "rm -rf .test-dist && tsc -p tsconfig.tests.json && node --test $(find .test-dist -name '*.test.js' -print)",
     "test:e2e": "playwright test",
     "lint": "eslint .",
