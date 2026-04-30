@@ -24,7 +24,7 @@ export function QueryResultTable({ response, error, isLoading }: QueryResultTabl
     return (
       <div
         data-testid="power-query-result-loading"
-        className="border-t border-white/10 bg-background/60 px-4 py-3 font-mono text-[11px] text-white/55"
+        className="border-t border-border bg-background/60 px-4 py-3 font-mono text-[11px] text-muted-foreground"
       >
         executing against real backend…
       </div>
@@ -35,7 +35,7 @@ export function QueryResultTable({ response, error, isLoading }: QueryResultTabl
     return (
       <div
         data-testid="power-query-result-error"
-        className="border-t border-red-500/20 bg-red-500/5 px-4 py-2 font-mono text-[11px] text-red-300/85"
+        className="border-t border-destructive/30 bg-destructive/10 px-4 py-2 font-mono text-[11px] text-destructive"
       >
         power mode error · {error}
       </div>
@@ -48,9 +48,9 @@ export function QueryResultTable({ response, error, isLoading }: QueryResultTabl
     <section
       data-testid="power-query-result"
       data-row-count={response.row_count}
-      className="border-t border-white/10 bg-background/70 px-3 py-2"
+      className="border-t border-border bg-background/70 px-3 py-2"
     >
-      <div className="mb-2 flex items-baseline justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-white/55">
+      <div className="mb-2 flex items-baseline justify-between font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
         <span>
           POST /query · <span data-testid="power-query-result-row-count">{response.row_count}</span>{' '}
           row{response.row_count === 1 ? '' : 's'}
@@ -60,7 +60,7 @@ export function QueryResultTable({ response, error, isLoading }: QueryResultTabl
       {!hasRows ? (
         <p
           data-testid="power-query-result-empty"
-          className="py-1 font-mono text-[11px] text-white/55"
+          className="py-1 font-mono text-[11px] text-muted-foreground"
         >
           backend returned 0 rows — try seeding data first (see /api/rdf/import)
         </p>
@@ -72,7 +72,7 @@ export function QueryResultTable({ response, error, isLoading }: QueryResultTabl
                 {columns.map((col) => (
                   <th
                     key={col}
-                    className="border-b border-white/10 px-2 py-1 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-white/55"
+                    className="border-b border-border px-2 py-1 text-left font-mono text-[10px] uppercase tracking-[0.12em] text-muted-foreground"
                   >
                     {col}
                   </th>
@@ -84,12 +84,12 @@ export function QueryResultTable({ response, error, isLoading }: QueryResultTabl
                 <tr
                   key={rowIdx}
                   data-testid="power-query-result-row"
-                  className="border-b border-white/5 last:border-0"
+                  className="border-b border-border/50 last:border-0"
                 >
                   {columns.map((col) => (
                     <td
                       key={col}
-                      className="px-2 py-1 align-top font-mono text-[11px] text-white/85"
+                      className="px-2 py-1 align-top font-mono text-[11px] text-foreground"
                     >
                       {renderCell(row[col])}
                     </td>
@@ -99,7 +99,7 @@ export function QueryResultTable({ response, error, isLoading }: QueryResultTabl
             </tbody>
           </table>
           {response.row_count > safeRows.length && (
-            <p className="mt-1 font-mono text-[10px] text-white/45">
+            <p className="mt-1 font-mono text-[10px] text-muted-foreground">
               showing {safeRows.length} of {response.row_count} rows
             </p>
           )}

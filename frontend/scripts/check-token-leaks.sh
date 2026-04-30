@@ -33,5 +33,8 @@ fi
 # regex to cover shadeless white/black, slash-shade variants, full Tailwind
 # numbered palette, and gradient prefixes (from/to/via).
 # Ratchet this number DOWN as palette tokens replace raw utilities.
-BASELINE=290
+# 2026-04-30 fix/playground-table-tokens: ratcheted 290 → 277 after porting
+# QueryResultTable + QueryResultSummary off `text-white/*` onto semantic
+# foreground/muted-foreground tokens (light-mode invisibility fix).
+BASELINE=277
 test "$COUNT" -le "$BASELINE"

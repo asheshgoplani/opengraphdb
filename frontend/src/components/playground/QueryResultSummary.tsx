@@ -53,7 +53,7 @@ export function QueryResultSummary({
       <section
         data-testid="query-result-summary"
         data-state="idle"
-        className="mx-3 mt-2 rounded-md border border-white/10 bg-background/60 px-3 py-1.5 font-mono text-[11px] text-white/55"
+        className="mx-3 mt-2 rounded-md border border-border bg-background/60 px-3 py-1.5 font-mono text-[11px] text-muted-foreground"
       >
         Type Cypher or pick a guided query — then we'll tell you how many rows
         came back and which nodes are drawn.
@@ -75,12 +75,12 @@ export function QueryResultSummary({
       data-row-count={rowCount}
       data-visible-nodes={visibleNodes}
       className={cn(
-        'mx-3 mt-2 rounded-md border border-cyan-400/30 bg-cyan-500/5 px-3 py-1.5 font-mono text-[11px] text-white/85',
+        'mx-3 mt-2 rounded-md border border-accent/30 bg-accent/5 px-3 py-1.5 font-mono text-[11px] text-foreground',
       )}
     >
-      <span className="tabular-nums text-cyan-100">{line}</span>
+      <span className="tabular-nums text-accent-foreground">{line}</span>
       {queryLabel && (
-        <span className="ml-2 text-[10px] uppercase tracking-[0.14em] text-white/45">
+        <span className="ml-2 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
           · {queryLabel}
         </span>
       )}
