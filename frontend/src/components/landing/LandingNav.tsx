@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { GitBranch } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { Logo } from '@/components/ui/Logo'
+import { cn } from '@/lib/utils'
 
 const SECTION_LINKS = [
   { href: '#showcase', label: 'Showcase' },
@@ -47,11 +48,12 @@ export function LandingNav() {
           className="inline-flex items-center gap-2.5 text-base font-semibold tracking-tight"
         >
           <span
-            className={`inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors ${
-              scrolled ? 'bg-primary/15 text-primary' : 'bg-white/10 text-white'
-            }`}
+            className={cn(
+              'inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors',
+              scrolled ? 'bg-primary/15 text-primary' : 'bg-white/10 text-white',
+            )}
           >
-            <GitBranch className="h-4 w-4" aria-hidden="true" />
+            <Logo size={18} aria-hidden="true" />
           </span>
           <span className="font-display text-lg font-medium tracking-tight">
             OpenGraphDB

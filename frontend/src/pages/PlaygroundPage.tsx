@@ -24,6 +24,7 @@ import { QueryResultTable } from '@/components/query/QueryResultTable'
 import { StatusBar } from '@/components/layout/StatusBar'
 import { PANEL_MOTION, PANEL_TRANSITION } from '@/components/ui/motion'
 import { PanelState } from '@/components/ui/PanelState'
+import { Logo } from '@/components/ui/Logo'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
@@ -250,7 +251,7 @@ export default function PlaygroundPage() {
                 Back
               </Link>
             </Button>
-            <h1 className="font-serif text-[17px] leading-none tracking-tight text-foreground">Playground</h1>
+            <h1 className="flex items-center gap-2 text-[17px] font-medium leading-none tracking-tight text-foreground"><Logo size={20} aria-hidden="true" /> Playground</h1>
           </div>
           <div className="flex items-center gap-2">
             <PowerModeToggle isActive={isPowerMode} onToggle={setIsPowerMode} />
