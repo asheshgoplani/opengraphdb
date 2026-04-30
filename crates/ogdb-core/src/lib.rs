@@ -37156,6 +37156,7 @@ mod tests {
             .duration_since(UNIX_EPOCH)
             .expect("time")
             .as_millis() as i64;
+        thread::sleep(Duration::from_millis(2));
         let e1 = db
             .add_typed_edge(
                 n0,
