@@ -7,7 +7,6 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 // because that's where a user who just ran `ogdb demo` should land.
 const PlaygroundPageLazy = lazy(() => import('./pages/PlaygroundPage'))
 const ClaimsPageLazy = lazy(() => import('./pages/ClaimsPage'))
-const AppLazy = lazy(() => import('./App'))
 
 export function AppShellRouter() {
   return (
@@ -22,7 +21,7 @@ export function AppShellRouter() {
         <Route path="/" element={<Navigate to="/playground" replace />} />
         <Route path="/playground" element={<PlaygroundPageLazy />} />
         <Route path="/claims" element={<ClaimsPageLazy />} />
-        <Route path="/app" element={<AppLazy />} />
+        <Route path="/app" element={<Navigate to="/playground" replace />} />
         <Route path="*" element={<Navigate to="/playground" replace />} />
       </Routes>
     </Suspense>
