@@ -31,8 +31,8 @@ fi
 
 # Baseline ratcheted DOWN per Slice S3 (token-leak cleanup): semantic-token
 # substitution swept playground + landing + page surfaces, leaving only the
-# planner-acknowledged irreducible marketing-only `bg-white text-slate-900`
-# hero CTAs as residual leaks. Ratchet this number DOWN as palette tokens
-# replace raw utilities; never UP.
-BASELINE=7
+# irreducible 2 (deliberate hero CTA escape hatches): planner-acknowledged
+# marketing-only `bg-white text-slate-900` hero CTAs as residual leaks.
+# Ratchet this number DOWN as palette tokens replace raw utilities; never UP.
+BASELINE=2
 test "$COUNT" -le "$BASELINE"
