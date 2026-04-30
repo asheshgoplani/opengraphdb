@@ -12,8 +12,8 @@ export function formatQueryTime(queryTimeMs: number, isLive: boolean): string {
 }
 
 export function ConnectionBadge({ queryTimeMs, isLive = false, liveError = null }: ConnectionBadgeProps) {
-  const dotColor = liveError ? 'bg-red-500' : isLive ? 'bg-emerald-500' : 'bg-sky-400'
-  const pingColor = liveError ? 'bg-red-400' : isLive ? 'bg-emerald-400' : 'bg-sky-300'
+  const dotColor = liveError ? 'bg-destructive' : isLive ? 'bg-accent' : 'bg-accent'
+  const pingColor = liveError ? 'bg-destructive' : isLive ? 'bg-accent' : 'bg-accent'
   const label = liveError ? 'Error' : isLive ? 'Live' : 'Sample Data'
 
   return (
@@ -34,7 +34,7 @@ export function ConnectionBadge({ queryTimeMs, isLive = false, liveError = null 
         <span>· {formatQueryTime(queryTimeMs, isLive)}</span>
       ) : null}
       {liveError ? (
-        <span className="max-w-[120px] truncate text-red-400" title={liveError}>
+        <span className="max-w-[120px] truncate text-destructive" title={liveError}>
           {liveError}
         </span>
       ) : null}

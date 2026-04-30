@@ -17,9 +17,9 @@ interface PerfCellProps {
 function PerfCell({ testId, label, value, unit, caption, accent = 'muted' }: PerfCellProps) {
   const accentClass =
     accent === 'cyan'
-      ? 'text-cyan-300'
+      ? 'text-accent'
       : accent === 'emerald'
-        ? 'text-emerald-300'
+        ? 'text-accent'
         : accent === 'primary'
           ? 'text-primary'
           : 'text-foreground'
@@ -27,20 +27,20 @@ function PerfCell({ testId, label, value, unit, caption, accent = 'muted' }: Per
   return (
     <div
       data-testid={testId}
-      className="flex min-w-0 flex-1 flex-col justify-center border-l border-white/10 px-4 first:border-l-0"
+      className="flex min-w-0 flex-1 flex-col justify-center border-l border-border/60 px-4 first:border-l-0"
     >
-      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-white/45">{label}</p>
+      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">{label}</p>
       <div className="mt-0.5 flex items-baseline gap-1">
         <span
           className={`font-serif text-[22px] leading-none tracking-tight tabular-nums ${accentClass}`}
         >
           {value}
         </span>
-        <span className="text-[10px] font-medium lowercase tracking-wider text-white/50">
+        <span className="text-[10px] font-medium lowercase tracking-wider text-muted-foreground">
           {unit}
         </span>
       </div>
-      <p className="mt-0.5 truncate text-[10px] text-white/45">{caption}</p>
+      <p className="mt-0.5 truncate text-[10px] text-muted-foreground/70">{caption}</p>
     </div>
   )
 }
@@ -72,16 +72,16 @@ export function PerfStrip({ queryTimeMs, nodeCount, edgeCount, isLive }: PerfStr
     <section
       data-testid="perf-strip"
       aria-label="Query performance sidebar"
-      className="flex items-stretch gap-0 rounded-lg border border-white/10 bg-background/80 px-4 py-2 shadow-lg shadow-black/20 backdrop-blur-md"
+      className="flex items-stretch gap-0 rounded-lg border border-border/60 bg-background/80 px-4 py-2 shadow-lg shadow-black/20 backdrop-blur-md"
     >
-      <div className="flex w-[170px] shrink-0 flex-col justify-center border-r border-white/10 pr-4">
-        <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-cyan-300/80">
+      <div className="flex w-[170px] shrink-0 flex-col justify-center border-r border-border/60 pr-4">
+        <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-accent">
           Verified perf
         </p>
-        <p className="mt-0.5 font-serif text-[15px] leading-tight tracking-tight text-white/90">
+        <p className="mt-0.5 font-serif text-[15px] leading-tight tracking-tight text-foreground">
           Last query
         </p>
-        <p className="mt-0.5 text-[10px] text-white/45">
+        <p className="mt-0.5 text-[10px] text-muted-foreground/70">
           {isLive ? 'live · profiled' : 'sample · synthetic'}
         </p>
       </div>

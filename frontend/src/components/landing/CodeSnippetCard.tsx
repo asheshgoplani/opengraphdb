@@ -54,14 +54,14 @@ export function CodeSnippetCard({
         </div>
       </header>
 
-      <div className="relative mx-6 mt-5 overflow-hidden rounded-lg bg-slate-950 text-slate-50 shadow-inner">
-        <div className="flex items-center justify-between border-b border-slate-800/70 px-4 py-1.5 text-[11px] uppercase tracking-[0.18em] text-slate-400">
+      <div className="relative mx-6 mt-5 overflow-hidden rounded-lg bg-background text-foreground shadow-inner">
+        <div className="flex items-center justify-between border-b border-border px-4 py-1.5 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
           <span>{language}</span>
           <Button
             variant="ghost"
             size="sm"
             aria-label={copied ? 'Copied' : `Copy ${title} snippet`}
-            className="h-7 gap-1 rounded-md px-2 text-[11px] text-slate-300 hover:bg-slate-800 hover:text-white"
+            className="h-7 gap-1 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={() => {
               void onCopy()
             }}

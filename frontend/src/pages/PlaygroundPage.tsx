@@ -265,12 +265,12 @@ export default function PlaygroundPage() {
         <aside className="hidden w-[320px] shrink-0 space-y-4 overflow-y-auto border-r bg-muted/20 p-4 md:block">
           <DatasetSwitcher activeDataset={activeDataset} onSwitch={handleDatasetSwitch} />
           <div>
-            <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-white/55">
+            <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Guided Queries
             </p>
             <div className="space-y-3">
               {visibleQueries.length === 0 ? (
-                <p className="rounded-md border border-dashed border-white/15 px-3 py-2 text-[11px] leading-snug text-white/55">
+                <p className="rounded-md border border-dashed border-border px-3 py-2 text-[11px] leading-snug text-muted-foreground">
                   No Cypher-backed queries for this dataset in Live mode. Switch to a dataset with backend queries, or turn Live mode off to use the static sample.
                 </p>
               ) : (
@@ -360,24 +360,24 @@ export default function PlaygroundPage() {
             }}
           />
           {importedGraph && (
-            <section className="rounded-lg border border-cyan-400/30 bg-cyan-500/5 px-3 py-2 text-[11px] text-cyan-100/90">
-              <p className="font-serif text-[12px] text-white">
+            <section className="rounded-lg border border-accent/50 bg-accent/10 px-3 py-2 text-[11px] text-accent-foreground">
+              <p className="font-serif text-[12px] text-foreground">
                 {importedGraph.source === 'live' ? 'Persisted' : 'Preview only'} ·{' '}
                 {importedGraph.filename}
               </p>
               {importedGraph.source === 'live' && importedGraph.dbPath && (
-                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-cyan-200/70">
+                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-accent/80">
                   live db: {importedGraph.dbPath}
                 </p>
               )}
               {importedGraph.source === 'preview' && (
-                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-amber-200/80">
+                <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-primary">
                   not persisted — start <code>ogdb serve --http</code>
                 </p>
               )}
               <button
                 type="button"
-                className="mt-2 rounded border border-white/15 px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-white/60 hover:border-white/30 hover:text-white"
+                className="mt-2 rounded border border-border px-2 py-0.5 font-mono text-[9px] uppercase tracking-[0.14em] text-muted-foreground hover:border-border hover:text-foreground"
                 onClick={() => {
                   setImportedGraph(null)
                   setSchemaFilterLabel(null)
@@ -406,7 +406,7 @@ export default function PlaygroundPage() {
                 animate={PANEL_MOTION.animate}
                 exit={PANEL_MOTION.exit}
                 transition={PANEL_TRANSITION}
-                className="border-b border-white/10"
+                className="border-b border-border/60"
                 data-testid="power-mode-panel"
               >
                 <CypherEditorPanel
@@ -435,7 +435,7 @@ export default function PlaygroundPage() {
           <div
             role="tablist"
             aria-label="Playground view"
-            className="flex items-center gap-1 overflow-x-auto border-b border-white/10 bg-muted/20 px-3 py-2"
+            className="flex items-center gap-1 overflow-x-auto border-b border-border/60 bg-muted/20 px-3 py-2"
           >
             <TabPill
               active={activeTab === 'graph'}
@@ -485,41 +485,26 @@ export default function PlaygroundPage() {
                   animate={PANEL_MOTION.animate}
                   exit={PANEL_MOTION.exit}
                   transition={PANEL_TRANSITION}
-                  className="absolute inset-0 overflow-y-auto"
+                  className="absolute inset-0 overflow-y-auto bg-[linear-gradient(180deg,hsl(var(--accent)/0.03),hsl(var(--accent)/0.015)),hsl(var(--background)/0.6)]"
                   data-testid="schema-main-panel"
                   data-schema-mode="active"
-                  style={{
-                    background:
-                      'linear-gradient(180deg, rgba(100,255,180,0.03) 0%, rgba(100,255,180,0.015) 100%), hsla(24, 18%, 7%, 0.6)',
-                  }}
                 >
                   <div
                     data-testid="schema-browser-header"
                     className="sticky top-0 z-20 border-b border-border bg-gradient-to-r from-primary/20 via-primary/10 to-transparent px-6 py-5 backdrop-blur-sm"
                   >
-                    <h1
-                      className="font-display tracking-tight text-emerald-50"
-                      style={{
-                        fontFamily:
-                          '"Fraunces", "Source Serif 4", Georgia, serif',
-                        fontSize: '32px',
-                        fontWeight: 500,
-                        letterSpacing: '-0.01em',
-                        textShadow:
-                          '0 0 20px rgba(100,255,180,0.35), 0 0 40px rgba(100,255,180,0.18)',
-                      }}
-                    >
+                    <h1 className="font-display text-[32px] font-medium leading-tight tracking-tight text-accent">
                       SCHEMA BROWSER
                     </h1>
-                    <p className="mt-1 font-mono text-[10.5px] uppercase tracking-[0.2em] text-emerald-200/70">
+                    <p className="mt-1 font-mono text-[10.5px] uppercase tracking-[0.2em] text-accent/80">
                       labels · relationships · property keys
                     </p>
                   </div>
                   <div className="mx-auto max-w-3xl px-6 py-8">
                     <BackendSchemaStrip />
-                    <p className="mb-6 text-[12px] leading-relaxed text-white/55">
+                    <p className="mb-6 text-[12px] leading-relaxed text-muted-foreground">
                       Above: labels + edge types + property keys fetched live from
-                      <code className="mx-1 rounded bg-white/10 px-1 py-0.5 text-[11px]">GET /schema</code>.
+                      <code className="mx-1 rounded bg-muted/60 px-1 py-0.5 text-[11px]">GET /schema</code>.
                       Below: schema derived from the currently-visible graph, with label-filter + ontology toggles.
                     </p>
                     <SchemaBrowser
@@ -572,13 +557,13 @@ export default function PlaygroundPage() {
                   transition={PANEL_TRANSITION}
                   className="absolute left-4 top-4 z-10 max-w-md"
                 >
-                  <div className="flex items-start gap-2 rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-xs text-red-200 shadow-lg backdrop-blur-sm">
-                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
+                  <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/15 px-3 py-2 text-xs text-destructive shadow-lg backdrop-blur-sm">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                     <div>
-                      <p className="font-serif text-[13px] leading-tight text-red-100">
+                      <p className="font-serif text-[13px] leading-tight text-destructive-foreground">
                         Live query failed
                       </p>
-                      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-red-300/85">
+                      <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.14em] text-destructive">
                         {liveError}
                       </p>
                     </div>
@@ -621,23 +606,23 @@ function TabPill({ active, onClick, disabled, icon: Icon, label, blurb }: TabPil
       className={cn(
         'group relative flex items-center gap-2 rounded-md border px-3 py-1.5 text-left transition-colors duration-200',
         active
-          ? 'border-cyan-400/40 text-foreground'
-          : 'border-white/10 bg-transparent text-white/60 hover:border-white/25 hover:bg-muted/30 hover:text-white/80',
-        disabled && 'cursor-not-allowed opacity-50 hover:border-white/10 hover:bg-transparent',
+          ? 'border-accent text-foreground'
+          : 'border-border/60 bg-transparent text-muted-foreground hover:border-border hover:bg-muted/30 hover:text-foreground/85',
+        disabled && 'cursor-not-allowed opacity-50 hover:border-border/60 hover:bg-transparent',
       )}
     >
       {active && (
         <motion.span
           layoutId="playground-active-tab"
           aria-hidden
-          className="absolute inset-0 -z-0 rounded-md border border-cyan-400/40 bg-cyan-500/10 shadow-[0_0_10px_rgba(34,211,238,0.22)]"
+          className="absolute inset-0 -z-0 rounded-md border border-accent bg-accent/20 shadow-[0_0_10px_rgba(34,211,238,0.22)]"
           transition={{ type: 'spring', stiffness: 320, damping: 30 }}
         />
       )}
-      <Icon className={cn('relative h-3.5 w-3.5', active ? 'text-cyan-200' : 'text-white/55')} />
+      <Icon className={cn('relative h-3.5 w-3.5', active ? 'text-accent' : 'text-muted-foreground')} />
       <div className="relative flex flex-col leading-none">
         <span className="font-serif text-[13px] tracking-tight">{label}</span>
-        <span className="mt-0.5 text-[9px] uppercase tracking-[0.14em] text-white/45">{blurb}</span>
+        <span className="mt-0.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground/70">{blurb}</span>
       </div>
     </button>
   )

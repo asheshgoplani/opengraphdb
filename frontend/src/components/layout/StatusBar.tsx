@@ -29,52 +29,52 @@ export function StatusBar({
         // canvas-adjacent footer for the same reason as DatasetHeader —
         // per-frame blur composite pass while zoom/panning was measurable in
         // the p99 frame-time tail. bg-card/60 still reads as a designed strip.
-        'flex flex-wrap items-center justify-between gap-3 border-t border-white/10 bg-card/60 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-white/55',
+        'flex flex-wrap items-center justify-between gap-3 border-t border-border/60 bg-card/60 px-4 py-1.5 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground',
         className,
       )}
     >
       <div className="flex items-center gap-4">
         <span>
-          <span className="text-white/40">nodes</span>{' '}
+          <span className="text-muted-foreground/70">nodes</span>{' '}
           <span
             data-testid="footer-node-count"
             data-status-node-count
-            className="tabular-nums text-cyan-200"
+            className="tabular-nums text-accent"
           >
             {nodeCount.toLocaleString()}
           </span>
         </span>
         <span>
-          <span className="text-white/40">edges</span>{' '}
+          <span className="text-muted-foreground/70">edges</span>{' '}
           <span
             data-testid="footer-edge-count"
             data-status-edge-count
-            className="tabular-nums text-cyan-200"
+            className="tabular-nums text-accent"
           >
             {edgeCount.toLocaleString()}
           </span>
         </span>
         {typeof labelCount === 'number' && (
           <span>
-            <span className="text-white/40">labels</span>{' '}
-            <span className="tabular-nums text-white/80">{labelCount}</span>
+            <span className="text-muted-foreground/70">labels</span>{' '}
+            <span className="tabular-nums text-foreground/85">{labelCount}</span>
           </span>
         )}
         {timeCutoffLabel && (
-          <span data-testid="status-time-cutoff" className="text-cyan-300/85">
+          <span data-testid="status-time-cutoff" className="text-accent/85">
             as-of {timeCutoffLabel}
           </span>
         )}
       </div>
       <div className="flex items-center gap-3">
-        {datasetLabel && <span className="text-white/40">{datasetLabel}</span>}
+        {datasetLabel && <span className="text-muted-foreground/70">{datasetLabel}</span>}
         <span
           className={cn(
             'h-1.5 w-1.5 rounded-full',
-            isLive ? 'bg-emerald-400 shadow-[0_0_6px_#34d399]' : 'bg-white/30',
+            isLive ? 'bg-accent shadow-[0_0_6px_#34d399]' : 'bg-muted/60',
           )}
         />
-        <span className="text-white/45">{isLive ? 'live' : 'sample'}</span>
+        <span className="text-muted-foreground/70">{isLive ? 'live' : 'sample'}</span>
       </div>
     </footer>
   )

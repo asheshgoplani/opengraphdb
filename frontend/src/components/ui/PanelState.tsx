@@ -15,14 +15,14 @@ export interface PanelStateProps {
 
 // Shared empty / loading / error visual language — matches the landing sidebar
 // "Verified benchmark" card and /app ResultsEmptyState: dark bordered surface,
-// Fraunces title, text-white/55 secondary copy, cyan/amber/red accent.
+// Fraunces title, text-muted-foreground secondary copy, cyan/amber/red accent.
 export function PanelState({ intent, title, description, hint, icon, className, children }: PanelStateProps) {
   const accent =
     intent === 'loading'
-      ? 'border-cyan-400/30 bg-cyan-500/5 text-cyan-200'
+      ? 'border-accent/50 bg-accent/10 text-accent'
       : intent === 'error'
-        ? 'border-red-400/40 bg-red-500/5 text-red-200'
-        : 'border-white/10 bg-background/50 text-cyan-200'
+        ? 'border-destructive/50 bg-destructive/10 text-destructive'
+        : 'border-border/60 bg-background/50 text-accent'
 
   const Icon = icon ?? (intent === 'error' ? AlertTriangle : intent === 'loading' ? Loader2 : Workflow)
 
@@ -37,7 +37,7 @@ export function PanelState({ intent, title, description, hint, icon, className, 
     >
       <div
         className={cn(
-          'inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-background/70',
+          'inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/60 bg-background/70',
           intent === 'loading' && 'animate-pulse',
         )}
       >
@@ -45,10 +45,10 @@ export function PanelState({ intent, title, description, hint, icon, className, 
       </div>
       <p className="font-serif text-[15px] leading-tight tracking-tight text-foreground">{title}</p>
       {description && (
-        <p className="max-w-md text-[11.5px] leading-snug text-white/55">{description}</p>
+        <p className="max-w-md text-[11.5px] leading-snug text-muted-foreground">{description}</p>
       )}
       {hint && (
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-white/40">{hint}</p>
+        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground/70">{hint}</p>
       )}
       {children}
     </div>

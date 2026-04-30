@@ -51,7 +51,7 @@ export function ResultsBanner({
           {edgeCount} edges
         </Badge>
         {isLimited ? (
-          <Badge className="rounded-full border-amber-500/40 bg-amber-500/15 text-amber-700 hover:bg-amber-500/20 dark:text-amber-300">
+          <Badge className="rounded-full border-primary/50 bg-primary/20 text-primary hover:bg-primary/30 dark:text-primary">
             {summaryText}
           </Badge>
         ) : null}

@@ -44,20 +44,20 @@ export function DatasetHeader({
       data-node-count={nodeCount}
       data-edge-count={edgeCount}
       aria-label="Active dataset summary"
-      className="border-b border-cyan-400/20 bg-gradient-to-r from-cyan-500/10 via-slate-900/30 to-cyan-500/10 px-4 py-2 font-mono text-[11px] leading-tight text-white/85"
+      className="border-b border-accent/40 bg-gradient-to-r from-accent/20 via-muted/40 to-accent/20 px-4 py-2 font-mono text-[11px] leading-tight text-foreground/85"
     >
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <span className="tabular-nums text-cyan-200">{totals}</span>
-        <span className="text-white/40">·</span>
-        <span className="font-serif text-[13px] text-white">{meta.name}</span>
-        <span className="text-white/40">·</span>
-        <span className="truncate text-white/65">{meta.sourceLabel}</span>
-        <span className="text-white/40">·</span>
-        <span className="rounded border border-white/15 px-1.5 py-[1px] text-[10px] uppercase tracking-[0.12em] text-white/55">
+        <span className="tabular-nums text-accent">{totals}</span>
+        <span className="text-muted-foreground/70">·</span>
+        <span className="font-serif text-[13px] text-foreground">{meta.name}</span>
+        <span className="text-muted-foreground/70">·</span>
+        <span className="truncate text-muted-foreground">{meta.sourceLabel}</span>
+        <span className="text-muted-foreground/70">·</span>
+        <span className="rounded border border-border px-1.5 py-[1px] text-[10px] uppercase tracking-[0.12em] text-muted-foreground">
           {meta.license}
         </span>
         {activeLine && (
-          <span data-testid="dataset-header-active" className="text-emerald-300/85">
+          <span data-testid="dataset-header-active" className="text-accent">
             {activeLine}
           </span>
         )}

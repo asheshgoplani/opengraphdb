@@ -60,11 +60,11 @@ export function ClaimsBadge({ className }: { className?: string }) {
         data-state="loading"
         aria-label="Claim verification status: loading"
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-white/55',
+          'inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-muted/40 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-muted-foreground',
           className,
         )}
       >
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white/40" />
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-muted/60" />
         checking claims…
       </Link>
     )
@@ -78,7 +78,7 @@ export function ClaimsBadge({ className }: { className?: string }) {
         data-state="unknown"
         aria-label="Claim verification status unavailable"
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border border-amber-300/30 bg-amber-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-amber-200',
+          'inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/20 px-3 py-1 text-[11px] uppercase tracking-[0.16em] text-primary',
           className,
         )}
       >
@@ -106,8 +106,8 @@ export function ClaimsBadge({ className }: { className?: string }) {
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.16em] transition-colors',
         allGreen
-          ? 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/15'
-          : 'border-rose-400/40 bg-rose-500/15 text-rose-100 hover:bg-rose-500/25',
+          ? 'border-accent/30 bg-accent/15 text-accent hover:bg-accent/15'
+          : 'border-destructive/50 bg-destructive/20 text-destructive-foreground hover:bg-destructive/30',
         className,
       )}
     >
@@ -121,7 +121,7 @@ export function ClaimsBadge({ className }: { className?: string }) {
           <span className="font-medium">
             {total} claim{total === 1 ? '' : 's'} verified
           </span>
-          <span className="hidden text-white/50 normal-case tracking-normal sm:inline">
+          <span className="hidden text-muted-foreground normal-case tracking-normal sm:inline">
             · build {data.sha} · {formatDate(data.date)}
           </span>
         </span>
@@ -154,7 +154,7 @@ export function ClaimsRedBanner() {
     <div
       data-testid="claims-banner-red"
       role="alert"
-      className="sticky top-0 z-50 border-b border-rose-400/40 bg-rose-600 text-rose-50"
+      className="sticky top-0 z-50 border-b border-destructive/50 bg-destructive text-destructive-foreground"
     >
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2 text-sm sm:px-6">
         <span className="flex items-center gap-2">
@@ -162,11 +162,11 @@ export function ClaimsRedBanner() {
           <strong className="font-medium">
             {reds.length} claim{reds.length === 1 ? '' : 's'} failing
           </strong>
-          <span className="text-rose-100/90">on build {state.data.sha}</span>
+          <span className="text-destructive-foreground">on build {state.data.sha}</span>
         </span>
         <Link
           to="/claims"
-          className="rounded bg-white/10 px-2 py-0.5 text-xs font-medium uppercase tracking-wider hover:bg-white/20"
+          className="rounded bg-muted/60 px-2 py-0.5 text-xs font-medium uppercase tracking-wider hover:bg-muted/60"
         >
           View details
         </Link>
