@@ -39,4 +39,22 @@ test.describe('AMBER-TERMINAL palette', () => {
     // Either string is valid — we just need the duration to be effectively zero.
     expect(dur).toMatch(/^(0\.01ms|1e-05s)$/)
   })
+
+  test('landing hero background is amber-terminal warm bg, not cosmos navy', async ({ page }) => {
+    await page.goto('/')
+    const heroBg = await page.evaluate(() => {
+      const hero = document.querySelector('section[aria-labelledby="hero-heading"]') as HTMLElement | null
+      if (!hero) return null
+      return getComputedStyle(hero).backgroundColor
+    })
+    expect(heroBg).not.toBeNull()
+    // hsl(240, 28%, 7%) → rgb(13, 13, 23) — the cosmos-navy literal we are removing.
+    expect(heroBg).not.toBe('rgb(13, 13, 23)')
+    // AMBER-TERMINAL --background (dark) is hsl(24, 18%, 7%) → ~rgb(21, 17, 15).
+    // The defining property: red channel ≥ blue channel (warm, not cool).
+    const m = heroBg!.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+    expect(m).not.toBeNull()
+    const [r, , b] = [Number(m![1]), Number(m![2]), Number(m![3])]
+    expect(r).toBeGreaterThanOrEqual(b)
+  })
 })

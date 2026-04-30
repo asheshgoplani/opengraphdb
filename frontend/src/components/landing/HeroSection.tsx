@@ -30,14 +30,14 @@ export function HeroSection() {
 
   return (
     <section
-      className="dark relative isolate overflow-hidden bg-[hsl(240,28%,7%)] text-foreground"
+      className="dark relative isolate overflow-hidden bg-background text-foreground"
       aria-labelledby="hero-heading"
     >
       {/* Slice-12: shared AppBackdrop so the hero carries the same
           gradient + dot-grid + vignette depth as the playground canvas. */}
       <AppBackdrop variant="hero" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_30%,hsla(226,85%,60%,0.18),transparent_70%)]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_85%_85%,hsla(280,80%,60%,0.12),transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_30%,hsla(40,95%,62%,0.18),transparent_70%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_85%_85%,hsla(20,80%,55%,0.12),transparent_70%)]" />
 
       <HeroGraphBackground />
 
@@ -49,7 +49,7 @@ export function HeroSection() {
         className="pointer-events-none absolute inset-x-0 top-[32%] z-[5] h-[34vh]"
         style={{
           backgroundImage:
-            'radial-gradient(ellipse 62% 100% at 50% 50%, hsla(240, 40%, 4%, 0.58), hsla(240, 40%, 4%, 0.28) 55%, transparent 90%)',
+            'radial-gradient(ellipse 62% 100% at 50% 50%, hsla(24, 40%, 4%, 0.58), hsla(24, 40%, 4%, 0.28) 55%, transparent 90%)',
         }}
       />
 
@@ -80,7 +80,7 @@ export function HeroSection() {
           <br />
           <span className="italic text-white/85">Rust devs</span>
           <br />
-          <span className="bg-gradient-to-r from-indigo-300 via-sky-300 to-emerald-300 bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-amber-200 via-amber-300 to-orange-300 bg-clip-text text-transparent">
             reach for.
           </span>
         </h1>
@@ -107,7 +107,7 @@ export function HeroSection() {
           <Button
             asChild
             size="lg"
-            className="group min-w-52 bg-white text-slate-900 shadow-lg shadow-indigo-500/20 hover:bg-white/90"
+            className="group min-w-52 bg-white text-slate-900 shadow-lg shadow-amber-500/25 hover:bg-white/90"
           >
             <Link to="/playground">
               Open the playground
@@ -139,7 +139,7 @@ export function HeroSection() {
           {STATS.map((stat) => (
             <div
               key={stat.value}
-              className="bg-[hsl(240,28%,8%)]/80 px-4 py-5 text-left sm:px-6"
+              className="bg-card/80 px-4 py-5 text-left sm:px-6"
             >
               <dt className="font-display text-2xl font-medium text-white sm:text-3xl">
                 {stat.value}

@@ -188,7 +188,7 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
       <div
         ref={overlayRef}
         data-testid="rdf-dropzone-overlay"
-        className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(240,28%,7%)]/80 backdrop-blur-md"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md"
       >
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-cyan-400/50 bg-cyan-500/10 px-12 py-10 shadow-[0_0_60px_rgba(34,211,238,0.35)]">
           <FileUp className="h-10 w-10 text-cyan-200" />
@@ -203,7 +203,7 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
 
   if (state.phase === 'parsing') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(240,28%,7%)]/80 backdrop-blur-md">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md">
         <div className="flex items-center gap-3 rounded-lg border border-white/10 bg-card px-5 py-3 text-white/75">
           <div className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-400 border-t-transparent" />
           <span className="font-mono text-[11px]">Parsing {state.filename}…</span>
@@ -214,7 +214,7 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
 
   if (state.phase === 'uploading') {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(240,28%,7%)]/80 backdrop-blur-md">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md">
         <div
           data-testid="rdf-import-uploading"
           className="flex items-center gap-3 rounded-lg border border-white/10 bg-card px-5 py-3 text-white/75"
@@ -316,7 +316,7 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
   return (
     <div
       data-testid="rdf-import-preview"
-      className="fixed inset-0 z-50 flex items-center justify-center bg-[hsl(240,28%,7%)]/85 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/85 backdrop-blur-md"
     >
       <div className="max-h-[80vh] w-[min(560px,92vw)] overflow-hidden rounded-2xl border border-cyan-400/40 bg-card shadow-[0_0_60px_rgba(34,211,238,0.25)]">
         <div className="flex items-center justify-between border-b border-white/10 bg-white/5 px-5 py-3">
@@ -346,7 +346,7 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
           <ul className="space-y-1 font-mono text-white/70">
             {previewTriples.map((triple: Triple, i: number) => (
               <li key={i} className="flex gap-2 rounded bg-white/5 px-2 py-1">
-                <span className="shrink-0 text-indigo-300">{shortUri(triple.subject)}</span>
+                <span className="shrink-0 text-cyan-300">{shortUri(triple.subject)}</span>
                 <span className="shrink-0 text-emerald-300">{shortUri(triple.predicate)}</span>
                 <span className="truncate text-amber-200">{shortUri(triple.object)}</span>
               </li>

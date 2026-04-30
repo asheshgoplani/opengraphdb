@@ -489,7 +489,7 @@ export default function PlaygroundPage() {
                   data-schema-mode="active"
                   style={{
                     background:
-                      'linear-gradient(180deg, rgba(100,255,180,0.03) 0%, rgba(100,255,180,0.015) 100%), hsla(240, 10%, 8%, 0.6)',
+                      'linear-gradient(180deg, rgba(100,255,180,0.03) 0%, rgba(100,255,180,0.015) 100%), hsla(24, 18%, 7%, 0.6)',
                   }}
                 >
                   <div

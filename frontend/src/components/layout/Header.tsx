@@ -10,7 +10,7 @@ import { Share2 } from 'lucide-react'
 
 export function Header() {
   return (
-    <header className="border-b border-white/10 bg-[hsl(240,28%,8%)]/85 backdrop-blur-md">
+    <header className="border-b border-white/10 bg-card/85 backdrop-blur-md">
       <div className="flex h-14 items-center justify-between gap-3 px-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <Link
