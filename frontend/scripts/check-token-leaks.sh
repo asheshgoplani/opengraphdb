@@ -33,5 +33,5 @@ fi
 # regex to cover shadeless white/black, slash-shade variants, full Tailwind
 # numbered palette, and gradient prefixes (from/to/via).
 # Ratchet this number DOWN as palette tokens replace raw utilities.
-BASELINE=291
+BASELINE=290
 test "$COUNT" -le "$BASELINE"
