@@ -431,6 +431,7 @@ export default function PlaygroundPage() {
               onClick={() => setActiveTab('graph')}
               icon={Network}
               label="Graph"
+              tabKey="graph"
               blurb="Cypher traversals · canvas"
             />
             <TabPill
@@ -438,6 +439,7 @@ export default function PlaygroundPage() {
               onClick={() => setActiveTab('schema')}
               icon={Database}
               label="Schema"
+              tabKey="schema"
               blurb="GET /schema · real backend"
             />
           </div>
@@ -491,6 +493,9 @@ export default function PlaygroundPage() {
                   exit={PANEL_MOTION.exit}
                   transition={PANEL_TRANSITION}
                   className="absolute inset-0"
+                  role="tabpanel"
+                  id="playground-panel-graph"
+                  aria-labelledby="playground-tab-graph"
                 >
                   <GraphCanvas
                     graphData={displayedGraphData}
@@ -508,6 +513,9 @@ export default function PlaygroundPage() {
                   className="absolute inset-0 overflow-y-auto bg-[linear-gradient(180deg,hsl(var(--accent)/0.03),hsl(var(--accent)/0.015)),hsl(var(--background)/0.6)]"
                   data-testid="schema-main-panel"
                   data-schema-mode="active"
+                  role="tabpanel"
+                  id="playground-panel-schema"
+                  aria-labelledby="playground-tab-schema"
                 >
                   <div
                     data-testid="schema-browser-header"
@@ -611,16 +619,20 @@ interface TabPillProps {
   disabled?: boolean
   icon: typeof Network
   label: string
+  tabKey: string
   blurb: string
 }
 
-function TabPill({ active, onClick, disabled, icon: Icon, label, blurb }: TabPillProps) {
+function TabPill({ active, onClick, disabled, icon: Icon, label, tabKey, blurb }: TabPillProps) {
   return (
     <button
       type="button"
       role="tab"
+      id={`playground-tab-${tabKey}`}
+      aria-controls={`playground-panel-${tabKey}`}
       aria-selected={active}
       aria-label={label}
+      tabIndex={active ? 0 : -1}
       disabled={disabled}
       onClick={onClick}
       className={cn(
