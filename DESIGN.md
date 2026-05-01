@@ -206,7 +206,7 @@ opengraphdb/
 │   │   │   ├── lib.rs
 │   │   │   ├── bolt/
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── protocol.rs      # Bolt v4/v5 message parsing
+│   │   │   │   ├── protocol.rs      # Bolt v1 message parsing (v4/v5 negotiation is a v0.5 follow-up)
 │   │   │   │   ├── codec.rs         # PackStream encoding/decoding
 │   │   │   │   └── session.rs       # Connection session state
 │   │   │   ├── http/
@@ -1746,7 +1746,18 @@ importer.commit()?;
 
 ## 25. Server Mode & Bolt Protocol
 
-### Bolt Protocol v4.4+
+### Bolt Protocol v1 (0.4.0)
+
+`ogdb-bolt` ships **Bolt v1** today
+(`crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_1`). The handshake declines
+anything else; Neo4j 4.x / 5.x drivers that negotiate v4/v5 by default
+will reject the handshake on connect — see
+`documentation/MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage" for
+the user-facing impact. v4/v5 negotiation is a v0.5 follow-up tracked
+in `documentation/COMPATIBILITY.md` § 4.
+
+The HELLO/RUN/PULL/GOODBYE message flow below is broadly the same in
+v1; only the version and capability set differ:
 
 ```
 Client                          Server

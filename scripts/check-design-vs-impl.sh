@@ -93,7 +93,7 @@ if [[ -n "$ACTUAL_BOLT" ]]; then
   BOLT_LIES=$(grep -RnE '\bBolt v[0-9](\.[0-9]+)?\+?\b|\bBolt Protocol v[0-9](\.[0-9]+)?\+?\b' \
       "${EXISTING[@]}" 2>/dev/null \
     | grep -vE "$SKIP_RE" \
-    | grep -vE "Bolt $ACTUAL_BOLT($|[^0-9])" \
+    | grep -vE "Bolt( Protocol)? $ACTUAL_BOLT($|[^0-9])" \
     | grep -vE '(v4 / v5|v4/v5|v0\.5 follow-up|v0\.5\+|will reject|negotiation tracked|follow-up|roadmap)' \
     || true)
   if [[ -n "$BOLT_LIES" ]]; then

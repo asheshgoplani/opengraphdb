@@ -564,7 +564,7 @@ ogdb export mydb.ogdb --format json > backup.jsonl
 
 | Protocol | Support | Purpose |
 |----------|---------|---------|
-| **Bolt** (Neo4j) | Full | Drop-in migration from Neo4j. Existing drivers work |
+| **Bolt v1** (Neo4j 3.x wire) | Shipped (v1-only) | Pre-Neo4j-3.5 wire era. Modern Neo4j 5.x drivers default to v4/v5 and will reject the handshake; see `documentation/MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage". v4/v5 negotiation tracked for v0.5. |
 | **HTTP/REST** | Full | Simple integration, curl-friendly |
 | **gRPC** | Planned (v2) | High-performance service-to-service |
 | **MCP** (stdio) | Full | AI agent integration |
@@ -631,7 +631,7 @@ OpenGraphDB uses capability commitments instead of date-based planning.
 - Bitmap pre-filter propagation and ID intersection operators
 - MCP server
 - JavaScript/TypeScript bindings
-- Bolt protocol compatibility
+- Bolt v1 protocol compatibility (v4/v5 negotiation is a v0.5 follow-up)
 - GQL keyword aliases and incremental compatibility improvements
 - File-level import tracking
 - Compact backup mode
