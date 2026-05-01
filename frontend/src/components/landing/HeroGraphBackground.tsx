@@ -60,11 +60,38 @@ function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+type IdleWindow = Window & {
+  requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+  cancelIdleCallback?: (id: number) => void
+}
+
 export function HeroGraphBackground() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 1200, height: 720 })
   const reducedMotion = useMemo(() => prefersReducedMotion(), [])
   const graphData = useMemo(() => createHeroGraphData(reducedMotion ? 14 : 22, reducedMotion ? 18 : 32), [reducedMotion])
+
+  // H6: defer canvas mount past first paint so the hero <h1> becomes the LCP
+  // candidate. requestIdleCallback where supported; setTimeout fallback in
+  // Safari and during reduced-motion (where the canvas barely animates anyway).
+  const [mountCanvas, setMountCanvas] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const w = window as IdleWindow
+    let idleId = 0
+    let timeoutId = 0
+    const schedule = () => setMountCanvas(true)
+    if (typeof w.requestIdleCallback === 'function') {
+      idleId = w.requestIdleCallback(schedule, { timeout: 1500 })
+    } else {
+      timeoutId = window.setTimeout(schedule, 600)
+    }
+    return () => {
+      if (idleId && typeof w.cancelIdleCallback === 'function') w.cancelIdleCallback(idleId)
+      if (timeoutId) window.clearTimeout(timeoutId)
+    }
+  }, [])
 
   useEffect(() => {
     const element = containerRef.current
@@ -86,6 +113,7 @@ export function HeroGraphBackground() {
       style={{ zIndex: 0 }}
       aria-hidden="true"
     >
+      {!mountCanvas ? null : (
       <ForceGraph2D<GraphNode, GraphEdge>
         graphData={graphData}
         width={dimensions.width}
@@ -128,6 +156,7 @@ export function HeroGraphBackground() {
         enableZoomInteraction={false}
         enablePanInteraction={false}
       />
+      )}
     </div>
   )
 }
