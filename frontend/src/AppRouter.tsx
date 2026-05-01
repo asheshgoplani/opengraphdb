@@ -8,6 +8,7 @@
 import { lazy, Suspense, useEffect } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import LandingPage from './pages/LandingPage'
+import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary'
 
 // M1 (audit 2026-04-23b): the "Loading…" spinner used to stall 1.5-1.7s on
 // cold navigation to `/`, `/playground`, and `/app` because every route was
@@ -44,24 +45,26 @@ export function AppRouter() {
   }, [])
 
   return (
-    <Suspense
-      fallback={
-        <div className="flex h-screen items-center justify-center bg-background">
-          <p className="animate-pulse text-muted-foreground">Loading…</p>
-        </div>
-      }
-    >
-      <Routes>
-        <Route path="/" element={<LandingPage />} />
-        <Route path="/playground" element={<PlaygroundPageLazy />} />
-        <Route path="/claims" element={<ClaimsPageLazy />} />
-        {/* QA bug #5 (2026-04-30): the dev router (legacy `npm run dev`) used
-            to render the heavy `<App />` component for /app, while the
-            production AppShellRouter already redirects /app→/playground.
-            Mirror the redirect here so behaviour matches across builds. */}
-        <Route path="/app" element={<Navigate to="/playground" replace />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+    <RouteErrorBoundary>
+      <Suspense
+        fallback={
+          <div className="flex h-screen items-center justify-center bg-background">
+            <p className="animate-pulse text-muted-foreground">Loading…</p>
+          </div>
+        }
+      >
+        <Routes>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/playground" element={<PlaygroundPageLazy />} />
+          <Route path="/claims" element={<ClaimsPageLazy />} />
+          {/* QA bug #5 (2026-04-30): the dev router (legacy `npm run dev`) used
+              to render the heavy `<App />` component for /app, while the
+              production AppShellRouter already redirects /app→/playground.
+              Mirror the redirect here so behaviour matches across builds. */}
+          <Route path="/app" element={<Navigate to="/playground" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </RouteErrorBoundary>
   )
 }
