@@ -135,6 +135,9 @@ fn pattern_match_through_shim_compiles() {
             ogdb_core::DocumentFormat::Pdf => "pdf",
             ogdb_core::DocumentFormat::Markdown => "md",
             ogdb_core::DocumentFormat::PlainText => "txt",
+            // DocumentFormat is #[non_exhaustive] (cycle-3 rust B3); future
+            // formats land in this arm so the test still compiles.
+            _ => "unknown",
         }
     }
     assert_eq!(classify(&ogdb_core::DocumentFormat::Pdf), "pdf");
