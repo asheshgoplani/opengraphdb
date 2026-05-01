@@ -206,8 +206,8 @@ fn apply_ops_in_tx(tx: &mut WriteTransaction<'_>, ops: &[Op]) {
                 if n == 0 {
                     continue;
                 }
-                let s = (*src as u64) % n;
-                let d = (*dst as u64) % n;
+                let s = u64::from(*src) % n;
+                let d = u64::from(*dst) % n;
                 let _ = tx.add_edge(s, d);
             }
             Op::SetLabels { node_idx, labels } => {
@@ -215,7 +215,7 @@ fn apply_ops_in_tx(tx: &mut WriteTransaction<'_>, ops: &[Op]) {
                 if n == 0 {
                     continue;
                 }
-                let id = (*node_idx as u64) % n;
+                let id = u64::from(*node_idx) % n;
                 let _ = tx.set_node_labels(id, labels.clone());
             }
             Op::SetProperty {
@@ -227,7 +227,7 @@ fn apply_ops_in_tx(tx: &mut WriteTransaction<'_>, ops: &[Op]) {
                 if n == 0 {
                     continue;
                 }
-                let id = (*node_idx as u64) % n;
+                let id = u64::from(*node_idx) % n;
                 let mut pm = PropertyMap::new();
                 pm.insert(key.clone(), PropertyValue::I64(*value));
                 let _ = tx.set_node_properties(id, pm);

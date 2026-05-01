@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 # Regression gate for eval/rust-quality §5 + EVAL-RUST-QUALITY-CYCLE2 §H8 +
-# EVAL-RUST-QUALITY-CYCLE3 §B1.
+# EVAL-RUST-QUALITY-CYCLE3 §B1 + EVAL-RUST-QUALITY-CYCLE4 §H3.
 #
-# Cycle 3 trims the `--exclude` list to the three crates that still carry
-# `#![allow(missing_docs)]` (ogdb-core 41 kLoC, ogdb-node, ogdb-python).
-# ogdb-cli, ogdb-bolt, and ogdb-ffi have all of their pub items documented
-# and now run under the gate. The remaining three are the cycle-N
-# ratchet — see N20 (split ogdb-core into modules) for the path to
-# closing them.
+# Cycle 3 trimmed the `--exclude` list to the three crates that still
+# carry `#![allow(missing_docs)]` (ogdb-core 41 kLoC, ogdb-node,
+# ogdb-python). Cycle 4 H3 adds two complements:
+#   1. ogdb-node / ogdb-python now declare the lint
+#      (`#![warn(missing_docs)]`) so a future contributor sees the
+#      warning at PR time even though the paired allow holds the
+#      baseline. Cycle 3 had left both crates with NO declaration at
+#      all (double-excluded).
+#   2. scripts/check-doc-ratchet.sh caps the undocumented count per
+#      crate at the cycle-4 baseline. New pub items must carry a
+#      `///` doc comment OR the ratchet fails.
+# The forcing function for closing the allow(s) remains the cycle-3
+# N20 split of ogdb-core, plus per-PR documentation of the napi /
+# pyo3 surfaces.
 set -euo pipefail
 
 RUSTDOCFLAGS="-D missing_docs" \

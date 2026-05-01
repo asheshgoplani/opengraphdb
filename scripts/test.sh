@@ -50,6 +50,23 @@ source "$HOME/.cargo/env"
 # EVAL-RUST-QUALITY-CYCLE3 B2: every publishable crate's lib.rs must
 # start with a `//!` crate-root rustdoc block (docs.rs landing page).
 ./scripts/check-crate-root-docs.sh
+# EVAL-RUST-QUALITY-CYCLE4 B1: forbid `|| echo "::warning::..."` swallow
+# on cargo steps (cycle-3 cargo-semver-checks anti-pattern).
+./scripts/check-no-advisory-swallow.sh
+# EVAL-RUST-QUALITY-CYCLE4 H6 + B2: pin unsafe_op_in_unsafe_fn=deny and
+# require new [workspace.lints.*] allows to be inventoried with a
+# CYCLE<N> ratchet rationale.
+./scripts/check-workspace-lint-pins.sh
+# EVAL-RUST-QUALITY-CYCLE4 H4: assert that 'cargo test --workspace --doc'
+# is wired into scripts/test.sh and ci.yml so doctests stay gated.
+./scripts/check-doc-tests-wired.sh
+# EVAL-RUST-QUALITY-CYCLE4 H5: bindings/c, bindings/go, proto must each
+# carry a README so downstream FFI consumers don't land in opaque dirs.
+./scripts/check-binding-readmes.sh
+# EVAL-RUST-QUALITY-CYCLE4 H3: ratchet on undocumented pub items in
+# ogdb-core / ogdb-node / ogdb-python — caps each at the cycle-4
+# baseline, so new pub items must land with /// doc comments.
+./scripts/check-doc-ratchet.sh
 
 cargo fmt --all --check
 cargo check --workspace
@@ -79,3 +96,9 @@ cargo audit \
 # care if our deps' docs warn).
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
 cargo test --workspace --all-targets
+# EVAL-RUST-QUALITY-CYCLE4 H4: --all-targets does NOT cover doctests
+# (it expands to --lib --bins --tests --benches --examples). The //!
+# quickstart in ogdb-core (and any future /// example on a pub item)
+# needs --doc to actually run, otherwise an API rename silently breaks
+# the docs.rs landing page without CI feedback.
+cargo test --workspace --doc

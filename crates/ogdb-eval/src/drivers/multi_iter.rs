@@ -68,6 +68,11 @@ pub struct WarmupReport {
 /// phases 3-4 read against the controlled 1k-node dataset (not the
 /// streaming DB's variable size). This isolates read warm-up from
 /// timing-dependent streaming output.
+// Metric `value` is f64 holding an event count produced by the same
+// driver layer; non-negative by construction (counts are monotonic,
+// the DB never reports a negative tally). The `as u64` summarises
+// counts for the report — sign-loss is invariant.
+#[allow(clippy::cast_sign_loss)]
 pub fn run_warmup_pass(warmup_dir: &Path) -> Result<WarmupReport, RunAllError> {
     std::fs::create_dir_all(warmup_dir)?;
 
@@ -151,6 +156,7 @@ pub fn run_warmup_then_iters(
 /// from the last iter (so the published baseline timestamp reflects the
 /// measurement window's end). `git_sha` is taken from iter 1; in
 /// practice all iters run from the same checkout.
+#[must_use]
 pub fn median_aggregate(iters: &[Vec<EvaluationRun>]) -> Vec<EvaluationRun> {
     if iters.is_empty() {
         return Vec::new();

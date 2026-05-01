@@ -24,6 +24,14 @@
 // `unsafe fn` blocks in this crate today; verified by
 // `grep -nE 'unsafe \\{|unsafe fn' crates/ogdb-node/src/`.
 #![cfg_attr(feature = "node", allow(unsafe_op_in_unsafe_fn))]
+// EVAL-RUST-QUALITY-CYCLE4 H3: declare missing_docs so new pub items
+// fire a PR-time warning. Cycle 3 left this crate without the
+// declaration at all (double-excluded). The paired allow below is
+// the holding pattern for the existing napi-exported surface; the
+// scripts/check-doc-ratchet.sh gate caps the undocumented count
+// at the cycle-4 baseline, so future PRs cannot grow it.
+#![warn(missing_docs)]
+#![allow(missing_docs)]
 
 use ogdb_cli::run as run_cli;
 use ogdb_core::{
@@ -166,13 +174,13 @@ fn property_value_to_json(value: &PropertyValue) -> Value {
         PropertyValue::String(v) => Value::String(v.clone()),
         PropertyValue::Bytes(v) => Value::Array(
             v.iter()
-                .map(|item| Value::Number((*item as u64).into()))
+                .map(|item| Value::Number(u64::from(*item).into()))
                 .collect(),
         ),
         PropertyValue::Vector(v) => Value::Array(
             v.iter()
                 .map(|item| {
-                    serde_json::Number::from_f64(*item as f64)
+                    serde_json::Number::from_f64(f64::from(*item))
                         .map(Value::Number)
                         .unwrap_or(Value::Null)
                 })
@@ -534,11 +542,11 @@ impl NodeBindingDatabase {
         Ok(Map::from_iter([
             (
                 "format_version".to_string(),
-                Value::Number((metrics.format_version as u64).into()),
+                Value::Number(u64::from(metrics.format_version).into()),
             ),
             (
                 "page_size".to_string(),
-                Value::Number((metrics.page_size as u64).into()),
+                Value::Number(u64::from(metrics.page_size).into()),
             ),
             (
                 "page_count".to_string(),

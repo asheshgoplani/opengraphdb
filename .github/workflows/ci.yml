@@ -63,6 +63,13 @@ jobs:
       - name: Run test workflow
         run: ./scripts/test.sh
 
+      # EVAL-RUST-QUALITY-CYCLE4 H4: dual-pin doctest execution. scripts/test.sh
+      # already runs `cargo test --workspace --doc`; surface it as a discrete CI
+      # step so a failure points at doctests directly instead of being buried
+      # in the larger test workflow log.
+      - name: Run doctests
+        run: cargo test --workspace --doc
+
       - name: Run coverage gate
         run: ./scripts/coverage.sh
 
@@ -189,13 +196,14 @@ jobs:
         run: cargo check --workspace --all-features
 
   semver:
-    # EVAL-RUST-QUALITY-CYCLE3 B4 (BLOCKER): the workspace ships v0.4.0 to
-    # crates.io. Without cargo-semver-checks, an accidental breaking change
-    # to a #[non_exhaustive] enum, a method's signature, or a removed pub
-    # item slips through CI and breaks every downstream `cargo add
-    # ogdb-core@^0.4`. Run in advisory mode initially (`|| echo` swallows
-    # the failure) so the gate lands before the baseline-clean PR.
-    # Drop the `|| echo` once one green run posts.
+    # EVAL-RUST-QUALITY-CYCLE3 B4 (BLOCKER) → CYCLE4 B1 (BLOCKER): the
+    # workspace ships v0.4.0 to crates.io. Without cargo-semver-checks,
+    # an accidental breaking change to a #[non_exhaustive] enum, a
+    # method's signature, or a removed pub item slips through CI and
+    # breaks every downstream `cargo add ogdb-core@^0.4`. Cycle 3 wired
+    # the gate but kept `|| echo` advisory swallow; cycle 4 drops the
+    # swallow now that the baseline is clean — a non-zero exit fails
+    # CI, so a real semver regression demands a fix or a major bump.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -226,14 +234,13 @@ jobs:
       - name: Install cargo-semver-checks
         run: cargo install cargo-semver-checks --locked --version 0.44.0
 
-      - name: cargo semver-checks (advisory until baseline clean)
+      - name: cargo semver-checks check-release
         run: |
-          set -u
+          set -euo pipefail
           for crate in ogdb-types ogdb-vector ogdb-text ogdb-temporal \
                        ogdb-algorithms ogdb-import ogdb-export \
                        ogdb-core ogdb-bolt ogdb-cli; do
-            cargo semver-checks check-release -p "$crate" \
-              || echo "::warning::semver regression in $crate (advisory)"
+            cargo semver-checks check-release -p "$crate"
           done
 
   cross-platform-build:

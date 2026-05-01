@@ -731,6 +731,7 @@ impl From<ShaclLoadError> for CliError {
 ///
 /// Useful for downstream wrappers that want to surface the canonical
 /// help string in their own UI.
+#[must_use]
 pub fn usage() -> String {
     let mut cmd = Cli::command();
     cmd.render_help().to_string()
@@ -883,6 +884,7 @@ fn parse_cli(args: &[String]) -> Result<Cli, CliResult> {
 /// [`CliResult`] without writing to the process's actual stdout/stderr,
 /// so wrappers (e.g. ogdb-ffi, ogdb-node, ogdb-python) can surface the
 /// streams to their host language.
+#[must_use]
 pub fn run(args: &[String]) -> CliResult {
     let normalized_args = normalize_rdf_format_alias(args);
     let cli = match parse_cli(&normalized_args) {
@@ -4009,7 +4011,7 @@ fn base64_decode(input: &str) -> Result<Vec<u8>, String> {
         if val == 255 {
             return Err(format!("invalid base64 character: {}", b as char));
         }
-        buf = (buf << 6) | val as u32;
+        buf = (buf << 6) | u32::from(val);
         bits += 6;
         if bits >= 8 {
             bits -= 8;
@@ -5608,7 +5610,7 @@ fn write_rdf_body_to_tempfile(body: &[u8], ext: &str) -> Result<RdfUploadTempfil
         .map(|d| d.as_nanos() as u64)
         .unwrap_or(0);
     let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
-    let pid = std::process::id() as u64;
+    let pid = u64::from(std::process::id());
     let name = format!("ogdb-rdf-upload-{pid:x}-{nanos:x}-{counter:x}.{ext}");
     let path = std::env::temp_dir().join(name);
     let mut file = File::create(&path).map_err(|e| {
@@ -7977,7 +7979,7 @@ fn property_value_to_export_json(value: &PropertyValue) -> Value {
             value
                 .iter()
                 .map(|entry| {
-                    serde_json::Number::from_f64(*entry as f64)
+                    serde_json::Number::from_f64(f64::from(*entry))
                         .map(Value::Number)
                         .unwrap_or(Value::Null)
                 })

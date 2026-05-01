@@ -29,6 +29,7 @@ pub struct ResourceSample {
 }
 
 impl ResourceSample {
+    #[must_use]
     pub fn from_dir(dir: &Path) -> Self {
         Self {
             rss_bytes: process_rss_bytes(),

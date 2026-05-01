@@ -71,6 +71,7 @@ pub struct RunAllConfig {
 
 impl RunAllConfig {
     /// Conservative sizes for CI / test runs (<10s total).
+    #[must_use]
     pub fn quick(workdir: &Path) -> Self {
         Self {
             workdir: workdir.to_path_buf(),
@@ -94,6 +95,7 @@ impl RunAllConfig {
     /// Full-fidelity sizes matching the spec's Phase-1 thresholds. Not used
     /// from `cargo test` because debug-mode scaling-tier inserts are
     /// prohibitively slow; invoke from a release-mode bench harness.
+    #[must_use]
     pub fn full(workdir: &Path) -> Self {
         Self {
             workdir: workdir.to_path_buf(),

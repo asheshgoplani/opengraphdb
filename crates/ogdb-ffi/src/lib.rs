@@ -234,13 +234,13 @@ fn property_value_to_json(value: &PropertyValue) -> Value {
         PropertyValue::String(v) => Value::String(v.clone()),
         PropertyValue::Bytes(v) => Value::Array(
             v.iter()
-                .map(|item| Value::Number((*item as u64).into()))
+                .map(|item| Value::Number(u64::from(*item).into()))
                 .collect(),
         ),
         PropertyValue::Vector(v) => Value::Array(
             v.iter()
                 .map(|item| {
-                    serde_json::Number::from_f64(*item as f64)
+                    serde_json::Number::from_f64(f64::from(*item))
                         .map(Value::Number)
                         .unwrap_or(Value::Null)
                 })

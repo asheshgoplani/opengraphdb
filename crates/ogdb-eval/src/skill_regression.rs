@@ -70,6 +70,7 @@ pub fn load_runs_from_json_array(path: &Path) -> Result<Vec<EvaluationRun>, Eval
 }
 
 /// First run whose `suite == "skill_quality"`, else `None`.
+#[must_use]
 pub fn find_skill_quality_run(runs: &[EvaluationRun]) -> Option<&EvaluationRun> {
     runs.iter().find(|r| r.suite == "skill_quality")
 }
@@ -77,6 +78,7 @@ pub fn find_skill_quality_run(runs: &[EvaluationRun]) -> Option<&EvaluationRun> 
 /// `OGDB_SKILL_REGRESSION_THRESHOLD_PCT` parsed as f64, else
 /// `DEFAULT_THRESHOLD_PCT` (5.0). Non-finite / negative / unparseable
 /// values fall back to the default.
+#[must_use]
 pub fn threshold_pct_from_env() -> f64 {
     match std::env::var(THRESHOLD_ENV) {
         Ok(s) => match s.parse::<f64>() {
@@ -88,6 +90,7 @@ pub fn threshold_pct_from_env() -> f64 {
 }
 
 /// Pure function — deterministic output given fixed inputs.
+#[must_use]
 pub fn generate_skill_regression_report(
     baseline: &EvaluationRun,
     current: &EvaluationRun,

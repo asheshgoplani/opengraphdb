@@ -567,7 +567,7 @@ fn pack_value_from_property(value: &PropertyValue) -> PackValue {
         PropertyValue::Vector(value) => PackValue::List(
             value
                 .iter()
-                .map(|entry| PackValue::Float(*entry as f64))
+                .map(|entry| PackValue::Float(f64::from(*entry)))
                 .collect(),
         ),
         PropertyValue::Date(value) => PackValue::Integer(i64::from(*value)),
@@ -720,16 +720,20 @@ fn encode_value(value: &PackValue, out: &mut Vec<u8>) -> Result<(), BoltError> {
     Ok(())
 }
 
+// PackStream: small ints are encoded by transmuting `value as i8 as u8`
+// for byte emission; the range guards above guarantee `value` fits in
+// i8, so the `as u8` is sign-safe.
+#[allow(clippy::cast_sign_loss)]
 fn encode_integer(value: i64, out: &mut Vec<u8>) {
     if (-16..=127).contains(&value) {
         out.push(value as i8 as u8);
-    } else if (i8::MIN as i64..=i8::MAX as i64).contains(&value) {
+    } else if (i64::from(i8::MIN)..=i64::from(i8::MAX)).contains(&value) {
         out.push(0xC8);
         out.push(value as i8 as u8);
-    } else if (i16::MIN as i64..=i16::MAX as i64).contains(&value) {
+    } else if (i64::from(i16::MIN)..=i64::from(i16::MAX)).contains(&value) {
         out.push(0xC9);
         out.extend_from_slice(&(value as i16).to_be_bytes());
-    } else if (i32::MIN as i64..=i32::MAX as i64).contains(&value) {
+    } else if (i64::from(i32::MIN)..=i64::from(i32::MAX)).contains(&value) {
         out.push(0xCA);
         out.extend_from_slice(&(value as i32).to_be_bytes());
     } else {
@@ -795,7 +799,7 @@ fn decode_value(input: &[u8], offset: usize) -> Result<(PackValue, usize), BoltE
     let mut cursor = offset + 1;
 
     if marker <= 0x7F || marker >= 0xF0 {
-        return Ok((PackValue::Integer((marker as i8) as i64), cursor));
+        return Ok((PackValue::Integer(i64::from(marker as i8)), cursor));
     }
 
     match marker {
@@ -803,15 +807,15 @@ fn decode_value(input: &[u8], offset: usize) -> Result<(PackValue, usize), BoltE
         0xC2 => Ok((PackValue::Bool(false), cursor)),
         0xC3 => Ok((PackValue::Bool(true), cursor)),
         0xC8 => {
-            let value = read_i8(input, &mut cursor)? as i64;
+            let value = i64::from(read_i8(input, &mut cursor)?);
             Ok((PackValue::Integer(value), cursor))
         }
         0xC9 => {
-            let value = read_i16(input, &mut cursor)? as i64;
+            let value = i64::from(read_i16(input, &mut cursor)?);
             Ok((PackValue::Integer(value), cursor))
         }
         0xCA => {
-            let value = read_i32(input, &mut cursor)? as i64;
+            let value = i64::from(read_i32(input, &mut cursor)?);
             Ok((PackValue::Integer(value), cursor))
         }
         0xCB => {

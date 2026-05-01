@@ -11,6 +11,7 @@ use crate::{BinaryInfo, EvaluationRun, Metric, Platform, SCHEMA_VERSION};
 
 /// Build a baseline `EvaluationRun` with platform/binary/timestamp filled in.
 /// Callers add `metrics`, `notes`, etc.
+#[must_use]
 pub fn evaluation_run_skeleton(suite: &str, subsuite: &str, dataset: &str) -> EvaluationRun {
     EvaluationRun {
         schema_version: SCHEMA_VERSION.to_string(),
@@ -46,6 +47,7 @@ pub fn evaluation_run_skeleton(suite: &str, subsuite: &str, dataset: &str) -> Ev
     }
 }
 
+#[must_use]
 pub fn metric(value: f64, unit: &str, higher_is_better: bool) -> Metric {
     Metric {
         value,
@@ -57,12 +59,15 @@ pub fn metric(value: f64, unit: &str, higher_is_better: bool) -> Metric {
 /// Compute (p50, p95, p99) from a slice of sample values. Uses
 /// nearest-rank: index = ceil(p * N) - 1. Returns `(0, 0, 0)` for empty
 /// input.
+#[must_use]
 pub fn percentiles(samples_us: &[f64]) -> (f64, f64, f64) {
     if samples_us.is_empty() {
         return (0.0, 0.0, 0.0);
     }
     let mut sorted = samples_us.to_vec();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    // p ∈ [0,1], n > 0; product is non-negative, ceil() preserves sign.
+    #[allow(clippy::cast_sign_loss)]
     let pick = |p: f64| -> f64 {
         let n = sorted.len();
         let idx = ((p * n as f64).ceil() as usize)
@@ -76,12 +81,15 @@ pub fn percentiles(samples_us: &[f64]) -> (f64, f64, f64) {
 /// Extended percentile set — (p50, p95, p99, p99_9). Spec Dimension 2
 /// requires the full tail, and pure-graph workloads routinely have
 /// p99.9 ≫ p99 under GC / page-cache-miss events.
+#[must_use]
 pub fn percentiles_extended(samples_us: &[f64]) -> (f64, f64, f64, f64) {
     if samples_us.is_empty() {
         return (0.0, 0.0, 0.0, 0.0);
     }
     let mut sorted = samples_us.to_vec();
     sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
+    // p ∈ [0,1], n > 0; product is non-negative, ceil() preserves sign.
+    #[allow(clippy::cast_sign_loss)]
     let pick = |p: f64| -> f64 {
         let n = sorted.len();
         let idx = ((p * n as f64).ceil() as usize)
@@ -94,6 +102,7 @@ pub fn percentiles_extended(samples_us: &[f64]) -> (f64, f64, f64, f64) {
 
 /// Sum file sizes under `dir`, recursing once. Used by the scaling driver.
 /// Returns 0 if `dir` doesn't exist.
+#[must_use]
 pub fn dir_disk_bytes(dir: &Path) -> u64 {
     let mut total = 0u64;
     let Ok(entries) = std::fs::read_dir(dir) else {
@@ -112,6 +121,7 @@ pub fn dir_disk_bytes(dir: &Path) -> u64 {
 
 /// Best-effort RSS in bytes via `/proc/self/status` (Linux). Returns 0 on
 /// other OSes or if the read fails — callers tolerate `rss_mb=0`.
+#[must_use]
 pub fn process_rss_bytes() -> u64 {
     #[cfg(target_os = "linux")]
     {
@@ -158,6 +168,9 @@ fn timestamp_utc() -> String {
     format!("{y:04}-{mo:02}-{d:02}T{h:02}:{mi:02}:{s:02}Z")
 }
 
+// Calendar arithmetic: era adjustment guarantees non-negative quantities
+// before the casts (see Howard Hinnant's `civil_from_days`).
+#[allow(clippy::cast_sign_loss)]
 fn epoch_to_ymdhms(secs: u64) -> (i32, u32, u32, u32, u32, u32) {
     let days = (secs / 86_400) as i64;
     let s_today = (secs % 86_400) as u32;
@@ -185,7 +198,7 @@ mod tests {
 
     #[test]
     fn percentiles_basic() {
-        let xs: Vec<f64> = (1..=100).map(|i| i as f64).collect();
+        let xs: Vec<f64> = (1..=100).map(|i| f64::from(i)).collect();
         let (p50, p95, p99) = percentiles(&xs);
         assert_eq!(p50, 50.0);
         assert_eq!(p95, 95.0);

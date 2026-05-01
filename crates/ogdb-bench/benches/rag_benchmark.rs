@@ -10,7 +10,7 @@ use tempfile::TempDir;
 fn fake_embed(text: &str, dims: usize) -> Vec<f32> {
     let mut vec = vec![0.0f32; dims];
     for (i, byte) in text.bytes().enumerate() {
-        vec[i % dims] += byte as f32 / 255.0;
+        vec[i % dims] += f32::from(byte) / 255.0;
     }
     let norm: f32 = vec.iter().map(|x| x * x).sum::<f32>().sqrt().max(1e-8);
     for v in &mut vec {

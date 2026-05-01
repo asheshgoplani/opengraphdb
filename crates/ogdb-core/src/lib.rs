@@ -27,13 +27,21 @@
 //! multi-process write access is undefined behaviour today and is tracked as
 //! a v0.5 follow-up (see `documentation/BENCHMARKS.md` § 4.6).
 
-// EVAL-RUST-QUALITY-CYCLE2 B1: `missing_docs` is `warn`-on-add. The ~245
-// currently-undocumented public items predate this gate; the
+// EVAL-RUST-QUALITY-CYCLE2 B1 → CYCLE4 H3: `missing_docs` is `warn`-on-add.
+// The currently-undocumented public items predate this gate; the
 // `allow(missing_docs)` below converts the new-PR warning into a
-// no-op for legacy items. Cycle 3's forcing function (B1 + N20) is to
-// split this 41 kLoC lib.rs into modules and document each section as
-// it moves; removing the `allow` is the cycle-N gate that locks in
-// the new docs.
+// no-op for legacy items. Cycle 4 adds the
+// `scripts/check-doc-ratchet.sh` gate that caps the undocumented
+// count at the cycle-4 baseline — new pub items MUST land with a
+// `///` doc comment.
+//
+// CYCLE4-DOC-RATCHET: 290 pub items remain undocumented as of the
+// cycle-4 commit. Each PR touching ogdb-core lib.rs MUST decrement
+// this counter (or hold it steady) — see scripts/check-doc-ratchet.sh
+// for the enforcement. The forcing function for closure is the
+// cycle-3 N20 split of lib.rs into modules; documenting each
+// section as it moves brings the counter to zero, at which point
+// the `#![allow(missing_docs)]` below can be removed.
 #![warn(missing_docs)]
 #![allow(missing_docs)]
 // Style lints surfaced by clippy 1.88+; cleanup tracked as a follow-up slice
@@ -41,6 +49,29 @@
 // keeps the workspace gate green without obscuring real issues.
 #![allow(clippy::uninlined_format_args)]
 #![allow(clippy::only_used_in_recursion)]
+// EVAL-RUST-QUALITY-CYCLE4 B2 ratchet (N20-blocked): the workspace flips
+// `cast_sign_loss` to `warn` so new files can't introduce silent sign-
+// loss casts. ogdb-core has 12 pre-existing sites that share three
+// invariants:
+//   1. Planner cost estimates: `((rows as f64) * factor).max(1.0).ceil() as u64`
+//      — operand always >= 1.0 by `.max(1.0)`, so `as u64` is sign-safe.
+//      Sites: lib.rs:4160, 4163, 4187, 4430, 4510, 4528.
+//   2. Calendar era arithmetic: civil-from-days conversions adjust for
+//      negative years before the cast, so `(z - era * 146_097) as u32`
+//      and `(adjusted_year - era * 400) as u32` are non-negative by
+//      construction. Sites: lib.rs:5142, 5196.
+//   3. Node-id-from-i64 bridge: Cypher integer literals arrive as `i64`
+//      via `PropertyValue::I64`; the storage layer node id is `u64`.
+//      A negative literal cannot bind to a node id (the lookup would
+//      miss); the cast preserves the bit pattern intentionally for the
+//      lookup attempt. Sites: lib.rs:14046, 14117, 14852.
+//   4. Unwind fanout: `(b - a + 1) as u64` is guarded by `b >= a`.
+//      Site: lib.rs:4294.
+// The forcing function to remove this allow is the cycle-3 N20 split
+// of ogdb-core/src/lib.rs into modules — each site becomes a typed
+// `u64` throughout the chain. Until N20 lands, the per-site `as u64`
+// is intentional and the workspace gate stays green.
+#![allow(clippy::cast_sign_loss)]
 
 use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
@@ -322,6 +353,7 @@ pub struct Header {
 }
 
 impl Header {
+    #[must_use]
     pub fn default_v1() -> Self {
         Self {
             format_version: 1,
@@ -331,6 +363,7 @@ impl Header {
         }
     }
 
+    #[must_use]
     pub fn encode(self) -> [u8; HEADER_SIZE] {
         let mut out = [0u8; HEADER_SIZE];
         out[..8].copy_from_slice(&MAGIC);
@@ -497,6 +530,7 @@ pub struct TraceCollector {
 }
 
 impl TraceCollector {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -510,6 +544,7 @@ impl TraceCollector {
     }
 
     /// Deduplicate while preserving first-seen order.
+    #[must_use]
     pub fn unique_node_ids(&self) -> Vec<u64> {
         let mut seen = std::collections::HashSet::new();
         self.visited_node_ids
@@ -560,6 +595,7 @@ pub struct ReplicationSource {
 
 #[cfg(not(target_arch = "wasm32"))]
 impl ReplicationSource {
+    #[must_use]
     pub fn local_addr(&self) -> String {
         self.bind_addr.clone()
     }
@@ -690,6 +726,7 @@ pub struct RecordBatch {
 }
 
 impl RecordBatch {
+    #[must_use]
     pub fn row_count(&self) -> usize {
         self.columns
             .values()
@@ -711,6 +748,7 @@ impl QueryResult {
         self.batches.iter().map(RecordBatch::row_count).sum()
     }
 
+    #[must_use]
     pub fn to_rows(&self) -> Vec<BTreeMap<String, PropertyValue>> {
         let mut rows = Vec::<BTreeMap<String, PropertyValue>>::new();
         for batch in &self.batches {
@@ -730,6 +768,7 @@ impl QueryResult {
         rows
     }
 
+    #[must_use]
     pub fn to_json(&self) -> String {
         let rows = self
             .to_rows()
@@ -788,11 +827,13 @@ pub struct ExecutionSummary {
 
 impl ExecutionSummary {
     /// Number of nodes created by the query.
+    #[must_use]
     pub fn nodes_created(&self) -> u64 {
         self.nodes_after.saturating_sub(self.nodes_before)
     }
 
     /// Number of edges created by the query.
+    #[must_use]
     pub fn edges_created(&self) -> u64 {
         self.edges_after.saturating_sub(self.edges_before)
     }
@@ -821,6 +862,7 @@ struct WasmInMemoryEdge {
 }
 
 impl WasmInMemoryDatabase {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
@@ -856,10 +898,12 @@ impl WasmInMemoryDatabase {
         Ok(edge_id)
     }
 
+    #[must_use]
     pub fn node_count(&self) -> u64 {
         self.nodes.len() as u64
     }
 
+    #[must_use]
     pub fn edge_count(&self) -> u64 {
         self.edges.len() as u64
     }
@@ -1149,6 +1193,7 @@ pub struct CommunityHierarchy {
 
 impl CommunityHierarchy {
     /// Get top-level communities (highest/coarsest level)
+    #[must_use]
     pub fn top_level(&self) -> Vec<&CommunitySummary> {
         let max_level = self.depth.saturating_sub(1);
         self.levels
@@ -1162,6 +1207,7 @@ impl CommunityHierarchy {
     }
 
     /// Get children communities of a given community
+    #[must_use]
     pub fn children_of(&self, community_id: u64) -> Vec<&CommunitySummary> {
         self.children
             .get(&community_id)
@@ -1174,6 +1220,7 @@ impl CommunityHierarchy {
     }
 
     /// Get member node IDs for a leaf-level community
+    #[must_use]
     pub fn members_of(&self, community_id: u64) -> &[u64] {
         self.members
             .get(&community_id)
@@ -2119,6 +2166,7 @@ pub enum PhysicalPlan {
 }
 
 impl PhysicalPlan {
+    #[must_use]
     pub fn estimated_rows(&self) -> u64 {
         match self {
             Self::PhysicalScan { estimated_rows, .. }
@@ -2143,6 +2191,7 @@ impl PhysicalPlan {
         }
     }
 
+    #[must_use]
     pub fn estimated_cost(&self) -> f64 {
         match self {
             Self::PhysicalScan { estimated_cost, .. }
@@ -4756,7 +4805,7 @@ fn property_value_to_json(value: &PropertyValue) -> serde_json::Value {
             value
                 .iter()
                 .map(|entry| {
-                    serde_json::Number::from_f64(*entry as f64)
+                    serde_json::Number::from_f64(f64::from(*entry))
                         .map(serde_json::Value::Number)
                         .unwrap_or(serde_json::Value::Null)
                 })
@@ -5142,7 +5191,7 @@ fn days_to_date_string(days_since_epoch: i32) -> String {
     let day_of_era = (z - era * 146_097) as u32;
     let year_of_era =
         (day_of_era - day_of_era / 1_460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let year = year_of_era as i64 + era * 400;
+    let year = i64::from(year_of_era) + era * 400;
     let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
     let month_phase = (5 * day_of_year + 2) / 153;
     let day = day_of_year - (153 * month_phase + 2) / 5 + 1;
@@ -8341,18 +8390,22 @@ pub struct ReadTransaction<'a> {
 }
 
 impl<'a> ReadTransaction<'a> {
+    #[must_use]
     pub fn snapshot_txn_id(&self) -> u64 {
         self.snapshot_txn_id
     }
 
+    #[must_use]
     pub fn can_see_version(&self, txn_id: u64) -> bool {
         self.db.can_see_version(self.snapshot_txn_id, txn_id, true)
     }
 
+    #[must_use]
     pub fn node_count(&self) -> u64 {
         self.db.node_count_at(self.snapshot_txn_id)
     }
 
+    #[must_use]
     pub fn edge_count(&self) -> u64 {
         self.db.edge_count_at(self.snapshot_txn_id)
     }
@@ -8548,15 +8601,18 @@ impl<'a> ReadTransaction<'a> {
             .edge_transaction_time_millis_at(edge_id, self.snapshot_txn_id)
     }
 
+    #[must_use]
     pub fn schema_catalog(&self) -> SchemaCatalog {
         self.db.schema_catalog()
     }
 
+    #[must_use]
     pub fn find_nodes_by_property(&self, key: &str, value: &PropertyValue) -> Vec<u64> {
         self.db
             .find_nodes_by_property_at(key, value, self.snapshot_txn_id)
     }
 
+    #[must_use]
     pub fn find_nodes_by_label_and_property(
         &self,
         label: &str,
@@ -8567,6 +8623,7 @@ impl<'a> ReadTransaction<'a> {
             .find_nodes_by_label_and_property_at(label, key, value, self.snapshot_txn_id)
     }
 
+    #[must_use]
     pub fn find_nodes_by_label(&self, label: &str) -> Vec<u64> {
         self.db.find_nodes_by_label_at(label, self.snapshot_txn_id)
     }
@@ -8601,14 +8658,17 @@ pub struct WriteTransaction<'a> {
 }
 
 impl<'a> WriteTransaction<'a> {
+    #[must_use]
     pub fn txn_id(&self) -> u64 {
         self.txn_id
     }
 
+    #[must_use]
     pub fn projected_node_count(&self) -> u64 {
         self.projected_node_count
     }
 
+    #[must_use]
     pub fn projected_edge_count(&self) -> u64 {
         self.projected_edge_count
     }
@@ -8998,19 +9058,23 @@ pub struct ReadSnapshot<'a> {
 }
 
 impl<'a> ReadSnapshot<'a> {
+    #[must_use]
     pub fn snapshot_txn_id(&self) -> u64 {
         self.snapshot_txn_id
     }
 
+    #[must_use]
     pub fn can_see_version(&self, txn_id: u64) -> bool {
         self.guard
             .can_see_version(self.snapshot_txn_id, txn_id, true)
     }
 
+    #[must_use]
     pub fn node_count(&self) -> u64 {
         self.guard.node_count_at(self.snapshot_txn_id)
     }
 
+    #[must_use]
     pub fn edge_count(&self) -> u64 {
         self.guard.edge_count_at(self.snapshot_txn_id)
     }
@@ -9228,15 +9292,18 @@ impl<'a> ReadSnapshot<'a> {
             .edge_transaction_time_millis_at(edge_id, self.snapshot_txn_id)
     }
 
+    #[must_use]
     pub fn schema_catalog(&self) -> SchemaCatalog {
         self.guard.schema_catalog()
     }
 
+    #[must_use]
     pub fn find_nodes_by_property(&self, key: &str, value: &PropertyValue) -> Vec<u64> {
         self.guard
             .find_nodes_by_property_at(key, value, self.snapshot_txn_id)
     }
 
+    #[must_use]
     pub fn find_nodes_by_label_and_property(
         &self,
         label: &str,
@@ -9247,6 +9314,7 @@ impl<'a> ReadSnapshot<'a> {
             .find_nodes_by_label_and_property_at(label, key, value, self.snapshot_txn_id)
     }
 
+    #[must_use]
     pub fn find_nodes_by_label(&self, label: &str) -> Vec<u64> {
         self.guard
             .find_nodes_by_label_at(label, self.snapshot_txn_id)
@@ -9420,6 +9488,7 @@ impl SharedDatabase {
         Ok(Self::from_database_with_write_mode(db, write_mode))
     }
 
+    #[must_use]
     pub fn write_mode(&self) -> WriteConcurrencyMode {
         self.write_mode
     }
@@ -13079,7 +13148,7 @@ impl Database {
                         .and_then(|value| value.as_u64())
                         .filter(|node_id| {
                             prefilter.is_none_or(|bitmap| {
-                                *node_id <= u32::MAX as u64 && bitmap.contains(*node_id as u32)
+                                *node_id <= u64::from(u32::MAX) && bitmap.contains(*node_id as u32)
                             })
                         })
                         .map(|node_id| (node_id, score)),
@@ -13102,7 +13171,7 @@ impl Database {
                         continue;
                     }
                     if let Some(bitmap) = prefilter {
-                        if node_id > u32::MAX as u64 || !bitmap.contains(node_id as u32) {
+                        if node_id > u64::from(u32::MAX) || !bitmap.contains(node_id as u32) {
                             continue;
                         }
                     }
@@ -13180,7 +13249,7 @@ impl Database {
                 continue;
             }
             if let Some(bitmap) = prefilter {
-                if node_id > u32::MAX as u64 || !bitmap.contains(node_id as u32) {
+                if node_id > u64::from(u32::MAX) || !bitmap.contains(node_id as u32) {
                     continue;
                 }
             }
@@ -13299,7 +13368,7 @@ impl Database {
             .collect::<Vec<_>>();
         let score_column = rows
             .iter()
-            .map(|(_, score)| PropertyValue::F64(*score as f64))
+            .map(|(_, score)| PropertyValue::F64(f64::from(*score)))
             .collect::<Vec<_>>();
         QueryResult {
             columns: vec!["node".to_string(), "score".to_string()],
@@ -15673,7 +15742,7 @@ impl Database {
                                 &left_vec,
                                 &right_vec,
                             )
-                            .map(|distance| RuntimeValue::Property(PropertyValue::F64(distance as f64)))
+                            .map(|distance| RuntimeValue::Property(PropertyValue::F64(f64::from(distance))))
                             .ok_or_else(|| {
                                 QueryError::new(
                                     "vector distance requires non-empty vectors with equal dimensions",
@@ -16994,7 +17063,7 @@ impl Database {
             ));
         }
         let data_len = len - HEADER_SIZE as u64;
-        let page_size = self.header.page_size as u64;
+        let page_size = u64::from(self.header.page_size);
         if !data_len.is_multiple_of(page_size) {
             return Err(DbError::Corrupt(
                 "file data section is not page-aligned".to_string(),
@@ -20581,7 +20650,8 @@ impl Database {
         };
         if new_page_count < page_count {
             self.evict_buffer_pool_pages_from(new_page_count)?;
-            let new_len = (HEADER_SIZE as u64) + (self.header.page_size as u64 * new_page_count);
+            let new_len =
+                (HEADER_SIZE as u64) + (u64::from(self.header.page_size) * new_page_count);
             let file = OpenOptions::new().read(true).write(true).open(&self.path)?;
             file.set_len(new_len)?;
             file.sync_data()?;
@@ -21828,7 +21898,7 @@ impl Database {
     }
 
     fn page_offset(&self, page_id: u64) -> Result<u64, DbError> {
-        let page_bytes = match (self.header.page_size as u64).checked_mul(page_id) {
+        let page_bytes = match u64::from(self.header.page_size).checked_mul(page_id) {
             Some(bytes) => bytes,
             None => return Err(DbError::Corrupt("page offset overflow".to_string())),
         };
@@ -21956,14 +22026,14 @@ impl Database {
             );
             section_props.insert(
                 "level".to_string(),
-                PropertyValue::I64(section.level as i64),
+                PropertyValue::I64(i64::from(section.level)),
             );
             section_props.insert("index".to_string(), PropertyValue::I64(idx as i64));
             if let Some(ps) = section.page_start {
-                section_props.insert("page_start".to_string(), PropertyValue::I64(ps as i64));
+                section_props.insert("page_start".to_string(), PropertyValue::I64(i64::from(ps)));
             }
             if let Some(pe) = section.page_end {
-                section_props.insert("page_end".to_string(), PropertyValue::I64(pe as i64));
+                section_props.insert("page_end".to_string(), PropertyValue::I64(i64::from(pe)));
             }
             let section_node_id =
                 self.create_node_with(&["Section".to_string()], &section_props)?;
@@ -22240,7 +22310,7 @@ mod tests {
     fn read_page_encoded_from_disk(path: &Path, header: Header, page_id: u64) -> Vec<u8> {
         let page_size = header.page_size as usize;
         let mut out = vec![0u8; page_size];
-        let offset = HEADER_SIZE as u64 + (header.page_size as u64 * page_id);
+        let offset = HEADER_SIZE as u64 + (u64::from(header.page_size) * page_id);
         let file = File::open(path).expect("open database file");
         read_exact_at(&file, &mut out, offset).expect("read raw page bytes");
         out
@@ -28002,7 +28072,7 @@ mod tests {
                 edge_count: 0,
             },
         );
-        let page_size = db.header.page_size as u64;
+        let page_size = u64::from(db.header.page_size);
         let overflowing_page_id = (u64::MAX / page_size) + 1;
         let err = db
             .page_offset(overflowing_page_id)

@@ -32,6 +32,7 @@ pub enum ScalingTier {
 }
 
 impl ScalingTier {
+    #[must_use]
     pub fn node_count(self) -> u32 {
         match self {
             ScalingTier::Tier10K => 10_000,
@@ -39,6 +40,7 @@ impl ScalingTier {
             ScalingTier::Tier1M => 1_000_000,
         }
     }
+    #[must_use]
     pub fn label(self) -> &'static str {
         match self {
             ScalingTier::Tier10K => "10k",
@@ -75,7 +77,7 @@ pub fn run_tier(db_dir: &Path, tier: ScalingTier) -> Result<EvaluationRun, Scali
     }
     let insert_secs = insert_started.elapsed().as_secs_f64();
     let insert_throughput = if insert_secs > 0.0 {
-        n as f64 / insert_secs
+        f64::from(n) / insert_secs
     } else {
         0.0
     };
@@ -83,7 +85,7 @@ pub fn run_tier(db_dir: &Path, tier: ScalingTier) -> Result<EvaluationRun, Scali
     let mut rng = 0x9e37_79b9_7f4a_7c15u64;
     let mut samples_us = Vec::with_capacity(READ_SAMPLES);
     for _ in 0..READ_SAMPLES {
-        let node = next_u64(&mut rng) % n as u64;
+        let node = next_u64(&mut rng) % u64::from(n);
         let q_start = Instant::now();
         let _ = db
             .neighbors(node)
@@ -101,7 +103,7 @@ pub fn run_tier(db_dir: &Path, tier: ScalingTier) -> Result<EvaluationRun, Scali
         &format!("synthetic-{}", tier.label()),
     );
     run.metrics
-        .insert("inserts".to_string(), metric(n as f64, "count", true));
+        .insert("inserts".to_string(), metric(f64::from(n), "count", true));
     run.metrics
         .insert("insert_secs".to_string(), metric(insert_secs, "s", false));
     run.metrics.insert(
