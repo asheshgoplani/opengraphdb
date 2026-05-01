@@ -10,4 +10,7 @@ source "$HOME/.cargo/env"
 cargo fmt --all --check
 cargo check --workspace
 cargo clippy --workspace --all-targets --all-features -- -D warnings
+# Advisory + license + bans gate. Deferrals must point at
+# `documentation/SECURITY-FOLLOWUPS.md` per `deny.toml` ignore.
+cargo deny check advisories licenses bans sources
 cargo test --workspace --all-targets
