@@ -1,3 +1,20 @@
+//! # ogdb-ffi
+//!
+//! C foreign-function-interface wrapper around [`ogdb_cli`] and
+//! [`ogdb_core`]. Builds as a `staticlib` / `cdylib`; the public C surface is
+//! declared in `bindings/c/opengraphdb.h`. Status: **experimental**.
+//!
+//! See [`bindings/c/`](https://github.com/asheshgoplani/opengraphdb/tree/main/bindings/c)
+//! for the C header and an `example.c` walkthrough; see the parent project at
+//! <https://github.com/asheshgoplani/opengraphdb> for the broader story.
+//!
+//! ## Linking
+//!
+//! ```bash
+//! cargo build --release -p ogdb-ffi
+//! gcc -I bindings/c -L target/release -logdb_ffi -ldl -lpthread example.c -o example
+//! ```
+
 use ogdb_cli::run as run_cli;
 use ogdb_core::{DbError, Header, PropertyMap, PropertyValue, SharedDatabase};
 use serde_json::Value;

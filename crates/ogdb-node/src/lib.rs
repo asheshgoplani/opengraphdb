@@ -1,3 +1,14 @@
+//! # ogdb-node
+//!
+//! Node.js (`napi-rs`-based) bindings for OpenGraphDB. Exposes the same
+//! shape as [`ogdb_core::Database`] over the N-API ABI for Node 18+ /
+//! Bun / Deno (Node-API compat). Status: **experimental**.
+//!
+//! See <https://github.com/asheshgoplani/opengraphdb> for the parent project
+//! and `bindings/node/` (planned) for usage examples; runnable Node
+//! integration recipes (cosmos.gl renderer wrapped as an MCP tool) live in
+//! [`documentation/COOKBOOK.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/COOKBOOK.md).
+
 use ogdb_cli::run as run_cli;
 use ogdb_core::{
     DbError, Header, PropertyMap, PropertyValue, SharedDatabase, VectorDistanceMetric,
