@@ -30,7 +30,7 @@ license = "Apache-2.0"
 # at the workspace level; per-crate Cargo.toml inherits via
 # `description.workspace = true` etc.
 authors = ["OpenGraphDB contributors"]
-description = "OpenGraphDB — embedded graph + vector + full-text database. Single binary, MIT/Apache-licensed, agent-native."
+description = "OpenGraphDB — embedded graph + vector + full-text database. Single binary, Apache-2.0 licensed, agent-native."
 repository = "https://github.com/asheshgoplani/opengraphdb"
 homepage = "https://github.com/asheshgoplani/opengraphdb"
 documentation = "https://docs.rs/ogdb-core"
