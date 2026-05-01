@@ -37,7 +37,7 @@ documentation = "https://docs.rs/ogdb-core"
 keywords = ["graph", "vector", "database", "embedded", "agent"]
 categories = ["database", "data-structures", "science"]
 readme = "README.md"
-rust-version = "1.87"
+rust-version = "1.88"
 
 # EVAL-RUST-QUALITY-CYCLE2 H10 (HIGH): centralise common dep pins so a bump
 # touches one line, not eight. Each crate Cargo.toml references these via
