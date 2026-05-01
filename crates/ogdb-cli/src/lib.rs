@@ -4116,17 +4116,26 @@ const HTTP_CORS_HEADERS: &str = "Access-Control-Allow-Origin: *\r\n\
      Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
      Access-Control-Allow-Headers: Content-Type, Authorization\r\n";
 
-// EVAL-FRONTEND-QUALITY-CYCLE2 H-6: baseline security headers emitted on every
-// HTTP response (SPA, API, error, SSE). The playground accepts user-supplied
-// RDF/Turtle that is rendered into the SPA — CSP gates any literal that tries
-// to break out into script execution, X-Frame-Options + frame-ancestors prevent
-// clickjacking, and the rest are defense-in-depth defaults.
-const HTTP_SECURITY_HEADERS: &str =
-    "Content-Security-Policy: default-src 'self'; frame-ancestors 'none'\r\n\
-     X-Content-Type-Options: nosniff\r\n\
-     X-Frame-Options: DENY\r\n\
-     Referrer-Policy: strict-origin-when-cross-origin\r\n\
-     Permissions-Policy: geolocation=(), camera=(), microphone=()\r\n";
+// EVAL-FRONTEND-QUALITY-CYCLE3 BLOCKER-2 (carried from cycle-2 H-6): baseline
+// security headers emitted on every HTTP response (SPA, API, error, SSE). The
+// playground accepts user-supplied RDF/Turtle that is rendered into the SPA —
+// CSP gates any literal that tries to break out into script execution,
+// X-Frame-Options + frame-ancestors prevent clickjacking, and the rest are
+// defense-in-depth defaults. The Google Fonts allowances drop once M-5 ships
+// (`@fontsource`); `connect-src` keeps localhost:* + 127.0.0.1:* so the
+// embedded console can reach a sibling `ogdb serve` API on the same machine.
+const HTTP_SECURITY_HEADERS: &str = "Content-Security-Policy: default-src 'self'; \
+script-src 'self' 'unsafe-inline'; \
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+font-src 'self' https://fonts.gstatic.com data:; \
+img-src 'self' data: blob:; \
+connect-src 'self' http://localhost:* http://127.0.0.1:*; \
+worker-src 'self' blob:; \
+frame-ancestors 'none'\r\n\
+X-Frame-Options: DENY\r\n\
+X-Content-Type-Options: nosniff\r\n\
+Referrer-Policy: strict-origin-when-cross-origin\r\n\
+Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()\r\n";
 
 fn write_http_response(
     stream: &mut TcpStream,
