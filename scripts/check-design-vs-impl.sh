@@ -11,6 +11,9 @@
 #   - C4-H3: fictional Rust API (`use opengraphdb::`, params!, props!, etc.)
 #   - C4-H4: Bolt version (crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_1)
 #   - C4-H5: workspace member list (Cargo.toml [workspace] members)
+#   - C5-H1: DESIGN.md §1 file-tree must not name fictional `crates/<x>/`
+#     entries (the §37 [workspace] block is gated above; §1 is rendered
+#     inside a code fence and is invisible to the awk-based check).
 #   - C5-H2: every `cargo add <crate>` in user-facing docs must name a
 #     real workspace crate (Python+npm packages legitimately ship as
 #     `opengraphdb`, but no such Rust crate exists).
@@ -124,6 +127,28 @@ if grep -qE '^\[workspace\]' Cargo.toml 2>/dev/null && \
     echo "$diff_out" >&2
     fail=1
   fi
+fi
+
+# -------- C5-H1: §1 file-tree must not name fictional crates --------
+# §37 above pins the [workspace] block. §1 is rendered as an ASCII tree
+# inside a code fence, so the awk-based [workspace] check cannot see it.
+# Allowlist the Reality-check prose lines (which legitimately mention the
+# never-landed sketch crates) by stripping `>`-prefixed quote lines.
+if grep -qE '^## 1\. Project Structure' DESIGN.md 2>/dev/null; then
+  REAL_CRATES=$(ls crates/ 2>/dev/null | sort -u)
+  # Pull crate-shaped tokens (`ogdb-XXX`) appearing in §1 (between "## 1." and "## 2.")
+  # from non-prose lines (skip `> Reality check` quote-block lines).
+  SECTION1_CRATES=$(awk '/^## 1\. Project Structure/,/^## 2\. /' DESIGN.md \
+                    | grep -vE '^>' \
+                    | grep -oE '\bogdb-[a-z][a-z0-9-]*' \
+                    | sort -u)
+  for claimed in $SECTION1_CRATES; do
+    if ! grep -qx "$claimed" <<< "$REAL_CRATES"; then
+      echo "ERROR (C5-H1): DESIGN.md §1 references fictional crate '$claimed'." >&2
+      echo "  Real crates: $(echo $REAL_CRATES | tr '\n' ' ')" >&2
+      fail=1
+    fi
+  done
 fi
 
 # -------- C5-H2: cargo add must target a real workspace crate --------
