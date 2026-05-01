@@ -1,7 +1,14 @@
-// EVAL-RUST-QUALITY-CYCLE2 H11: the workspace `unsafe_op_in_unsafe_fn` lint
-// fires on napi-macro-generated code (`#[napi]` synthesises `unsafe extern "C"
-// fn` bodies). The macro output is not editable; suppress here.
-#![allow(unsafe_op_in_unsafe_fn)]
+// EVAL-RUST-QUALITY-CYCLE3 H7: the workspace `unsafe_op_in_unsafe_fn` lint
+// fires on napi-macro-generated code (`#[napi]` synthesises `unsafe extern
+// "C" fn` bodies whose internals deref NAPI handles directly). The macro
+// output is not editable, and napi expands `#[napi]` into sibling
+// `extern "C"` items that escape `#[allow]` attributes placed on the impl
+// block. Narrow the allow so it only fires when the `node` feature is
+// enabled — the rest of the crate (re-exports, helpers, CLI runner) still
+// gets the workspace lint at full strength. There are zero hand-written
+// `unsafe fn` blocks in this crate today; verified by
+// `grep -nE 'unsafe \\{|unsafe fn' crates/ogdb-node/src/`.
+#![cfg_attr(feature = "node", allow(unsafe_op_in_unsafe_fn))]
 
 use ogdb_cli::run as run_cli;
 use ogdb_core::{

@@ -18,12 +18,17 @@
 // the deprecations only when the python feature is enabled so the
 // rest of the crate (re-exports, CLI runner) keeps the strict gate.
 #![cfg_attr(feature = "python", allow(deprecated))]
-// EVAL-RUST-QUALITY-CYCLE2 H11: the workspace `unsafe_op_in_unsafe_fn` lint
+// EVAL-RUST-QUALITY-CYCLE3 H7: the workspace `unsafe_op_in_unsafe_fn` lint
 // fires on pyo3-macro-generated code (`#[pymethods]` synthesises
-// `unsafe extern "C" fn` bodies that call BoundRef::ref_from_ptr). The
-// macro output is not editable. Suppress here; the actual unsafe
-// operations are documented in pyo3.
-#![allow(unsafe_op_in_unsafe_fn)]
+// `unsafe extern "C" fn` bodies that call `BoundRef::ref_from_ptr`). The
+// macro output is not editable, and pyo3 expands `#[pymethods]` into
+// sibling `extern "C"` items that escape `#[allow]` attributes placed
+// on the impl block. We narrow the allow so it only fires when the
+// `python` feature is enabled — the rest of the crate (re-exports, CLI
+// runner) still gets the workspace lint at full strength. There are
+// zero hand-written `unsafe fn` blocks in this crate today; verified by
+// `grep -nE 'unsafe \\{|unsafe fn' crates/ogdb-python/src/`.
+#![cfg_attr(feature = "python", allow(unsafe_op_in_unsafe_fn))]
 
 use ogdb_cli::run as run_cli;
 use ogdb_core::{
@@ -695,6 +700,10 @@ fn property_value_to_py_object(py: Python<'_>, value: &PropertyValue) -> PyObjec
             }
             dict.into_py(py)
         }
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants surface as Python None until each gets a
+        // dedicated mapping.
+        _ => py.None(),
     }
 }
 

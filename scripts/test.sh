@@ -29,6 +29,10 @@ source "$HOME/.cargo/env"
 # EVAL-RUST-QUALITY-CYCLE3 H12: every advisory ignore in deny.toml must
 # carry a 're-evaluate by YYYY-MM-DD' that is still in the future.
 ./scripts/check-deny-expirations.sh
+# EVAL-RUST-QUALITY-CYCLE3 H7: ogdb-node + ogdb-python feature-gate the
+# `unsafe_op_in_unsafe_fn` allow. Hand-written unsafe in either crate
+# would defeat the narrowing — fail CI in that case.
+./scripts/check-bindings-no-handwritten-unsafe.sh
 
 cargo fmt --all --check
 cargo check --workspace
