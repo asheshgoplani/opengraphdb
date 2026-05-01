@@ -43,6 +43,9 @@ jobs:
           rustup component add llvm-tools-preview
           cargo install cargo-llvm-cov --locked
 
+      - name: BENCHMARKS.md version-match gate (eval Finding 1)
+        run: bash scripts/check-benchmarks-version.sh
+
       - name: Run test workflow
         run: ./scripts/test.sh
 
