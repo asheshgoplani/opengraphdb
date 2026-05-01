@@ -41,6 +41,9 @@ source "$HOME/.cargo/env"
 # EVAL-RUST-QUALITY-CYCLE3 B2: every publishable crate's lib.rs must
 # start with a `//!` crate-root rustdoc block (docs.rs landing page).
 ./scripts/check-crate-root-docs.sh
+# EVAL-RUST-QUALITY-CYCLE4 B1: forbid `|| echo "::warning::..."` swallow
+# on cargo steps (cycle-3 cargo-semver-checks anti-pattern).
+./scripts/check-no-advisory-swallow.sh
 
 cargo fmt --all --check
 cargo check --workspace
