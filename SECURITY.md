@@ -6,8 +6,8 @@ If you believe you have found a security vulnerability in OpenGraphDB, please re
 
 **Private channels:**
 
-- Open a [GitHub Security Advisory](https://github.com/asheshgoplani/opengraphdb/security/advisories/new) (preferred — gives us a private workspace to coordinate a fix and disclosure).
-- Or email: `ashesh.goplani96@gmail.com` with the subject prefix `[opengraphdb-security]`.
+- **Preferred:** open a [GitHub Security Advisory](https://github.com/asheshgoplani/opengraphdb/security/advisories/new). This gives a private workspace to coordinate a fix + disclosure. The repo's *Private vulnerability reporting* setting must be enabled on github.com for this URL to render the report form — verify the link returns a 200 (not a 404) before relying on it. The release runbook checks this.
+- **Fallback:** email `security@opengraphdb.dev` (or, until that alias is provisioned, the maintainer at `ashesh.goplani96@gmail.com`) with the subject prefix `[opengraphdb-security]`. The fallback address goes to one human's inbox, so response time may be longer than the GHSA path; if you have a critical or actively-exploited issue, please use both channels.
 
 ## What to Include
 

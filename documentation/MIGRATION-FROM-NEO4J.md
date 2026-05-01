@@ -43,10 +43,11 @@ fabric, Browser), it does not — and isn't trying to.
 
 ## 2. Cypher coverage delta
 
-The in-tree openCypher TCK harness (`crates/ogdb-tck/src/lib.rs:10`) defines
-six **Tier-1** categories — `MATCH`, `RETURN`, `WHERE`, `CREATE`, `DELETE`,
-`SET` — and the harness enforces a **50 % Tier-1 floor** as a regression
-gate (`crates/ogdb-tck/src/lib.rs:355`). Beyond Tier-1 the engine ships
+The in-tree openCypher TCK harness (`crates/ogdb-tck/src/lib.rs::TIER1_CATEGORIES`)
+defines six **Tier-1** categories — `MATCH`, `RETURN`, `WHERE`, `CREATE`,
+`DELETE`, `SET` — and the harness enforces a **50 % Tier-1 floor** as a
+regression gate (`crates/ogdb-tck/src/lib.rs::tier1_floor_is_reported_for_fixture_suite`,
+which calls `meets_tier1_floor(0.50)`). Beyond Tier-1 the engine ships
 `OPTIONAL MATCH`, `UNION`, `EXISTS`, pattern comprehension, and `CASE`
 (README "expanded GQL compatibility").
 
@@ -55,7 +56,7 @@ rewrite as plain Cypher or a small MCP tool (COOKBOOK Recipe 6).
 
 Missing: `LOAD CSV`, the `shortestPath()` function, and `CALL/YIELD` against
 arbitrary stored procedures. These are exactly the scenarios the TCK harness
-skips today (`crates/ogdb-tck/src/lib.rs:230`).
+skips today (`crates/ogdb-tck/src/lib.rs::should_skip_scenario`).
 
 **TCK number — honest framing.** The full external-openCypher-TCK pass rate
 is **not yet published** in this repo. Run it yourself against an upstream
@@ -71,7 +72,7 @@ wired into CI; see [`crates/ogdb-tck/README.md`](../crates/ogdb-tck/README.md).
 
 ## 3. Bolt protocol compatibility
 
-`ogdb-bolt` implements **Bolt v1 only** (`crates/ogdb-bolt/src/lib.rs:8-9`):
+`ogdb-bolt` implements **Bolt v1 only** (`crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_1`):
 
 ```rust
 pub const BOLT_MAGIC: u32 = 0x6060_B017;
@@ -97,7 +98,9 @@ hard-requires v4/v5, treat HTTP `POST /query` as the supported transport.
 Vector + text + graph in one query plan, not bolt-on plugins. Neo4j ships
 vector, Lucene full-text, and GenAI as separate plugins under separate
 licenses. OpenGraphDB ships these as first-class tools in the core CLI
-binary (`crates/ogdb-cli/src/lib.rs:3179-3441`):
+binary — the canonical catalog is the `"tools/list"` arm of
+`crates/ogdb-cli/src/lib.rs::execute_mcp_request` (named anchor; line
+numbers churn with every release):
 
 - `vector_search` — HNSW kNN over node embeddings.
 - `text_search` — tantivy BM25 over indexed properties.
@@ -157,8 +160,10 @@ claiming any record.
 - **Index DDL: new-style → pre-4.x form.** Neo4j 4.x+ uses
   `CREATE INDEX person_email FOR (n:Person) ON (n.email)`. OpenGraphDB uses
   the pre-4.x form `CREATE INDEX ON :Person(email)` (confirmed by the unit
-  test at `crates/ogdb-cli/src/lib.rs:9951`). Vector indexes use
-  `CALL vector.create_index(...)`; full-text uses `CALL text.create_index(...)`.
+  test
+  `crates/ogdb-cli/src/lib.rs::query_command_routes_call_procedures_and_create_index_on`).
+  Vector indexes use `CALL vector.create_index(...)`; full-text uses
+  `CALL text.create_index(...)`.
   See [`skills/schema-advisor/SKILL.md`](../skills/schema-advisor/SKILL.md).
 - **Identity: `id(n)` is not implemented.** Node identity comes back inside
   the row payload — `MATCH (n) RETURN n` returns

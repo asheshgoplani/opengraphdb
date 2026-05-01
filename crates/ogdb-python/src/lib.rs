@@ -1,3 +1,16 @@
+//! # ogdb-python
+//!
+//! Python (`pyo3`-based) bindings for OpenGraphDB. Exposes a `Database` class
+//! that wraps [`ogdb_core::Database`] with `init` / `open` / `close` /
+//! `create_node` / `add_edge` / `query` / `import_csv` / `import_json` /
+//! `import_rdf` / `export` / vector + text index helpers / `vector_search`.
+//! Status: **experimental**.
+//!
+//! See <https://github.com/asheshgoplani/opengraphdb> for the parent project
+//! and `bindings/python/` (planned) for usage examples; runnable Python
+//! integration recipes (LLM → Cypher, hybrid retrieval) live in
+//! [`documentation/COOKBOOK.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/COOKBOOK.md).
+
 // pyo3 0.21 deprecation warnings (`OptionGilRefs`, `GilRefs`) trip
 // `-D warnings` under `--all-features`. The pyo3 0.21 → 0.24
 // migration is deferred per documentation/SECURITY-FOLLOWUPS.md

@@ -1,3 +1,20 @@
+//! # ogdb-bolt
+//!
+//! Neo4j Bolt protocol adapter for OpenGraphDB. Implements **Bolt v1 only**
+//! (the handshake declines anything else); the v4 / v5 negotiation work is
+//! tracked as a v0.5 follow-up. A Neo4j 5.x driver that won't accept v1 will
+//! reject the handshake on connect.
+//!
+//! See [`BOLT_VERSION_1`] for the version constant the handshake advertises,
+//! and `documentation/MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage" for
+//! the migration discussion.
+//!
+//! ## Quickstart
+//!
+//! ```bash
+//! cargo run -p ogdb-cli -- serve --bolt :7687 mydata.ogdb
+//! ```
+
 use ogdb_core::{DbError, PropertyValue, QueryResult, SharedDatabase, WriteConcurrencyMode};
 use std::collections::BTreeMap;
 use std::error::Error;

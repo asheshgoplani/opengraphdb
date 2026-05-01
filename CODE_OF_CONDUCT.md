@@ -26,7 +26,14 @@ Examples of unacceptable behavior:
 
 ## Enforcement
 
-Instances of abusive, harassing, or otherwise unacceptable behavior may be reported by contacting the project maintainers via [GitHub issues](https://github.com/asheshgoplani/opengraphdb/issues) (mark "private — code of conduct" in the title) or by emailing the address in `SECURITY.md`. All complaints will be reviewed and investigated promptly and fairly.
+Instances of abusive, harassing, or otherwise unacceptable behavior should be reported privately. **Do not** open a public GitHub issue — public issues are visible to everyone, including the reported party, so the report itself becomes a second harassment vector.
+
+Private reporting channels:
+
+- **Email:** `conduct@opengraphdb.dev` (alias provisioned at release; until then, send to `ashesh.goplani96@gmail.com` with the subject prefix `[opengraphdb-conduct]`). Goes to one human's inbox, so response time may be longer than a multi-maintainer rotation.
+- **GitHub Security Advisory** (private): open a [private advisory](https://github.com/asheshgoplani/opengraphdb/security/advisories/new) with the title prefixed `[CoC]`. Requires the repo's *Private vulnerability reporting* setting to be enabled.
+
+All complaints will be reviewed and investigated promptly and fairly. Reports are confidential — the reported party is not informed of the reporter's identity unless the reporter explicitly consents.
 
 ## Scope
 

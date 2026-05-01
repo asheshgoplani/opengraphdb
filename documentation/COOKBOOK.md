@@ -77,35 +77,27 @@ curl -s -X POST $BASE/mcp/invoke \
   -d '{ "name": "browse_schema", "arguments": {} }'
 ```
 
-**Expected output.** `/mcp/tools` returns a `tools` array containing the
-twenty tools below. Names are stable across releases; the spec test pins them.
+**Expected output.** `/mcp/tools` returns a `tools` array of twenty entries.
+Each entry has a `name`, a non-empty `description`, and a JSON-Schema
+`inputSchema`. Names (stable across releases — pinned by
+`crates/ogdb-cli/src/lib.rs::mcp_full_ai_tools_round_trip_and_stdio_mode`):
 
-```json
-{
-  "tools": [
-    { "name": "browse_schema",       "description": "..." },
-    { "name": "execute_cypher",      "description": "..." },
-    { "name": "get_node_neighborhood","description": "..." },
-    { "name": "search_nodes",        "description": "..." },
-    { "name": "list_datasets",       "description": "..." },
-    { "name": "query",               "description": "..." },
-    { "name": "schema",              "description": "..." },
-    { "name": "upsert_node",         "description": "..." },
-    { "name": "upsert_edge",         "description": "..." },
-    { "name": "subgraph",            "description": "..." },
-    { "name": "shortest_path",       "description": "..." },
-    { "name": "vector_search",       "description": "..." },
-    { "name": "text_search",         "description": "..." },
-    { "name": "temporal_diff",       "description": "..." },
-    { "name": "import_rdf",          "description": "..." },
-    { "name": "export_rdf",          "description": "..." },
-    { "name": "agent_store_episode", "description": "..." },
-    { "name": "agent_recall",        "description": "..." },
-    { "name": "rag_build_summaries", "description": "..." },
-    { "name": "rag_retrieve",        "description": "..." }
-  ]
-}
+```text
+browse_schema  execute_cypher  get_node_neighborhood  search_nodes
+list_datasets  query           schema                 upsert_node
+upsert_edge    subgraph        shortest_path          vector_search
+text_search    temporal_diff   import_rdf             export_rdf
+agent_store_episode  agent_recall  rag_build_summaries  rag_retrieve
 ```
+
+The descriptions are not duplicated here on purpose: keeping a 20-entry copy
+in sync with the source is the rot pattern eval cycle 2 flagged
+(`"description": "..."` placeholders shipped for >1 release). The canonical
+descriptions are the ones returned by `POST /mcp/tools` against a live
+`ogdb serve --http`; the e2e in
+[`frontend/e2e/cookbook-snippets-runnable.spec.ts`](../frontend/e2e/cookbook-snippets-runnable.spec.ts)
+asserts `description.length > 0` for every tool on every CI run, so
+`"..."`-style placeholders cannot regress in.
 
 `/mcp/invoke` returns the tool's result body directly on success (200) or an
 `{ "error": "..." }` object on a 4xx / 5xx:
@@ -115,9 +107,12 @@ twenty tools below. Names are stable across releases; the spec test pins them.
 ```
 
 **How to verify and cite.** The catalog above is generated from
-`crates/ogdb-cli/src/lib.rs` (the `tools/list` handler at lines 3179-3441 of the
-crate's `lib.rs`); the `temporal_diff` round-trip is covered by the existing
-unit test at `crates/ogdb-cli/src/lib.rs:14631`. Latency: not yet benchmarked.
+`crates/ogdb-cli/src/lib.rs::execute_mcp_request` (the `"tools/list"` arm of
+the dispatch match — function/test/struct names survive line-renumbering, so
+prefer the named anchor over a line range); the `temporal_diff` round-trip is
+covered by the existing unit test
+`crates/ogdb-cli/src/lib.rs::mcp_full_ai_tools_round_trip_and_stdio_mode`.
+Latency: not yet benchmarked.
 The MCP transport is a thin wrapper over the existing query, vector, text, and
 temporal paths, so per-tool latency tracks the underlying engine numbers (rows
 3, 7, 8 of `documentation/BENCHMARKS.md`).
@@ -299,8 +294,10 @@ the response body directly (no JSON-RPC envelope):
 ```
 
 **How to verify and cite.** Round-trip is covered by
-`crates/ogdb-cli/src/lib.rs:14631` (MCP path) and
-`crates/ogdb-core/src/lib.rs:37404` (`cypher_query_filters_edges_with_at_time_and_at_system_time`).
+`crates/ogdb-cli/src/lib.rs::mcp_full_ai_tools_round_trip_and_stdio_mode` (MCP
+path) and
+`crates/ogdb-core/src/lib.rs::cypher_query_filters_edges_with_at_time_and_at_system_time`
+(named anchors — line numbers churn with every release).
 Latency: not yet benchmarked. Bitemporal queries route through the same
 storage path as `neighbors()` (row 3 of BENCHMARKS, p99 = 13.5 μs at 10 k
 nodes) plus a per-edge timestamp comparison; expect microsecond-class overhead
@@ -396,7 +393,7 @@ migration cost / value calculation.
 |---|---|---|---|
 | **Single-file vs server.** Embedded use without a JVM. | Standalone JVM server (`neo4j start`) or AuraDB SaaS. Bolt protocol on port 7687. No supported in-process embedding for new builds. | `Database::open("./mydb.ogdb")` runs in-process on a single file. `ogdb serve --http` is opt-in when you actually want a network endpoint. | `crates/ogdb-core/src/lib.rs::Database::open`; the cookbook's [Setup](#setup) section runs against a single file. |
 | **Apache 2.0 vs AGPLv3.** Licensing for embedding in commercial agents. | Community = GPLv3. Enterprise = commercial. AuraDB = SaaS. AGPLv3 modules in some plugins (vector / GenAI). | Apache 2.0. Embed in a closed-source agent without legal review. | [`LICENSE`](../LICENSE) in repo root. |
-| **AI-native primitives.** Vector, text, MCP, agent memory in the core. | Vector and full-text are bolt-on plugins (Lucene-HNSW, GenAI plugin). MCP needs a Python sidecar or community adapter. No first-class agent-memory API. | `vector_search`, `text_search`, `temporal_diff`, `agent_store_episode`, `agent_recall`, `rag_build_summaries`, `rag_retrieve`, plus `POST /mcp/tools` / `POST /mcp/invoke` ship in the core CLI binary. | Tool catalog at `crates/ogdb-cli/src/lib.rs:3179-3441` (this cookbook's [Recipe 1](#recipe-1--ai-agent-over-mcp) lists all 20 by name). |
+| **AI-native primitives.** Vector, text, MCP, agent memory in the core. | Vector and full-text are bolt-on plugins (Lucene-HNSW, GenAI plugin). MCP needs a Python sidecar or community adapter. No first-class agent-memory API. | `vector_search`, `text_search`, `temporal_diff`, `agent_store_episode`, `agent_recall`, `rag_build_summaries`, `rag_retrieve`, plus `POST /mcp/tools` / `POST /mcp/invoke` ship in the core CLI binary. | Tool catalog at `crates/ogdb-cli/src/lib.rs::execute_mcp_request` (the `"tools/list"` arm); this cookbook's [Recipe 1](#recipe-1--ai-agent-over-mcp) lists all 20 by name. |
 
 **Migration mechanics (sketch).**
 

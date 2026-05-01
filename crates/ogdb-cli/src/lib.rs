@@ -1,3 +1,25 @@
+//! # ogdb-cli
+//!
+//! The OpenGraphDB command-line interface and HTTP / Bolt / MCP server. Wraps
+//! [`ogdb_core`] with the user-facing surface: `ogdb init`, `ogdb serve --http`,
+//! `ogdb query`, the `POST /mcp/tools` + `POST /mcp/invoke` MCP transport, the
+//! Prometheus `/metrics` endpoint, the embedded playground SPA, and the bulk
+//! import / export commands.
+//!
+//! See <https://github.com/asheshgoplani/opengraphdb>; the runnable recipes
+//! live in [`documentation/COOKBOOK.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/COOKBOOK.md);
+//! the canonical 20-tool MCP catalog is the `"tools/list"` arm of
+//! `execute_mcp_request`.
+//!
+//! ## Quickstart (CLI)
+//!
+//! ```bash
+//! cargo run -p ogdb-cli -- init mydata.ogdb
+//! cargo run -p ogdb-cli -- serve --http :7878 mydata.ogdb
+//! curl -s http://localhost:7878/health    # -> {"status":"ok"}
+//! curl -s -X POST http://localhost:7878/mcp/tools -d '{}'
+//! ```
+
 use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use ogdb_core::{
     Database, DbError, DocumentFormat, EnrichedRagResult, ExportEdge, ExportNode, Header,
