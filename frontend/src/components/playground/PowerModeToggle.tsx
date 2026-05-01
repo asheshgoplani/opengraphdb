@@ -36,7 +36,7 @@ export function PowerModeToggle({ isActive, onToggle, className }: PowerModeTogg
       <span
         className={cn(
           'ml-1 rounded-full border px-1.5 font-mono text-[9px] uppercase tracking-[0.14em]',
-          isActive ? 'border-accent/60 text-accent' : 'border-border text-muted-foreground/70',
+          isActive ? 'border-accent/60 text-accent' : 'border-border text-muted-foreground',
         )}
       >
         {isActive ? 'on' : 'off'}

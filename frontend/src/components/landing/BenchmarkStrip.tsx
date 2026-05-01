@@ -73,9 +73,9 @@ export function BenchmarkStrip() {
                 <dd className="mt-1.5 font-display text-2xl font-medium tracking-tight text-foreground sm:text-3xl">
                   {metric.value}
                 </dd>
-                <p className="mt-1 text-[11px] text-muted-foreground/80">
+                <dd className="mt-1 text-[11px] text-muted-foreground/80">
                   {metric.foot}
-                </p>
+                </dd>
               </div>
             ))}
           </dl>
