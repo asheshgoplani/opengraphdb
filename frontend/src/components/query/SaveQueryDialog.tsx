@@ -71,6 +71,7 @@ export function SaveQueryDialog() {
                 handleSave()
               }
             }}
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- inside a modal dialog where focus management is expected per WAI-ARIA APG
             autoFocus
           />
           <div className="rounded-md bg-muted p-2">

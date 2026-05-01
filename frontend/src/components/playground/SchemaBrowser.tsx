@@ -159,10 +159,10 @@ export function SchemaBrowser({
 
   return (
     <section
-      role="tree"
       aria-label="Schema"
       className="rounded-lg border border-border/60 bg-muted/30 px-3 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
     >
+      <div role="tree" aria-label="Schema tree">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Database className="h-3.5 w-3.5 text-accent" />
@@ -192,6 +192,7 @@ export function SchemaBrowser({
           role="treeitem"
           aria-label="Labels"
           aria-expanded={labelsOpen}
+          aria-selected={false}
           tabIndex={0}
           className="cursor-pointer"
           onClick={() => setLabelsOpen((v) => !v)}
@@ -276,6 +277,7 @@ export function SchemaBrowser({
           role="treeitem"
           aria-label="Edge types"
           aria-expanded={edgesOpen}
+          aria-selected={false}
           tabIndex={0}
           className="cursor-pointer"
           onClick={() => setEdgesOpen((v) => !v)}
@@ -298,7 +300,7 @@ export function SchemaBrowser({
         {edgesOpen && (
           <ul className="ml-3 space-y-0.5 border-l border-border/60 pl-2" role="group">
             {summary.edgeTypes.map((entry) => (
-              <li key={entry.type} role="treeitem" className="flex items-center gap-1.5 rounded px-1 py-0.5 text-foreground/85">
+              <li key={entry.type} role="treeitem" aria-selected={false} className="flex items-center gap-1.5 rounded px-1 py-0.5 text-foreground/85">
                 <span className="h-[1px] w-3 bg-accent/60" />
                 <span className="flex-1 truncate font-mono text-[11px]">{entry.type}</span>
                 <span className="font-mono text-[10px] text-muted-foreground/70">{entry.count}</span>
@@ -311,6 +313,7 @@ export function SchemaBrowser({
           role="treeitem"
           aria-label="Property keys"
           aria-expanded={propsOpen}
+          aria-selected={false}
           tabIndex={0}
           className="cursor-pointer"
           onClick={() => setPropsOpen((v) => !v)}
@@ -347,6 +350,7 @@ export function SchemaBrowser({
           Filtering canvas to <span className="font-mono">{selectedLabel}</span>. Click the label again to clear.
         </p>
       )}
+      </div>
     </section>
   )
 }
