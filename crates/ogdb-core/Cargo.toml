@@ -25,13 +25,16 @@ wasm-bindings = ["dep:wasm-bindgen"]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [dependencies]
-ogdb-vector = { path = "../ogdb-vector" }
-ogdb-algorithms = { path = "../ogdb-algorithms" }
-ogdb-text = { path = "../ogdb-text" }
-ogdb-temporal = { path = "../ogdb-temporal" }
-ogdb-types = { path = "../ogdb-types" }
-ogdb-import = { path = "../ogdb-import", default-features = false }
-ogdb-export = { path = "../ogdb-export" }
+# C2-A1: every intra-workspace path-dep on a publishable crate must declare a
+# `version` so `cargo publish` can resolve the dep after the local checkout is
+# gone. Path stays for local dev; version is what crates.io uses.
+ogdb-vector = { path = "../ogdb-vector", version = "0.4.0" }
+ogdb-algorithms = { path = "../ogdb-algorithms", version = "0.4.0" }
+ogdb-text = { path = "../ogdb-text", version = "0.4.0" }
+ogdb-temporal = { path = "../ogdb-temporal", version = "0.4.0" }
+ogdb-types = { path = "../ogdb-types", version = "0.4.0" }
+ogdb-import = { path = "../ogdb-import", version = "0.4.0", default-features = false }
+ogdb-export = { path = "../ogdb-export", version = "0.4.0" }
 lz4_flex = "0.11.6"
 instant-distance = { version = "0.6.1", optional = true }
 roaring = "0.10"
