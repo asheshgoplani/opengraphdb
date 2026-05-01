@@ -3798,6 +3798,7 @@ struct HttpResponseMessage {
     status: u16,
     reason: &'static str,
     content_type: String,
+    content_encoding: Option<&'static str>,
     body: Vec<u8>,
 }
 
@@ -3806,6 +3807,7 @@ fn http_json_response(status: u16, reason: &'static str, payload: Value) -> Http
         status,
         reason,
         content_type: "application/json".to_string(),
+        content_encoding: None,
         body: serde_json::to_vec_pretty(&payload).expect("http json serialization"),
     }
 }
@@ -3815,6 +3817,7 @@ fn http_csv_response(status: u16, reason: &'static str, body: String) -> HttpRes
         status,
         reason,
         content_type: "text/csv".to_string(),
+        content_encoding: None,
         body: body.into_bytes(),
     }
 }
@@ -3829,6 +3832,7 @@ fn http_text_response(
         status,
         reason,
         content_type: content_type.to_string(),
+        content_encoding: None,
         body: body.into_bytes(),
     }
 }
@@ -4116,12 +4120,17 @@ fn write_http_response(
     stream: &mut TcpStream,
     response: HttpResponseMessage,
 ) -> Result<(), CliError> {
+    let content_encoding_header = match response.content_encoding {
+        Some(encoding) => format!("Content-Encoding: {encoding}\r\n"),
+        None => String::new(),
+    };
     let header = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n{}\r\n",
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\n{}Connection: close\r\n{}\r\n",
         response.status,
         response.reason,
         response.content_type,
         response.body.len(),
+        content_encoding_header,
         HTTP_CORS_HEADERS,
     );
     let mut encoded = header.into_bytes();
@@ -4138,6 +4147,7 @@ fn http_preflight_response() -> HttpResponseMessage {
         status: 204,
         reason: "No Content",
         content_type: "text/plain".to_string(),
+        content_encoding: None,
         body: Vec::new(),
     }
 }
@@ -4687,6 +4697,7 @@ fn dispatch_http_request_with_budget(
                 status: 200,
                 reason: "OK",
                 content_type: "application/json".to_string(),
+                content_encoding: None,
                 body: result.to_json().into_bytes(),
             })
         }
@@ -4941,11 +4952,16 @@ fn dispatch_http_request_with_budget(
         // `/favicon.ico`, `/`); anything else SPA-fallbacks to `index.html`
         // so React Router can resolve the path on the client.
         ("GET", _) => {
-            if let Some((bytes, mime)) = static_assets::lookup(&request.path) {
+            let accept_encoding =
+                http_header_value(&request.headers, "accept-encoding").unwrap_or("");
+            if let Some((bytes, mime, encoding)) =
+                static_assets::lookup(&request.path, accept_encoding)
+            {
                 Ok(HttpResponseMessage {
                     status: 200,
                     reason: "OK",
                     content_type: mime.to_string(),
+                    content_encoding: encoding,
                     body: bytes.to_vec(),
                 })
             } else if let Some(bytes) = static_assets::index_html() {
@@ -4955,6 +4971,7 @@ fn dispatch_http_request_with_budget(
                     status: 200,
                     reason: "OK",
                     content_type: "text/html; charset=utf-8".to_string(),
+                    content_encoding: None,
                     body: bytes.to_vec(),
                 })
             } else {
@@ -4965,6 +4982,7 @@ fn dispatch_http_request_with_budget(
                     status: 200,
                     reason: "OK",
                     content_type: "text/html; charset=utf-8".to_string(),
+                    content_encoding: None,
                     body: static_assets::missing_spa_stub().to_vec(),
                 })
             }
@@ -16741,6 +16759,7 @@ ex:acme a schema:Organization ;
                 status: 200,
                 reason: "OK",
                 content_type: "application/json".to_string(),
+                content_encoding: None,
                 body: b"{}".to_vec(),
             };
             write_http_response(&mut stream, response).expect("write http response");
@@ -16949,6 +16968,7 @@ ex:acme a schema:Organization ;
                 status: 200,
                 reason: "OK",
                 content_type: "application/json".to_string(),
+                content_encoding: None,
                 body: b"{}".to_vec(),
             },
         )
