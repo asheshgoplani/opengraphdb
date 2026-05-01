@@ -1,8 +1,9 @@
 # OpenGraphDB: Architecture Execution Baseline
 
-**Status as of:** 2026-02-18
-**Implementation status:** Ready to execute
-**Canonical source:** `ARCHITECTURE.md`
+**Status:** historical (frozen pre-implementation baseline; do not use for current claims).
+**Captured:** 2026-02-18 — pre-implementation, before HNSW / monolith-split / 0.3 / 0.4 shipped.
+**Current state:** see `documentation/BENCHMARKS.md` (live numbers + N=5 medians) and `ARCHITECTURE.md` (current decisions).
+**Why kept:** documents the original architecture-stability gate and the pre-implementation synthetic-harness outcome. Useful for understanding why CSR + delta is the default; **not** a current source of truth for any benchmark or capability claim.
 
 This document intentionally avoids schedule planning. It defines what must be true before implementation is considered architecture-stable.
 
@@ -76,16 +77,18 @@ All gates are mandatory.
   - Mixed profile (80/20 read/write)
   - Write-stress profile (70/30 read/write)
 
-Reference benchmark command (synthetic pre-implementation harness):
+Reference benchmark command (synthetic pre-implementation harness — superseded by `ogdb-eval` in 0.4.0; see `documentation/BENCHMARKS.md` for the current N=5 median methodology):
 
 ```bash
 source "$HOME/.cargo/env"
 cargo run --release -p ogdb-bench
 ```
 
-Latest benchmark outcome (2026-02-18):
+Latest benchmark outcome **at the 2026-02-18 capture point**:
 - Synthetic harness does not cross hybrid pivot thresholds.
 - Decision remains: CSR + delta default, hybrid path stays benchmark-triggered.
+
+(Live numbers: see `documentation/BENCHMARKS.md`. The synthetic harness in this section ran before HNSW shipped, before the monolith-split, and before the 0.4.0 N=5 median + warm-up driver methodology landed.)
 
 ### Stability Gates
 - No known design contradictions between `ARCHITECTURE.md`, `SPEC.md`, `DESIGN.md`, and `CLAUDE.md`
@@ -122,7 +125,7 @@ The architecture can evolve, but only through measured triggers.
 - [x] `DESIGN.md` aligned for known contradictions (I/O, RDF parser path, sidecar authority)
 - [x] Workspace scaffolding created
 - [x] Core test and benchmark harness scaffolding created (`crates/ogdb-bench`)
-- [x] Initial storage decision benchmark run captured (`BENCHMARKS.md`)
+- [x] Initial storage decision benchmark run captured (root `BENCHMARKS.md`, since superseded by `documentation/BENCHMARKS.md` per CHANGELOG 0.4.0).
 - [x] TDD methodology established (`docs/TDD-METHODOLOGY.md`)
 - [x] Versioning policy established (`docs/VERSIONING.md`, workspace package version source)
 - [x] Canonical changelog established and wired into test workflow (`CHANGELOG.md`, `scripts/changelog-check.sh`)
