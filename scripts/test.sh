@@ -8,6 +8,15 @@ source "$HOME/.cargo/env"
 ./scripts/check-crate-metadata.sh
 ./scripts/check-shipped-doc-coverage.sh
 
+# C2-A8 (HIGH): cycle-1 added these structural lints but never wired them
+# into CI. Without the wiring they're dead code — the next person to edit
+# release.yml / Dockerfile / BENCHMARKS.md gets no early feedback. Run
+# them here so `scripts/test.sh` is the single CI entry point.
+./scripts/test-crate-metadata.sh
+./scripts/test-release-workflow.sh
+./scripts/test-dockerfile.sh
+./scripts/test-check-benchmarks-version.sh
+
 cargo fmt --all --check
 cargo check --workspace
 cargo clippy --workspace --all-targets --all-features -- -D warnings
