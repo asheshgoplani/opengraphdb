@@ -17,7 +17,14 @@
 #   - C5-H2: every `cargo add <crate>` in user-facing docs must name a
 #     real workspace crate (Python+npm packages legitimately ship as
 #     `opengraphdb`, but no such Rust crate exists).
+#   - C5-H3: DESIGN.md §27/§28 must not call non-existent binding methods
+#     (query_df / import_ttl / db.transaction() / db.stream()).
 #
+# Allowed contexts (intentional): the eval reports under
+# `documentation/EVAL-*` document past drift and must keep the original
+# strings; the same applies to `documentation/SECURITY-FOLLOWUPS.md` and
+# `documentation/MIGRATION-FROM-NEO4J.md` which reference the rejected
+# libraries / Neo4j-side defaults by name.
 set -euo pipefail
 
 DOCS=(README.md ARCHITECTURE.md SPEC.md DESIGN.md)
@@ -176,6 +183,24 @@ if [[ -n "$REAL_CRATE_NAMES" ]]; then
     echo "  Real crates: $(echo $REAL_CRATE_NAMES | tr '\n' ' ')" >&2
     fail=1
   fi
+fi
+
+# -------- C5-H3: fictional binding methods (Python + Node) --------
+# `query_df` / `import_ttl` / `db.transaction(...)` / `db.stream(...)` were
+# part of the original Decision-7 sketch and never landed on the shipped
+# bindings (`crates/ogdb-python/src/lib.rs::PyDatabase`,
+# `crates/ogdb-node/src/lib.rs`). Reality-check call-outs (`>` quote
+# blocks) are allowed so the historical context can be preserved.
+FICTIONAL_BINDINGS=$(grep -RnE '\.query_df\(|\.import_ttl\(|with db\.transaction\(\)|db\.transaction\(async|db\.stream\(' \
+      "${EXISTING[@]}" 2>/dev/null \
+    | grep -vE "$SKIP_RE" \
+    | grep -vE '^[^:]*:[0-9]+:>' \
+    | grep -vE '(Reality check|never landed|fictional|tracked as a v0\.5|originally anticipated|sketched|don.t exist|does not exist|do not exist)' \
+    || true)
+if [[ -n "$FICTIONAL_BINDINGS" ]]; then
+  echo "ERROR (C5-H3): doc(s) reference binding methods that don't exist on the shipped Python/Node bindings:" >&2
+  echo "$FICTIONAL_BINDINGS" >&2
+  fail=1
 fi
 
 exit $fail

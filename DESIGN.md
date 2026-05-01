@@ -1710,29 +1710,33 @@ async fn mcp_server(db: Database) {
 
 ## 27. Python Bindings (PyO3)
 
+> **Reality check (0.4.0):** the original Decision-7 sketch in this section
+> anticipated a `query_df()` pandas helper, an `import_ttl()` shorthand, and
+> a `with db.transaction() as tx:` context manager. None of these landed
+> in 0.4.0. The shipped surface is the canonical
+> `crates/ogdb-python/src/lib.rs::PyDatabase` `#[pymethods]` block (PyPI
+> package: `opengraphdb`). Pandas integration, a TTL shorthand, and
+> context-manager transactions are tracked as a v0.5 ergonomic pass.
+
 ```python
 import opengraphdb
 
-# Open database
-db = opengraphdb.Database("mydata.ogdb")
+db = opengraphdb.Database("mydata.ogdb")          # opens (or call .init() to create)
 
-# Query
-results = db.query("MATCH (n:Person) RETURN n.name, n.age")
-for row in results:
+# Query — returns list[dict]; rows = [{"n.name": "Alice", "n.age": 30}, ...]
+rows = db.query("MATCH (n:Person) RETURN n.name, n.age")
+for row in rows:
     print(row["n.name"], row["n.age"])
 
-# Pandas integration
-df = db.query_df("MATCH (n:Person) RETURN n.name, n.age")
-# Returns pandas DataFrame directly
+# Single-shot writes (auto-commit; no explicit transaction handle in 0.4.0)
+nid = db.create_node(["Person"], {"name": "Alice", "age": 30})
+db.add_edge(nid, other_nid, "KNOWS", {"since": 2024})
 
-# Context manager for transactions
-with db.transaction() as tx:
-    tx.query("CREATE (n:Person {name: $name})", {"name": "Alice"})
-    # Auto-commits on exit, rollbacks on exception
+# Bulk import — auto-detects RDF formats (TTL / N-Triples / JSON-LD / RDF/XML)
+db.import_csv("people.csv")          # CSV (no `label` kwarg in 0.4.0; declare label via Cypher CREATE after import)
+db.import_rdf("ontology.ttl")        # generic RDF entry point (replaces the sketched import_ttl)
 
-# Import
-db.import_csv("people.csv", label="Person")
-db.import_ttl("ontology.ttl")
+db.close()
 ```
 
 Build with `maturin`:
@@ -1751,26 +1755,33 @@ requires-python = ">=3.8"
 
 ## 28. JavaScript Bindings (NAPI-RS)
 
+> **Reality check (0.4.0):** the original Decision-7 sketch anticipated a
+> `db.transaction(async (tx) => …)` callback API and a `db.stream()`
+> async-iterator. Neither landed in 0.4.0. The shipped surface is the
+> canonical `crates/ogdb-node/src/lib.rs` `#[napi]` block (npm package:
+> `opengraphdb`). Async iteration and explicit-transaction APIs are
+> tracked as a v0.5 ergonomic pass.
+
 ```typescript
 import { Database } from 'opengraphdb';
 
-const db = new Database('mydata.ogdb');
+const db = new Database('mydata.ogdb');     // opens (or Database.init(path) to create)
 
-// Async query
-const results = await db.query('MATCH (n:Person) RETURN n');
-for (const row of results) {
-  console.log(row['n.name']);
+// Single-shot query — returns array of objects; auto-commits any writes
+const rows = db.query('MATCH (n:Person) RETURN n.name, n.age');
+for (const row of rows) {
+  console.log(row['n.name'], row['n.age']);
 }
 
-// Transaction
-await db.transaction(async (tx) => {
-  await tx.query('CREATE (n:Person {name: $name})', { name: 'Alice' });
-});
+// Single-shot writes (auto-commit; no explicit transaction handle in 0.4.0)
+const nid = db.createNode(['Person'], { name: 'Alice', age: 30 });
+db.addEdge(nid, otherNid, 'KNOWS', { since: 2024 });
 
-// Streaming results
-for await (const row of db.stream('MATCH (n) RETURN n')) {
-  process.stdout.write(JSON.stringify(row) + '\n');
-}
+// Bulk import
+db.importCsv('people.csv');            // CSV
+db.importRdf('ontology.ttl');          // generic RDF entry point (TTL / N-Triples / JSON-LD / RDF/XML)
+
+db.close();
 ```
 
 ---
