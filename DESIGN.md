@@ -1656,7 +1656,7 @@ enum ExportFormat { Json, Jsonl, Csv, Ttl, Jsonld, Cypher }
 - Cypher syntax highlighting
 - Tab completion for labels, types, properties, functions
 - Multi-line input (detect unclosed parentheses/brackets)
-- History stored in `~/.opengraphdb_history`
+- History stored in `~/.ogdb_history` (`crates/ogdb-cli/src/lib.rs::shell_history_path`)
 - Special commands: `:schema`, `:stats`, `:help`, `:quit`
 
 ### Backup Command Implementation
@@ -2225,48 +2225,30 @@ OpenGraphDB uses `tracing` crate for structured logging. Users get free OTel int
 
 ## 34. Configuration System
 
-### Hierarchy (lowest to highest priority)
+> **Reality check (0.4.0):** the original Decision-4 sketch in this
+> section described a 5-level priority chain (compiled defaults →
+> `~/.opengraphdb/config.toml` → env vars → CLI flags → per-database
+> settings) plus an `OGDB_BUFFER_POOL_SIZE`-style env-var surface.
+> None of the file or env layers shipped — 0.4.0 uses **CLI flags
+> only**. Per-database settings live in the catalog
+> (`<db>.ogdb-meta.json`); HNSW tuning constants are pinned at
+> `crates/ogdb-core/src/lib.rs::HNSW_M` /
+> `::HNSW_EF_CONSTRUCTION` / `::HNSW_EF_SEARCH` /
+> `::HNSW_BUILDER_SEED`.
 
-```
-1. Compiled defaults
-2. Config file: ~/.opengraphdb/config.toml
-3. Environment variables: OGDB_BUFFER_POOL_SIZE=256m
-4. CLI flags: --buffer-pool-size 256m
-5. Per-database settings (stored in catalog)
-```
+### Surface in 0.4.0
 
-### Config File
+- **CLI flags only** (clap, see `crates/ogdb-cli/src/lib.rs::Cli`).
+- **Per-database catalog**: `<db>.ogdb-meta.json` carries vector-index
+  definitions, label catalog, etc. (auto-managed; not a user-edited
+  config file).
+- **No global `~/.opengraphdb/config.toml`** and no
+  `OGDB_BUFFER_POOL_SIZE`-style env vars in 0.4.0. Document any
+  temporary need for an env knob via a `--feature-flag` on the relevant
+  CLI subcommand instead.
 
-```toml
-# ~/.opengraphdb/config.toml
-
-[storage]
-page_size = 8192              # 4096 | 8192 | 16384 | 32768
-buffer_pool_size = "256m"     # Memory for page cache
-wal_sync_mode = "fsync"       # "fsync" | "fdatasync" | "none" (dangerous)
-checkpoint_interval = 1000    # Transactions between checkpoints
-checkpoint_wal_size = "64m"   # Max WAL size before forced checkpoint
-
-[query]
-default_limit = 1000          # RETURN without LIMIT caps here
-query_timeout = "30s"         # Max query execution time
-batch_size = 1024             # Vectorized batch size
-
-[vector]
-hnsw_m = 16                   # HNSW connections per layer
-hnsw_ef_construction = 200    # Build-time search width
-hnsw_ef_search = 50           # Query-time search width
-
-[server]
-host = "127.0.0.1"
-port = 7687
-max_connections = 100
-idle_timeout = "30m"
-
-[logging]
-level = "info"                # trace | debug | info | warn | error
-format = "compact"            # "compact" | "json" | "pretty"
-```
+The config-file / env-var hierarchy is on the v0.5 ergonomics roadmap
+(tracked alongside the `params!` / `props!` macro pair in § 24).
 
 ---
 
@@ -2322,28 +2304,45 @@ format = "compact"            # "compact" | "json" | "pretty"
 
 ## 37. Build System & Cross-Compilation
 
-### Workspace Cargo.toml
+### Workspace Cargo.toml (0.4.0)
+
+> **Reality check (0.4.0):** the original Decision-6 sketch listed
+> `crates/ogdb-query` and `crates/ogdb-server`. Neither landed — query
+> parsing/planning lives inside
+> `crates/ogdb-core/src/lib.rs::parse` and adjacent helpers; the server
+> (HTTP / Bolt / MCP) lives inside
+> `crates/ogdb-cli/src/lib.rs::handle_serve_*`. A future split is a
+> v0.5+ refactor, not a 0.4 commitment. Keep this section in sync with
+> root `Cargo.toml` — `scripts/check-design-vs-impl.sh` (C4-H5 branch)
+> fails CI on drift.
 
 ```toml
 [workspace]
 members = [
-    "crates/ogdb-core",
-    "crates/ogdb-query",
-    "crates/ogdb-vector",
-    "crates/ogdb-text",
-    "crates/ogdb-temporal",
-    "crates/ogdb-import",
-    "crates/ogdb-export",
-    "crates/ogdb-server",
-    "crates/ogdb-cli",
-    "crates/ogdb-python",
-    "crates/ogdb-node",
-    "crates/ogdb-algorithms",
+    "crates/ogdb-algorithms",  # graph algorithms
+    "crates/ogdb-bench",       # synthetic micro-bench
+    "crates/ogdb-bolt",        # Bolt v1 wire (cycle-2 C2-H7)
+    "crates/ogdb-cli",         # `ogdb` binary (CLI + HTTP + MCP server)
+    "crates/ogdb-core",        # engine
+    "crates/ogdb-e2e",         # end-to-end driver tests
+    "crates/ogdb-eval",        # benchmark / driver harness
+    "crates/ogdb-export",      # CSV/JSON/JSONL/RDF emit
+    "crates/ogdb-ffi",         # C ABI for bindings (cbindgen)
+    "crates/ogdb-fuzz",        # cargo-fuzz harness
+    "crates/ogdb-import",      # CSV/JSON/JSONL/RDF ingest
+    "crates/ogdb-node",        # napi-rs bindings (`@opengraphdb/node` on npm)
+    "crates/ogdb-python",      # PyO3 bindings (`opengraphdb` on PyPI)
+    "crates/ogdb-tck",         # openCypher TCK harness
+    "crates/ogdb-temporal",    # temporal scope + datetime helpers
+    "crates/ogdb-text",        # full-text helpers
+    "crates/ogdb-types",       # value types extracted from core
+    "crates/ogdb-vector",      # HNSW + vector-distance helpers
 ]
 resolver = "2"
 
 [workspace.dependencies]
-# Shared versions across all crates
+# Shared versions across all crates (excerpt; see root Cargo.toml for
+# the canonical list).
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
