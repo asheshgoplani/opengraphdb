@@ -47,8 +47,7 @@ fn bench_ingest_streaming(c: &mut Criterion) {
         b.iter_with_setup(
             || TempDir::new().expect("tempdir"),
             |dir| {
-                ingest_streaming(dir.path(), Duration::from_millis(100))
-                    .expect("ingest_streaming")
+                ingest_streaming(dir.path(), Duration::from_millis(100)).expect("ingest_streaming")
             },
         );
     });
