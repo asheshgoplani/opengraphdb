@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import compression from 'vite-plugin-compression'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -65,6 +66,8 @@ export default defineConfig({
     react(),
     cypherLintWorkerMiddleware(),
     renameHtmlOutput('index-app.html', 'index.html'),
+    compression({ algorithm: 'gzip', ext: '.gz', threshold: 1024 }),
+    compression({ algorithm: 'brotliCompress', ext: '.br', threshold: 1024 }),
   ],
   resolve: {
     alias: {
@@ -83,6 +86,7 @@ export default defineConfig({
   build: {
     outDir: 'dist-app',
     emptyOutDir: true,
+    sourcemap: 'hidden',
     rollupOptions: {
       input: path.resolve(__dirname, 'index-app.html'),
       output: {

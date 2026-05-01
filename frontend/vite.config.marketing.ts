@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import compression from 'vite-plugin-compression'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -29,7 +30,12 @@ function renameHtmlOutput(from: string, to: string): Plugin {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
-  plugins: [react(), renameHtmlOutput('index-marketing.html', 'index.html')],
+  plugins: [
+    react(),
+    renameHtmlOutput('index-marketing.html', 'index.html'),
+    compression({ algorithm: 'gzip', ext: '.gz', threshold: 1024 }),
+    compression({ algorithm: 'brotliCompress', ext: '.br', threshold: 1024 }),
+  ],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -38,12 +44,21 @@ export default defineConfig({
   build: {
     outDir: 'dist-marketing',
     emptyOutDir: true,
+    sourcemap: 'hidden',
     rollupOptions: {
       input: path.resolve(__dirname, 'index-marketing.html'),
       output: {
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'motion-vendor': ['framer-motion'],
+        manualChunks(id: string) {
+          if (id.includes('node_modules/react-router-dom') || id.includes('node_modules/react-router/')) {
+            return 'react-vendor'
+          }
+          if (id.includes('node_modules/react-dom/') || id.includes('node_modules/react/')) {
+            return 'react-vendor'
+          }
+          if (id.includes('node_modules/framer-motion') || id.includes('node_modules/motion-')) {
+            return 'motion-vendor'
+          }
+          return undefined
         },
       },
     },
