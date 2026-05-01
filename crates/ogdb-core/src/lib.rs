@@ -1,3 +1,22 @@
+//! # ogdb-core
+//!
+//! Core storage engine and graph algorithms for OpenGraphDB: the [`Database`]
+//! handle, the property/value type system, query execution, and the
+//! re-exports from `ogdb-vector` + `ogdb-algorithms`. Every binding crate
+//! (`ogdb-cli`, `ogdb-bolt`, `ogdb-node`, `ogdb-ffi`, `ogdb-python`) sits on
+//! top of this surface.
+//!
+//! See `documentation/MIGRATION-FROM-NEO4J.md` for the Cypher coverage table
+//! and the parent project at <https://github.com/asheshgoplani/opengraphdb>.
+//!
+//! ## Quickstart
+//!
+//! ```ignore
+//! use ogdb_core::Database;
+//! let db = Database::open("mydata.ogdb")?;
+//! let result = db.query("MATCH (n) RETURN n LIMIT 10")?;
+//! ```
+
 // EVAL-RUST-QUALITY-CYCLE2 B1 (BLOCKER): turn on `missing_docs` so that any
 // NEWLY added `pub` item in this crate triggers a warning until it has a
 // `///` comment. The ~245 currently-undocumented public items predate this

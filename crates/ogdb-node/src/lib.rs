@@ -1,3 +1,24 @@
+//! # ogdb-node
+//!
+//! Node.js / N-API binding for OpenGraphDB. Wraps [`ogdb_core`] in a
+//! thin async-friendly layer that the published `@opengraphdb/node`
+//! package consumes. Status: **experimental** — the binding API tracks
+//! cycle-3 follow-up before reaching v0.5 stability.
+//!
+//! See the parent project at <https://github.com/asheshgoplani/opengraphdb>
+//! and the workspace `documentation/COOKBOOK.md` for the broader story.
+//!
+//! ## Quickstart
+//!
+//! ```bash
+//! npm install @opengraphdb/node
+//! ```
+//!
+//! ```ts
+//! import { Database } from '@opengraphdb/node'
+//! const db = new Database('mydata.ogdb')
+//! ```
+
 // EVAL-RUST-QUALITY-CYCLE2 H11: the workspace `unsafe_op_in_unsafe_fn` lint
 // fires on napi-macro-generated code (`#[napi]` synthesises `unsafe extern "C"
 // fn` bodies). The macro output is not editable; suppress here.

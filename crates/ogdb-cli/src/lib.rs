@@ -1,3 +1,22 @@
+//! # ogdb-cli
+//!
+//! Command-line interface and embedded HTTP/Bolt server for OpenGraphDB. The
+//! `ogdb` binary lives here, along with the request dispatchers that back
+//! `ogdb serve --http` and `ogdb demo`. The marketing SPA is bundled in via
+//! `include_dir!` so a single binary serves the database, the playground UI,
+//! and the API.
+//!
+//! See `documentation/COOKBOOK.md` for the canonical command reference and
+//! the parent project at <https://github.com/asheshgoplani/opengraphdb> for
+//! the broader story.
+//!
+//! ## Quickstart
+//!
+//! ```bash
+//! cargo run -p ogdb-cli -- demo                    # ephemeral DB + browser-based playground
+//! cargo run -p ogdb-cli -- serve mydata.ogdb       # Bolt + HTTP on default ports
+//! ```
+
 // EVAL-RUST-QUALITY-CYCLE2 B2 (BLOCKER): turn on `missing_docs` so that any
 // NEWLY added `pub` item in this crate triggers a warning until it has a
 // `///` comment. The currently-undocumented public items predate this gate
