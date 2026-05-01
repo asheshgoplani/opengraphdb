@@ -54,8 +54,8 @@ ok "release.yml SPA build sets NODE_OPTIONS=4096"
 [[ -x "$SCRIPT" ]] || fail "$SCRIPT must be executable"
 ok "release.sh present and executable"
 
-grep -q "cargo build --release" "$SCRIPT" \
-  || fail "release.sh must call 'cargo build --release'"
+grep -qE "cargo (auditable )?build.*--release|cargo build|CARGO_BUILD=\(cargo (auditable )?build\)" "$SCRIPT" \
+  || fail "release.sh must call 'cargo build --release' (or 'cargo auditable build --release')"
 grep -q "tar\|zip" "$SCRIPT" \
   || fail "release.sh must produce a .tar / .zip archive"
 ok "release.sh builds + archives"
