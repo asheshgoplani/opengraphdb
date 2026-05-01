@@ -144,6 +144,54 @@ jobs:
       - name: cargo check against MSRV
         run: cargo check --workspace --all-features
 
+  semver:
+    # EVAL-RUST-QUALITY-CYCLE3 B4 (BLOCKER): the workspace ships v0.4.0 to
+    # crates.io. Without cargo-semver-checks, an accidental breaking change
+    # to a #[non_exhaustive] enum, a method's signature, or a removed pub
+    # item slips through CI and breaks every downstream `cargo add
+    # ogdb-core@^0.4`. Run in advisory mode initially (`|| echo` swallows
+    # the failure) so the gate lands before the baseline-clean PR.
+    # Drop the `|| echo` once one green run posts.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Setup Node
+        # ogdb-cli `include_dir!` requires the SPA build for cargo to even
+        # begin compiling — semver-checks runs `cargo build` under the hood.
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build SPA dist for include_dir!
+        working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm ci
+          npm run build:app
+
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+
+      - name: cargo semver-checks (advisory until baseline clean)
+        run: |
+          set -u
+          for crate in ogdb-types ogdb-vector ogdb-text ogdb-temporal \
+                       ogdb-algorithms ogdb-import ogdb-export \
+                       ogdb-core ogdb-bolt ogdb-cli; do
+            cargo semver-checks check-release -p "$crate" \
+              || echo "::warning::semver regression in $crate (advisory)"
+          done
+
   cross-platform-build:
     # EVAL-PERF-RELEASE.md Finding 6 (BLOCKER): catch macOS / Windows
     # breakage on the PR, not at the v* tag. We build ogdb-cli only — full
