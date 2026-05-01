@@ -150,7 +150,7 @@ export default function ClaimsPage() {
                       >
                         <td className="px-4 py-4">
                           {entry.status === 'green' ? (
-                            <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-400">
+                            <span className="inline-flex items-center gap-1 text-[hsl(var(--accent))]">
                               <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                               green
                             </span>
