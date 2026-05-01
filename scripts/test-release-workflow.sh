@@ -49,6 +49,22 @@ awk '
   || fail "release.yml SPA build step must set NODE_OPTIONS=--max-old-space-size=4096 (C2-A3)"
 ok "release.yml SPA build sets NODE_OPTIONS=4096"
 
+# C4-H1 (HIGH): the `publish-crates` job must build the SPA before
+# `cargo publish -p ogdb-cli`. `include_dir!("$CARGO_MANIFEST_DIR/../../frontend/dist-app")`
+# tolerates a missing directory by emitting an empty `Dir`, so the
+# publish silently succeeds with no embedded SPA — `cargo install ogdb-cli`
+# then ships a binary whose UI routes serve the "SPA missing" stub.
+# Enforce that the publish-crates block has the same `npm run build:app`
+# step the `build` job has.
+awk '
+  /^[[:space:]]*publish-crates:[[:space:]]*$/ { in_block = 1 }
+  in_block && /^[[:space:]]{2}[a-zA-Z][a-zA-Z0-9_-]*:[[:space:]]*$/ \
+            && $0 !~ /publish-crates:/ { in_block = 0 }
+  in_block && /npm run build:app/ { print "yes"; exit }
+' "$WORKFLOW" | grep -q yes \
+  || fail "release.yml publish-crates job must build the SPA (npm run build:app) before cargo publish (C4-H1)"
+ok "release.yml publish-crates job builds the SPA before cargo publish"
+
 # --- 2. release.sh exists & is a shippable driver ----------------------------
 [[ -f "$SCRIPT" ]] || fail "missing $SCRIPT (Finding 4)"
 [[ -x "$SCRIPT" ]] || fail "$SCRIPT must be executable"

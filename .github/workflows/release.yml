@@ -188,6 +188,28 @@ jobs:
       # between the build job and the publish job would surface as silently
       # different artifacts.
       - uses: dtolnay/rust-toolchain@1.88.0
+      # C4-H1 (HIGH): without these two Node + SPA-build steps, `cargo
+      # publish -p ogdb-cli` ran on a tree with an empty
+      # `frontend/dist-app/`. `include_dir!` tolerates a missing directory
+      # by emitting an empty `Dir`, so the publish *succeeded* but shipped
+      # a binary whose `static_assets::index_html()` returns `None` and
+      # whose UI routes serve the "SPA missing" stub. Mirror the SPA-build
+      # contract from the `build` job (lines 59-77) so the crates.io
+      # artefact and the GitHub-Release archive are bit-equivalent.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build SPA dist for include_dir!
+        working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm ci
+          npm run build:app
       # C3-H1 (HIGH): dry-run smoke before the real fan-out. If a path-dep
       # version pin regressed (cf C3-B1), `cargo publish --dry-run` surfaces
       # it on the cheap leaf crates before any real upload happens — without
