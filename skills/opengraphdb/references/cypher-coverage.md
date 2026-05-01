@@ -50,8 +50,8 @@ external openCypher TCK pass-rate is *not* yet published — see
 | Pattern comprehension `[(n)-->(m) \| m.name]` | ✅ | |
 | Variable-length paths `(a)-[*1..3]->(b)` | ✅ | |
 | `CREATE INDEX FOR (n:Label) ON (n.prop)` | ✅ | B-tree index. |
-| `CREATE INDEX ... OPTIONS {type: 'vector', ...}` | 🔧 | OpenGraphDB-specific — see `documentation/AI-NATIVE-FEATURES.md`. |
-| `CREATE INDEX ... OPTIONS {type: 'text', ...}` | 🔧 | Tantivy full-text. |
+| `CALL vector.create_index(...)` | 🔧 | OpenGraphDB-specific HNSW vector-index procedure (see `documentation/MIGRATION-FROM-NEO4J.md` § "Index DDL" and `documentation/COOKBOOK.md` Recipe 2). |
+| `CALL text.create_index(...)` | 🔧 | OpenGraphDB-specific Tantivy full-text-index procedure (same references). |
 | Aggregations: `count`, `sum`, `avg`, `min`, `max`, `collect` | ✅ | |
 | Scalar: `id`, `type`, `labels`, `keys`, `properties`, `exists`, `coalesce` | ✅ | |
 | String: `toString`, `size`, `toUpper`, `toLower` | ✅ | |

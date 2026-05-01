@@ -334,7 +334,7 @@ only when the task is dominated by one of the four narrow concerns.
 - [`documentation/BENCHMARKS.md`](../../documentation/BENCHMARKS.md) — every cited number with reproducibility notes.
 - [`documentation/COOKBOOK.md`](../../documentation/COOKBOOK.md) — seven full recipes (the inline mini-recipes above are condensed from this).
 - [`documentation/MIGRATION-FROM-NEO4J.md`](../../documentation/MIGRATION-FROM-NEO4J.md) — five-minute migration brief.
-- [`documentation/AI-NATIVE-FEATURES.md`](../../documentation/AI-NATIVE-FEATURES.md) — design notes for vector / agent-memory / GraphRAG.
+- [`documentation/COOKBOOK.md`](../../documentation/COOKBOOK.md) (Recipe 1+2) plus [`documentation/BENCHMARKS.md`](../../documentation/BENCHMARKS.md) HNSW thresholds — runnable AI-native surface (vector / agent-memory / GraphRAG); roadmap design notes live in [`ARCHITECTURE.md`](../../ARCHITECTURE.md).
 - [`documentation/ai-integration/llm-to-cypher.md`](../../documentation/ai-integration/llm-to-cypher.md) — LLM → Cypher patterns.
 - [`documentation/ai-integration/embeddings-hybrid-rrf.md`](../../documentation/ai-integration/embeddings-hybrid-rrf.md) — RRF math for hybrid retrieval.
 - [`documentation/ai-integration/multi-agent-shared-kg.md`](../../documentation/ai-integration/multi-agent-shared-kg.md) — shared-KG patterns within today's single-writer constraints.
