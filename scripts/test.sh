@@ -13,6 +13,10 @@ source "$HOME/.cargo/env"
 
 # C2-A7 (HIGH): npm package version must match workspace version.
 ./scripts/check-npm-version.sh
+# C3-H2 (HIGH): mirror the npm gate for the PyPI wheel — pyproject.toml
+# version must match workspace version. Caught the 0.1.0 drift cycle-2
+# missed.
+./scripts/check-pypi-version.sh
 
 # C2-A8 (HIGH): cycle-1 added these structural lints but never wired them
 # into CI. Without the wiring they're dead code — the next person to edit
