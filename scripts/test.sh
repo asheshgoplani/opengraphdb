@@ -8,5 +8,5 @@ source "$HOME/.cargo/env"
 
 cargo fmt --all --check
 cargo check --workspace
-cargo clippy --workspace -- -D warnings
+cargo clippy --workspace --all-targets --all-features -- -D warnings
 cargo test --workspace --all-targets

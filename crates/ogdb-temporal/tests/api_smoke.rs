@@ -29,8 +29,11 @@ fn temporal_scope_has_two_variants() {
     // Copy + Clone + PartialEq + Eq must survive the move.
     let copy = variants[0];
     assert_eq!(copy, TemporalScope::ValidTime);
-    let cloned = variants[1].clone();
-    assert_eq!(format!("{cloned:?}"), "SystemTime");
+    // TemporalScope is `Copy`, so plain assignment exercises the same
+    // contract `parse_match_temporal_filter` relies on without tripping
+    // `clippy::clone_on_copy` in `--all-targets --all-features` mode.
+    let copied = variants[1];
+    assert_eq!(format!("{copied:?}"), "SystemTime");
 }
 
 #[test]
