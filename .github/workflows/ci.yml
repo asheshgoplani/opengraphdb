@@ -21,6 +21,8 @@ jobs:
         # silently drift across rustc versions. Bump in lockstep with
         # /Cargo.toml `rust-version` and /rust-toolchain.toml.
         uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
 
       - name: Setup Node
         # Slice S7 (.planning/frontend-overhaul/PLAN.md) embeds the built SPA

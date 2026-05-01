@@ -1,13 +1,9 @@
-# EVAL-RUST-QUALITY-CYCLE3 H11: pin the toolchain so `dtolnay/rust-toolchain`
-# CI actions, local `rustup`, and any direnv/asdf integration all converge
-# on the same compiler. Move this file in lockstep with the workspace
-# `rust-version` field in /Cargo.toml — both pins describe the same MSRV
-# policy. `clippy` is intentionally NOT listed: GitHub Actions runners
-# pre-install it via dtolnay/rust-toolchain and rustup re-install would
-# conflict with "detected conflict: bin/cargo-clippy". rustfmt is added
-# explicitly because the test.sh gate runs `cargo fmt --check` and
-# minimal profile doesn't include it.
+# EVAL-RUST-QUALITY-CYCLE3 H11: pin the toolchain channel only. Components
+# (rustfmt, clippy, llvm-tools-preview) are installed via CI action calls or
+# explicit `rustup component add ...`, NOT from toolchain.toml — listing them
+# here triggers `rustup` to re-install on every cargo invocation, which
+# fails on GitHub Actions runners with "detected conflict: bin/cargo-clippy"
+# because dtolnay/rust-toolchain has already pre-installed them.
 [toolchain]
 channel = "1.88.0"
 profile = "minimal"
-components = ["rustfmt"]
