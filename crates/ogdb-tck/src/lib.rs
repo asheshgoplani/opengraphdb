@@ -53,7 +53,11 @@ impl TckRunReport {
     }
 }
 
+/// Errors surfaced by the TCK driver.
+///
+/// `#[non_exhaustive]` per eval/rust-quality §6.2.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum TckError {
     Io(std::io::Error),
     Walkdir(walkdir::Error),

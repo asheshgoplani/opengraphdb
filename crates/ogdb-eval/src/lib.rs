@@ -376,7 +376,11 @@ fn parse_scale_factor(dataset: &str) -> f64 {
 // Errors
 // ---------------------------------------------------------------------------
 
+/// Errors surfaced by the eval harness.
+///
+/// `#[non_exhaustive]` per eval/rust-quality §6.2.
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum EvalError {
     #[error("invalid schema: {0}")]
     InvalidSchema(String),

@@ -319,7 +319,11 @@ impl Header {
 /// Errors returned by storage and core database operations.
 ///
 /// Query parse/planning/execution failures are represented by [`QueryError`].
+///
+/// `#[non_exhaustive]` per eval/rust-quality §6.2 so adding a new variant
+/// is not a breaking change for downstream consumers.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum DbError {
     Io(std::io::Error),
     Corrupt(String),

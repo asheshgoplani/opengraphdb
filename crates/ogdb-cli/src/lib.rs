@@ -623,7 +623,11 @@ impl CliResult {
     }
 }
 
+/// Errors surfaced by the `ogdb` CLI.
+///
+/// `#[non_exhaustive]` per eval/rust-quality §6.2.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum CliError {
     Usage(String),
     Runtime(String),
