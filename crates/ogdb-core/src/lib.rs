@@ -1,3 +1,32 @@
+//! # ogdb-core
+//!
+//! The OpenGraphDB engine: an embeddable single-file graph + vector + full-text
+//! database that speaks Cypher, with MVCC snapshot reads, a pluggable HNSW
+//! vector index (`instant-distance`), and Tantivy-backed full-text indexes.
+//!
+//! See <https://github.com/asheshgoplani/opengraphdb> and the runnable
+//! recipes in [`documentation/COOKBOOK.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/COOKBOOK.md)
+//! for the integrated story; per-tunable performance characteristics live in
+//! [`documentation/BENCHMARKS.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/BENCHMARKS.md).
+//!
+//! ## Quickstart
+//!
+//! ```no_run
+//! use ogdb_core::Database;
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let mut db = Database::open("mydata.ogdb")?;
+//! let _rows = db.query("MATCH (p:Person) RETURN p")?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! For node / edge mutation use the higher-level `Database::execute(...)` or
+//! the Cypher `CREATE` form via `query(...)`.
+//!
+//! `Database::open` takes a single-process exclusive write lock on the file;
+//! multi-process write access is undefined behaviour today and is tracked as
+//! a v0.5 follow-up (see `documentation/BENCHMARKS.md` § 4.6).
+
 // EVAL-RUST-QUALITY-CYCLE2 B1 (BLOCKER): turn on `missing_docs` so that any
 // NEWLY added `pub` item in this crate triggers a warning until it has a
 // `///` comment. The ~245 currently-undocumented public items predate this
