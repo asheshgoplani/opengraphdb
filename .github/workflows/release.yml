@@ -94,9 +94,37 @@ jobs:
           name: ogdb-${{ matrix.target }}
           path: dist/ogdb-*
 
+  checksums:
+    # C2-B2 (HIGH): emit SHA256SUMS.txt alongside binaries so users have a
+    # way to verify download integrity. Standard pattern across cargo-dist,
+    # GoReleaser, and `curl | bash` installers — without it the planned
+    # one-line installer has no integrity check.
+    name: generate sha256sums
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Compute SHA256SUMS.txt
+        run: |
+          cd dist
+          sha256sum ogdb-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums
+          path: dist/SHA256SUMS.txt
+
   release:
     name: publish github release
-    needs: build
+    needs: [build, checksums]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
@@ -112,7 +140,11 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/ogdb-*
+          # C2-B2: SHA256SUMS.txt is downloaded with the artifacts above
+          # via merge-multiple, so the glob picks it up.
+          files: |
+            dist/ogdb-*
+            dist/SHA256SUMS.txt
           generate_release_notes: true
           # C2-B1 (HIGH): always publish as draft so a bad RC doesn't
           # auto-promote and hide the previous "Latest" release. Detect
