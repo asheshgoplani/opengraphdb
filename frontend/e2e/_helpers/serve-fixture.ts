@@ -16,8 +16,34 @@ import { test, type TestType } from '@playwright/test'
 import { spawn, spawnSync } from 'child_process'
 import type { ChildProcess } from 'child_process'
 import { mkdtempSync, rmSync, existsSync, chmodSync } from 'fs'
+import { createServer } from 'net'
 import { tmpdir } from 'os'
 import { join } from 'path'
+
+// Confirm the requested port is free *before* spawning ogdb, so a leftover
+// process bound to the same port (e.g. a forgotten `ogdb demo` from a prior
+// session) can't silently win the race against /health and end up answering
+// the spec's queries. Throws with a precise message naming the port.
+async function assertPortFree(port: number): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    const probe = createServer()
+    probe.unref()
+    probe.once('error', (err: NodeJS.ErrnoException) => {
+      if (err.code === 'EADDRINUSE') {
+        reject(
+          new Error(
+            `serve fixture: port ${port} is already in use — refuse to spawn ogdb against an unknown server. ` +
+              `Run \`ss -tlnp | grep :${port}\` to find the rogue process.`,
+          ),
+        )
+      } else {
+        reject(err)
+      }
+    })
+    probe.once('listening', () => probe.close(() => resolve()))
+    probe.listen(port, '127.0.0.1')
+  })
+}
 
 // Playwright's cwd during the run is the `frontend/` directory (playwright.config.ts
 // lives there). The repo root sits one directory above.
@@ -165,9 +191,19 @@ export function useOgdbServeFixture(
   // Give ourselves headroom for a cold `cargo build --release -p ogdb-cli` on
   // a fresh worktree. The default beforeAll timeout is 30s which is too tight
   // if the binary has to be built from scratch.
-  testInstance.beforeAll(async (_, testInfo) => {
+  //
+  // Playwright requires the first argument of beforeAll to use the object-
+  // destructuring pattern (it inspects the function source to decide which
+  // fixtures to inject). `(_, testInfo)` throws at runtime with
+  // "First argument must use the object destructuring pattern: _" — so we
+  // keep the empty-destructure form and silence eslint's no-empty-pattern.
+  // eslint-disable-next-line no-empty-pattern
+  testInstance.beforeAll(async ({}, testInfo) => {
     testInfo.setTimeout(180_000)
     ensureReleaseBinary()
+
+    // Reject before spawn rather than racing /health against an unrelated server.
+    await assertPortFree(port)
 
     serveDir = mkdtempSync(join(tmpdir(), 'ogdb-claim-'))
     serveDbPath = join(serveDir, 'live.ogdb')
