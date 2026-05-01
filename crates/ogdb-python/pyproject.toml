@@ -4,7 +4,10 @@ build-backend = "maturin"
 
 [project]
 name = "opengraphdb"
-version = "0.1.0"
+# C3-H2 (HIGH): pyproject version must track [workspace.package] in
+# Cargo.toml. Mirror of C2-A7 (npm). The CI gate is
+# scripts/check-pypi-version.sh.
+version = "0.4.0"
 description = "Python bindings for OpenGraphDB"
 requires-python = ">=3.9"
 

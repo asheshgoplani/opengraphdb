@@ -12,6 +12,15 @@ on:
       - "v*"
   workflow_dispatch:
 
+# C3-H4 (HIGH): serialise per-tag release runs. Two parallel runs of the
+# same vX.Y.Z (push-then-push, or `gh workflow run` racing a tag-trigger)
+# both call `cargo publish` — the second hits "already exists" and aborts
+# the chain mid-fan-out, leaving a partial publish. Queue the second run
+# instead of cancelling so the first finishes cleanly.
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
@@ -172,11 +181,53 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+      # C3-H1 (HIGH): dry-run smoke before the real fan-out. If a path-dep
+      # version pin regressed (cf C3-B1), `cargo publish --dry-run` surfaces
+      # it on the cheap leaf crates before any real upload happens — without
+      # this the first failure stranded the release mid-fan-out.
+      #
+      # Note: `cargo publish --dry-run` requires every transitive workspace
+      # path-dep to be resolvable from crates.io OR carry a path+version
+      # spec. It is reliable from v0.5.0 onward (once any ogdb-*@0.4.0 is
+      # on the index). For the first-ever publish, the structural lint
+      # `scripts/test-crate-metadata.sh` is the load-bearing gate; the
+      # dry-run loop is best-effort and does not exit non-zero so a
+      # bootstrap publish is still possible.
+      - name: cargo publish (dry-run smoke)
+        run: |
+          set +e
+          for crate in ogdb-vector \
+                       ogdb-types \
+                       ogdb-text \
+                       ogdb-temporal \
+                       ogdb-algorithms \
+                       ogdb-export \
+                       ogdb-import \
+                       ogdb-core \
+                       ogdb-bolt \
+                       ogdb-cli \
+                       ogdb-ffi \
+                       ogdb-node \
+                       ogdb-python; do
+            echo "::group::dry-run $crate"
+            cargo publish -p "$crate" --dry-run --allow-dirty \
+              || echo "WARN: $crate dry-run failed (bootstrap publish, or transitive dep not yet on crates.io)"
+            echo "::endgroup::"
+          done
+
+      # C3-H1 (HIGH): real publish, with a skip-already-published guard so
+      # re-tagging or fixup-tagging the same version does not strand the
+      # fan-out. If `ogdb-vector@0.4.0` is already on crates.io,
+      # `cargo publish` exits non-zero — without the guard the chain breaks
+      # there and `ogdb-types` onward never publish, leaving a partial
+      # release that needs manual `cargo yank`.
       - name: Publish each crate in dep order
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_TOKEN }}
         run: |
           set -euo pipefail
+          WS_VERSION=$(awk '/^\[workspace\.package\]/{b=1;next} /^\[/{b=0} b&&/^[[:space:]]*version[[:space:]]*=/{match($0,/"[^"]+"/);print substr($0,RSTART+1,RLENGTH-2);exit}' Cargo.toml)
+          echo "workspace version: $WS_VERSION"
           for crate in ogdb-vector \
                        ogdb-types \
                        ogdb-text \
@@ -191,6 +242,15 @@ jobs:
                        ogdb-node \
                        ogdb-python; do
             echo "::group::cargo publish -p $crate"
+            # Idempotency check: if the index already serves this exact
+            # (crate, version), skip and move on. `cargo search` is cheap
+            # and does not require a token.
+            if cargo search "$crate" --limit 1 2>/dev/null \
+                 | grep -qE "^${crate} = \"${WS_VERSION}\""; then
+              echo "skip: ${crate}@${WS_VERSION} already on crates.io"
+              echo "::endgroup::"
+              continue
+            fi
             cargo publish -p "$crate" --token "$CARGO_REGISTRY_TOKEN"
             echo "::endgroup::"
             sleep 30

@@ -19,7 +19,7 @@ fn main() {
         .filter(|s| !s.is_empty())
         .unwrap_or_else(|| "unknown".into());
 
-    println!("cargo:rustc-env=GIT_SHA={}", sha);
+    println!("cargo:rustc-env=GIT_SHA={sha}");
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs");
     println!("cargo:rerun-if-changed=build.rs");

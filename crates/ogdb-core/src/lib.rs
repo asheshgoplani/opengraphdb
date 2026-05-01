@@ -8533,6 +8533,16 @@ pub struct WriteTransaction<'a> {
     created_edges: u64,
     touched_nodes: BTreeSet<u64>,
     touched_edges: BTreeSet<u64>,
+    // C2-A5 (HIGH): track which property keys + label changes touched
+    // nodes saw, so commit_txn can skip the full HNSW rebuild when none
+    // of them overlap with any vector index in the catalog. Cycle-1
+    // closed the edge-only / no-op case via `node_changes`; this
+    // additionally closes the "touched a node but not a vector-indexed
+    // property" case (e.g. updating only `last_modified` on Document
+    // nodes). True incremental insert (the L-effort backend swap) is
+    // tracked as a v0.5.1 follow-up.
+    touched_node_property_keys: BTreeSet<String>,
+    touched_node_labels: bool,
     undo_log: Vec<UndoLogEntry>,
     closed: bool,
 }
@@ -8575,6 +8585,14 @@ impl<'a> WriteTransaction<'a> {
         let node_id = self.projected_node_count;
         if node_id == u64::MAX {
             return Err(DbError::Corrupt("node id overflow".to_string()));
+        }
+        // C2-A5: capture which keys / labels participated, before we move
+        // labels + properties into create_node_with_in_txn.
+        if !labels.is_empty() {
+            self.touched_node_labels = true;
+        }
+        for key in properties.keys() {
+            self.touched_node_property_keys.insert(key.clone());
         }
         let node_id = self.db.create_node_with_in_txn(
             self.txn_id,
@@ -8678,6 +8696,9 @@ impl<'a> WriteTransaction<'a> {
         self.db
             .set_node_labels_in_txn(self.txn_id, node_id, &labels, &mut self.undo_log)?;
         self.touched_nodes.insert(node_id);
+        // C2-A5: any label change can move a node into / out of a
+        // label-scoped vector index, so it must trigger a rebuild.
+        self.touched_node_labels = true;
         Ok(())
     }
 
@@ -8686,6 +8707,11 @@ impl<'a> WriteTransaction<'a> {
         node_id: u64,
         properties: PropertyMap,
     ) -> Result<(), DbError> {
+        // C2-A5: capture property keys before moving the map into
+        // set_node_properties_in_txn.
+        for key in properties.keys() {
+            self.touched_node_property_keys.insert(key.clone());
+        }
         self.db.set_node_properties_in_txn(
             self.txn_id,
             node_id,
@@ -8722,8 +8748,23 @@ impl<'a> WriteTransaction<'a> {
         // (label, property) on nodes — edge-only and edge-property-only txns
         // cannot affect them, so the expensive HNSW rebuild is skipped when
         // `touched_nodes` is empty.
-        let node_changes = !self.touched_nodes.is_empty();
-        self.db.commit_txn(self.txn_id, node_changes)?;
+        //
+        // C2-A5 (HIGH): refine the gate further. Even when nodes were
+        // touched, the rebuild is only necessary if the catalog could be
+        // affected: any node creation, any label change, or any property
+        // mutation whose key matches a catalog property_key. Mutations of
+        // unrelated properties (e.g. `last_modified` on Document while
+        // the index is on `embedding`) now cleanly skip the rebuild. True
+        // incremental insert (the L-effort backend swap to usearch /
+        // hnsw_rs) is tracked as a v0.5.1 follow-up.
+        let touches_any_node = !self.touched_nodes.is_empty();
+        let vector_relevant_changes = touches_any_node
+            && (self.created_nodes > 0
+                || self.touched_node_labels
+                || self
+                    .db
+                    .catalog_intersects_property_keys(&self.touched_node_property_keys));
+        self.db.commit_txn(self.txn_id, vector_relevant_changes)?;
         self.undo_log.clear();
         self.closed = true;
         Ok(WriteCommitSummary {
@@ -12146,6 +12187,20 @@ impl Database {
     fn record_property_access(&mut self, label: &str, property_key: &str) {
         let key = (label.to_string(), property_key.to_string());
         *self.query_property_access_counts.entry(key).or_insert(0) += 1;
+    }
+
+    /// C2-A5 (HIGH): does any vector index in the catalog name a
+    /// `property_key` that overlaps `keys`? Used by `WriteTransaction::commit`
+    /// to skip the full HNSW rebuild when the txn touched nodes but none of
+    /// the property keys it modified are vector-indexed.
+    pub(crate) fn catalog_intersects_property_keys(&self, keys: &BTreeSet<String>) -> bool {
+        if keys.is_empty() || self.meta.vector_index_catalog.is_empty() {
+            return false;
+        }
+        self.meta
+            .vector_index_catalog
+            .iter()
+            .any(|def| keys.contains(&def.property_key))
     }
 
     fn maybe_auto_create_indexes(&mut self) -> Result<(), DbError> {
@@ -16867,6 +16922,8 @@ impl Database {
             created_edges: 0,
             touched_nodes: BTreeSet::new(),
             touched_edges: BTreeSet::new(),
+            touched_node_property_keys: BTreeSet::new(),
+            touched_node_labels: false,
             undo_log: Vec::new(),
             closed: false,
         }
@@ -21929,9 +21986,12 @@ impl Database {
             }
         }
 
-        // Rebuild vector index so embeddings are queryable
+        // C2-A6 (HIGH): propagate the rebuild error instead of silently
+        // dropping it. A failed rebuild leaves the vector index stale —
+        // the ingest reports `vector_indexed: true` but queries miss the
+        // new embeddings. The caller must know.
         if has_embeddings {
-            let _ = self.rebuild_vector_indexes_from_catalog();
+            self.rebuild_vector_indexes_from_catalog()?;
         }
 
         Ok(IngestResult {

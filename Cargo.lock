@@ -2074,6 +2074,7 @@ dependencies = [
  "criterion",
  "libc",
  "ogdb-core",
+ "ogdb-eval",
  "serde",
  "serde_json",
  "tempfile",
