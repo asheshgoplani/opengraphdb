@@ -18,13 +18,11 @@ Versioning follows Semantic Versioning.
 - `CHANGELOG.md` link footer ratchets through `v0.4.0` (`Unreleased` now compares against `v0.4.0`, not `v0.3.0`).
 - `CONTRIBUTING.md` coverage gate updated: command is now `./scripts/coverage.sh`, threshold is the script's ratchet (93% / 3000 uncovered lines as of v0.4.0; ratchets DOWN only).
 - `documentation/BENCHMARKS.md`: removed a leaked private scratch-path citation in § 6 Source citations; the section now points at Section 5's public source links directly.
+- `documentation/ai-integration/{llm-to-cypher,embeddings-hybrid-rrf,cosmos-mcp-tool}.md` (cycle-2 docs eval C2-B2) reshaped into truthful one-paragraph redirects to `documentation/COOKBOOK.md` Recipe 1+2 and `documentation/BENCHMARKS.md`; removed the `**Status:** stub — detailed walkthrough lands in a follow-up slice.` advertisement; corrected fictional API names (`db.schema_summary()` → `Database::schema_catalog()` / `schema` MCP tool; `db.hybrid_search(...)` → `Database::rag_hybrid_search(...)` / `POST /rag/search`; `usearch` → `instant-distance` HNSW). The matching SPA snippet API names (`AIIntegrationSection.tsx`) are corrected too.
 
 ### Removed
 - `documentation/AI-NATIVE-FEATURES.md` (cycle-2 docs eval C2-B1): the file was a Brainstorming dump that referenced a fictional `opengraphdb` binary, a non-existent `opengraphdb.toml` config file, and Cypher syntax (`OPTIONS {type: 'vector', embedding: true}`, `semantic_distance(...)`) that the engine doesn't speak. The genuine roadmap content folds into `ARCHITECTURE.md`; runnable coverage of the AI-native surface lives in `documentation/COOKBOOK.md` Recipe 1+2 and HNSW thresholds in `documentation/BENCHMARKS.md`. The pointer at `documentation/README.md` and the references in `skills/opengraphdb/SKILL.md` and `skills/opengraphdb/references/cypher-coverage.md` are retargeted accordingly.
 - `documentation/ai-integration/multi-agent-shared-kg.md` (cycle-2 docs eval C2-B2): the file claimed `Database::open("shared.ogdb")` "Just Works across processes" with MVCC snapshot isolation. That contradicts the project's own benchmark sheet (`documentation/BENCHMARKS.md` row 9 / § 4.6: *"single-writer-kernel-limited; the N=4 measurement is mechanical, not real contention"*) and the actual file format (`Database::open` takes a single-process exclusive write lock — multi-process open today is undefined behaviour). The matching `MULTI_AGENT_KG` snippet, 4th pattern card, and `docHref` are also removed from `frontend/src/components/landing/AIIntegrationSection.tsx`; the e2e (`frontend/e2e/F4-ai-integration-section.spec.ts`) updates to expect 3 cards and additionally asserts the three remaining `documentation/ai-integration/*.md` files do not advertise themselves as `**Status:** stub`. Real multi-writer support is a v0.5 roadmap item.
-
-### Changed
-- `documentation/ai-integration/{llm-to-cypher,embeddings-hybrid-rrf,cosmos-mcp-tool}.md` (cycle-2 docs eval C2-B2) reshaped into truthful one-paragraph redirects to `documentation/COOKBOOK.md` Recipe 1+2 and `documentation/BENCHMARKS.md`; removed the `**Status:** stub — detailed walkthrough lands in a follow-up slice.` advertisement; corrected fictional API names (`db.schema_summary()` → `Database::schema_catalog()` / `schema` MCP tool; `db.hybrid_search(...)` → `Database::rag_hybrid_search(...)` / `POST /rag/search`; `usearch` → `instant-distance` HNSW). The matching SPA snippet API names (`AIIntegrationSection.tsx`) are corrected too.
 
 ## [0.4.0] - 2026-04-28
 
@@ -47,6 +45,10 @@ Themes: monolith-split (7 facets carved out of `ogdb-core` into `ogdb-vector` / 
 - `ogdb-cli` `POST /import` returns `created_nodes` as the actual count of newly-created nodes (was returning `highest_node_id` which double-counted on partial reruns); invalid Cypher returns `400` with parse error body (was `500`); missing `query` field returns `400` (was crashing with serde error). Closes 6 HIGH + 4 MED findings from the 2026-04-23 real-UI audit.
 - `ogdb-eval` rebaselined the release-mode `publish_baseline` harness to N=5 medians: 7-test multi-iter aggregation (median across N, lower-median on even N, p99.9 exclusion at N=5 due to noise), 4-phase warm-up driver (`ingest_streaming` + `ingest_bulk` + `read_point` + `read_traversal`), governor probe + sudo-write fallback. `docs/BENCHMARKS.md` and `docs/evaluation-runs/baseline-2026-04-25.json` reflect the new medians and methodology.
 - `[profile.release]` workspace gains `lto = "thin"` + `codegen-units = 1` plus `#[inline]` hints on 7 pure helpers in `ogdb-vector` / `ogdb-temporal` / `ogdb-text` to recover the IS-1 cross-crate inlining the monolith-split refactors had cost (~25% on the 1-hop Cypher property-fetch benchmark). IS-1 acceptance gate: median qps over 5 release-mode iterations ≥ 18,000.
+- Documentation reorganized into a public/internal split: user-facing docs (`BENCHMARKS.md`, `COOKBOOK.md`, `MIGRATION-FROM-NEO4J.md`, `AI-NATIVE-FEATURES.md`, `ai-integration/`, `evaluation-runs/`) moved from `docs/` to a new `documentation/` folder with a `documentation/README.md` index; `docs/` now holds contributor-only material (`TDD-METHODOLOGY.md`, `VERSIONING.md`).
+- `README.md` rewritten as a lean public-facing intro (~80 lines): tagline, the gap OpenGraphDB fills, 30-second quickstart with a Rust embed example, three-bullet positioning, links to `documentation/`, compact CLI surface, and a contributor pointer.
+- `CONTRIBUTING.md` expanded to absorb dev-workflow content lifted from the old README (test/coverage scripts, coverage gate, TCK harness, benchmark harness, areas-we-need-help-with).
+- E2E test paths, Rust source comments, frontend `docHref` URLs (`AIIntegrationSection.tsx`), and `.claude/release-tests.yaml` purpose strings updated to reference `documentation/...` instead of `docs/...`.
 
 ### Added
 - `ogdb-eval` real multi-provider LLM adapters behind feature flags: `llm-anthropic` (default), `llm-openai`, `llm-local`. 12 wiremock-based tests (zero real network) cover factory resolution + Anthropic `x-api-key` + request body + OpenAI Bearer + Local URL env enforcement + 429 retry with exponential backoff + malformed-JSON / missing-field error mapping. Closes the dimension-4 recursive-skill-improvement loop.
@@ -65,12 +67,6 @@ Themes: monolith-split (7 facets carved out of `ogdb-core` into `ogdb-vector` / 
 - 484-lint clippy drift cleared across `ogdb-cli` / `ogdb-core` / `ogdb-eval` after the monolith-split refactors; ogdb-e2e UNWIND assertion inverted to expect 2-row result post-PhysicalUnwind.
 - HNSW `hnsw_query_under_5ms_p95_at_10k` acceptance gate now drives 5 measurement iterations with a warm-up pass and asserts the median p95 ≤ 5ms (was a single-shot p95 prone to timing flake under load); shipped median p95 = 4.62ms on a quiet host. Aligns with the IS-1 + publish_baseline N=5 median methodology.
 - `README.md`, `AGENTS.md`, `IMPLEMENTATION-READY.md`, `docs/IMPLEMENTATION-LOG.md`, `docs/TDD-METHODOLOGY.md`, `docs/VERSIONING.md`, `scripts/workflow-check.sh`, `frontend` audit closeouts: scrubbed private absolute paths (`/Users/...`, `/home/...`) and aligned GitHub URLs to `asheshgoplani/opengraphdb` for the upcoming public push; `.planning/` removed from tracking (now under `.gitignore`).
-
-### Changed
-- Documentation reorganized into a public/internal split: user-facing docs (`BENCHMARKS.md`, `COOKBOOK.md`, `MIGRATION-FROM-NEO4J.md`, `AI-NATIVE-FEATURES.md`, `ai-integration/`, `evaluation-runs/`) moved from `docs/` to a new `documentation/` folder with a `documentation/README.md` index; `docs/` now holds contributor-only material (`TDD-METHODOLOGY.md`, `VERSIONING.md`).
-- `README.md` rewritten as a lean public-facing intro (~80 lines): tagline, the gap OpenGraphDB fills, 30-second quickstart with a Rust embed example, three-bullet positioning, links to `documentation/`, compact CLI surface, and a contributor pointer.
-- `CONTRIBUTING.md` expanded to absorb dev-workflow content lifted from the old README (test/coverage scripts, coverage gate, TCK harness, benchmark harness, areas-we-need-help-with).
-- E2E test paths, Rust source comments, frontend `docHref` URLs (`AIIntegrationSection.tsx`), and `.claude/release-tests.yaml` purpose strings updated to reference `documentation/...` instead of `docs/...`.
 
 ### Removed
 - Pre-implementation `BENCHMARKS.md` at the repo root (storage-model decision policy file, superseded by `documentation/BENCHMARKS.md`).
@@ -149,6 +145,74 @@ Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo
 - `ogdb-core`: `CALL db.index.fulltext.queryNodes(...)` now supports 1-3 argument forms with default `k=10` and fallback property-scan execution when full-text indexes are absent.
 - `ogdb-core`: query result type validation now treats missing/null projected values as nullable for column consistency checks, so relationship property projection like `r.since` across mixed edges returns `null` instead of failing with an inconsistent-type error.
 - `ogdb-core`: Cypher now correctly sorts numeric `ORDER BY` keys by value (not lexical insertion order), supports `REMOVE n.prop[, ...]` property removal through parser/planner/executor, and supports `CREATE INDEX FOR (n:Label) ON (n.prop[, ...])` syntax wired to existing index creation APIs.
+- Coverage gate policy in `scripts/coverage.sh` is now:
+  - `--fail-under-lines 98`
+  - `--fail-uncovered-lines 600`
+  to reflect expanded Phase 15 code paths while keeping active-crate coverage enforcement in CI.
+- `README.md` workflow section now documents the active coverage policy (`>=98%` lines, `<=600` uncovered) for `ogdb-core` + `ogdb-cli`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` Section 17 now reflects the active coverage-gate thresholds.
+- `ogdb-cli` import/export command contract:
+  - `import` now resolves data format from `--format <csv|json|jsonl>` or source-path extension
+  - `export` now resolves data format from `--format <csv|json|jsonl>` or destination-path extension
+  - positional `<csv|json|jsonl>` argument on `import`/`export` was removed in favor of auto-detect + `--format`
+- `WriteTransaction` in `ogdb-core` now applies writes eagerly with undo ownership instead of staged-write buffering.
+- `Database::checkpoint()` and `Database::backup(...)` in `ogdb-core` now take mutable access and run MVCC version GC before persisting/truncating durability artifacts.
+- Snapshot reads in `ogdb-core` now enforce point-in-time visibility with captured `snapshot_txn_id` and committed-version ordering.
+- `ogdb-core` coverage hardening in `crates/ogdb-core/src/lib.rs`:
+  - replaced platform-dependent integer guard branches in CSR conversion paths with `try_from`-based target-aware conversions so unreachable 64-bit overflow branches are not emitted as uncovered lines
+  - changed poisoned `buffer_pool`/`free_list` mutex handling from recoverable `DbError` mapping to unrecoverable `expect(...)` lock acquisition
+  - switched sidecar JSON serialization (`meta`, `free-list`, `csr`) to infallible `expect("known-serializable type")` for persisted structs
+  - added open-path corruption tests for invalid JSON in meta/free-list/csr sidecars to execute deserialization error surfaces
+- `ogdb-core` coverage gate closure for index/planner runtime branches in `crates/ogdb-core/src/lib.rs`:
+  - added focused tests for `PropertyConstraint` guards, index lookup parsing/selection branches, and planner/runtime fallback scan paths
+  - simplified redundant unreachable index-constraint checks and tightened internal index-rebuild invariants
+  - reduced uncovered lines for `ogdb-core --lib` missing-line report to one line under `cargo llvm-cov --show-missing-lines`
+- Coverage gate policy in `scripts/coverage.sh` is now:
+  - `--fail-under-lines 99`
+  - `--fail-uncovered-lines 2`
+  to keep strict active-crate enforcement while accounting for persistent `llvm-cov` macro/region artifacts.
+- `README.md` CLI contract now documents property-aware flags for `create-node`/`add-edge`.
+- `README.md` workflow section now documents active coverage policy (`>=99%` lines, `<=2` uncovered).
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks core property-metadata capabilities and property-aware CLI support as `DONE`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks the Roaring bitmap label membership index milestone as `DONE`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks Phase 6 items #26 and #27 (B-tree property indexes and composite indexes) as `DONE`.
+- Crates now inherit version/edition/license from workspace package metadata.
+- `scripts/test.sh` now includes changelog structure validation.
+- `scripts/test.sh` now includes workflow consistency validation.
+- TDD method now requires changelog + implementation log updates for completed changes.
+- TDD/README docs now reference CI and PR checklist as part of normal workflow.
+- `info` command now reports `node_count` and `edge_count`.
+- Header validation now requires page size to be power-of-two and `>= 64`.
+- Edge scan internals are now shared via `read_all_edge_records()` for deterministic traversal behavior.
+- `README.md` CLI surface now reflects implemented durability commands.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks WAL/recovery/checkpoint/backup items as `DONE`.
+- WAL parsing was refactored to isolate byte-level replay (`recover_from_wal_bytes`) for deterministic branch-level durability testing.
+- `README.md` CLI surface now includes `stats` and reflects remaining pending command families.
+- `README.md` CLI surface now includes `query`, `shell`, and edge-list `import`/`export`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks `query`/`shell` and edge-list `import`/`export` command surfaces as `DONE`.
+- `README.md` CLI surface now includes baseline `schema` command support.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks `schema`/`stats` command surfaces as `DONE` (baseline).
+- `ogdb-cli` now depends on `serde`/`serde_json` for structured JSON/JSONL import-export handling.
+- `query` command grammar now supports reverse traversal forms:
+  - `incoming <dst>`
+  - `hop-in <dst> <hops>` (and `hopin` alias)
+- `query` command grammar now also supports `metrics` form for observability parity with direct command mode.
+- `README.md` and implementation checklist now reflect reverse traversal command/API support and storage progress (reverse adjacency index + delta compaction now `IN_PROGRESS`).
+- `query` parsing now includes `schema` command-style form in addition to traversal and write forms.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks machine-readable query-path output as `IN_PROGRESS`.
+- CLI usage text now documents `--format` on direct read/traversal command variants.
+- `README.md` and CLI usage now document `shell --format`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks machine-readable query-path output as `DONE`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks baseline `mcp` CLI support as `DONE` and MCP adapter status as `IN_PROGRESS`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks baseline `serve` CLI support as `DONE`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks MCP adapter over query/runtime contract as `DONE`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks transaction API surface, strict active-crate coverage gates, `db.metrics()`, and `db.query_profiled(...)` as `DONE`.
+- `README.md` and checklist now include baseline `metrics` command in the implemented CLI contract.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks single-writer + multi-reader snapshot concurrency as `DONE`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks transaction timeout controls as `DONE`.
+- `Database::checkpoint()` now flushes dirty buffer-pool pages to the main `.ogdb` file before WAL truncation.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks free-list and page-allocator milestone as `DONE`.
+- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks on-disk forward/reverse CSR layout and double-CSR-per-edge-type milestones as `DONE`.
 
 ### Added
 - Dedicated end-to-end verification crate `ogdb-e2e` with a comprehensive `comprehensive_e2e` integration suite covering 12 final-validation domains:
@@ -499,77 +563,6 @@ Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo
   - manual compaction trigger added via `SharedDatabase::compact_now()` for deterministic test/control flows
   - `DbMetrics` now includes compaction telemetry (`compaction_count`, `compaction_duration_us`)
   - added coverage for auto-trigger, manual trigger, concurrent-reader behavior during compaction wait, and persisted-CSR corruption detection on open
-
-### Changed
-- Coverage gate policy in `scripts/coverage.sh` is now:
-  - `--fail-under-lines 98`
-  - `--fail-uncovered-lines 600`
-  to reflect expanded Phase 15 code paths while keeping active-crate coverage enforcement in CI.
-- `README.md` workflow section now documents the active coverage policy (`>=98%` lines, `<=600` uncovered) for `ogdb-core` + `ogdb-cli`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` Section 17 now reflects the active coverage-gate thresholds.
-- `ogdb-cli` import/export command contract:
-  - `import` now resolves data format from `--format <csv|json|jsonl>` or source-path extension
-  - `export` now resolves data format from `--format <csv|json|jsonl>` or destination-path extension
-  - positional `<csv|json|jsonl>` argument on `import`/`export` was removed in favor of auto-detect + `--format`
-- `WriteTransaction` in `ogdb-core` now applies writes eagerly with undo ownership instead of staged-write buffering.
-- `Database::checkpoint()` and `Database::backup(...)` in `ogdb-core` now take mutable access and run MVCC version GC before persisting/truncating durability artifacts.
-- Snapshot reads in `ogdb-core` now enforce point-in-time visibility with captured `snapshot_txn_id` and committed-version ordering.
-- `ogdb-core` coverage hardening in `crates/ogdb-core/src/lib.rs`:
-  - replaced platform-dependent integer guard branches in CSR conversion paths with `try_from`-based target-aware conversions so unreachable 64-bit overflow branches are not emitted as uncovered lines
-  - changed poisoned `buffer_pool`/`free_list` mutex handling from recoverable `DbError` mapping to unrecoverable `expect(...)` lock acquisition
-  - switched sidecar JSON serialization (`meta`, `free-list`, `csr`) to infallible `expect("known-serializable type")` for persisted structs
-  - added open-path corruption tests for invalid JSON in meta/free-list/csr sidecars to execute deserialization error surfaces
-- `ogdb-core` coverage gate closure for index/planner runtime branches in `crates/ogdb-core/src/lib.rs`:
-  - added focused tests for `PropertyConstraint` guards, index lookup parsing/selection branches, and planner/runtime fallback scan paths
-  - simplified redundant unreachable index-constraint checks and tightened internal index-rebuild invariants
-  - reduced uncovered lines for `ogdb-core --lib` missing-line report to one line under `cargo llvm-cov --show-missing-lines`
-- Coverage gate policy in `scripts/coverage.sh` is now:
-  - `--fail-under-lines 99`
-  - `--fail-uncovered-lines 2`
-  to keep strict active-crate enforcement while accounting for persistent `llvm-cov` macro/region artifacts.
-- `README.md` CLI contract now documents property-aware flags for `create-node`/`add-edge`.
-- `README.md` workflow section now documents active coverage policy (`>=99%` lines, `<=2` uncovered).
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks core property-metadata capabilities and property-aware CLI support as `DONE`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks the Roaring bitmap label membership index milestone as `DONE`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks Phase 6 items #26 and #27 (B-tree property indexes and composite indexes) as `DONE`.
-- Crates now inherit version/edition/license from workspace package metadata.
-- `scripts/test.sh` now includes changelog structure validation.
-- `scripts/test.sh` now includes workflow consistency validation.
-- TDD method now requires changelog + implementation log updates for completed changes.
-- TDD/README docs now reference CI and PR checklist as part of normal workflow.
-- `info` command now reports `node_count` and `edge_count`.
-- Header validation now requires page size to be power-of-two and `>= 64`.
-- Edge scan internals are now shared via `read_all_edge_records()` for deterministic traversal behavior.
-- `README.md` CLI surface now reflects implemented durability commands.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks WAL/recovery/checkpoint/backup items as `DONE`.
-- WAL parsing was refactored to isolate byte-level replay (`recover_from_wal_bytes`) for deterministic branch-level durability testing.
-- `README.md` CLI surface now includes `stats` and reflects remaining pending command families.
-- `README.md` CLI surface now includes `query`, `shell`, and edge-list `import`/`export`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks `query`/`shell` and edge-list `import`/`export` command surfaces as `DONE`.
-- `README.md` CLI surface now includes baseline `schema` command support.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks `schema`/`stats` command surfaces as `DONE` (baseline).
-- `ogdb-cli` now depends on `serde`/`serde_json` for structured JSON/JSONL import-export handling.
-- `query` command grammar now supports reverse traversal forms:
-  - `incoming <dst>`
-  - `hop-in <dst> <hops>` (and `hopin` alias)
-- `query` command grammar now also supports `metrics` form for observability parity with direct command mode.
-- `README.md` and implementation checklist now reflect reverse traversal command/API support and storage progress (reverse adjacency index + delta compaction now `IN_PROGRESS`).
-- `query` parsing now includes `schema` command-style form in addition to traversal and write forms.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks machine-readable query-path output as `IN_PROGRESS`.
-- CLI usage text now documents `--format` on direct read/traversal command variants.
-- `README.md` and CLI usage now document `shell --format`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks machine-readable query-path output as `DONE`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks baseline `mcp` CLI support as `DONE` and MCP adapter status as `IN_PROGRESS`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks baseline `serve` CLI support as `DONE`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks MCP adapter over query/runtime contract as `DONE`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks transaction API surface, strict active-crate coverage gates, `db.metrics()`, and `db.query_profiled(...)` as `DONE`.
-- `README.md` and checklist now include baseline `metrics` command in the implemented CLI contract.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks single-writer + multi-reader snapshot concurrency as `DONE`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks transaction timeout controls as `DONE`.
-- `Database::checkpoint()` now flushes dirty buffer-pool pages to the main `.ogdb` file before WAL truncation.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks free-list and page-allocator milestone as `DONE`.
-- `docs/FULL-IMPLEMENTATION-CHECKLIST.md` now marks on-disk forward/reverse CSR layout and double-CSR-per-edge-type milestones as `DONE`.
-
 
 ## [0.1.0] - 2026-02-18
 
