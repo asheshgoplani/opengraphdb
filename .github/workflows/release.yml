@@ -53,6 +53,13 @@ jobs:
 
       - name: Build SPA dist for include_dir!
         working-directory: frontend
+        # C2-A3 (BLOCKER): mirror the ci.yml fix from `91d26f2` — macOS
+        # (and especially aarch64-apple-darwin) runners OOM under v8's
+        # default heap when vite builds. Without this env, every macOS +
+        # Windows build in the matrix fails before reaching cargo,
+        # leaving a "successful" Release with only Linux binaries.
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           npm ci
           npm run build:app
@@ -87,9 +94,37 @@ jobs:
           name: ogdb-${{ matrix.target }}
           path: dist/ogdb-*
 
+  checksums:
+    # C2-B2 (HIGH): emit SHA256SUMS.txt alongside binaries so users have a
+    # way to verify download integrity. Standard pattern across cargo-dist,
+    # GoReleaser, and `curl | bash` installers — without it the planned
+    # one-line installer has no integrity check.
+    name: generate sha256sums
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Compute SHA256SUMS.txt
+        run: |
+          cd dist
+          sha256sum ogdb-* > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: checksums
+          path: dist/SHA256SUMS.txt
+
   release:
     name: publish github release
-    needs: build
+    needs: [build, checksums]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
@@ -105,9 +140,19 @@ jobs:
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/ogdb-*
+          # C2-B2: SHA256SUMS.txt is downloaded with the artifacts above
+          # via merge-multiple, so the glob picks it up.
+          files: |
+            dist/ogdb-*
+            dist/SHA256SUMS.txt
           generate_release_notes: true
-          draft: false
+          # C2-B1 (HIGH): always publish as draft so a bad RC doesn't
+          # auto-promote and hide the previous "Latest" release. Detect
+          # pre-release tags from the standard `vX.Y.Z-rc1` shape so the
+          # GitHub UI badges them correctly when the maintainer flips
+          # `draft=false` via `gh release edit`.
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
   docker:
     # EVAL-PERF-RELEASE.md Finding 9 (HIGH): build + push the distroless
@@ -122,6 +167,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # C2-B4 (HIGH): the binary release matrix already covers
+      # aarch64-unknown-linux-gnu, but the docker job emitted an amd64-only
+      # image. AWS Graviton + Apple Silicon users (under emulation) had no
+      # native arm64 image. QEMU + buildx multi-platform fixes that.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -146,6 +198,10 @@ jobs:
           context: .
           file: Dockerfile
           push: true
+          # C2-B4: build linux/amd64 + linux/arm64 in one buildx invocation;
+          # the resulting manifest list lets `docker pull` auto-pick the
+          # right arch on Graviton / Apple Silicon hosts.
+          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository_owner }}/opengraphdb:${{ steps.meta.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/opengraphdb:latest

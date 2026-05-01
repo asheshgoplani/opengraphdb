@@ -1,10 +1,11 @@
 {
   "name": "opengraphdb",
-  "version": "0.1.0",
+  "version": "0.4.0",
   "type": "commonjs",
   "main": "index.js",
   "types": "index.d.ts",
   "scripts": {
-    "test": "node --test tests/basic.test.js"
+    "test": "node --test tests/basic.test.js",
+    "prepublishOnly": "node -e \"const fs=require('fs'); const ws=fs.readFileSync('../../Cargo.toml','utf8').match(/^version\\s*=\\s*\\\"(.*?)\\\"/m)[1]; const pkg=require('./package.json').version; if(ws!==pkg) { throw new Error('C2-A7 npm version drift: cargo='+ws+' npm='+pkg); }\""
   }
 }

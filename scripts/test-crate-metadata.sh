@@ -1,11 +1,18 @@
 #!/usr/bin/env bash
-# EVAL-PERF-RELEASE.md Finding 7 (HIGH): every workspace crate must either
+# EVAL-PERF-RELEASE.md Finding 7 (HIGH) + EVAL-PERF-RELEASE-CYCLE2.md C2-A1
+# (BLOCKER): every workspace crate must either
 # (a) declare publish = false (dev/test rig), OR
 # (b) carry the metadata cargo publish requires (description, repository,
-#     homepage). Without this, `cargo publish --dry-run` rejects on first
-#     attempt at v0.5.0 tag time — too late.
+#     homepage), AND every intra-workspace path-dep on a publishable crate
+#     must declare `version = "..."` so `cargo publish` can resolve the dep
+#     after the local checkout is gone.
 #
-# This test enforces the contract; CI runs it (added in this commit).
+# Why no `cargo publish --dry-run` companion gate: pre-bootstrap (before
+# any crate has shipped to crates.io) `cargo publish --dry-run --no-verify`
+# still resolves intra-workspace deps against the index and fails for
+# every dep that isn't yet published. This script is the durable
+# pre-bootstrap defense; once v0.5.0 ships, a follow-up patch can wire
+# `cargo publish --dry-run` into release.yml as defense-in-depth.
 set -euo pipefail
 
 ROOT="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
@@ -56,6 +63,14 @@ for crate in "${PUBLISHABLE[@]}"; do
       fail "$crate missing required [package].$field (or $field.workspace = true)"
     fi
   done
+
+  # C2-A1 (BLOCKER): every intra-workspace path-dep on a publishable crate
+  # must declare `version = "..."`. `cargo publish` rejects path-only deps.
+  bad=$(grep -E '^[[:space:]]*ogdb-[a-z-]+[[:space:]]*=[[:space:]]*\{[[:space:]]*path[[:space:]]*=' "$toml" \
+        | grep -v 'version[[:space:]]*=' || true)
+  if [[ -n "$bad" ]]; then
+    fail "$crate has intra-workspace path-deps without version pins:"$'\n'"$bad"
+  fi
 
   echo "ok: $crate has all required metadata"
 done

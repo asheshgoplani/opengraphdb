@@ -17,7 +17,10 @@ COPY frontend ./frontend
 RUN cd frontend && npm run build:app
 
 # ---- Stage 2: build the cargo release binary.
-FROM rust:1.85-bookworm AS build
+# C2-A2 (BLOCKER): the workspace declares `rust-version = "1.87"` in
+# Cargo.toml; rustc < 1.87 hard-fails. Keep this in sync with the workspace
+# MSRV — `scripts/test-dockerfile.sh` enforces the cross-check.
+FROM rust:1.87-bookworm AS build
 WORKDIR /src
 COPY . .
 COPY --from=frontend /src/frontend/dist-app ./frontend/dist-app

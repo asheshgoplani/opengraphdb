@@ -1,23 +1,27 @@
 # OpenGraphDB 0.4.0 — Competitive Benchmark Baseline
 
-**Measurement date:** 2026-04-25
-**Branch:** `perf/rebaseline-multi-run` (off `main` @ `91c789b`)
+**Measurement date:** 2026-05-01 (current at-version baseline; 2026-04-25 0.3.0 baseline preserved as historical).
+**Branch:** `fix/eval-cycle2-perf` (off `main` @ `5d58d8d`)
 **Harness:** `crates/ogdb-eval` — `RunAllConfig::full` via `cli_runner::run_all`, plus `graphalytics::{run_bfs, run_pagerank}` and `criterion_ingest::ingest_criterion_dir`. Source: `crates/ogdb-eval/tests/publish_baseline.rs`.
-**Raw run JSON:** [`documentation/evaluation-runs/baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json) (15 `EvaluationRun`s, schema v1.0; 12 medianed core + 3 single-shot post-pass).
+**Raw run JSON:** [`documentation/evaluation-runs/baseline-2026-05-01.json`](evaluation-runs/baseline-2026-05-01.json) (15 `EvaluationRun`s, schema v1.0, version=0.4.0, git_sha pinned per record per cycle-2 C2-A4 fix; iters=1 single-shot pre-release smoke). The 2026-04-25 multi-iter aggregated baseline is preserved at [`baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json) for longitudinal diff.
 **Historical baseline:** [`documentation/evaluation-runs/baseline-2026-04-23.json`](evaluation-runs/baseline-2026-04-23.json) preserved for diff-engine longitudinal comparisons.
 
 ## Scope and honesty policy
 
-> **Baseline-version note (added 2026-05-01).** The numbers in this document
-> were collected on 2026-04-25 against the `0.3.0` workspace; the workspace
-> was bumped to `0.4.0` on 2026-04-28. The 0.4.0 changelog ships
-> perf-affecting changes (HNSW replaces brute force on vector search,
-> thin-LTO + `#[inline]` recovers ~25 % on IS-1, UNWIND becomes a real
-> physical operator). The numbers here are therefore a *lower-bound* on what
-> 0.4.0 reports — re-baselining at 0.4.0 is gated by EVAL-PERF-RELEASE.md
-> Finding 1 and tracked for the v0.5 release. The headline version below was
-> bumped to match the workspace so the CI version-match gate
-> (`scripts/check-benchmarks-version.sh`) stays green.
+> **Baseline-version note (updated 2026-05-01 per cycle-2 C2-A4).** The
+> raw run JSON is now regenerated against the 0.4.0 workspace (commit
+> `3ba8d96`) at [`baseline-2026-05-01.json`](evaluation-runs/baseline-2026-05-01.json),
+> so every `EvaluationRun` carries `"version": "0.4.0"` and a real
+> `git_sha`. This run is iters=1 single-shot — the 2026-04-25 multi-iter
+> medianed baseline is preserved at
+> [`baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json)
+> as the historical headline-numbers reference; a multi-iter
+> medianed re-baseline at v0.5 will be the canonical-numbers replacement
+> when measurement-quality hardware is available. The aggregated
+> headline numbers in the table below are therefore still from the
+> 2026-04-25 multi-iter run (numbers do not yet shift) — only the
+> attestation that the current code matches a published JSON has been
+> restored.
 
 This document is the public competitive-comparison sheet for OpenGraphDB 0.4.0. Per the project's transparency directive we publish *every* measurement — wins, losses, and axes where no public baseline exists — with enough methodology context that a reader can reproduce or challenge the numbers.
 
@@ -54,7 +58,7 @@ All OpenGraphDB numbers below are the **median of N=5 release-build iterations**
 - `HNSW_MIN_N = 256` (`crates/ogdb-core/src/lib.rs::HNSW_MIN_N`) — vector indexes with fewer than 256 entries skip the HNSW build entirely and serve queries via brute-force scan. Latency curves on small corpora therefore look different from the published numbers (which assume HNSW is in use).
 - `HNSW_BITMAP_BRUTE_THRESHOLD = 32` (`crates/ogdb-core/src/lib.rs::HNSW_BITMAP_BRUTE_THRESHOLD`) — filtered vector queries (where a Cypher `WHERE` clause prunes candidates before the kNN search) fall back to brute force when fewer than 32 rows survive the filter. Heavily-filtered queries are therefore exact, not approximate.
 - `ef_construction = 400`, `ef_search = 128`, `seed = 0xC0FFEE` (`crates/ogdb-core/src/lib.rs::HNSW_EF_CONSTRUCTION` / `::HNSW_EF_SEARCH` / `::HNSW_BUILDER_SEED`) — tuning constants for the `instant-distance` builder. These are pinned for reproducibility; they govern recall@10 ≥ 0.95 (gate: `crates/ogdb-core/tests/hnsw_recall_at_10_over_0_95_at_10k.rs`) and p95 ≤ 5 ms (gate: `crates/ogdb-core/tests/hnsw_query_under_5ms_p95_at_10k.rs`) at N=10k, d=384.
-- **Commit-time rebuild (eval Finding 2 fix):** prior to 2026-05-01, `commit_txn` rebuilt every HNSW from scratch on every transaction commit, costing hundreds of ms per *unrelated* edge-only commit. The fix gates the rebuild on `touched_nodes.is_empty() == false` — pure edge / edge-property / no-op commits no longer trigger a rebuild. The remaining hot path (commits that touch any node) still does a full rebuild — true incremental insert is tracked as a v0.5 follow-up (the `instant-distance 0.6` API is build-once-query-many; an incremental adapter requires either a delta buffer or a different HNSW crate).
+- **Commit-time rebuild (eval Finding 2 fix + cycle-2 C2-A5 refinement):** prior to 2026-05-01, `commit_txn` rebuilt every HNSW from scratch on every transaction commit, costing hundreds of ms per *unrelated* edge-only commit. cycle-1's fix gated on `touched_nodes.is_empty() == false` — closing the pure-edge / no-op case. cycle-2 (this branch) tightens the gate further: the rebuild also skips when the txn touched nodes but only modified property keys that aren't in the vector-index catalog (e.g. updating `last_modified` on Doc nodes that carry an `embedding` index). Node creation, label changes, and mutations to indexed property keys still trigger the rebuild — see `crates/ogdb-core/tests/c2_a5_hnsw_skip_rebuild_on_unrelated_property.rs` for the regression pin. True incremental insert (the L-effort backend swap from `instant-distance` to `usearch` / `hnsw_rs`, or a delta-buffer adapter) is tracked as a v0.5.1 follow-up: the row-6 mutation p99 of 15.6 ms still includes the full rebuild on `embedding`-touching commits.
 
 **Hardware caveat.** The spec's Workstation tier is AWS r7i.4xlarge (16 vCPU / 128 GB / NVMe). Our bench box is a 12-core Skylake-X desktop — single-NUMA, older uarch, different memory bandwidth. Numbers here should be read as a *lower bound* on what the SF10 Workstation run will report once we re-run on r7i.
 

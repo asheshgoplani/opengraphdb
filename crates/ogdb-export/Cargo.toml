@@ -14,4 +14,5 @@ keywords = ["graph", "database", "opengraphdb", "export", "ndjson"]
 categories = ["data-structures", "database"]
 
 [dependencies]
-ogdb-types = { path = "../ogdb-types" }
+# C2-A1: version pin required for `cargo publish`.
+ogdb-types = { path = "../ogdb-types", version = "0.4.0" }
