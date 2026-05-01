@@ -84,18 +84,18 @@ jobs:
 
   msrv:
     # EVAL-RUST-QUALITY-CYCLE2 B4 (BLOCKER): root Cargo.toml declares
-    # `rust-version = "1.87"` but every other CI job uses
+    # `rust-version = "1.88"` but every other CI job uses
     # `dtolnay/rust-toolchain@stable`. A dependency upgrade can quietly
     # pull a feature requiring a newer toolchain and CI passes; the next
-    # user installing against 1.87 hits a build error. Lock the toolchain
+    # user installing against 1.88 hits a build error. Lock the toolchain
     # to the declared MSRV here so a regression fails the PR.
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Rust 1.87 (workspace MSRV)
-        uses: dtolnay/rust-toolchain@1.87
+      - name: Setup Rust 1.88 (workspace MSRV)
+        uses: dtolnay/rust-toolchain@1.88
 
       - name: Setup Node
         # `include_dir!` reads `frontend/dist-app/` at compile time, so the
