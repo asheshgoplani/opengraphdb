@@ -21835,9 +21835,12 @@ impl Database {
             }
         }
 
-        // Rebuild vector index so embeddings are queryable
+        // C2-A6 (HIGH): propagate the rebuild error instead of silently
+        // dropping it. A failed rebuild leaves the vector index stale —
+        // the ingest reports `vector_indexed: true` but queries miss the
+        // new embeddings. The caller must know.
         if has_embeddings {
-            let _ = self.rebuild_vector_indexes_from_catalog();
+            self.rebuild_vector_indexes_from_catalog()?;
         }
 
         Ok(IngestResult {
