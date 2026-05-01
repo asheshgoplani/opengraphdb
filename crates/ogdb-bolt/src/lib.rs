@@ -38,7 +38,11 @@ const MSG_RECORD: u8 = 0x71;
 const MSG_IGNORED: u8 = 0x7E;
 const MSG_FAILURE: u8 = 0x7F;
 
+/// Errors surfaced by the Bolt protocol server.
+///
+/// `#[non_exhaustive]` per eval/rust-quality §6.2.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum BoltError {
     Io(std::io::Error),
     Db(DbError),

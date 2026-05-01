@@ -20,6 +20,8 @@
 //! `ogdb-core`. See `.planning/ogdb-core-split-temporal/PLAN.md`
 //! for the full rationale.
 
+#![warn(missing_docs)]
+
 /// Bitemporal scope of a Cypher `AT TIME` / `AT SYSTEM TIME` filter.
 ///
 /// `ValidTime` queries the application time axis (`valid_from` /
@@ -27,7 +29,9 @@
 /// axis (`transaction_time_millis` per edge).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TemporalScope {
+    /// Application time axis (`valid_from`/`valid_to` per edge).
     ValidTime,
+    /// Transaction time axis (`transaction_time_millis` per edge).
     SystemTime,
 }
 
@@ -40,7 +44,9 @@ pub enum TemporalScope {
 /// delegates the pure decision to [`temporal_filter_matches`]).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TemporalFilter {
+    /// Which temporal axis the filter applies to.
     pub scope: TemporalScope,
+    /// Snapshot timestamp in milliseconds since the Unix epoch.
     pub timestamp_millis: i64,
 }
 

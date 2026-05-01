@@ -18,7 +18,7 @@
 
 use ogdb_import::{
     chunk_content, detect_cross_references, parse_plaintext_sections, DocumentFormat, IngestConfig,
-    IngestResult, ParsedSection,
+    IngestError, IngestResult, ParsedSection,
 };
 
 #[test]
@@ -220,6 +220,37 @@ fn cross_reference_detector_finds_3_word_title_mentions() {
         refs.contains(&(2, 1)),
         "Should detect cross-reference from index 2 → index 1; got: {refs:?}"
     );
+}
+
+#[test]
+fn ingest_error_is_thiserror_and_displayable() {
+    // Eval/rust-quality §6.1 regression: parse_pdf_sections /
+    // parse_markdown_sections used to return Result<_, String>, which
+    // forced callers (DbError::InvalidArgument adapter in ogdb-core)
+    // to lose type information. Now they return Result<_,
+    // IngestError>; verify the new error type is a real
+    // std::error::Error and produces the same human-readable strings
+    // that the old String-based contract did, so DbError surface text
+    // is preserved.
+    let pdf = IngestError::Pdf("malformed xref table".into());
+    assert_eq!(pdf.to_string(), "Failed to parse PDF: malformed xref table");
+    let md = IngestError::Markdown("syntax error".into());
+    assert_eq!(md.to_string(), "Failed to parse Markdown: syntax error");
+    let _: &dyn std::error::Error = &pdf; // compile-time: implements Error.
+}
+
+#[test]
+fn ingest_error_is_non_exhaustive() {
+    // Callers must not exhaustively match — the enum is
+    // #[non_exhaustive] (eval/rust-quality §6.2). This compiles iff
+    // the wildcard arm is required.
+    let e = IngestError::Pdf("x".into());
+    let label = match &e {
+        IngestError::Pdf(_) => "pdf",
+        IngestError::Markdown(_) => "md",
+        _ => "other",
+    };
+    assert_eq!(label, "pdf");
 }
 
 #[test]

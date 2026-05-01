@@ -12,14 +12,21 @@
 //! (query/rebuild/hybrid) stays in `ogdb-core` for a follow-up plan.
 //! See `.planning/ogdb-core-split-text/PLAN.md`.
 
+#![warn(missing_docs)]
+
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
+/// Catalog row for a Cypher full-text index. Pinned in
+/// `meta.json`; consumed by the tantivy index runtime in `ogdb-core`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct FullTextIndexDefinition {
+    /// User-supplied unique index name.
     pub name: String,
+    /// Optional `:Label` filter; `None` means index spans all node labels.
     pub label: Option<String>,
+    /// Property keys (one or more) whose string values feed the index.
     pub property_keys: Vec<String>,
 }
 

@@ -3,6 +3,15 @@ name = "ogdb-bolt"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "OpenGraphDB Bolt protocol server (Neo4j wire-compatible)."
+keywords = ["graph", "database", "opengraphdb", "bolt", "neo4j"]
+categories = ["database", "network-programming"]
 
 [dependencies]
 ogdb-core = { path = "../ogdb-core" }

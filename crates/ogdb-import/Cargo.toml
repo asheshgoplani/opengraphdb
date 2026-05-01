@@ -3,6 +3,15 @@ name = "ogdb-import"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "OpenGraphDB document ingestion (PDF, Markdown, structured text into graph nodes)."
+keywords = ["graph", "database", "opengraphdb", "ingest", "pdf"]
+categories = ["parser-implementations", "text-processing"]
 
 [features]
 default = ["document-ingest"]
@@ -10,6 +19,7 @@ document-ingest = ["dep:lopdf", "dep:pulldown-cmark"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
+thiserror = "1"
 lopdf = { version = "0.34", optional = true }
 pulldown-cmark = { version = "0.13", optional = true }
 

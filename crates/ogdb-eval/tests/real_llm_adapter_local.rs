@@ -47,6 +47,13 @@ fn sample_case() -> EvalCase {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+// `ENV_LOCK` is held across `.await` calls deliberately: every test in
+// this file mutates the process-wide environment via `clear_env()` /
+// `set_var(...)`, so dropping the guard before the `.await`s would let
+// a sibling test race in and stomp the env. The guard's std::sync
+// Mutex is uncontended outside this test module, so the await-holding
+// is a no-op for liveness.
+#[allow(clippy::await_holding_lock)]
 async fn local_adapter_honors_url_env() {
     let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     clear_env();

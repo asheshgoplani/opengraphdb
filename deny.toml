@@ -9,7 +9,9 @@ feature-depth = 1
 [advisories]
 version = 2
 ignore = [
-    { id = "RUSTSEC-2025-0020", reason = "pyo3 0.21 PyString::from_object — deferred; pyo3 0.24 is a major API migration tracked as separate follow-up. Feature-gated (python not in default features)." },
+    { id = "RUSTSEC-2025-0020", reason = "pyo3 0.21 PyString::from_object — deferred; pyo3 0.24 is a major API migration tracked as separate follow-up (see documentation/SECURITY-FOLLOWUPS.md §pyo3). Feature-gated (python not in default features)." },
+    { id = "RUSTSEC-2026-0002", reason = "lru 0.12 unsound IterMut; transitive via tantivy 0.25. Wait for tantivy 0.26 with lru ≥ 0.13. No safe upgrade path in our control." },
+    { id = "RUSTSEC-2026-0097", reason = "rand custom-logger unsoundness in 0.8 / 0.9; transitive via tower / instant-distance / proptest / oxrdf / reqwest / quinn-proto. Wait for upstream patches." },
 ]
 
 [licenses]
@@ -28,6 +30,10 @@ allow = [
     "Unicode-3.0",
     "Unlicense",
     "Zlib",
+    # webpki-roots 1.0.7 (transitive via reqwest → ogdb-eval) ships under
+    # the Community Data License Agreement Permissive 2.0 — a permissive
+    # OSS license suitable for redistribution of Mozilla CA root data.
+    "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.8
 exceptions = [

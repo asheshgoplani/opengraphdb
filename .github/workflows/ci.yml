@@ -43,6 +43,9 @@ jobs:
           rustup component add llvm-tools-preview
           cargo install cargo-llvm-cov --locked
 
+      - name: Install cargo-deny
+        run: cargo install cargo-deny --locked
+
       - name: Run test workflow
         run: ./scripts/test.sh
 

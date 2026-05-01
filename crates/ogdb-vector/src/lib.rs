@@ -16,24 +16,41 @@
 //! The HNSW runtime, catalog persistence, and Cypher planner hooks
 //! stay in `ogdb-core` for now (follow-up plan).
 
+#![warn(missing_docs)]
+
 use serde::{Deserialize, Serialize};
 
+/// Distance metric variants supported by `ogdb-core`'s vector index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum VectorDistanceMetric {
+    /// Cosine distance (`1 - dot/(‖a‖·‖b‖)`); zero-norm vectors return 1.0.
     Cosine,
+    /// Standard Euclidean (L2) distance.
     Euclidean,
+    /// Negated dot product, so smaller-is-better matches the other variants.
     DotProduct,
 }
 
+/// Catalog row for a Cypher vector index. Pinned in `meta.json`;
+/// consumed by the HNSW index runtime in `ogdb-core`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct VectorIndexDefinition {
+    /// User-supplied unique index name.
     pub name: String,
+    /// Optional `:Label` filter; `None` means index spans all node labels.
     pub label: Option<String>,
+    /// Single property key whose `Vector` value feeds the index.
     pub property_key: String,
+    /// Vector dimensionality enforced at insert time.
     pub dimensions: usize,
+    /// Distance metric used for ranking and recall.
     pub metric: VectorDistanceMetric,
 }
 
+/// NaN-safe total ordering between two `f32` slices.
+///
+/// Length is compared first; equal lengths fall back to per-element
+/// `f32::total_cmp`. Used by `PropertyValue::Vector`'s `Ord` impl.
 #[inline]
 pub fn compare_f32_vectors(left: &[f32], right: &[f32]) -> std::cmp::Ordering {
     let len_cmp = left.len().cmp(&right.len());
@@ -49,6 +66,9 @@ pub fn compare_f32_vectors(left: &[f32], right: &[f32]) -> std::cmp::Ordering {
     std::cmp::Ordering::Equal
 }
 
+/// Parse a Cypher vector literal of the form `[1.0, 2.5, -3.0]` into a
+/// `Vec<f32>`. Optional element prefixes `f64:` and `i64:` are
+/// tolerated (and stripped). Returns `None` on any parse failure.
 #[inline]
 pub fn parse_vector_literal_text(value: &str) -> Option<Vec<f32>> {
     let trimmed = value.trim();
@@ -71,6 +91,9 @@ pub fn parse_vector_literal_text(value: &str) -> Option<Vec<f32>> {
         .collect::<Option<Vec<_>>>()
 }
 
+/// Compute the metric-specific distance between two equal-length
+/// non-empty vectors. Returns `None` when the lengths differ or
+/// either vector is empty.
 #[inline]
 pub fn vector_distance(metric: VectorDistanceMetric, left: &[f32], right: &[f32]) -> Option<f32> {
     if left.len() != right.len() || left.is_empty() {

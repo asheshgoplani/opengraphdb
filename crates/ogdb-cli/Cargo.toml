@@ -3,6 +3,15 @@ name = "ogdb-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "OpenGraphDB command-line interface and embedded HTTP / Bolt / MCP server (`ogdb` binary)."
+keywords = ["graph", "database", "opengraphdb", "cli", "cypher"]
+categories = ["command-line-utilities", "database"]
 
 [[bin]]
 name = "ogdb"
@@ -10,7 +19,11 @@ path = "src/main.rs"
 
 [features]
 default = []
-grpc = ["dep:tokio", "dep:tonic"]
+# `grpc` currently only references a `tonic::Code` placeholder; the actual
+# tonic server (which would pull tokio) lives in a future ogdb-server crate
+# (eval/rust-quality §7.1). Re-add `dep:tokio` to this list when the server
+# wiring lands.
+grpc = ["dep:tonic"]
 
 [dependencies]
 clap = { version = "4", features = ["derive"] }
@@ -24,7 +37,6 @@ prometheus = { version = "0.13", default-features = false }
 rustyline = "14"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"], optional = true }
 tonic = { version = "0.12", features = ["transport"], optional = true }
 webbrowser = "1"
 

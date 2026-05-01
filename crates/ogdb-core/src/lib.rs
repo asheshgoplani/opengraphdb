@@ -319,7 +319,11 @@ impl Header {
 /// Errors returned by storage and core database operations.
 ///
 /// Query parse/planning/execution failures are represented by [`QueryError`].
+///
+/// `#[non_exhaustive]` per eval/rust-quality §6.2 so adding a new variant
+/// is not a breaking change for downstream consumers.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum DbError {
     Io(std::io::Error),
     Corrupt(String),
@@ -959,6 +963,10 @@ pub struct WasmDatabase {
 #[cfg(feature = "wasm-bindings")]
 #[wasm_bindgen]
 impl WasmDatabase {
+    // `#[wasm_bindgen(constructor)]` requires the `new()` shape — `Default`
+    // can't replace it because the JS binding generator looks for `new`
+    // by name. Allow the lint with rationale.
+    #[allow(clippy::new_without_default)]
     #[wasm_bindgen(constructor)]
     pub fn new() -> WasmDatabase {
         WasmDatabase {
@@ -21586,11 +21594,14 @@ impl Database {
 
         // Step 1: Parse document into sections
         let sections = match config.format {
-            DocumentFormat::Pdf => parse_pdf_sections(data).map_err(DbError::InvalidArgument)?,
+            DocumentFormat::Pdf => {
+                parse_pdf_sections(data).map_err(|e| DbError::InvalidArgument(e.to_string()))?
+            }
             DocumentFormat::Markdown => {
                 let text = std::str::from_utf8(data)
                     .map_err(|e| DbError::InvalidArgument(format!("Invalid UTF-8: {e}")))?;
-                parse_markdown_sections(text).map_err(DbError::InvalidArgument)?
+                parse_markdown_sections(text)
+                    .map_err(|e| DbError::InvalidArgument(e.to_string()))?
             }
             DocumentFormat::PlainText => {
                 let text = std::str::from_utf8(data)

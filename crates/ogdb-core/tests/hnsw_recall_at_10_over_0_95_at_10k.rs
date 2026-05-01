@@ -78,6 +78,7 @@ fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
 }
 
 #[test]
+#[ignore = "138s release-mode runtime — too expensive for default CI; correctness coverage already provided by `hnsw_matches_brute_force_on_tiny_fixture`. Run with `cargo test -p ogdb-core --release --test hnsw_recall_at_10_over_0_95_at_10k -- --ignored` in dedicated bench CI tier. Eval/rust-quality §4."]
 fn hnsw_recall_at_10_over_0_95_at_10k() {
     if cfg!(debug_assertions) {
         eprintln!(

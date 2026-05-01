@@ -2066,9 +2066,6 @@ dependencies = [
 [[package]]
 name = "ogdb-algorithms"
 version = "0.4.0"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "ogdb-bench"
@@ -2105,7 +2102,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "tokio",
  "tonic",
  "webbrowser",
 ]
@@ -2192,6 +2188,7 @@ dependencies = [
  "pulldown-cmark",
  "serde",
  "serde_json",
+ "thiserror 1.0.69",
 ]
 
 [[package]]

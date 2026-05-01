@@ -3,6 +3,15 @@ name = "ogdb-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "Embedded Cypher-speaking property-graph database core: storage, query, indexes, vector + full-text search."
+keywords = ["graph", "database", "cypher", "embedded", "vector"]
+categories = ["database-implementations", "data-structures"]
 
 [features]
 default = ["vector-search", "fulltext-search", "document-ingest"]

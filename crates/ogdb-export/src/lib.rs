@@ -34,26 +34,39 @@
 //!
 //! See `.planning/ogdb-core-split-export/PLAN.md` for rationale.
 
+#![warn(missing_docs)]
+
 use ogdb_types::PropertyMap;
 
 /// Export representation for one graph node.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportNode {
+    /// Stable node id assigned at insert time.
     pub id: u64,
+    /// All `:Label`s currently attached to the node.
     pub labels: Vec<String>,
+    /// Property bag (typed via [`ogdb_types::PropertyValue`]).
     pub properties: PropertyMap,
 }
 
 /// Export representation for one graph edge.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ExportEdge {
+    /// Stable edge id assigned at insert time.
     pub id: u64,
+    /// Source node id.
     pub src: u64,
+    /// Destination node id.
     pub dst: u64,
+    /// Edge `:TYPE`, if any.
     pub edge_type: Option<String>,
+    /// Property bag (typed via [`ogdb_types::PropertyValue`]).
     pub properties: PropertyMap,
+    /// Lower bound of the edge's valid-time window (millis-epoch).
     pub valid_from: Option<i64>,
+    /// Upper bound of the edge's valid-time window (millis-epoch, exclusive).
     pub valid_to: Option<i64>,
+    /// Transaction-time stamp in millis-epoch (when this row was committed).
     pub transaction_time_millis: i64,
 }
 
