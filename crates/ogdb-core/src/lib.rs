@@ -191,11 +191,32 @@ const WAL_RECORD_ADD_EDGE: u8 = 2;
 /// the version marker.
 const WAL_RECORD_CREATE_NODE_V2: u8 = 3;
 const DELTA_COMPACTION_EDGE_THRESHOLD: usize = 256;
-const META_FORMAT_VERSION: u32 = 1;
-const FREE_LIST_FORMAT_VERSION: u32 = 1;
-const CSR_LAYOUT_FORMAT_VERSION: u32 = 1;
-const NODE_PROPERTY_STORE_FORMAT_VERSION: u32 = 1;
-const VECTOR_INDEX_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb-meta.json` catalog file.
+///
+/// Bumped only across minor releases; readers must accept old values per
+/// `documentation/COMPATIBILITY.md` § 2. Exposed as `pub const` so downstream
+/// crates can gate on the workspace's on-disk format at compile time.
+pub const META_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb-freelist.json` allocator file.
+///
+/// Same migration policy as [`META_FORMAT_VERSION`]
+/// (see `documentation/COMPATIBILITY.md` § 2).
+pub const FREE_LIST_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb-csr.json` traversal layout.
+///
+/// Same migration policy as [`META_FORMAT_VERSION`]
+/// (see `documentation/COMPATIBILITY.md` § 2).
+pub const CSR_LAYOUT_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb-props*` node-property store.
+///
+/// Same migration policy as [`META_FORMAT_VERSION`]
+/// (see `documentation/COMPATIBILITY.md` § 2).
+pub const NODE_PROPERTY_STORE_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb.vecindex` vector-index sidecar.
+///
+/// Same migration policy as [`META_FORMAT_VERSION`]
+/// (see `documentation/COMPATIBILITY.md` § 2).
+pub const VECTOR_INDEX_FORMAT_VERSION: u32 = 1;
 const DEFAULT_BUFFER_POOL_CAPACITY_PAGES: usize = 256;
 const NODE_PROPERTY_STORE_HEADER_SIZE: usize = 64;
 const NODE_PROPERTY_ROW_HEADER_SIZE: usize = 24;
