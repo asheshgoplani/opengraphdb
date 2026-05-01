@@ -83,6 +83,14 @@ export default defineConfig({
       },
     },
   },
+  // EVAL-FRONTEND-QUALITY-CYCLE2.md H-8: `@loaders.gl/worker-utils` reaches
+  // for `node:child_process` at parse time. Keeping it out of dep-prebundle
+  // prevents Vite from chasing the Node-side `spawn` import into the SPA
+  // graph. The deck.gl runtime is still bundled — only the prebundle step
+  // is excluded.
+  optimizeDeps: {
+    exclude: ['@loaders.gl/worker-utils'],
+  },
   build: {
     outDir: 'dist-app',
     emptyOutDir: true,
@@ -92,15 +100,48 @@ export default defineConfig({
       output: {
         // NOTE: @neo4j-cypher/react-codemirror is dynamically imported by
         // CypherEditorPanel (H1 — defer-load until first editor interaction)
-        // so it's left out of manualChunks here; rollup creates a code-split
-        // chunk for it automatically and the 8.3 MB lint worker stays out of
-        // the cold playground bundle.
-        manualChunks: {
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'graph-vendor': ['react-force-graph-2d'],
-          'motion-vendor': ['framer-motion'],
-          'tanstack-vendor': ['@tanstack/react-query', '@tanstack/react-table'],
-          'state-vendor': ['zustand'],
+        // so the editor itself stays in its own code-split chunk. The
+        // shared cypher language-support package (the actual grammar) is
+        // pulled into a `cypher-grammar-vendor` chunk so the editor and
+        // the lintWorker can both link against it instead of duplicating
+        // ~8 MB of grammar — EVAL-FRONTEND-QUALITY-CYCLE2.md H-2.
+        //
+        // deck.gl + maplibre are kept in their own vendor chunks so the
+        // playground cold load doesn't pay for them when no geo layout
+        // is active (paired with the H-5 lazy import of GeoCanvas).
+        manualChunks(id) {
+          if (id.includes('node_modules/@neo4j-cypher/language-support')) {
+            return 'cypher-grammar-vendor'
+          }
+          if (id.includes('node_modules/@neo4j-cypher/cypher-antlr-grammar')) {
+            return 'cypher-grammar-vendor'
+          }
+          if (id.includes('node_modules/maplibre-gl')) {
+            return 'maplibre-vendor'
+          }
+          if (id.includes('node_modules/@deck.gl') || id.includes('node_modules/@loaders.gl')) {
+            return 'deckgl-vendor'
+          }
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react-router-dom/')
+          ) {
+            return 'react-vendor'
+          }
+          if (id.includes('node_modules/react-force-graph-2d')) {
+            return 'graph-vendor'
+          }
+          if (id.includes('node_modules/framer-motion')) {
+            return 'motion-vendor'
+          }
+          if (id.includes('node_modules/@tanstack/')) {
+            return 'tanstack-vendor'
+          }
+          if (id.includes('node_modules/zustand')) {
+            return 'state-vendor'
+          }
+          return undefined
         },
       },
     },
