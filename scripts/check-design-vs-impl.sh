@@ -43,9 +43,14 @@ else
   # DESIGN.md § Decision 6 keeps `usearch` / `hnsw_rs` as named candidates
   # for the v0.5 backend swap, so we narrow the regex to bare-word "lies"
   # outside that section's allowlist marker.
+  # Allowlist legitimate mentions: comparisons that name the shipped lib
+  # on the same line, the Decision-6 candidate list, the BENCHMARKS row-6
+  # backend-swap caveat, and self-correcting prose.
   ANN_LIES=$(grep -RnE '\b(usearch|hnsw_rs)\b' "${EXISTING[@]}" 2>/dev/null \
     | grep -vE "$SKIP_RE" \
-    | grep -vE '(Decision 6|candidate|v0\.5\.1 swap|v0\.5 swap|Rejected)' \
+    | grep -vE 'instant-distance' \
+    | grep -vE '(Decision 6|candidate|backend swap|backend-swap|v0\.5\.1 swap|v0\.5 swap|Rejected|originally|is wrong|cited .* — that is wrong)' \
+    | grep -vE '(\(C\+\+ FFI\)|would need|only library with|mmap, incremental|good SIMD|\(pure-Rust\)|\(pure Rust\))' \
     || true)
   if [[ -n "$ANN_LIES" ]]; then
     echo "ERROR (C4-H1): doc(s) name '$( [[ "$ACTUAL_ANN" == "instant-distance" ]] && echo "usearch / hnsw_rs" || echo "non-shipped ANN" )' as the shipped vector library; Cargo.toml says '$ACTUAL_ANN'." >&2

@@ -1346,69 +1346,75 @@ HNSW storage:
 └── Raw vectors: page-aligned f32 arrays (for SIMD distance computation)
 ```
 
-### Implementation: USearch (Primary)
+### Implementation: instant-distance (current, 0.4.0)
+
+> **Reality check (0.4.0):** the original Decision-6 sketch in this section
+> chose `usearch` (C++ FFI) as primary with `hnsw_rs` as a pure-Rust
+> fallback. Neither shipped. 0.4.0 ships **`instant-distance`** — a pure-
+> Rust HNSW with zero FFI boundary, gated behind the `vector-search`
+> feature (`crates/ogdb-core/Cargo.toml::[features]`). The trade-off is
+> batch-rebuild only on commits that touch any indexed property; cycle-2
+> C2-A5 narrows the rebuild trigger to mutations touching catalog-listed
+> properties only, recovering most of the latency budget. See
+> `documentation/BENCHMARKS.md` § Row 6 mutation p99 caveat.
 
 ```rust
-/// Vector index uses USearch (C++ FFI) for HNSW with on-disk mmap serving.
-/// Abstracted behind VectorIndex trait; pure-Rust hnsw_rs available as fallback.
-trait VectorIndex: Send + Sync {
-    fn add(&self, id: InternalId, vector: &[f32]) -> Result<()>;
-    fn remove(&self, id: InternalId) -> Result<()>;
-    fn search(&self, query: &[f32], k: usize) -> Result<Vec<(InternalId, f32)>>;
-    fn filtered_search(&self, query: &[f32], k: usize,
-                       filter: &dyn Fn(InternalId) -> bool) -> Result<Vec<(InternalId, f32)>>;
-    fn save(&self) -> Result<()>;
-    fn len(&self) -> usize;
+/// Vector index uses `instant-distance` HNSW (pure Rust). Tuning constants
+/// pinned at `crates/ogdb-core/src/lib.rs::HNSW_M` /
+/// `::HNSW_EF_CONSTRUCTION` / `::HNSW_EF_SEARCH` / `::HNSW_BUILDER_SEED`.
+/// VectorIndex is an internal abstraction; see VectorIndexRuntime +
+/// BuiltHnsw in `crates/ogdb-core/src/lib.rs`.
+use instant_distance::{Builder as HnswBuilder, HnswMap, Point, Search};
+
+struct HnswVectorPoint {
+    vector: Vec<f32>,
+    metric: VectorDistanceMetric,
 }
 
-struct USearchVectorIndex {
-    index: usearch::Index,
-    index_path: PathBuf,  // e.g., "mydb.ogdb.vecindex"
-    config: HNSWConfig,
+impl Point for HnswVectorPoint {
+    fn distance(&self, other: &Self) -> f32 { /* cosine / l2 / dot */ }
 }
 
-impl USearchVectorIndex {
-    fn open(db_path: &Path, config: HNSWConfig) -> Result<Self> {
-        let index_path = db_path.with_extension("ogdb.vecindex");
-        let options = IndexOptions {
-            dimensions: config.dimensions,
-            metric: MetricKind::Cos,
-            quantization: ScalarKind::F16,  // 2x memory savings vs f32
-            connectivity: config.m,
-            expansion_add: config.ef_construction,
-            expansion_search: config.ef_search,
-            multi: false,
-        };
-        let index = Index::new(&options)?;
-        if index_path.exists() {
-            index.view(&index_path)?;  // mmap: no RAM load
-        }
-        Ok(Self { index, index_path, config })
-    }
+struct BuiltHnsw {
+    map: std::sync::Arc<HnswMap<HnswVectorPoint, u64>>,
+}
+
+struct VectorIndexRuntime {
+    definition: VectorIndexDefinition,
+    hnsw: Option<BuiltHnsw>,
 }
 ```
 
 ### SIMD Distance Computation
 
-USearch delegates to SimSIMD for hardware-optimized distance computation:
-- **x86_64:** AVX-512, AVX2, SSE4.2 (auto-detected at runtime)
-- **ARM:** NEON, SVE (Apple Silicon, AWS Graviton)
-- **Fallback:** Scalar for other architectures
+`instant-distance` uses scalar Rust for distance computation. SIMD
+auto-vectorisation comes from the LLVM backend; the recall@10 ≥ 0.95 +
+p95 ≤ 5 ms gates in `crates/ogdb-core/tests/hnsw_*.rs` are the forcing
+function for staying within the latency budget without explicit SIMD.
 
-### Incremental Updates
+### Updates (batch-rebuild model)
 
-- Insert: `index.add(id, &vector)` — standard HNSW insert with layer promotion
-- Delete: `index.remove(id)` — true removal with graph repair (not just tombstone)
-- Update: `index.remove(id)` + `index.add(id, &new_vector)`
-- Persistence: `index.save(&path)` after batch of writes; WAL logs vector ops for crash recovery
+`instant-distance` does **not** support incremental insert / delete —
+the index is rebuilt from the in-memory catalog on every transaction
+commit that touches an indexed property (gated by C2-A5 to skip
+unrelated property edits).
 
-### Pure-Rust Fallback (hnsw_rs)
+- Insert / update / delete: append to `VectorIndexRuntime.entries`,
+  then `build_hnsw_from_entries(runtime)` rebuilds `BuiltHnsw` if the
+  commit touched catalog-listed properties.
+- Persistence: `<db>.ogdb.vecindex` snapshot via the
+  `PersistedVectorIndexStore` shape (entries + metadata; the HNSW graph
+  itself is rebuilt on open from those entries).
 
-Enabled via `--features pure-rust-vector` for environments where C++ FFI is unacceptable:
-- Same `VectorIndex` trait, different implementation
-- Uses `hnsw_rs` crate with `anndists` for SIMD (x86 AVX2 via simdeez)
-- Custom persistence layer needed (bincode serialization + page-aligned writes)
-- No incremental delete (tombstone-based, skip during search, rebuild periodically)
+### v0.5.1 backend-swap candidates
+
+True incremental insert is the v0.5.1 forcing function. Candidate
+replacement libraries (each with a different trade-off):
+- `usearch` (C++ FFI) — mmap, incremental delete, SIMD via SimSIMD
+- `hnsw_rs` (pure-Rust) — would need a custom persistence layer
+
+`documentation/BENCHMARKS.md` § Row 6 (mutation p99 = 15.6 ms) is the
+latency benchmark that pins this swap to the v0.5.1 milestone.
 
 ---
 
@@ -2284,7 +2290,7 @@ format = "compact"            # "compact" | "json" | "pretty"
 | Cypher parsing | `winnow` | nom's successor: faster, better errors, `cut_err()` for parse commitment |
 | REPL | `rustyline` | Readline-compatible, cross-platform |
 | RDF parsing | `oxrdfio` (`oxttl`, `oxrdfxml`, `oxjsonld`) | Streaming, lightweight, rio's successor by same author |
-| Vector search | `usearch` (C++ FFI) or `hnsw_rs` (pure Rust) | USearch: only lib with mmap + incremental delete + SIMD. Used by ClickHouse/DuckDB |
+| Vector search | `instant-distance` (pure Rust) | Current (0.4.0): zero FFI, zero C++ toolchain, batch-rebuild only — see § 17. v0.5.1 backend-swap candidates: `usearch` (C++ FFI, mmap, incremental delete) and `hnsw_rs` (pure-Rust, would need custom persistence). |
 | Full-text | `tantivy` | Rust-native Lucene equivalent |
 | Python bindings | `pyo3` + `maturin` | Standard PyO3 workflow |
 | Node.js bindings | `napi-rs` | Standard NAPI workflow |
@@ -2591,29 +2597,46 @@ cleaner checkpoint logic
 mydb.ogdb          — Main database file (pages)
 mydb.ogdb-wal      — Write-ahead log (sequential)
 mydb.ogdb.ftindex/ — Tantivy full-text index (rebuildable artifact by default)
-mydb.ogdb.vecindex — USearch vector index file (rebuildable artifact by default)
+mydb.ogdb.vecindex — instant-distance HNSW snapshot (rebuildable artifact by default)
 ```
 
-### Decision 6: HNSW Vector Index → **USearch** (primary) / **hnsw_rs** (pure-Rust fallback)
+### Decision 6: HNSW Vector Index → **`instant-distance`** (current, 0.4.0) / `usearch` + `hnsw_rs` (v0.5.1 swap candidates)
 
-**Chosen:** USearch with C++ FFI (primary), hnsw_rs as pure-Rust alternative
-**Rejected:** instant-distance (no incremental inserts), hora (abandoned at v0.1.1),
-Qdrant extraction (too tightly coupled), building from scratch (high effort)
+**Chosen (0.4.0):** `instant-distance` (pure Rust). Trade-off: batch-rebuild only on commits that touch indexed properties (cycle-2 C2-A5 narrows the trigger).
+**Candidates for v0.5.1 incremental-insert swap:** `usearch` (C++ FFI, mmap, incremental delete, SIMD via SimSIMD) — tracked alongside `hnsw_rs` (pure-Rust, custom persistence layer needed).
+**Rejected:** hora (abandoned at v0.1.1; deprecated `packed_simd_2` crate), Qdrant extraction (too tightly coupled), building from scratch (high effort).
 
-**Key evidence:**
-- USearch: only library with mmap disk serving + incremental delete + SIMD (AVX2+NEON) +
-  filtered search. Used by ClickHouse and DuckDB in production
-- `view_from_buffer` enables memory-mapping our own page files into USearch
-- C++ core is single header file (3K SLOC), manageable FFI boundary
-- hnsw_rs fallback: pure Rust, good SIMD support, would need custom persistence layer (non-trivial extra effort)
-- instant-distance: batch-build only, no incremental inserts (dealbreaker for a database)
-- hora: abandoned, uses deprecated `packed_simd_2` crate
+**Why the original Decision 6 chose USearch but 0.4.0 ships instant-distance:**
+`instant-distance` ships a usable HNSW with **zero FFI boundary** (lighter
+cross-platform builds, no C++ toolchain dependency), at the cost of full
+rebuild on commits that touch any indexed property. Cycle-2 C2-A5
+(`crates/ogdb-core/src/lib.rs::commit_txn`) gates the rebuild to skip
+pure-edge / unrelated-property commits, recovering most of the latency
+budget. Row 6 mutation p99 = 15.6 ms in `documentation/BENCHMARKS.md`
+includes the rebuild on `embedding`-touching commits and is the forcing
+function for the v0.5.1 backend swap.
 
-**Integration:**
-- USearch manages its own index file (`mydb.ogdb.vecindex`)
-- On startup: `index.view("path")` for mmap without RAM load
-- WAL of vector operations for crash recovery
-- Feature flag: `--features pure-rust-vector` to use hnsw_rs instead of USearch
+**Key evidence (preserved from original Decision 6):**
+- `usearch`: only library with mmap disk serving + incremental delete +
+  SIMD (AVX2+NEON) + filtered search. Used by ClickHouse and DuckDB in
+  production. C++ core is single header file (~3K SLOC); manageable FFI
+  boundary. Tracked as the leading v0.5.1 candidate.
+- `hnsw_rs`: pure Rust, good SIMD support, would need a custom
+  persistence layer (non-trivial extra effort).
+- `instant-distance`: batch-build only, no incremental inserts. Cycle-2
+  C2-A5 + the C2-A5 regression test
+  (`crates/ogdb-core/tests/c2_a5_hnsw_skip_rebuild_on_unrelated_property.rs`)
+  pin the rebuild-elision behaviour and recover most of the
+  steady-state latency.
+
+**Integration (0.4.0):**
+- The HNSW graph is rebuilt from `VectorIndexRuntime.entries` at commit
+  time (when the catalog says the touched properties matter); the
+  rebuilt graph is held in `BuiltHnsw.map` (`HnswMap<HnswVectorPoint, u64>`).
+- Snapshot file: `<db>.ogdb.vecindex` carries the entries +
+  catalog metadata; the HNSW graph itself is rebuilt on open.
+- Feature flag: `--features vector-search` gates the entire stack
+  (`crates/ogdb-core/Cargo.toml::[features]`).
 
 ### Decision 7: Tantivy Storage → **Subdirectory** (`mydb.ogdb.ftindex/`)
 
