@@ -1714,7 +1714,7 @@ async fn mcp_server(db: Database) {
 > anticipated a `query_df()` pandas helper, an `import_ttl()` shorthand, and
 > a `with db.transaction() as tx:` context manager. None of these landed
 > in 0.4.0. The shipped surface is the canonical
-> `crates/ogdb-python/src/lib.rs::PyDatabase` `#[pymethods]` block (PyPI
+> `crates/ogdb-python/src/lib.rs::PythonDatabase` `#[pymethods]` block (PyPI
 > package: `opengraphdb`). Pandas integration, a TTL shorthand, and
 > context-manager transactions are tracked as a v0.5 ergonomic pass.
 
