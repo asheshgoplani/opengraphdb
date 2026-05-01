@@ -3,6 +3,12 @@ name = "ogdb-bench"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+# EVAL-RUST-QUALITY-CYCLE3 H10: even publish=false harness crates need
+# rust-version metadata so `cargo metadata`-driven downstream tooling
+# (security scanners, release tooling, MSRV reports) sees a uniform
+# MSRV across every workspace member.
+rust-version.workspace = true
+description = "OpenGraphDB benchmark harness — internal, publish=false."
 publish = false
 
 [dependencies]
