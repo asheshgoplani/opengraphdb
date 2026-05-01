@@ -1,0 +1,13 @@
+{
+  "name": "OpenGraphDB",
+  "short_name": "OpenGraphDB",
+  "description": "Single-file graph database for Rust, Python and Node. Cypher queries, MVCC, MCP surface for AI tools.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#15110D",
+  "background_color": "#FBFAF6",
+  "icons": [
+    { "src": "/logo-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/logo-mark-16.svg", "sizes": "16x16", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
