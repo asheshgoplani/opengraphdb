@@ -22,6 +22,9 @@
 // when a future Rust-side helper accidentally calls one of these from
 // safe code.
 #![warn(clippy::not_unsafe_ptr_arg_deref)]
+// EVAL-RUST-QUALITY-CYCLE3 B1: every pub item carries a `///` summary +
+// `# Safety` paragraph. `cargo doc -p ogdb-ffi` runs under -D missing_docs.
+#![warn(missing_docs)]
 
 use ogdb_cli::run as run_cli;
 use ogdb_core::{DbError, Header, PropertyMap, PropertyValue, SharedDatabase};
@@ -33,10 +36,19 @@ use std::path::PathBuf;
 use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
+/// Sentinel returned by `ogdb_create_node` / `ogdb_add_edge` when the
+/// operation fails. Callers should always test against this constant
+/// rather than hard-coding `u64::MAX`.
 pub const OGDB_INVALID_ID: u64 = u64::MAX;
 const OGDB_STATUS_OK: i32 = 0;
 const OGDB_STATUS_ERR: i32 = 1;
 
+/// Opaque handle to an open OpenGraphDB database returned by
+/// [`ogdb_init`] / [`ogdb_open`] and freed by [`ogdb_close`].
+///
+/// The C ABI layout is `#[repr(C)]` with a single private byte so the
+/// type is opaque to the C caller; Rust internals cast through
+/// `OgdbHandleInner` (a private type).
 #[repr(C)]
 pub struct OgdbHandle {
     _private: u8,
@@ -367,6 +379,12 @@ fn parse_metric(raw: Option<&str>) -> Result<ogdb_core::VectorDistanceMetric, St
     }
 }
 
+/// Read the last-error message buffered by this thread.
+///
+/// Returns a borrowed pointer (do not free) to a NUL-terminated C string
+/// describing the most recent failure on this thread, or null if no error
+/// has been recorded since the last successful call. The buffer remains
+/// valid until the next FFI call on the same thread.
 #[no_mangle]
 pub extern "C" fn ogdb_last_error() -> *const c_char {
     let Ok(slot) = last_error_store().lock() else {

@@ -18,10 +18,12 @@
 //! See <https://github.com/asheshgoplani/opengraphdb> for the parent
 //! project and `documentation/CLI.md` for the full command reference.
 //!
-// EVAL-RUST-QUALITY-CYCLE2 B2: see ogdb-core/src/lib.rs for the same
-// `warn + allow` ratchet pattern.
+// EVAL-RUST-QUALITY-CYCLE3 B1: ogdb-cli has only ~10 pub items; cycle 3
+// closes them and removes `allow(missing_docs)` so docs.rs/ogdb-cli is
+// fully covered. Any future pub item without a `///` comment now fails
+// CI under `cargo doc --no-deps -p ogdb-cli` with `RUSTDOCFLAGS=-D
+// missing_docs` (see scripts/check-shipped-doc-coverage.sh).
 #![warn(missing_docs)]
-#![allow(missing_docs)]
 
 use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use ogdb_core::{
@@ -53,6 +55,7 @@ use std::time::{Duration, Instant};
 mod prom_metrics;
 mod static_assets;
 
+/// Display name embedded in the `ogdb` CLI's help text and metric labels.
 pub const APP_NAME: &str = "opengraphdb";
 const SERVER_MULTI_WRITER_RETRIES: usize = 3;
 static HTTP_QUERY_COUNT: AtomicU64 = AtomicU64::new(0);
@@ -607,10 +610,18 @@ fn parse_batch_size(raw: &str) -> Result<usize, String> {
     Ok(batch_size)
 }
 
+/// Outcome of a single [`run`] invocation.
+///
+/// Mirrors a Unix process result: `exit_code` is the status the binary
+/// exits with (0 on success, 1 on runtime errors, 2 on usage errors),
+/// and `stdout` / `stderr` are the captured streams.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliResult {
+    /// Exit status the CLI returns to its caller.
     pub exit_code: i32,
+    /// Captured stdout payload (often a query result or status line).
     pub stdout: String,
+    /// Captured stderr payload (used for usage / runtime errors).
     pub stderr: String,
 }
 
@@ -654,9 +665,18 @@ impl CliResult {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum CliError {
+    /// Caller misuse (bad argument, missing flag, unknown subcommand).
     Usage(String),
+    /// Underlying database / IO / network failure during execution.
     Runtime(String),
-    RuntimeWithStdout { stdout: String, stderr: String },
+    /// Runtime failure that nonetheless produced partial stdout the
+    /// caller should still see (e.g. partial export bytes).
+    RuntimeWithStdout {
+        /// Partial stdout payload produced before the failure.
+        stdout: String,
+        /// Diagnostic message for stderr.
+        stderr: String,
+    },
 }
 
 impl Display for CliError {
@@ -705,6 +725,10 @@ impl From<ShaclLoadError> for CliError {
     }
 }
 
+/// Render the full `--help` text the `ogdb` binary emits.
+///
+/// Useful for downstream wrappers that want to surface the canonical
+/// help string in their own UI.
 pub fn usage() -> String {
     let mut cmd = Cli::command();
     cmd.render_help().to_string()
@@ -850,6 +874,13 @@ fn parse_cli(args: &[String]) -> Result<Cli, CliResult> {
     }
 }
 
+/// Drive a single `ogdb` invocation against the given argv slice.
+///
+/// `args[0]` is conventionally the program name (e.g. `"ogdb"`); the
+/// remaining elements are forwarded to clap. Returns the captured
+/// [`CliResult`] without writing to the process's actual stdout/stderr,
+/// so wrappers (e.g. ogdb-ffi, ogdb-node, ogdb-python) can surface the
+/// streams to their host language.
 pub fn run(args: &[String]) -> CliResult {
     let normalized_args = normalize_rdf_format_alias(args);
     let cli = match parse_cli(&normalized_args) {
@@ -6982,19 +7013,36 @@ fn to_cypher_edge_case(name: &str) -> String {
     result.trim_matches('_').to_string()
 }
 
+/// One SHACL `NodeShape` parsed from a shapes file.
+///
+/// Built by [`parse_shacl_shapes`] and consumed by
+/// [`validate_against_shacl`]. Variants of the SHACL spec we don't
+/// implement yet (e.g. `sh:datatype`, `sh:maxCount`) are silently
+/// dropped during parsing — only `sh:targetClass` + `sh:minCount`-1
+/// constraints flow through.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeShapeConstraint {
+    /// Stable identifier for the shape (the IRI or blank-node label).
     pub shape_id: String,
+    /// Local name of the SHACL `sh:targetClass`.
     pub target_class: String,
+    /// Properties whose `sh:minCount` is at least 1.
     pub required_properties: Vec<String>,
 }
 
+/// One violation reported by [`validate_against_shacl`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ShaclViolation {
+    /// Numeric ID of the offending node in the database.
     pub node_id: u64,
+    /// `shape_id` of the [`NodeShapeConstraint`] this node violates.
     pub shape_id: String,
+    /// Target class the node carries.
     pub target_class: String,
+    /// Property the constraint required.
     pub violated_property: String,
+    /// Human-readable description of the violation (used by `ogdb
+    /// validate-shacl` output).
     pub message: String,
 }
 
@@ -7124,6 +7172,11 @@ pub fn parse_shacl_shapes(shapes_path: &Path) -> Result<Vec<NodeShapeConstraint>
     Ok(constraints)
 }
 
+/// Run every node in `db` against the given SHACL shapes and return
+/// the list of violations.
+///
+/// `shapes` is typically produced by [`parse_shacl_shapes`]. Nodes
+/// whose labels don't match any shape's `target_class` are skipped.
 pub fn validate_against_shacl(
     db: &Database,
     shapes: &[NodeShapeConstraint],

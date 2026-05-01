@@ -1,3 +1,7 @@
+//! `ogdb` binary entrypoint. Forwards argv to [`ogdb_cli::run`] and
+//! converts the captured [`ogdb_cli::CliResult`] to the host's stdout
+//! / stderr / exit-code triple.
+
 use std::env;
 use std::process::exit;
 
