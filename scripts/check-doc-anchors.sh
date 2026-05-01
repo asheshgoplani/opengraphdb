@@ -70,4 +70,26 @@ if [[ -n "$LINE_CITES" ]]; then
   EXIT=1
 fi
 
+# C3-H1 regression gate: forbid actual *links* (markdown `](...)` or HTML
+# `href="..."`) to the deleted file
+# `documentation/ai-integration/multi-agent-shared-kg.md` from any user-facing
+# surface (docs, skills, frontend strings). The file was removed in cycle 2
+# because it claimed cross-process Database::open "Just Works"; cycle-2-docs
+# intended to retarget every reference, but missed
+# `skills/opengraphdb/SKILL.md:340` (caught in cycle 3 §C3-H1).
+#
+# Bare-filename prose mentions are allowed (CHANGELOG / SKILL prose explains
+# why the file was removed); only resolvable link targets are rejected.
+SKG_LINKS=$(grep -RnE '\]\([^)]*multi-agent-shared-kg\.md|href="[^"]*multi-agent-shared-kg\.md' \
+  "${EXISTING[@]}" \
+  $( [[ -d skills ]] && echo skills ) \
+  $( [[ -d frontend/src ]] && echo frontend/src ) \
+  2>/dev/null | grep -vE '(^|/)EVAL-' || true)
+if [[ -n "$SKG_LINKS" ]]; then
+  echo "ERROR: stale link(s) to deleted documentation/ai-integration/multi-agent-shared-kg.md:" >&2
+  echo "$SKG_LINKS" >&2
+  echo "       The file was deleted in cycle 2; replace the link with prose." >&2
+  EXIT=1
+fi
+
 exit $EXIT
