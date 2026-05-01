@@ -51,6 +51,9 @@ source "$HOME/.cargo/env"
 # EVAL-RUST-QUALITY-CYCLE4 H4: assert that 'cargo test --workspace --doc'
 # is wired into scripts/test.sh and ci.yml so doctests stay gated.
 ./scripts/check-doc-tests-wired.sh
+# EVAL-RUST-QUALITY-CYCLE4 H5: bindings/c, bindings/go, proto must each
+# carry a README so downstream FFI consumers don't land in opaque dirs.
+./scripts/check-binding-readmes.sh
 
 cargo fmt --all --check
 cargo check --workspace
