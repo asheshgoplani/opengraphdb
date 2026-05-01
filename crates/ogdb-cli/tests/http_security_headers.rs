@@ -148,6 +148,14 @@ fn responses_include_baseline_security_headers() {
         csp.contains("frame-ancestors 'none'"),
         "Content-Security-Policy must deny framing; got {csp:?}"
     );
+    assert!(
+        csp.contains("connect-src 'self' http://localhost:* http://127.0.0.1:*"),
+        "Content-Security-Policy must allow embedded console → local sibling API; got {csp:?}"
+    );
+    assert!(
+        csp.contains("worker-src 'self' blob:"),
+        "Content-Security-Policy must allow blob workers (deck.gl); got {csp:?}"
+    );
 
     let xfo = header_value(&head, "x-frame-options").unwrap_or("");
     assert_eq!(
@@ -169,8 +177,11 @@ fn responses_include_baseline_security_headers() {
 
     let permissions = header_value(&head, "permissions-policy").unwrap_or("");
     assert!(
-        permissions.contains("geolocation=()") && permissions.contains("camera=()"),
-        "Permissions-Policy must deny geolocation + camera by default; got {permissions:?}"
+        permissions.contains("geolocation=()")
+            && permissions.contains("camera=()")
+            && permissions.contains("microphone=()")
+            && permissions.contains("payment=()"),
+        "Permissions-Policy must deny geolocation + camera + microphone + payment by default; got {permissions:?}"
     );
 
     let serve_result = handle.join().expect("join serve thread");

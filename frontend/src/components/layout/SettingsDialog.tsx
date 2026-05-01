@@ -15,6 +15,12 @@ import { Settings, ShieldCheck } from 'lucide-react'
 import { ConnectionStatus } from './ConnectionStatus'
 import { PROVIDER_MODELS, type AIProviderType } from '@/lib/ai/providers'
 
+// EVAL-FRONTEND-QUALITY-CYCLE3.md H-3: hide the AI rows behind a build-time
+// flag until the v0.6 chat surface ships. Flag is opt-in (default off) so
+// the leaky API-key field never renders in production builds.
+const AI_SETTINGS_ENABLED =
+  (import.meta.env.VITE_ENABLE_AI_SETTINGS ?? 'false') === 'true'
+
 const PROVIDER_OPTIONS: { value: AIProviderType; label: string }[] = [
   { value: 'webllm', label: 'WebLLM (Free, Local)' },
   { value: 'openai', label: 'OpenAI' },
@@ -77,10 +83,12 @@ export function SettingsDialog() {
     if (!isNaN(limit) && limit > 0) {
       setResultLimit(limit)
     }
-    setAiProvider(localAiProvider)
-    setAiApiKey(localAiApiKey)
-    setAiModel(localAiModel)
-    setAiBaseUrl(localAiBaseUrl)
+    if (AI_SETTINGS_ENABLED) {
+      setAiProvider(localAiProvider)
+      setAiApiKey(localAiApiKey)
+      setAiModel(localAiModel)
+      setAiBaseUrl(localAiBaseUrl)
+    }
     setOpen(false)
   }
 
@@ -148,7 +156,12 @@ export function SettingsDialog() {
             </p>
           </div>
 
-          {/* AI Assistant section */}
+          {/* EVAL-FRONTEND-QUALITY-CYCLE3.md H-3: AI rows hidden until v0.6
+              ships an actual chat surface. Cycle-2 H-1 deleted the SDK
+              consumers; persisting the API key with no consumer is a leak,
+              not a feature. Toggle with VITE_ENABLE_AI_SETTINGS=true once
+              the consumer ships. */}
+          {AI_SETTINGS_ENABLED && (<>
           <div className="space-y-3">
             <div className="rounded-lg border bg-muted/25 p-3">
               <p className="mb-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -272,10 +285,12 @@ export function SettingsDialog() {
             <div className="flex items-start gap-2 rounded-md border bg-muted/25 px-3 py-2.5 text-xs text-muted-foreground">
               <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                Your API key is stored in your browser only. It is never sent to our servers.
+                Your API key is kept in memory for this session and is never sent to our servers
+                or persisted to disk.
               </span>
             </div>
           </div>
+          </>)}
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => setOpen(false)}>
