@@ -25,8 +25,62 @@ permissions:
   contents: write
 
 jobs:
+  tests:
+    # C4-H3 (HIGH): without this gate, every downstream publish-* job
+    # only `needs: build` — and the `build` job runs `bash
+    # scripts/release.sh`, which calls `cargo build`, NOT `cargo test`.
+    # The full structural-lint + fmt + clippy + deny + audit + doc +
+    # test gate lives in `scripts/test.sh`, run by `ci.yml`'s `quality`
+    # job on push/PR — but `ci.yml` is NOT triggered by a `v*` tag
+    # push, so a maintainer who pushes `v0.5.0` against a red main (CI
+    # flake never re-ran, or a concurrent merge that broke main)
+    # silently builds binaries on a broken tree and ships them to
+    # GitHub Release + crates.io + GHCR. This is the v* tag analog of
+    # the C3-B5 "merge against red CI" failure mode; C3-B5 closed the
+    # merge surface (require-up-to-date branch protection), this fix
+    # closes the tag surface structurally.
+    name: tests (gate before publish)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          components: rustfmt, clippy, llvm-tools-preview
+
+      - name: Setup Node
+        # `scripts/test.sh` runs `cargo test --workspace`; the `ogdb-cli`
+        # crate's `include_dir!` requires `frontend/dist-app/`.
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build SPA dist for include_dir!
+        working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm ci
+          npm run build:app
+
+      - name: Install cargo-deny + cargo-audit (cached)
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit
+
+      - name: Run test gate (structural lints + fmt + clippy + deny + audit + doc + test)
+        run: bash scripts/test.sh
+
   build:
     name: build (${{ matrix.target }})
+    # C4-H3 (HIGH): chain the cross-platform build matrix off the tests
+    # gate so a red main never produces release artefacts. Same shape as
+    # the publish-crates / docker `needs: tests` below.
+    needs: tests
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -178,7 +232,12 @@ jobs:
     # `sleep` lets crates.io's index settle before the next dependency
     # picks up the new version.
     name: cargo publish
-    needs: build
+    # C4-H3 (HIGH): belt-and-braces. `build` already needs `tests`,
+    # but listing `tests` directly here means a green publish-crates
+    # implies a green test gate even if the workflow graph is later
+    # re-wired (e.g. someone shortcuts `build` while leaving publish
+    # in place).
+    needs: [build, tests]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
@@ -188,6 +247,28 @@ jobs:
       # between the build job and the publish job would surface as silently
       # different artifacts.
       - uses: dtolnay/rust-toolchain@1.88.0
+      # C4-H1 (HIGH): without these two Node + SPA-build steps, `cargo
+      # publish -p ogdb-cli` ran on a tree with an empty
+      # `frontend/dist-app/`. `include_dir!` tolerates a missing directory
+      # by emitting an empty `Dir`, so the publish *succeeded* but shipped
+      # a binary whose `static_assets::index_html()` returns `None` and
+      # whose UI routes serve the "SPA missing" stub. Mirror the SPA-build
+      # contract from the `build` job (lines 59-77) so the crates.io
+      # artefact and the GitHub-Release archive are bit-equivalent.
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build SPA dist for include_dir!
+        working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm ci
+          npm run build:app
       # C3-H1 (HIGH): dry-run smoke before the real fan-out. If a path-dep
       # version pin regressed (cf C3-B1), `cargo publish --dry-run` surfaces
       # it on the cheap leaf crates before any real upload happens — without
@@ -267,7 +348,11 @@ jobs:
     # EVAL-PERF-RELEASE.md Finding 9 (HIGH): build + push the distroless
     # Docker image to ghcr.io on every v* tag so `ogdb serve --http` users
     # can `docker pull ghcr.io/asheshgoplani/opengraphdb:vX.Y.Z`.
-    needs: build
+    #
+    # C4-H3 (HIGH): same belt-and-braces rationale as publish-crates —
+    # depend on `tests` directly so a green docker push implies a green
+    # test gate, independent of the build graph.
+    needs: [build, tests]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
     permissions:

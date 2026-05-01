@@ -27,6 +27,11 @@ source "$HOME/.cargo/env"
 ./scripts/test-release-workflow.sh
 ./scripts/test-dockerfile.sh
 ./scripts/test-check-benchmarks-version.sh
+# C4-H2 (HIGH): the cycle-3 C3-H3 Criterion harness file landed but no
+# CI job ran it. Without the bench-regression job in ci.yml, a perf fix
+# being silently reverted by a bad merge stays invisible until the next
+# manual baseline run — the exact failure mode C3-H3 was meant to close.
+./scripts/test-ci-bench-regression.sh
 # EVAL-RUST-QUALITY-CYCLE3 H11: every `uses: dtolnay/rust-toolchain@`
 # in workflows must pin a fully-qualified version that matches
 # rust-toolchain.toml's channel.
