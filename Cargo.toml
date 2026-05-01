@@ -61,7 +61,12 @@ proptest = { version = "1", default-features = false, features = ["std"] }
 # `cargo clippy -- -D warnings` gate. The two below are the highest-leverage
 # safety lints that already fit cleanly into the workspace.
 [workspace.lints.rust]
-unsafe_op_in_unsafe_fn = "warn"
+# EVAL-RUST-QUALITY-CYCLE4 H6: deny so a future per-site
+# `#[allow(unsafe_op_in_unsafe_fn)]` becomes a visible diff in code
+# review. The cycle-3 H7 macro-scoped allows on ogdb-node /
+# ogdb-python (`#![cfg_attr(feature = "node", allow(...))]`) are
+# unaffected — they remain feature-gated.
+unsafe_op_in_unsafe_fn = "deny"
 # `cfg(coverage)` is set by `cargo llvm-cov` instrumentation in ogdb-core's
 # coverage harness. Declaring it here keeps `unexpected_cfgs` quiet.
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
