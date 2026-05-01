@@ -4605,6 +4605,8 @@ fn dispatch_http_request_with_budget(
             let retries = match shared_db.write_mode() {
                 WriteConcurrencyMode::SingleWriter => 0,
                 WriteConcurrencyMode::MultiWriter { max_retries } => max_retries,
+                // EVAL-RUST-QUALITY-CYCLE2 H6: WriteConcurrencyMode is `#[non_exhaustive]`.
+                _ => 0,
             };
             // Cap per-query execution time. The core engine has no cooperative
             // cancellation hook yet, so the worker thread is detached on
@@ -5094,6 +5096,8 @@ fn handle_trace_sse(
     let retries = match shared_db.write_mode() {
         WriteConcurrencyMode::SingleWriter => 0,
         WriteConcurrencyMode::MultiWriter { max_retries } => max_retries,
+        // EVAL-RUST-QUALITY-CYCLE2 H6: WriteConcurrencyMode is `#[non_exhaustive]`.
+        _ => 0,
     };
     let (result, trace) = shared_db
         .query_cypher_as_user_with_trace(&user, query, retries)

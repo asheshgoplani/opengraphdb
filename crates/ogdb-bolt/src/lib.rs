@@ -353,6 +353,10 @@ fn process_message(
             let retries = match shared_db.write_mode() {
                 WriteConcurrencyMode::SingleWriter => 0,
                 WriteConcurrencyMode::MultiWriter { max_retries } => max_retries,
+                // EVAL-RUST-QUALITY-CYCLE2 H6: WriteConcurrencyMode is now
+                // `#[non_exhaustive]`, so future variants land safely; treat
+                // unknown modes as serial (max_retries = 0).
+                _ => 0,
             };
             let query_result = shared_db.query_cypher_as_user_with_retry(
                 &state.authenticated_user,

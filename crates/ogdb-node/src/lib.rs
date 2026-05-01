@@ -1,3 +1,8 @@
+// EVAL-RUST-QUALITY-CYCLE2 H11: the workspace `unsafe_op_in_unsafe_fn` lint
+// fires on napi-macro-generated code (`#[napi]` synthesises `unsafe extern "C"
+// fn` bodies). The macro output is not editable; suppress here.
+#![allow(unsafe_op_in_unsafe_fn)]
+
 use ogdb_cli::run as run_cli;
 use ogdb_core::{
     DbError, Header, PropertyMap, PropertyValue, SharedDatabase, VectorDistanceMetric,

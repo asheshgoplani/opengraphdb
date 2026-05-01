@@ -197,6 +197,7 @@ const EPISODE_VECTOR_INDEX_NAME: &str = "episode_embedding_idx";
 const DEFAULT_AUTO_INDEX_THRESHOLD: u64 = 100;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum CompressionAlgorithm {
     None,
     Lz4,
@@ -456,6 +457,7 @@ impl TraceCollector {
 
 /// Write concurrency policy used by [`SharedDatabase`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum WriteConcurrencyMode {
     /// Serialize all writers.
     SingleWriter,
@@ -464,6 +466,7 @@ pub enum WriteConcurrencyMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum DbRole {
     Admin,
     ReadWrite,
@@ -1241,6 +1244,7 @@ pub struct Token {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum TokenKind {
     Keyword(CypherKeyword),
     Identifier(String),
@@ -1254,6 +1258,7 @@ pub enum TokenKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CypherKeyword {
     Match,
     Where,
@@ -1303,6 +1308,7 @@ pub enum CypherKeyword {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CypherOperator {
     Plus,
     Minus,
@@ -1319,6 +1325,7 @@ pub enum CypherOperator {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CypherPunctuation {
     Dot,
     Comma,
@@ -1342,6 +1349,7 @@ pub struct CypherQuery {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum CypherClause {
     Match(MatchClause),
     Create(CreateClause),
@@ -1465,6 +1473,7 @@ pub struct RelationshipPattern {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RelationshipDirection {
     LeftToRight,
     RightToLeft,
@@ -1485,6 +1494,7 @@ type RelationshipPatternParts = (
 );
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum CypherExpression {
     Identifier(String),
     Literal(CypherLiteral),
@@ -1540,6 +1550,7 @@ pub enum CypherExpression {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum CypherLiteral {
     Null,
     Boolean(bool),
@@ -1724,6 +1735,7 @@ pub struct AggregateFunction {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum LogicalPlan {
     Scan {
         label: Option<String>,
@@ -1818,6 +1830,7 @@ pub enum LogicalPlan {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PhysicalScanStrategy {
     SequentialScan,
     IndexScan,
@@ -1826,6 +1839,7 @@ pub enum PhysicalScanStrategy {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PhysicalJoinStrategy {
     NestedLoop,
     HashJoin,
