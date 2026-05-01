@@ -799,6 +799,10 @@ impl WasmInMemoryDatabase {
         self.edges.len() as u64
     }
 
+    /// EVAL-RUST-QUALITY-CYCLE2 H7: returns the query outcome as a
+    /// `Result<QueryResult, DbError>` — silently dropping the result would
+    /// mask both successful rows and database errors.
+    #[must_use = "Database::query returns the QueryResult or DbError; ignoring it discards the rows AND any failure"]
     pub fn query(&self, query: &str) -> Result<QueryResult, DbError> {
         let trimmed = query.trim();
         let upper = trimmed.to_ascii_uppercase();
@@ -6053,6 +6057,9 @@ impl AggregateAccumulator {
     }
 }
 
+/// EVAL-RUST-QUALITY-CYCLE2 H7: returns the tokens or a parse error;
+/// discarding the result silently swallows lex failures.
+#[must_use = "ignoring the result discards the token stream and any ParseError"]
 pub fn lex_cypher(input: &str) -> Result<Vec<Token>, ParseError> {
     let mut tokens = Vec::<Token>::new();
     let mut remaining = input;
@@ -6193,6 +6200,9 @@ pub fn lex_cypher(input: &str) -> Result<Vec<Token>, ParseError> {
     Ok(tokens)
 }
 
+/// EVAL-RUST-QUALITY-CYCLE2 H7: returns the AST or a parse error;
+/// discarding the result silently swallows parse failures.
+#[must_use = "ignoring the result discards the AST and any ParseError"]
 pub fn parse_cypher(query: &str) -> Result<CypherAst, ParseError> {
     let tokens = lex_cypher(query)?;
     let mut parser = CypherParser::new(query, tokens);
@@ -8233,6 +8243,9 @@ impl<'a> ReadTransaction<'a> {
         self.db.edge_count_at(self.snapshot_txn_id)
     }
 
+    /// EVAL-RUST-QUALITY-CYCLE2 H7: silently dropping the result discards
+    /// the neighbour set and any DbError.
+    #[must_use = "ignoring the result discards the neighbour set and any DbError"]
     pub fn neighbors(&self, src: u64) -> Result<Vec<u64>, DbError> {
         self.db.neighbors_at(src, self.snapshot_txn_id)
     }
@@ -8250,6 +8263,9 @@ impl<'a> ReadTransaction<'a> {
             .hop_levels_incoming_at(dst, hops, self.snapshot_txn_id)
     }
 
+    /// EVAL-RUST-QUALITY-CYCLE2 H7: silently dropping the result discards
+    /// the path and any DbError.
+    #[must_use = "ignoring the result discards the path and any DbError"]
     pub fn shortest_path(&self, src: u64, dst: u64) -> Result<Option<Vec<u64>>, DbError> {
         self.db.shortest_path_at(src, dst, self.snapshot_txn_id)
     }
@@ -9234,6 +9250,9 @@ impl SharedDatabase {
         Ok(Self::from_database_with_write_mode(db, write_mode))
     }
 
+    /// EVAL-RUST-QUALITY-CYCLE2 H7: returns the opened SharedDatabase or
+    /// a DbError; ignoring this silently drops the handle and any open failure.
+    #[must_use = "ignoring the SharedDatabase drops the handle and any open failure"]
     pub fn open(path: impl AsRef<Path>) -> Result<Self, DbError> {
         Self::open_with_write_mode(path, WriteConcurrencyMode::SingleWriter)
     }
