@@ -81,7 +81,7 @@ FICTIONAL=$(grep -RnE 'use opengraphdb::|Database::open\([^)]*Config\b|\bparams!
   "${EXISTING[@]}" 2>/dev/null \
   | grep -vE "$SKIP_RE" \
   | grep -vE '^[^:]*:[0-9]+:>' \
-  | grep -vE '(Reality check|never landed|fictional|not present in)' \
+  | grep -vE '(Reality check|never landed|fictional|not present in|There is no|tracked as a v0\.5|v0\.5 ergonomic)' \
   || true)
 if [[ -n "$FICTIONAL" ]]; then
   echo "ERROR (C4-H3): doc(s) reference fictional Rust API (the actual crate is 'ogdb_core'):" >&2

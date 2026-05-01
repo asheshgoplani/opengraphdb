@@ -1716,29 +1716,44 @@ fn checkpoint_command(db_path: &Path) -> Result<()> {
 
 ### Rust API
 
+> **Reality check (0.4.0):** the original Decision-4 sketch in this
+> section anticipated a `params!` / `props!` macro pair, a `db.begin()`
+> / `db.commit()` transaction handle, a `db.query_scalar(...)` helper,
+> and a `db.importer()` builder. None of these landed in 0.4.0 — the
+> shipped surface uses positional `Database::query(&str)` for ad-hoc
+> queries (parameter binding is via the Cypher literal in the query
+> string), `Database::begin_read()` / `Database::begin_write()` for
+> explicit MVCC scopes, and `crates/ogdb-import/src/lib.rs` for bulk
+> ingestion (no `db.importer()` builder yet). The macro-flavored API is
+> tracked as a v0.5 ergonomic pass.
+
+The shipped 0.4.0 surface (mirrors the rustdoc sample at
+`crates/ogdb-core/src/lib.rs:14`):
+
 ```rust
-use opengraphdb::{Database, Config, Value};
+use ogdb_core::{Database, DbError};
 
-// Open/create database
-let db = Database::open("mydata.ogdb", Config::default())?;
+fn run() -> Result<(), DbError> {
+    let mut db = Database::open("mydata.ogdb")?;
 
-// Transaction-based API
-let tx = db.begin()?;
-let results = tx.query("MATCH (n:Person) WHERE n.age > $age RETURN n.name",
-                        params! { "age" => 30 })?;
-for row in results {
-    let name: String = row.get("n.name")?;
+    // Read query — auto-snapshot via begin_read().
+    let _rows = db.query(
+        "MATCH (p:Person) WHERE p.age > 30 RETURN p.name"
+    )?;
+
+    // Explicit MVCC scopes for transactional reads / writes.
+    let _snapshot = db.begin_read();
+    let _writer = db.begin_write();
+
+    // Node creation goes through create_node(...) + commit_txn().
+    // (See crates/ogdb-core/src/lib.rs::create_node for the typed entry
+    // point, or use the Cypher CREATE form via query(...) / execute(...).)
+
+    // Bulk import: use crates/ogdb-import/src/lib.rs::ingest_jsonl etc.
+    // — the streaming API. There is no `db.importer()` builder in 0.4.0.
+
+    Ok(())
 }
-tx.commit()?;
-
-// Convenience API (auto-commit single queries)
-let count: i64 = db.query_scalar("MATCH (n) RETURN count(n)", params!{})?;
-
-// Batch import
-let mut importer = db.importer()?;
-importer.add_node(&["Person"], props! { "name" => "John", "age" => 30 })?;
-importer.add_edge("WORKS_AT", node_a, node_b, props! { "since" => 2020 })?;
-importer.commit()?;
 ```
 
 ### Thread Safety
@@ -2008,8 +2023,9 @@ fn bench_single_hop(c: &mut Criterion) {
     let db = setup_ldbc_sf1();  // LDBC Scale Factor 1 (1M nodes, 5M edges)
     c.bench_function("single_hop_expand", |b| {
         b.iter(|| {
-            db.query("MATCH (n:Person)-[:KNOWS]->(m) WHERE n.id = $id RETURN m",
-                     params! { "id" => 42 })
+            // Parameter binding via the Cypher literal (no params! macro
+            // in 0.4.0 — see § 24 reality check).
+            db.query("MATCH (n:Person)-[:KNOWS]->(m) WHERE n.id = 42 RETURN m")
         })
     });
 }
