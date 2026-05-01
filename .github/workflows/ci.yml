@@ -36,6 +36,8 @@ jobs:
 
       - name: Build SPA dist for include_dir!
         working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: npm run build:app
 
       - name: Install coverage tooling
@@ -108,6 +110,8 @@ jobs:
 
       - name: Build SPA dist for include_dir!
         working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           npm ci
           npm run build:app
