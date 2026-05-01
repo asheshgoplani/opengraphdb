@@ -26,8 +26,11 @@ fn distance_metric_has_three_variants() {
     ];
     assert_eq!(variants.len(), 3);
     // Derives from the original type must survive the move.
-    let cloned = variants[0].clone();
-    assert_eq!(format!("{cloned:?}"), "Cosine");
+    // VectorDistanceMetric is `Copy`, so plain assignment exercises
+    // the same contract (avoids `clippy::clone_on_copy` under
+    // `--all-targets --all-features` per eval/rust-quality §1.1).
+    let copied = variants[0];
+    assert_eq!(format!("{copied:?}"), "Cosine");
 }
 
 #[test]

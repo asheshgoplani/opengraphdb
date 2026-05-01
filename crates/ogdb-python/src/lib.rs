@@ -1,3 +1,11 @@
+// pyo3 0.21 deprecation warnings (`OptionGilRefs`, `GilRefs`) trip
+// `-D warnings` under `--all-features`. The pyo3 0.21 → 0.24
+// migration is deferred per documentation/SECURITY-FOLLOWUPS.md
+// (RUSTSEC-2025-0020); tracked as a separate post-v0.5 task. Allow
+// the deprecations only when the python feature is enabled so the
+// rest of the crate (re-exports, CLI runner) keeps the strict gate.
+#![cfg_attr(feature = "python", allow(deprecated))]
+
 use ogdb_cli::run as run_cli;
 use ogdb_core::{
     DbError, Header, PropertyMap, PropertyValue, SharedDatabase, VectorDistanceMetric,

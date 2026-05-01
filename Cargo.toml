@@ -30,7 +30,7 @@ repository = "https://github.com/asheshgoplani/opengraphdb"
 homepage = "https://github.com/asheshgoplani/opengraphdb"
 documentation = "https://docs.rs/ogdb-core"
 readme = "README.md"
-rust-version = "1.85"
+rust-version = "1.87"
 
 # Cross-crate inlining for the IS-1 hot path. The 5 ogdb-core-split-* refactors
 # (vector/algorithms/text/temporal/import) moved plain-data types and pure

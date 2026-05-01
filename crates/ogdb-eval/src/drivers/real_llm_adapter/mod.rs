@@ -120,7 +120,7 @@ pub fn resolve_adapter() -> Result<Box<dyn LlmAdapter>, SkillQualityError> {
         Provider::OpenAi => {
             #[cfg(feature = "llm-openai")]
             {
-                return Ok(Box::new(openai::OpenAiAdapter::from_env()?));
+                Ok(Box::new(openai::OpenAiAdapter::from_env()?))
             }
             #[cfg(not(feature = "llm-openai"))]
             {
@@ -132,7 +132,7 @@ pub fn resolve_adapter() -> Result<Box<dyn LlmAdapter>, SkillQualityError> {
         Provider::Local => {
             #[cfg(feature = "llm-local")]
             {
-                return Ok(Box::new(local::LocalAdapter::from_env()?));
+                Ok(Box::new(local::LocalAdapter::from_env()?))
             }
             #[cfg(not(feature = "llm-local"))]
             {

@@ -229,10 +229,9 @@ fn try_set_governor_returns_err_when_not_writeable() {
     // case (so the caller can downgrade to a warning), not panic, not
     // succeed silently. If the caller IS root the test is a no-op; we
     // accept either outcome but never a panic.
+    // The test is the *call*: if `try_set_governor` panics, the test
+    // fails. If it returns `Ok` or `Err` we don't care which — the
+    // contract is "never panic regardless of permissions" (see the
+    // doc-comment above). No follow-up assertion is needed.
     let _ = try_set_governor("performance");
-    // Touch the no-op return path explicitly.
-    assert!(
-        true,
-        "try_set_governor must not panic regardless of permissions"
-    );
 }

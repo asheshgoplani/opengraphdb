@@ -963,6 +963,10 @@ pub struct WasmDatabase {
 #[cfg(feature = "wasm-bindings")]
 #[wasm_bindgen]
 impl WasmDatabase {
+    // `#[wasm_bindgen(constructor)]` requires the `new()` shape — `Default`
+    // can't replace it because the JS binding generator looks for `new`
+    // by name. Allow the lint with rationale.
+    #[allow(clippy::new_without_default)]
     #[wasm_bindgen(constructor)]
     pub fn new() -> WasmDatabase {
         WasmDatabase {
