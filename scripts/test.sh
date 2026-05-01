@@ -7,6 +7,8 @@ source "$HOME/.cargo/env"
 ./scripts/workflow-check.sh
 ./scripts/check-crate-metadata.sh
 ./scripts/check-shipped-doc-coverage.sh
+# C2-A7 (HIGH): npm package version must match workspace version.
+./scripts/check-npm-version.sh
 
 # C2-A8 (HIGH): cycle-1 added these structural lints but never wired them
 # into CI. Without the wiring they're dead code — the next person to edit
