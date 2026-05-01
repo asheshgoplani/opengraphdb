@@ -9,35 +9,57 @@
 //! `Vec<(u64, u64)>`. See `.planning/ogdb-core-split-algorithms/PLAN.md`
 //! for the full extraction rationale.
 
+#![warn(missing_docs)]
+
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
+/// Options for `ogdb_core::Database::shortest_path` (the consumer
+/// lives in `ogdb-core`; this crate has no dep on it).
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct ShortestPathOptions {
+    /// Cap on path length in edges. `None` means unbounded (BFS to exhaustion).
     pub max_hops: Option<u32>,
+    /// If set, only edges of this `:TYPE` participate in the traversal.
     pub edge_type: Option<String>,
+    /// Optional edge property used as the Dijkstra weight; otherwise unweighted BFS.
     pub weight_property: Option<String>,
 }
 
+/// Result of a shortest-path traversal: ordered node and edge ids plus
+/// total weight (BFS hop-count when no `weight_property` was supplied).
 #[derive(Debug, Clone, PartialEq)]
 pub struct GraphPath {
+    /// Ordered node ids traversed, including the start and end.
     pub node_ids: Vec<u64>,
+    /// Edge ids traversed (`node_ids.len() - 1` entries).
     pub edge_ids: Vec<u64>,
+    /// Sum of edge weights, or hop count when unweighted.
     pub total_weight: f64,
 }
 
+/// One edge inside a [`Subgraph`] result.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SubgraphEdge {
+    /// Edge id.
     pub edge_id: u64,
+    /// Source node id.
     pub src: u64,
+    /// Destination node id.
     pub dst: u64,
+    /// Edge `:TYPE`, if known.
     pub edge_type: Option<String>,
 }
 
+/// k-hop neighborhood result around a center node.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Subgraph {
+    /// Center node id this subgraph was expanded from.
     pub center: u64,
+    /// Maximum hop distance the traversal honored.
     pub max_hops: u32,
+    /// All node ids reached within `max_hops` of `center`.
     pub nodes: Vec<u64>,
+    /// All edges between `nodes`.
     pub edges: Vec<SubgraphEdge>,
 }
 

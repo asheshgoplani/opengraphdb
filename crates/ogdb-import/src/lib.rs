@@ -22,6 +22,8 @@
 //!
 //! See `.planning/ogdb-core-split-import/PLAN.md` for rationale.
 
+#![warn(missing_docs)]
+
 use serde::{Deserialize, Serialize};
 
 /// Errors surfaced by the document-ingest parsers
@@ -42,11 +44,14 @@ pub enum IngestError {
     Markdown(String),
 }
 
-/// Supported document formats for ingestion
+/// Supported document formats for ingestion.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DocumentFormat {
+    /// PDF document — parsed via `lopdf` (`document-ingest` feature).
     Pdf,
+    /// Markdown document — parsed via `pulldown-cmark` (`document-ingest` feature).
     Markdown,
+    /// Plain UTF-8 text — chunked by word count (always available).
     PlainText,
 }
 
@@ -104,13 +109,20 @@ pub struct IngestResult {
 /// `Database::ingest_document` (in `ogdb-core`).
 #[derive(Debug, Clone)]
 pub struct ParsedSection {
+    /// Section heading (or fallback `"Introduction"` / `"Content"`).
     pub title: String,
+    /// Heading level: 1 = h1 / top-level; 2..=6 = nested headings.
     pub level: u32,
+    /// Section body, ready to be chunked further by [`chunk_content`].
     pub content: String,
+    /// Inclusive starting page number (PDF only — `None` for Markdown / plaintext).
     pub page_start: Option<u32>,
+    /// Inclusive ending page number (PDF only — `None` for Markdown / plaintext).
     pub page_end: Option<u32>,
 }
 
+/// Parse a PDF byte slice into a list of [`ParsedSection`]s using a
+/// simple ALL-CAPS / Title Case heading heuristic.
 #[cfg(feature = "document-ingest")]
 pub fn parse_pdf_sections(data: &[u8]) -> Result<Vec<ParsedSection>, IngestError> {
     use lopdf::Document as PdfDocument;
@@ -203,6 +215,10 @@ pub fn parse_pdf_sections(data: &[u8]) -> Result<Vec<ParsedSection>, IngestError
     Ok(sections)
 }
 
+/// Parse a Markdown text string into a list of [`ParsedSection`]s,
+/// one per `#`-prefixed heading. Always returns `Ok` today (the
+/// signature is fallible for forward compatibility with strict
+/// future parsers).
 #[cfg(feature = "document-ingest")]
 pub fn parse_markdown_sections(text: &str) -> Result<Vec<ParsedSection>, IngestError> {
     use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
@@ -283,6 +299,9 @@ pub fn parse_markdown_sections(text: &str) -> Result<Vec<ParsedSection>, IngestE
     Ok(sections)
 }
 
+/// Split `text` into [`ParsedSection`]s of `max_chunk_words` each
+/// (`max_chunk_words = 0` is a sentinel meaning "single chunk
+/// containing all words"). Always available (no feature gate).
 pub fn parse_plaintext_sections(text: &str, max_chunk_words: usize) -> Vec<ParsedSection> {
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.is_empty() {
@@ -306,6 +325,8 @@ pub fn parse_plaintext_sections(text: &str, max_chunk_words: usize) -> Vec<Parse
         .collect()
 }
 
+/// Split `content` into chunks of at most `max_words` whitespace-separated
+/// words. `max_words = 0` returns the input unchanged as a single chunk.
 pub fn chunk_content(content: &str, max_words: usize) -> Vec<String> {
     if max_words == 0 {
         return vec![content.to_string()];
@@ -317,6 +338,10 @@ pub fn chunk_content(content: &str, max_words: usize) -> Vec<String> {
     words.chunks(max_words).map(|c| c.join(" ")).collect()
 }
 
+/// Heuristic cross-reference detector: returns `(from_idx, to_idx)`
+/// pairs whenever `sections[from_idx].content` mentions
+/// `sections[to_idx].title` (case-insensitive, only for titles with
+/// ≥ 3 whitespace-delimited words).
 pub fn detect_cross_references(sections: &[ParsedSection]) -> Vec<(usize, usize)> {
     let mut refs = Vec::new();
     for (i, section) in sections.iter().enumerate() {

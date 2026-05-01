@@ -26,23 +26,53 @@
 //! downstream call sites continue to compile byte-for-byte unchanged.
 //! See `.planning/ogdb-types-extraction/PLAN.md` for the full design.
 
+#![warn(missing_docs)]
+
 use ogdb_vector::compare_f32_vectors;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Typed property value used across node/edge properties and query results.
+///
+/// The 11 variants match the wire format pinned by the hand-rolled
+/// [`Serialize`] / [`Deserialize`] impls (`{"Variant": payload}`) —
+/// adding or renaming a variant is a breaking change for the bolt
+/// wire / WAL contract.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PropertyValue {
+    /// Boolean value.
     Bool(bool),
+    /// 64-bit signed integer.
     I64(i64),
+    /// 64-bit IEEE-754 float.
     F64(f64),
+    /// UTF-8 string.
     String(String),
+    /// Raw byte buffer.
     Bytes(Vec<u8>),
+    /// Embedding vector (sized at index-creation time).
     Vector(Vec<f32>),
+    /// Calendar date as days since the Unix epoch.
     Date(i32),
-    DateTime { micros: i64, tz_offset_minutes: i16 },
-    Duration { months: i64, days: i64, nanos: i64 },
+    /// Instant on a specific timezone offset.
+    DateTime {
+        /// Microseconds since the Unix epoch in UTC.
+        micros: i64,
+        /// Timezone offset in minutes east of UTC.
+        tz_offset_minutes: i16,
+    },
+    /// Calendar-aware duration broken into months / days / nanoseconds.
+    Duration {
+        /// Whole-month component.
+        months: i64,
+        /// Whole-day component (independent of months for calendar correctness).
+        days: i64,
+        /// Sub-day component in nanoseconds.
+        nanos: i64,
+    },
+    /// Heterogeneous list of property values.
     List(Vec<PropertyValue>),
+    /// String-keyed map of property values.
     Map(BTreeMap<String, PropertyValue>),
 }
 

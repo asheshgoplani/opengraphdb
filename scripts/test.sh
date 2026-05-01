@@ -6,6 +6,7 @@ source "$HOME/.cargo/env"
 ./scripts/changelog-check.sh
 ./scripts/workflow-check.sh
 ./scripts/check-crate-metadata.sh
+./scripts/check-shipped-doc-coverage.sh
 
 cargo fmt --all --check
 cargo check --workspace
