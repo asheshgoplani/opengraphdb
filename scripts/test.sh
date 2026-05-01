@@ -22,6 +22,10 @@ source "$HOME/.cargo/env"
 ./scripts/test-release-workflow.sh
 ./scripts/test-dockerfile.sh
 ./scripts/test-check-benchmarks-version.sh
+# EVAL-RUST-QUALITY-CYCLE3 H11: every `uses: dtolnay/rust-toolchain@`
+# in workflows must pin a fully-qualified version that matches
+# rust-toolchain.toml's channel.
+./scripts/check-rust-toolchain-pin.sh
 
 cargo fmt --all --check
 cargo check --workspace

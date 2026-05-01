@@ -1,0 +1,10 @@
+# EVAL-RUST-QUALITY-CYCLE3 H11: pin the toolchain so `dtolnay/rust-toolchain`
+# CI actions, local `rustup`, and any direnv/asdf integration all converge
+# on the same compiler. Move this file in lockstep with the workspace
+# `rust-version` field in /Cargo.toml — both pins describe the same MSRV
+# policy. The components list mirrors what CI installs (rustfmt, clippy,
+# llvm-tools-preview for `cargo llvm-cov`).
+[toolchain]
+channel = "1.88.0"
+components = ["rustfmt", "clippy", "llvm-tools-preview"]
+profile = "minimal"

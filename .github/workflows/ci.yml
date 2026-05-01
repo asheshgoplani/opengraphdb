@@ -16,7 +16,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        # EVAL-RUST-QUALITY-CYCLE3 H11: pin to the workspace MSRV so a
+        # `dtolnay/rust-toolchain@stable` re-run on an old PR does not
+        # silently drift across rustc versions. Bump in lockstep with
+        # /Cargo.toml `rust-version` and /rust-toolchain.toml.
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Setup Node
         # Slice S7 (.planning/frontend-overhaul/PLAN.md) embeds the built SPA
@@ -116,7 +120,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Rust 1.88 (workspace MSRV)
-        uses: dtolnay/rust-toolchain@1.88
+        # EVAL-RUST-QUALITY-CYCLE3 H11: pin to a fully-qualified version
+        # so re-runs of older PRs are deterministic.
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Setup Node
         # `include_dir!` reads `frontend/dist-app/` at compile time, so the
@@ -155,7 +161,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        # EVAL-RUST-QUALITY-CYCLE3 H11: pin to MSRV across every CI job
+        # so cross-platform behavior cannot drift between platforms.
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Setup Node
         uses: actions/setup-node@v4
