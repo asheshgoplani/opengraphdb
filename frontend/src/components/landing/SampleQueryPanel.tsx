@@ -54,8 +54,11 @@ function useTypingLoop(text: string, enabled: boolean) {
     if (!enabled) return
     let cancelled = false
     let i = 0
-    setTyped('')
-    setPhase('typing')
+    const reset = window.setTimeout(() => {
+      if (cancelled) return
+      setTyped('')
+      setPhase('typing')
+    }, 0)
 
     const tick = () => {
       if (cancelled) return
@@ -84,6 +87,7 @@ function useTypingLoop(text: string, enabled: boolean) {
     return () => {
       cancelled = true
       window.clearTimeout(start)
+      window.clearTimeout(reset)
     }
   }, [text, enabled])
 

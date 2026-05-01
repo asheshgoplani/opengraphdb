@@ -63,7 +63,7 @@ function prefersReducedMotion() {
 export function HeroGraphBackground() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 1200, height: 720 })
-  const reducedMotion = useMemo(prefersReducedMotion, [])
+  const reducedMotion = useMemo(() => prefersReducedMotion(), [])
   const graphData = useMemo(() => createHeroGraphData(reducedMotion ? 14 : 22, reducedMotion ? 18 : 32), [reducedMotion])
 
   useEffect(() => {

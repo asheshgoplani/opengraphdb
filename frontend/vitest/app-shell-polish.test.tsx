@@ -6,9 +6,10 @@ vi.mock('react-force-graph-2d', () => ({
   default: () => React.createElement('div', { 'data-testid': 'force-graph' }),
 }))
 
-import { getConnectionStatusModel } from '../src/components/layout/ConnectionStatus'
-import { getResultsSummaryText } from '../src/components/results/ResultsBanner'
-import { ResultsView, getResultsViewToggleClass } from '../src/components/results/ResultsView'
+import { getConnectionStatusModel } from '../src/components/layout/connection-status-utils'
+import { getResultsSummaryText } from '../src/components/results/results-summary-utils'
+import { ResultsView } from '../src/components/results/ResultsView'
+import { getResultsViewToggleClass } from '../src/components/results/results-view-utils'
 import { useQueryStore } from '../src/stores/query'
 import { ResultsEmptyState } from '../src/components/results/ResultsEmptyState'
 import type { GraphData } from '../src/types/graph'

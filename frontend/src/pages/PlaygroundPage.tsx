@@ -33,37 +33,20 @@ import {
   getDatasetQueries,
   runDatasetQuery,
   type DatasetKey,
-  type GuidedQuery,
 } from '@/data/datasets'
 import { useSettingsStore } from '@/stores/settings'
 import type { BackendQueryResponse } from '@/types/api'
 import type { GraphData } from '@/types/graph'
 
+import { QUERY_CATEGORIES, groupQueriesByCategory } from './playground-utils'
+
 const DATASET_KEYS: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata', 'community']
-export const QUERY_CATEGORIES = ['Explore', 'Traverse', 'Analyze'] as const
-type QueryCategory = (typeof QUERY_CATEGORIES)[number]
 
 function toDatasetKey(value: string | null): DatasetKey {
   if (value && DATASET_KEYS.includes(value as DatasetKey)) {
     return value as DatasetKey
   }
   return 'movielens'
-}
-
-export function groupQueriesByCategory(
-  queries: GuidedQuery[],
-): Record<QueryCategory, GuidedQuery[]> {
-  const grouped: Record<QueryCategory, GuidedQuery[]> = {
-    Explore: [],
-    Traverse: [],
-    Analyze: [],
-  }
-
-  for (const query of queries) {
-    grouped[query.category ?? 'Explore'].push(query)
-  }
-
-  return grouped
 }
 
 export default function PlaygroundPage() {

@@ -1,30 +1,32 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { useSettingsStore } from '@/stores/settings'
 import { resolveTheme } from '@/components/layout/theme-utils'
 import type { CanvasColors } from './canvasColors'
 export type { CanvasColors } from './canvasColors'
 
+function subscribePrefersDark(notify: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+  const mq = window.matchMedia('(prefers-color-scheme: dark)')
+  mq.addEventListener('change', notify)
+  return () => mq.removeEventListener('change', notify)
+}
+
+function getPrefersDarkSnapshot(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+function getServerSnapshot(): boolean {
+  return false
+}
+
 function useResolvedTheme(): 'light' | 'dark' {
   const theme = useSettingsStore((s) => s.theme)
-  const [isSystemDark, setIsSystemDark] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-  })
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || theme !== 'system') return
-
-    const mq = window.matchMedia('(prefers-color-scheme: dark)')
-    setIsSystemDark(mq.matches)
-
-    const handler = (event: MediaQueryListEvent) => {
-      setIsSystemDark(event.matches)
-    }
-
-    mq.addEventListener('change', handler)
-    return () => mq.removeEventListener('change', handler)
-  }, [theme])
-
+  const isSystemDark = useSyncExternalStore(
+    subscribePrefersDark,
+    getPrefersDarkSnapshot,
+    getServerSnapshot,
+  )
   return resolveTheme(theme, isSystemDark)
 }
 

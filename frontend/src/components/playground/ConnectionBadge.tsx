@@ -1,14 +1,9 @@
+import { formatQueryTime } from './connection-badge-utils'
+
 interface ConnectionBadgeProps {
   queryTimeMs?: number
   isLive?: boolean
   liveError?: string | null
-}
-
-export function formatQueryTime(queryTimeMs: number, isLive: boolean): string {
-  if (queryTimeMs < 1) {
-    return isLive ? '<1ms' : '<1ms (in-memory)'
-  }
-  return isLive ? `${Math.round(queryTimeMs)}ms` : `${Math.round(queryTimeMs)}ms (in-memory)`
 }
 
 export function ConnectionBadge({ queryTimeMs, isLive = false, liveError = null }: ConnectionBadgeProps) {

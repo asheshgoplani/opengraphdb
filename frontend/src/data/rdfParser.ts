@@ -196,7 +196,7 @@ function tokenize(line: string): string[] {
         if (line[end] === '"') break
         end++
       }
-      let closeIdx = end
+      const closeIdx = end
       let j = closeIdx + 1
       while (j < line.length && line[j] !== ' ' && line[j] !== '\t' && line[j] !== '.' && line[j] !== ';' && line[j] !== ',') {
         j++

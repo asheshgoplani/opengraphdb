@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { CypherEditor } from '@neo4j-cypher/react-codemirror'
 import type { DbSchema } from '@neo4j-cypher/language-support'
 import { Loader2, Play } from 'lucide-react'
@@ -30,27 +30,29 @@ function useSchemaAsDbSchema(): DbSchema | undefined {
   }, [data])
 }
 
+function subscribePrefersDark(notify: () => void): () => void {
+  if (typeof window === 'undefined') return () => {}
+  const mq = window.matchMedia('(prefers-color-scheme: dark)')
+  mq.addEventListener('change', notify)
+  return () => mq.removeEventListener('change', notify)
+}
+
+function getPrefersDarkSnapshot(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.matchMedia('(prefers-color-scheme: dark)').matches
+}
+
+function getServerSnapshot(): boolean {
+  return false
+}
+
 function useResolvedEditorTheme(): 'light' | 'dark' {
   const theme = useSettingsStore((s) => s.theme)
-  const [isSystemDark, setIsSystemDark] = useState(() => {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-  })
-
-  useEffect(() => {
-    if (typeof window === 'undefined' || theme !== 'system') return
-
-    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-    setIsSystemDark(mediaQuery.matches)
-
-    const handleChange = (event: MediaQueryListEvent) => {
-      setIsSystemDark(event.matches)
-    }
-
-    mediaQuery.addEventListener('change', handleChange)
-    return () => mediaQuery.removeEventListener('change', handleChange)
-  }, [theme])
-
+  const isSystemDark = useSyncExternalStore(
+    subscribePrefersDark,
+    getPrefersDarkSnapshot,
+    getServerSnapshot,
+  )
   return resolveTheme(theme, isSystemDark)
 }
 

@@ -72,7 +72,7 @@ function inferHierarchy(nodes: GraphNode[], links: GraphEdge[]): Map<string, { p
   return result
 }
 
-export function buildSchemaSummary(graphData: GraphData): {
+function buildSchemaSummary(graphData: GraphData): {
   labels: LabelEntry[]
   edgeTypes: EdgeTypeEntry[]
   allPropertyKeys: string[]
@@ -144,7 +144,6 @@ export function SchemaBrowser({
   if (isEmpty) {
     return (
       <section
-        role="tree"
         aria-label="Schema"
         data-testid="schema-browser-empty"
         className="rounded-lg border border-dashed border-border bg-muted/20 px-3 py-4 text-center transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
