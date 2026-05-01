@@ -1,4 +1,12 @@
 import { expect, test } from '@playwright/test'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
+
+// Cycle-2 docs eval C2-B2: card count was 4; the "multi-agent shared KG" pattern
+// was deleted because Database::open takes a single-process exclusive write lock
+// and BENCHMARKS.md row 9 calls multi-writer "single-writer-kernel-limited;
+// the N=4 measurement is mechanical, not real contention". Card count is now 3.
+const EXPECTED_CARD_COUNT = 3
 
 test.describe('F4 — AI Integration section (Slice R2)', () => {
   test('section is present on landing with testid', async ({ page }) => {
@@ -10,13 +18,13 @@ test.describe('F4 — AI Integration section (Slice R2)', () => {
     )
   })
 
-  test('renders 4 code blocks with non-empty <pre><code>', async ({ page }) => {
+  test('renders the expected number of code blocks with non-empty <pre><code>', async ({ page }) => {
     await page.goto('/')
     const section = page.locator('[data-testid="ai-integration-section"]')
     const cards = section.locator('[data-testid="ai-pattern-card"]')
-    await expect(cards).toHaveCount(4)
+    await expect(cards).toHaveCount(EXPECTED_CARD_COUNT)
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < EXPECTED_CARD_COUNT; i++) {
       const code = cards.nth(i).locator('pre code')
       await expect(code).toBeVisible()
       const text = (await code.innerText()).trim()
@@ -29,7 +37,7 @@ test.describe('F4 — AI Integration section (Slice R2)', () => {
     await page.goto('/')
     const cards = page.locator('[data-testid="ai-pattern-card"]')
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < EXPECTED_CARD_COUNT; i++) {
       const card = cards.nth(i)
       const expected = (await card.locator('pre code').innerText()).trim()
       const copyBtn = card.getByRole('button', { name: /copy/i })
@@ -43,9 +51,9 @@ test.describe('F4 — AI Integration section (Slice R2)', () => {
   test('no code block contains consumer-chatbot phrasing', async ({ page }) => {
     await page.goto('/')
     const cards = page.locator('[data-testid="ai-pattern-card"]')
-    await expect(cards).toHaveCount(4)
+    await expect(cards).toHaveCount(EXPECTED_CARD_COUNT)
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < EXPECTED_CARD_COUNT; i++) {
       const code = (await cards.nth(i).locator('pre code').innerText()).toLowerCase()
       expect(code, `card #${i} code must not contain "chat"`).not.toContain('chat')
       expect(code, `card #${i} code must not contain "ask your data"`).not.toContain('ask your data')
@@ -55,13 +63,35 @@ test.describe('F4 — AI Integration section (Slice R2)', () => {
   test('each card links to /documentation/ai-integration/<pattern>.md', async ({ page }) => {
     await page.goto('/')
     const cards = page.locator('[data-testid="ai-pattern-card"]')
-    await expect(cards).toHaveCount(4)
+    await expect(cards).toHaveCount(EXPECTED_CARD_COUNT)
 
-    for (let i = 0; i < 4; i++) {
+    for (let i = 0; i < EXPECTED_CARD_COUNT; i++) {
       const link = cards.nth(i).locator('a[href*="/documentation/ai-integration/"]')
       await expect(link).toHaveAttribute(
         'href',
         /\/documentation\/ai-integration\/[a-z0-9-]+\.md$/,
+      )
+    }
+  })
+
+  // Cycle-2 docs eval C2-B2: the three remaining ai-integration md files were
+  // redirect-stubbed (no detailed walkthrough; redirect to COOKBOOK / BENCHMARKS).
+  // The "**Status:** stub — detailed walkthrough lands in a follow-up slice."
+  // line was the eval's primary smoke for "was this ever fleshed out?". This
+  // test asserts that smoke string never returns. (multi-agent-shared-kg.md
+  // was deleted, so it's not in the list.)
+  test('remaining ai-integration md files are not advertised as stubs', async () => {
+    const repoRoot = path.resolve(__dirname, '..', '..')
+    const targets = [
+      'documentation/ai-integration/llm-to-cypher.md',
+      'documentation/ai-integration/embeddings-hybrid-rrf.md',
+      'documentation/ai-integration/cosmos-mcp-tool.md',
+    ]
+    for (const rel of targets) {
+      const abs = path.join(repoRoot, rel)
+      const body = await fs.readFile(abs, 'utf-8')
+      expect(body, `${rel} must not advertise itself as a stub`).not.toMatch(
+        /\*\*Status:\*\*\s*stub/i,
       )
     }
   })

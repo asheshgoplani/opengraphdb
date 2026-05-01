@@ -1,28 +1,35 @@
 # cosmos.gl visualization as an MCP tool
 
-**Status:** stub — detailed walkthrough lands in a follow-up slice.
+This page is a one-paragraph redirect. The MCP tool catalog is documented in
+[`COOKBOOK.md` Recipe 1 — AI agent over MCP](../COOKBOOK.md#recipe-1--ai-agent-over-mcp);
+the cosmos.gl renderer that this pattern wraps lives in
+[`frontend/src/components/graph/GraphCanvas.tsx`](../../frontend/src/components/graph/GraphCanvas.tsx).
 
 ## What this pattern is
 
 Wrap the cosmos.gl WebGL graph renderer as a Model Context Protocol (MCP)
-tool, exposed over stdio. Any MCP-speaking agent can then call
-`render_graph(cypher, width)` and receive a PNG of the result — useful when
-graph topology is easier to read visually than as a JSON array of edges.
+tool. Any MCP-speaking agent can then ask the renderer for a visual of a
+graph slice when topology is easier to read visually than as a JSON array of
+edges.
 
-## Why use OpenGraphDB here
+## Real API surface
 
-- The Cypher query runs through the same `ogdb serve --http` backend the
-  playground uses — there is no shadow query path.
-- Because MCP returns rich content blocks, an agent can inline the PNG into
-  its reasoning without the user ever leaving the chat surface.
-- Paired with pattern 1 (LLM → Cypher), the LLM can ask follow-up questions
-  like "zoom in on this component" and get another rendered frame.
-
-## Reference snippet
-
-See `AIIntegrationSection.tsx` pattern 3 (landing page).
+- **MCP transport:** `ogdb mcp --stdio` (local) or `POST /mcp/tools` +
+  `POST /mcp/invoke` (HTTP). The 20-tool catalog returned by
+  `POST /mcp/tools` is the canonical list — see
+  [`COOKBOOK.md` Recipe 1](../COOKBOOK.md#recipe-1--ai-agent-over-mcp) and the
+  source-of-truth handler at
+  [`crates/ogdb-cli/src/lib.rs::execute_mcp_tools_list`](../../crates/ogdb-cli/src/lib.rs).
+- **Rendering surface (this pattern):** A render-graph MCP tool wrapping
+  the same cosmos.gl renderer the playground uses. The Cypher input runs
+  through the same `ogdb serve --http` backend — there is no shadow query
+  path.
+- **Status:** the wrapper itself is illustrative; OpenGraphDB ships the data
+  surface, the renderer is in the frontend tree, and the wrapper that joins
+  them is recipe-shaped. Treat this page as a sketch of the integration
+  shape, not a guarantee that a `render_graph` MCP tool ships in core today.
 
 ## Related
 
-- `frontend/src/components/graph/GraphCanvas.tsx` — the renderer this wraps
-- `SPEC.md` §6 — MCP surface
+- [`../COOKBOOK.md` Recipe 1](../COOKBOOK.md#recipe-1--ai-agent-over-mcp) — the canonical 20-tool MCP catalog.
+- [`frontend/src/components/graph/GraphCanvas.tsx`](../../frontend/src/components/graph/GraphCanvas.tsx) — the renderer this pattern wraps.

@@ -7,7 +7,7 @@ import opengraphdb as ogdb
 
 client = OpenAI()
 db = ogdb.Database.open("movies.ogdb")
-schema = db.schema_summary()  # labels, edge types, property keys
+schema = db.schema_catalog()  # labels, edge types, property keys
 
 question = "find all actors who starred with Tom Hanks in drama movies"
 resp = client.responses.create(
@@ -40,7 +40,7 @@ for doc in corpus:
     )
 
 query = "how does transaction isolation work?"
-hits = db.hybrid_search(
+hits = db.rag_hybrid_search(
     text=query,
     vector=model.encode(query).tolist(),
     k=10,
@@ -77,34 +77,13 @@ server.tool(
 await server.connect(process.stdin, process.stdout)
 `
 
-const MULTI_AGENT_KG = `import opengraphdb as ogdb
-import time
-
-# Agent A - scraper: writes facts
-def agent_a():
-    db = ogdb.Database.open("shared.ogdb")
-    for fact in fetch_new_facts():
-        with db.transaction() as tx:
-            tx.insert_node(labels=["Fact"], props={"source": "a", **fact})
-
-# Agent B - summarizer: reads a consistent snapshot while A is writing
-def agent_b():
-    db = ogdb.Database.open("shared.ogdb")
-    while True:
-        snap = db.snapshot()
-        rows = snap.query(
-            "MATCH (f:Fact) WHERE f.ingested_at > $t RETURN f",
-            t=time.time() - 60,
-        )
-        publish_summary(rows)
-        time.sleep(5)
-
-# Agent C - ranker: updates scores; MVCC means readers never block
-def agent_c():
-    db = ogdb.Database.open("shared.ogdb")
-    with db.transaction() as tx:
-        tx.run("MATCH (f:Fact) SET f.score = pagerank(f)")
-`
+// Cycle-2 docs eval C2-B2: the "multi-agent shared KG" pattern was removed.
+// Database::open takes a single-process exclusive write lock today
+// (BENCHMARKS.md row 9 / § 4.6 calls multi-writer "single-writer-kernel-limited;
+// the N=4 measurement is mechanical, not real contention"). The earlier snippet
+// claimed Database.open("shared.ogdb") "Just Works across processes" — it does
+// not. Multi-writer is a v0.5 roadmap item; do not re-add this pattern until
+// the kernel actually supports it.
 
 interface Pattern {
   title: string
@@ -139,17 +118,9 @@ const PATTERNS: Pattern[] = [
     code: COSMOS_MCP,
     docHref: '/documentation/ai-integration/cosmos-mcp-tool.md',
   },
-  {
-    title: 'Multi-agent shared knowledge graph',
-    whyCare:
-      'Three agents open the same .ogdb file. MVCC snapshot isolation means writers never block readers and every agent sees a consistent view.',
-    language: 'python',
-    code: MULTI_AGENT_KG,
-    docHref: '/documentation/ai-integration/multi-agent-shared-kg.md',
-  },
 ]
 
-const REVEAL_DELAY = ['', 'animate-delay-100', 'animate-delay-200', 'animate-delay-300']
+const REVEAL_DELAY = ['', 'animate-delay-100', 'animate-delay-200']
 
 export function AIIntegrationSection() {
   const { ref, isInView } = useSectionInView<HTMLElement>()
