@@ -109,6 +109,48 @@ jobs:
           generate_release_notes: true
           draft: false
 
+  publish-crates:
+    # EVAL-RUST-QUALITY-CYCLE2 B3 (BLOCKER): Cycle 1 added all the publishable
+    # metadata for crates.io (description / repository / keywords / categories
+    # via `[workspace.package]` inheritance), but no workflow ever ran
+    # `cargo publish`. The metadata invariant only matters if the workspace
+    # actually publishes; otherwise the gate exists for a purpose never
+    # realised, and the first real publish-from-tag will hit ordering issues.
+    #
+    # The order below respects the dep DAG (leaf crates first); the 30s
+    # `sleep` lets crates.io's index settle before the next dependency
+    # picks up the new version.
+    name: cargo publish
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish each crate in dep order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_TOKEN }}
+        run: |
+          set -euo pipefail
+          for crate in ogdb-vector \
+                       ogdb-types \
+                       ogdb-text \
+                       ogdb-temporal \
+                       ogdb-algorithms \
+                       ogdb-export \
+                       ogdb-import \
+                       ogdb-core \
+                       ogdb-bolt \
+                       ogdb-cli \
+                       ogdb-ffi \
+                       ogdb-node \
+                       ogdb-python; do
+            echo "::group::cargo publish -p $crate"
+            cargo publish -p "$crate" --token "$CARGO_REGISTRY_TOKEN"
+            echo "::endgroup::"
+            sleep 30
+          done
+
   docker:
     # EVAL-PERF-RELEASE.md Finding 9 (HIGH): build + push the distroless
     # Docker image to ghcr.io on every v* tag so `ogdb serve --http` users
