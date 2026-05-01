@@ -114,7 +114,13 @@ jobs:
         with:
           files: dist/ogdb-*
           generate_release_notes: true
-          draft: false
+          # C2-B1 (HIGH): always publish as draft so a bad RC doesn't
+          # auto-promote and hide the previous "Latest" release. Detect
+          # pre-release tags from the standard `vX.Y.Z-rc1` shape so the
+          # GitHub UI badges them correctly when the maintainer flips
+          # `draft=false` via `gh release edit`.
+          draft: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
   docker:
     # EVAL-PERF-RELEASE.md Finding 9 (HIGH): build + push the distroless
