@@ -32,10 +32,7 @@ fn test_dir(tag: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("clock")
         .as_nanos();
-    let dir = env::temp_dir().join(format!(
-        "ogdb-c2-a5-{tag}-{}-{now}",
-        std::process::id()
-    ));
+    let dir = env::temp_dir().join(format!("ogdb-c2-a5-{tag}-{}-{now}", std::process::id()));
     fs::create_dir_all(&dir).expect("create test dir");
     dir
 }
@@ -90,7 +87,10 @@ fn vector_index_not_rebuilt_on_unrelated_property_change() {
     .expect("create vector index");
 
     let baseline = db.vector_index_rebuilds_total();
-    assert!(baseline >= 1, "vector index creation rebuilds at least once");
+    assert!(
+        baseline >= 1,
+        "vector index creation rebuilds at least once"
+    );
 
     // Update an unrelated property (`last_modified`) on 20 Doc nodes,
     // each in its own transaction. The catalog is not indexed on
@@ -134,6 +134,7 @@ fn vector_index_not_rebuilt_on_unrelated_property_change() {
         after_indexed > after_unrelated,
         "a txn modifying the indexed `embedding` property MUST rebuild. \
          after_unrelated={} after_indexed={}",
-        after_unrelated, after_indexed
+        after_unrelated,
+        after_indexed
     );
 }

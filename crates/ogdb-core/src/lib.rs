@@ -8670,9 +8670,9 @@ impl<'a> WriteTransaction<'a> {
         let vector_relevant_changes = touches_any_node
             && (self.created_nodes > 0
                 || self.touched_node_labels
-                || self.db.catalog_intersects_property_keys(
-                    &self.touched_node_property_keys,
-                ));
+                || self
+                    .db
+                    .catalog_intersects_property_keys(&self.touched_node_property_keys));
         self.db.commit_txn(self.txn_id, vector_relevant_changes)?;
         self.undo_log.clear();
         self.closed = true;
