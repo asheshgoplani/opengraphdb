@@ -38,6 +38,8 @@ prometheus = { version = "0.13", default-features = false }
 rustyline = "14"
 serde.workspace = true
 serde_json.workspace = true
+# EVAL-RUST-QUALITY-CYCLE3 H9: typed SHACL parser errors via thiserror.
+thiserror.workspace = true
 tonic = { version = "0.12", features = ["transport"], optional = true }
 webbrowser = "1"
 

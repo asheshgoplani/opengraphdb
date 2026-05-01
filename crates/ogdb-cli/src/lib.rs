@@ -662,6 +662,35 @@ impl From<DbError> for CliError {
     }
 }
 
+/// Errors emitted by [`parse_shacl_shapes`].
+///
+/// EVAL-RUST-QUALITY-CYCLE3 H9: replaces the prior
+/// `Box<dyn std::error::Error>` return type. `#[non_exhaustive]` keeps the
+/// public surface stable across 0.x — additional failure modes (e.g.
+/// distinct OWL vs. SHACL parser errors) can land without a major bump.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum ShaclLoadError {
+    /// I/O failure while opening or reading the shapes file.
+    #[error("io error reading SHACL shapes: {0}")]
+    Io(#[from] std::io::Error),
+    /// RDF parser rejected the shapes serialisation (e.g. invalid Turtle).
+    #[error("RDF parse error in SHACL shapes: {0}")]
+    RdfParse(String),
+}
+
+impl From<oxrdfio::RdfParseError> for ShaclLoadError {
+    fn from(value: oxrdfio::RdfParseError) -> Self {
+        Self::RdfParse(value.to_string())
+    }
+}
+
+impl From<ShaclLoadError> for CliError {
+    fn from(value: ShaclLoadError) -> Self {
+        Self::Runtime(format!("failed to parse SHACL shapes: {value}"))
+    }
+}
+
 pub fn usage() -> String {
     let mut cmd = Cli::command();
     cmd.render_help().to_string()
@@ -6977,9 +7006,12 @@ fn shacl_literal_to_i64(term: &Term) -> Option<i64> {
     }
 }
 
-pub fn parse_shacl_shapes(
-    shapes_path: &Path,
-) -> Result<Vec<NodeShapeConstraint>, Box<dyn std::error::Error>> {
+/// Parse a SHACL shapes file into [`NodeShapeConstraint`]s.
+///
+/// EVAL-RUST-QUALITY-CYCLE3 H9: returns the typed [`ShaclLoadError`]
+/// instead of `Box<dyn std::error::Error>`. Callers can match on
+/// [`ShaclLoadError::Io`] / [`ShaclLoadError::RdfParse`].
+pub fn parse_shacl_shapes(shapes_path: &Path) -> Result<Vec<NodeShapeConstraint>, ShaclLoadError> {
     let file = File::open(shapes_path)?;
     let reader = BufReader::new(file);
     let parser = RdfParser::from_format(RdfFormat::Turtle).for_reader(reader);
@@ -7320,8 +7352,9 @@ fn parse_rdf_into_plan(
 }
 
 fn handle_validate_shacl(db_path: &str, shapes_path: &Path) -> Result<String, CliError> {
-    let shapes = parse_shacl_shapes(shapes_path)
-        .map_err(|e| CliError::Runtime(format!("failed to parse SHACL shapes: {e}")))?;
+    // EVAL-RUST-QUALITY-CYCLE3 H9: ShaclLoadError converts via #[from] so
+    // the CLI surface keeps producing the same Runtime/CliError shape.
+    let shapes = parse_shacl_shapes(shapes_path)?;
     if shapes.is_empty() {
         return Ok("No SHACL NodeShape constraints found in shapes file.".to_string());
     }
