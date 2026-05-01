@@ -138,6 +138,7 @@ fn vector_index_not_rebuilt_on_unrelated_commit() {
         after_vector_change > after_edge_only,
         "a txn that modifies a vector-bearing node MUST rebuild. \
          after_edge_only={} after_vector_change={}",
-        after_edge_only, after_vector_change
+        after_edge_only,
+        after_vector_change
     );
 }

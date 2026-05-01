@@ -30,8 +30,7 @@ const FIXTURE_NAME_PROP: &str = "name";
 const FIXTURE_NAMES: [&str; 5] = ["alpha", "bravo", "charlie", "delta", "echo"];
 
 fn fixture_dir() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/v0_4_0_baseline")
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/v0_4_0_baseline")
 }
 
 fn fixture_db_path() -> PathBuf {
@@ -90,11 +89,7 @@ fn current_binary_opens_v0_4_0_baseline_fixture() {
     // Read each node back; confirm label + property survived.
     for (node_id, expected_name) in FIXTURE_NAMES.iter().enumerate() {
         let id = node_id as u64;
-        let labels: BTreeSet<String> = db
-            .node_labels(id)
-            .unwrap_or_default()
-            .into_iter()
-            .collect();
+        let labels: BTreeSet<String> = db.node_labels(id).unwrap_or_default().into_iter().collect();
         assert!(
             labels.contains(FIXTURE_DOC_LABEL),
             "fixture node {} missing label '{}': labels={:?}",
