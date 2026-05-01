@@ -7,6 +7,7 @@ source "$HOME/.cargo/env"
 ./scripts/workflow-check.sh
 ./scripts/check-crate-metadata.sh
 ./scripts/check-shipped-doc-coverage.sh
+./scripts/check-public-doc-tmp-leak.sh
 
 cargo fmt --all --check
 cargo check --workspace

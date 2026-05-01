@@ -129,7 +129,7 @@ Expected wall-clock: ≈ 150 s single-shot, ≈ 12 min for N=5 median, on the i9
 
 ## 6. Source citations
 
-All published-competitor numbers above are from `/tmp/evaluator-metrics-spec-2026-04-23.md` Part A, which in turn cites:
+All published-competitor numbers above synthesize the following public sources:
 
 - Neo4j 2-hop / write speed: [max demarzi 2023](https://maxdemarzi.com/2023/01/11/bullshit-graph-database-performance-benchmarks/), [Neo4j docs](https://neo4j.com/docs/operations-manual/current/performance/).
 - Memgraph: [Benchgraph](https://memgraph.com/benchgraph), [vs-Neo4j latency](https://memgraph.com/blog/memgraph-vs-neo4j-performance-benchmark-comparison), [write-speed analysis](https://memgraph.com/blog/memgraph-or-neo4j-analyzing-write-speed-performance).

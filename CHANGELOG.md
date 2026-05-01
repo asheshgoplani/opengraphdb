@@ -17,7 +17,7 @@ Versioning follows Semantic Versioning.
 - README: added CI / verify-claims / latest-release / license badges at the top.
 - `CHANGELOG.md` link footer ratchets through `v0.4.0` (`Unreleased` now compares against `v0.4.0`, not `v0.3.0`).
 - `CONTRIBUTING.md` coverage gate updated: command is now `./scripts/coverage.sh`, threshold is the script's ratchet (93% / 3000 uncovered lines as of v0.4.0; ratchets DOWN only).
-- `documentation/BENCHMARKS.md`: removed leaked `/tmp/evaluator-metrics-spec-2026-04-23.md` link; competitor source attribution now points at Section 5.
+- `documentation/BENCHMARKS.md`: removed a leaked private scratch-path citation in § 6 Source citations; the section now points at Section 5's public source links directly.
 
 ## [0.4.0] - 2026-04-28
 
