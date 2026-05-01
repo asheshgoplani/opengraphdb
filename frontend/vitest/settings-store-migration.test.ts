@@ -11,12 +11,34 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const STORAGE_KEY = 'ogdb-settings'
 
+// vitest.config.mjs runs the suite under `environment: 'node'`, so there
+// is no window/localStorage globally. Stub a minimal in-memory storage so
+// zustand's `persist` middleware has somewhere to read/write while still
+// exercising the real partialize / migrate paths the test wants to pin.
+const memoryStore = new Map<string, string>()
+const stubStorage: Storage = {
+  get length() {
+    return memoryStore.size
+  },
+  clear: () => memoryStore.clear(),
+  getItem: (key: string) => memoryStore.get(key) ?? null,
+  setItem: (key: string, value: string) => {
+    memoryStore.set(key, value)
+  },
+  removeItem: (key: string) => {
+    memoryStore.delete(key)
+  },
+  key: (index: number) => Array.from(memoryStore.keys())[index] ?? null,
+}
+;(globalThis as unknown as { localStorage: Storage }).localStorage = stubStorage
+;(globalThis as unknown as { window: { localStorage: Storage } }).window = {
+  localStorage: stubStorage,
+}
+
 beforeEach(() => {
   // Each test runs against a clean localStorage slate AND a fresh module
   // instance so the zustand `persist` rehydrate path executes on import.
-  if (typeof window !== 'undefined' && window.localStorage) {
-    window.localStorage.clear()
-  }
+  memoryStore.clear()
   vi.resetModules()
 })
 

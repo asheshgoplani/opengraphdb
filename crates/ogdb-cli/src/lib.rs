@@ -4160,7 +4160,10 @@ fn is_localhost_origin(origin: &str) -> bool {
     if host.contains('@') {
         return false;
     }
-    if let Some(port) = host.strip_prefix(host_only).and_then(|s| s.strip_prefix(':')) {
+    if let Some(port) = host
+        .strip_prefix(host_only)
+        .and_then(|s| s.strip_prefix(':'))
+    {
         return port.bytes().all(|b| b.is_ascii_digit()) && !port.is_empty();
     }
     host == host_only
@@ -5368,10 +5371,7 @@ fn handle_serve_http(
                 // Capture the request Origin before dispatch consumes the
                 // request — the writer needs it to decide whether to emit
                 // Access-Control-Allow-Origin (H-5).
-                let request_origin = request
-                    .headers
-                    .get("origin")
-                    .cloned();
+                let request_origin = request.headers.get("origin").cloned();
 
                 // Intercept POST /query/trace before normal dispatch — SSE writes directly to stream
                 if request.method == "POST" && request.path == "/query/trace" {

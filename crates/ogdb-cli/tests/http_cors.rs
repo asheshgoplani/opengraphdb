@@ -230,7 +230,12 @@ fn http_response_omits_acao_for_non_localhost_origin() {
     // entire DB schema across origins.
     let (addr, handle, path) = spawn_http_server("cors-evil", 1);
 
-    let response = send(&addr, "GET", "/schema", &[("Origin", "http://evil.example")]);
+    let response = send(
+        &addr,
+        "GET",
+        "/schema",
+        &[("Origin", "http://evil.example")],
+    );
     assert_eq!(
         response.status, 200,
         "expected 200 for /schema (the request still completes server-side)"
