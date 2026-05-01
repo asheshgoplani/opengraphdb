@@ -168,6 +168,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # C2-B4 (HIGH): the binary release matrix already covers
+      # aarch64-unknown-linux-gnu, but the docker job emitted an amd64-only
+      # image. AWS Graviton + Apple Silicon users (under emulation) had no
+      # native arm64 image. QEMU + buildx multi-platform fixes that.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -191,6 +198,10 @@ jobs:
           context: .
           file: Dockerfile
           push: true
+          # C2-B4: build linux/amd64 + linux/arm64 in one buildx invocation;
+          # the resulting manifest list lets `docker pull` auto-pick the
+          # right arch on Graviton / Apple Silicon hosts.
+          platforms: linux/amd64,linux/arm64
           tags: |
             ghcr.io/${{ github.repository_owner }}/opengraphdb:${{ steps.meta.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/opengraphdb:latest
