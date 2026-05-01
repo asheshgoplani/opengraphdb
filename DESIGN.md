@@ -1452,7 +1452,7 @@ Tantivy and the main database have separate crash domains. Recovery approach:
 1. WAL records FTS operations alongside graph mutations
 2. On recovery, compare WAL FTS entries against Tantivy's committed segments
 3. Replay any FTS operations that committed in WAL but not in Tantivy
-4. Fallback: `opengraphdb reindex mydb.ogdb` to rebuild FTS from scratch
+4. Fallback: `ogdb reindex mydb.ogdb` to rebuild FTS from scratch
 
 ### Indexed Properties
 
@@ -1553,11 +1553,11 @@ File (TTL/NT/JSONLD)
 ### CSV Import
 
 ```bash
-opengraphdb import mydb.ogdb --format csv --label Person people.csv
+ogdb import mydb.ogdb --format csv --label Person people.csv
 # Header: name,age,email
 # Rows become: (:Person {name: "...", age: 42, email: "..."})
 
-opengraphdb import mydb.ogdb --format csv --edge KNOWS \
+ogdb import mydb.ogdb --format csv --edge KNOWS \
   --from-label Person --from-key email \
   --to-label Person --to-key email \
   relationships.csv
@@ -1568,7 +1568,7 @@ opengraphdb import mydb.ogdb --format csv --edge KNOWS \
 ### JSON Import
 
 ```bash
-opengraphdb import mydb.ogdb --format json --label Person people.jsonl
+ogdb import mydb.ogdb --format json --label Person people.jsonl
 # Each line: {"name": "John", "age": 30, "friends": ["Jane"]}
 # Auto-detect types from JSON values
 ```
@@ -1656,7 +1656,7 @@ enum ExportFormat { Json, Jsonl, Csv, Ttl, Jsonld, Cypher }
 ### Backup Command Implementation
 
 ```rust
-// opengraphdb backup source.ogdb dest.ogdb
+// ogdb backup source.ogdb dest.ogdb
 fn backup_command(source: &Path, dest: &Path, compact: bool) -> Result<()> {
     let db = Database::open(source)?;
 
@@ -1684,7 +1684,7 @@ fn backup_command(source: &Path, dest: &Path, compact: bool) -> Result<()> {
     Ok(())
 }
 
-// opengraphdb checkpoint mydb.ogdb
+// ogdb checkpoint mydb.ogdb
 fn checkpoint_command(db_path: &Path) -> Result<()> {
     let db = Database::open(db_path)?;
     db.checkpoint()?;
@@ -1700,8 +1700,8 @@ fn checkpoint_command(db_path: &Path) -> Result<()> {
 - If vector/FTS indexes exist, they are rebuildable derived artifacts by default; optional embedded variants may be enabled later.
 
 **User guidance:**
-- Prefer `opengraphdb backup` over raw `cp` (handles checkpoint automatically)
-- If using `cp`, run `opengraphdb checkpoint` first
+- Prefer `ogdb backup` over raw `cp` (handles checkpoint automatically)
+- If using `cp`, run `ogdb checkpoint` first
 - Never `cp` an open database without checkpoint
 
 ---
@@ -2179,7 +2179,7 @@ OpenGraphDB uses `tracing` crate for structured logging. Users get free OTel int
 
 - **Rust API**: `db.metrics()` returns `DbMetrics` struct
 - **Python API**: `db.metrics()` returns dict
-- **CLI**: `opengraphdb stats mydb.ogdb` (formatted table)
+- **CLI**: `ogdb stats mydb.ogdb` (formatted table)
 - **Cypher procedure**: `CALL db.metrics()` returns table
 - **HTTP endpoint**: `/metrics` (Prometheus format, server mode)
 - **OTel export**: Via `tracing-opentelemetry` subscriber (user-installed, zero db dependency)
@@ -2344,7 +2344,7 @@ cross build --release --target x86_64-unknown-linux-musl
 
 - Major version bump: breaking changes (must migrate)
 - Minor version bump: backward-compatible additions
-- Migration tool: `opengraphdb migrate mydb.ogdb --to-version 2`
+- Migration tool: `ogdb migrate mydb.ogdb --to-version 2`
 - Always read old formats, write new format
 
 ### From Neo4j
@@ -2357,9 +2357,9 @@ neo4j-admin database dump neo4j --to-path=dump/
 CALL apoc.export.csv.all("export.csv", {})
 
 # Import into OpenGraphDB
-opengraphdb import mydb.ogdb --format csv --neo4j-export export.csv
+ogdb import mydb.ogdb --format csv --neo4j-export export.csv
 # Or connect directly (future extension):
-opengraphdb migrate --from neo4j://localhost:7687 --to mydb.ogdb
+ogdb migrate --from neo4j://localhost:7687 --to mydb.ogdb
 ```
 
 ---

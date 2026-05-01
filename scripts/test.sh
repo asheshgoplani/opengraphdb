@@ -10,6 +10,7 @@ source "$HOME/.cargo/env"
 ./scripts/check-public-doc-tmp-leak.sh
 ./scripts/check-changelog-tags.sh
 ./scripts/check-doc-anchors.sh
+./scripts/check-binary-name.sh
 
 # C2-A7 (HIGH): npm package version must match workspace version.
 ./scripts/check-npm-version.sh

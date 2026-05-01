@@ -115,7 +115,7 @@ Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo
   - no-op compaction behavior below all version windows
   - empty temporal chain behavior for new nodes
 - `ogdb-cli` SHACL Core subset validation support:
-  - new `validate-shacl` CLI command (`opengraphdb validate-shacl (<path> | --db <path>) <shapes-path>`)
+  - new `validate-shacl` CLI command (`ogdb validate-shacl (<path> | --db <path>) <shapes-path>`)
   - SHACL shapes parsing from Turtle via existing `oxrdfio`
   - validation of `sh:targetClass` (IRI local name to label mapping) and `sh:property` constraints with `sh:minCount >= 1`
   - structured violation reporting with deterministic non-zero exit on validation failures
