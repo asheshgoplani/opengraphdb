@@ -112,6 +112,7 @@ export function SampleQueryPanel() {
     const el = containerRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const obs = new ResizeObserver(([entry]) => {
+      if (!entry) return
       setDim({
         width: Math.floor(entry.contentRect.width),
         height: Math.floor(entry.contentRect.height),

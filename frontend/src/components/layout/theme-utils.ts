@@ -6,7 +6,7 @@ const THEME_ORDER: ThemePreference[] = ['system', 'light', 'dark']
 export function getNextTheme(theme: ThemePreference): ThemePreference {
   const currentIndex = THEME_ORDER.indexOf(theme)
   if (currentIndex === -1) return 'system'
-  return THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length]
+  return THEME_ORDER[(currentIndex + 1) % THEME_ORDER.length] ?? 'system'
 }
 
 export function resolveTheme(theme: ThemePreference, isSystemDark: boolean): ResolvedTheme {

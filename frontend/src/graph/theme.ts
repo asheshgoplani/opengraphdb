@@ -118,10 +118,11 @@ function hashString(s: string): number {
 }
 
 export function paletteForEdgeType(type: string | undefined | null): string {
-  if (!type) return EDGE_FALLBACK[0]
+  const fallback = EDGE_FALLBACK[0] ?? 'hsl(0 0% 50%)'
+  if (!type) return fallback
   const explicit = EDGE_PALETTE[type]
   if (explicit) return explicit
-  return EDGE_FALLBACK[hashString(type) % EDGE_FALLBACK.length]
+  return EDGE_FALLBACK[hashString(type) % EDGE_FALLBACK.length] ?? fallback
 }
 
 // Slice-12: FALLBACK_PALETTE now spans 8 hues at 45° steps so label hashing
@@ -146,12 +147,18 @@ function hashLabel(label: string): number {
   return h
 }
 
-export function paletteForLabel(label: string | undefined | null) {
-  if (!label) return FALLBACK_PALETTE[0]
+const DEFAULT_PALETTE: { core: string; light: string; deep: string } = {
+  core: '#888',
+  light: '#bbb',
+  deep: '#444',
+}
+
+export function paletteForLabel(label: string | undefined | null): { core: string; light: string; deep: string } {
+  if (!label) return FALLBACK_PALETTE[0] ?? DEFAULT_PALETTE
   const explicit = LABEL_PALETTE[label]
   if (explicit) return explicit
   const idx = hashLabel(label) % FALLBACK_PALETTE.length
-  return FALLBACK_PALETTE[idx]
+  return FALLBACK_PALETTE[idx] ?? DEFAULT_PALETTE
 }
 
 export function radiusForDegree(degree: number): number {

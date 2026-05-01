@@ -34,13 +34,16 @@ function createHeroGraphData(nodeCount = 22, linkCount = 32): GraphData {
     const sourceIndex = Math.floor(rand() * nodeCount)
     const targetIndex = Math.floor(rand() * nodeCount)
     if (sourceIndex === targetIndex) continue
+    const sourceNode = nodes[sourceIndex]
+    const targetNode = nodes[targetIndex]
+    if (!sourceNode || !targetNode) continue
     const key = `${Math.min(sourceIndex, targetIndex)}-${Math.max(sourceIndex, targetIndex)}`
     if (seen.has(key)) continue
     seen.add(key)
     links.push({
       id: `hero-link-${links.length}`,
-      source: nodes[sourceIndex].id,
-      target: nodes[targetIndex].id,
+      source: sourceNode.id,
+      target: targetNode.id,
       type: 'CONNECTS',
       properties: {},
     })
@@ -49,10 +52,11 @@ function createHeroGraphData(nodeCount = 22, linkCount = 32): GraphData {
   return { nodes, links }
 }
 
-function colorFor(label?: string) {
-  if (!label) return PALETTE[0]
+function colorFor(label?: string): string {
+  const fallback = PALETTE[0] ?? '#888'
+  if (!label) return fallback
   const code = label.charCodeAt(0) - 65
-  return PALETTE[Math.abs(code) % PALETTE.length]
+  return PALETTE[Math.abs(code) % PALETTE.length] ?? fallback
 }
 
 function prefersReducedMotion() {
@@ -97,6 +101,7 @@ export function HeroGraphBackground() {
     const element = containerRef.current
     if (!element || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
       const width = Math.floor(entry.contentRect.width)
       const height = Math.floor(entry.contentRect.height)
       setDimensions({ width: Math.max(width, 320), height: Math.max(height, 320) })

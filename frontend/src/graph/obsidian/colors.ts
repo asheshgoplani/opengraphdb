@@ -31,17 +31,19 @@ export const WARM_PALETTE_DARK = [
 
 export function colorForLabel(label: string | undefined, isDark: boolean): string {
   const palette = isDark ? NODE_PALETTE_DARK : NODE_PALETTE_LIGHT
-  if (!label) return palette[0]
+  const fallback = palette[0] ?? 'hsl(0 0% 50%)'
+  if (!label) return fallback
   let h = 0
   for (let i = 0; i < label.length; i += 1) h = (h * 31 + label.charCodeAt(i)) | 0
-  return palette[Math.abs(h) % palette.length]
+  return palette[Math.abs(h) % palette.length] ?? fallback
 }
 
 export function warmColorForLabel(label: string | undefined): string {
-  if (!label) return WARM_PALETTE_DARK[0]
+  const fallback = WARM_PALETTE_DARK[0] ?? 'hsl(40 95% 62%)'
+  if (!label) return fallback
   let h = 0
   for (let i = 0; i < label.length; i += 1) h = (h * 31 + label.charCodeAt(i)) | 0
-  return WARM_PALETTE_DARK[Math.abs(h) % WARM_PALETTE_DARK.length]
+  return WARM_PALETTE_DARK[Math.abs(h) % WARM_PALETTE_DARK.length] ?? fallback
 }
 
 export const EDGE_COLOR_DARK = 'hsla(36 30% 60% / 0.35)'

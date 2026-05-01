@@ -51,6 +51,7 @@ export function GraphEmptyState({
           {EDGES.map(([a, b], i) => {
             const sa = NODES[a]
             const sb = NODES[b]
+            if (!sa || !sb) return null
             const mx = (sa.x + sb.x) / 2 + 12
             const my = (sa.y + sb.y) / 2 - 12
             return (

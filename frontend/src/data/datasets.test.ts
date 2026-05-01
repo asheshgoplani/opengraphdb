@@ -71,9 +71,9 @@ test("runDatasetQuery('all') returns complete data with new references for all d
     assert.notStrictEqual(result.nodes[0], source.nodes[0])
     assert.notStrictEqual(result.links[0], source.links[0])
 
-    const firstNodeLabelBefore = source.nodes[0].label
-    result.nodes[0].label = 'MUTATED'
-    assert.equal(source.nodes[0].label, firstNodeLabelBefore)
+    const firstNodeLabelBefore = source.nodes[0]!.label
+    result.nodes[0]!.label = 'MUTATED'
+    assert.equal(source.nodes[0]!.label, firstNodeLabelBefore)
   }
 })
 

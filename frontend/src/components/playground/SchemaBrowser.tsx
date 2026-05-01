@@ -362,5 +362,6 @@ const LABEL_PALETTE = [
 ]
 
 function colorForIndex(i: number): string {
-  return LABEL_PALETTE[((i % LABEL_PALETTE.length) + LABEL_PALETTE.length) % LABEL_PALETTE.length]
+  const idx = ((i % LABEL_PALETTE.length) + LABEL_PALETTE.length) % LABEL_PALETTE.length
+  return LABEL_PALETTE[idx] ?? '#818cf8'
 }

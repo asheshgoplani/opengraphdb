@@ -81,7 +81,8 @@ function mulberry32(seed: number) {
 const rng = mulberry32(0xC0FFEE)
 
 function pick<T>(arr: readonly T[], r: number): T {
-  return arr[Math.floor(r * arr.length) % arr.length]
+  const idx = Math.floor(r * arr.length) % arr.length
+  return arr[idx] as T
 }
 
 function buildCommunityGraph(): GraphData {
@@ -95,7 +96,7 @@ function buildCommunityGraph(): GraphData {
     const ids: string[] = []
     for (let i = 0; i < NODES_PER_CLUSTER; i += 1) {
       const id = `cg-${cluster.key}-${i}`
-      const seedName = cluster.seed[i % cluster.seed.length]
+      const seedName = cluster.seed[i % cluster.seed.length] ?? cluster.label
       const name = `${seedName} ${Math.floor(i / cluster.seed.length) + 1}`
       nodes.push({
         id,
@@ -112,13 +113,16 @@ function buildCommunityGraph(): GraphData {
     clusterNodeIds.push(ids)
 
     // Intra-cluster connectivity: ring + a few random chords for community feel.
-    const edgeType = INTRA_EDGE_TYPES[cluster.key]
+    const edgeType = INTRA_EDGE_TYPES[cluster.key] ?? 'CONNECTS'
     for (let i = 0; i < ids.length; i += 1) {
       const next = (i + 1) % ids.length
+      const srcId = ids[i]
+      const dstId = ids[next]
+      if (!srcId || !dstId) continue
       links.push({
         id: `cg-e-${edgeId++}`,
-        source: ids[i],
-        target: ids[next],
+        source: srcId,
+        target: dstId,
         type: edgeType,
         properties: { weight: 1 },
       })
@@ -128,10 +132,13 @@ function buildCommunityGraph(): GraphData {
       const a = Math.floor(rng() * ids.length)
       let b = Math.floor(rng() * ids.length)
       if (a === b) b = (b + 1) % ids.length
+      const srcId = ids[a]
+      const dstId = ids[b]
+      if (!srcId || !dstId) continue
       links.push({
         id: `cg-e-${edgeId++}`,
-        source: ids[a],
-        target: ids[b],
+        source: srcId,
+        target: dstId,
         type: edgeType,
         properties: { weight: 1 + Math.floor(rng() * 3) },
       })
@@ -146,8 +153,10 @@ function buildCommunityGraph(): GraphData {
     if (ca === cb) cb = (cb + 1) % CLUSTERS.length
     const srcIds = clusterNodeIds[ca]
     const dstIds = clusterNodeIds[cb]
+    if (!srcIds || !dstIds) continue
     const src = srcIds[Math.floor(rng() * srcIds.length)]
     const dst = dstIds[Math.floor(rng() * dstIds.length)]
+    if (!src || !dst) continue
     links.push({
       id: `cg-b-${edgeId++}`,
       source: src,
