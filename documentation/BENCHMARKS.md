@@ -1,23 +1,27 @@
 # OpenGraphDB 0.4.0 — Competitive Benchmark Baseline
 
-**Measurement date:** 2026-04-25
-**Branch:** `perf/rebaseline-multi-run` (off `main` @ `91c789b`)
+**Measurement date:** 2026-05-01 (current at-version baseline; 2026-04-25 0.3.0 baseline preserved as historical).
+**Branch:** `fix/eval-cycle2-perf` (off `main` @ `5d58d8d`)
 **Harness:** `crates/ogdb-eval` — `RunAllConfig::full` via `cli_runner::run_all`, plus `graphalytics::{run_bfs, run_pagerank}` and `criterion_ingest::ingest_criterion_dir`. Source: `crates/ogdb-eval/tests/publish_baseline.rs`.
-**Raw run JSON:** [`documentation/evaluation-runs/baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json) (15 `EvaluationRun`s, schema v1.0; 12 medianed core + 3 single-shot post-pass).
+**Raw run JSON:** [`documentation/evaluation-runs/baseline-2026-05-01.json`](evaluation-runs/baseline-2026-05-01.json) (15 `EvaluationRun`s, schema v1.0, version=0.4.0, git_sha pinned per record per cycle-2 C2-A4 fix; iters=1 single-shot pre-release smoke). The 2026-04-25 multi-iter aggregated baseline is preserved at [`baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json) for longitudinal diff.
 **Historical baseline:** [`documentation/evaluation-runs/baseline-2026-04-23.json`](evaluation-runs/baseline-2026-04-23.json) preserved for diff-engine longitudinal comparisons.
 
 ## Scope and honesty policy
 
-> **Baseline-version note (added 2026-05-01).** The numbers in this document
-> were collected on 2026-04-25 against the `0.3.0` workspace; the workspace
-> was bumped to `0.4.0` on 2026-04-28. The 0.4.0 changelog ships
-> perf-affecting changes (HNSW replaces brute force on vector search,
-> thin-LTO + `#[inline]` recovers ~25 % on IS-1, UNWIND becomes a real
-> physical operator). The numbers here are therefore a *lower-bound* on what
-> 0.4.0 reports — re-baselining at 0.4.0 is gated by EVAL-PERF-RELEASE.md
-> Finding 1 and tracked for the v0.5 release. The headline version below was
-> bumped to match the workspace so the CI version-match gate
-> (`scripts/check-benchmarks-version.sh`) stays green.
+> **Baseline-version note (updated 2026-05-01 per cycle-2 C2-A4).** The
+> raw run JSON is now regenerated against the 0.4.0 workspace (commit
+> `3ba8d96`) at [`baseline-2026-05-01.json`](evaluation-runs/baseline-2026-05-01.json),
+> so every `EvaluationRun` carries `"version": "0.4.0"` and a real
+> `git_sha`. This run is iters=1 single-shot — the 2026-04-25 multi-iter
+> medianed baseline is preserved at
+> [`baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json)
+> as the historical headline-numbers reference; a multi-iter
+> medianed re-baseline at v0.5 will be the canonical-numbers replacement
+> when measurement-quality hardware is available. The aggregated
+> headline numbers in the table below are therefore still from the
+> 2026-04-25 multi-iter run (numbers do not yet shift) — only the
+> attestation that the current code matches a published JSON has been
+> restored.
 
 This document is the public competitive-comparison sheet for OpenGraphDB 0.4.0. Per the project's transparency directive we publish *every* measurement — wins, losses, and axes where no public baseline exists — with enough methodology context that a reader can reproduce or challenge the numbers.
 
