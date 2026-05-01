@@ -21586,11 +21586,13 @@ impl Database {
 
         // Step 1: Parse document into sections
         let sections = match config.format {
-            DocumentFormat::Pdf => parse_pdf_sections(data).map_err(DbError::InvalidArgument)?,
+            DocumentFormat::Pdf => parse_pdf_sections(data)
+                .map_err(|e| DbError::InvalidArgument(e.to_string()))?,
             DocumentFormat::Markdown => {
                 let text = std::str::from_utf8(data)
                     .map_err(|e| DbError::InvalidArgument(format!("Invalid UTF-8: {e}")))?;
-                parse_markdown_sections(text).map_err(DbError::InvalidArgument)?
+                parse_markdown_sections(text)
+                    .map_err(|e| DbError::InvalidArgument(e.to_string()))?
             }
             DocumentFormat::PlainText => {
                 let text = std::str::from_utf8(data)

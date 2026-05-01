@@ -13,14 +13,34 @@
 //! * [`parse_pdf_sections`] (uses `lopdf`)
 //! * [`parse_markdown_sections`] (uses `pulldown_cmark`)
 //!
-//! Both feature-gated parsers return `Result<_, String>`; the call
-//! site in `Database::ingest_document` (in `ogdb-core`) adapts via
-//! `.map_err(DbError::InvalidArgument)` so `DbError` does not leak
-//! into this crate.
+//! Both feature-gated parsers return `Result<_, IngestError>`; the
+//! call site in `Database::ingest_document` (in `ogdb-core`) adapts
+//! via `.map_err(|e| DbError::InvalidArgument(e.to_string()))` so
+//! `DbError` does not leak into this crate. `IngestError` uses
+//! `thiserror` (eval/rust-quality §6.1) so callers can pattern-match
+//! on the variant rather than parse a free-form string.
 //!
 //! See `.planning/ogdb-core-split-import/PLAN.md` for rationale.
 
 use serde::{Deserialize, Serialize};
+
+/// Errors surfaced by the document-ingest parsers
+/// ([`parse_pdf_sections`], [`parse_markdown_sections`]).
+///
+/// `#[non_exhaustive]` so adding a new format-specific variant in a
+/// future minor release is not a breaking change for downstream
+/// consumers (eval/rust-quality §6.2).
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum IngestError {
+    /// PDF document was malformed or could not be loaded by `lopdf`.
+    #[error("Failed to parse PDF: {0}")]
+    Pdf(String),
+    /// Markdown document could not be parsed (currently never emitted
+    /// by `pulldown-cmark` — reserved for future strict-mode parsers).
+    #[error("Failed to parse Markdown: {0}")]
+    Markdown(String),
+}
 
 /// Supported document formats for ingestion
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,10 +112,10 @@ pub struct ParsedSection {
 }
 
 #[cfg(feature = "document-ingest")]
-pub fn parse_pdf_sections(data: &[u8]) -> Result<Vec<ParsedSection>, String> {
+pub fn parse_pdf_sections(data: &[u8]) -> Result<Vec<ParsedSection>, IngestError> {
     use lopdf::Document as PdfDocument;
 
-    let doc = PdfDocument::load_mem(data).map_err(|e| format!("Failed to parse PDF: {e}"))?;
+    let doc = PdfDocument::load_mem(data).map_err(|e| IngestError::Pdf(e.to_string()))?;
 
     let page_count = doc.get_pages().len();
     let mut sections: Vec<ParsedSection> = Vec::new();
@@ -184,7 +204,7 @@ pub fn parse_pdf_sections(data: &[u8]) -> Result<Vec<ParsedSection>, String> {
 }
 
 #[cfg(feature = "document-ingest")]
-pub fn parse_markdown_sections(text: &str) -> Result<Vec<ParsedSection>, String> {
+pub fn parse_markdown_sections(text: &str) -> Result<Vec<ParsedSection>, IngestError> {
     use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
 
     let parser = Parser::new(text);
