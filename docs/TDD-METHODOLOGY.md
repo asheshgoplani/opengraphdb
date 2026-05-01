@@ -21,15 +21,16 @@ This repository uses strict test-first development for production code paths.
 
 ## Coverage Policy
 
-- Target: 100% line coverage for crates under active implementation.
-- Gate command:
+- **Current ratchet:** 93% line coverage, ≤ 3000 uncovered lines (the floors declared in [`../scripts/coverage.sh`](../scripts/coverage.sh)). The ratchet ratchets DOWN as coverage grows — it never ratchets UP. New code must not regress the ratchet.
+- **Aspirational target:** 100% on the public API of `ogdb-core` and `ogdb-cli` — but the gate enforces the ratchet, not the aspiration. Treat 100% as a long-run direction, not a release blocker.
+- **Gate command** (the same command CI runs):
 
 ```bash
 source "$HOME/.cargo/env"
-cargo llvm-cov --package ogdb-core --package ogdb-cli --lib --fail-under-lines 100
+./scripts/coverage.sh
 ```
 
-Current active crates for strict coverage gate:
+Crates under the strict ratchet:
 - `ogdb-core`
 - `ogdb-cli`
 
@@ -40,7 +41,7 @@ source "$HOME/.cargo/env"
 cargo test --workspace --all-targets
 ```
 
-and record the coverage gap in `CHANGELOG.md` under `Unreleased`.
+and record the coverage gap in `CHANGELOG.md` under `Unreleased`. Do not invoke `cargo llvm-cov ... --fail-under-lines 100` directly — that command predates the ratchet and will fail every run; older drafts of this file printed it as the gate, which contradicted `CONTRIBUTING.md` and led contributors to red builds.
 
 ## Documentation Sources of Truth
 
