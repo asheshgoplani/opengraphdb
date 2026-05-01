@@ -7692,11 +7692,16 @@ struct BuiltHnsw {
     map: std::sync::Arc<HnswMap<HnswVectorPoint, u64>>,
 }
 
+/// Returns `true` if an HNSW map was actually built (i.e. entries ≥
+/// `HNSW_MIN_N`). Returns `false` when the index falls through to the
+/// brute-force path because the corpus is too small. Callers use the
+/// return value to bump `Database::vector_index_rebuilds_total` only on
+/// real builds, so the EVAL-PERF-RELEASE Finding 2 counter is meaningful.
 #[cfg(feature = "vector-search")]
-fn build_hnsw_from_entries(runtime: &mut VectorIndexRuntime) {
+fn build_hnsw_from_entries(runtime: &mut VectorIndexRuntime) -> bool {
     if runtime.entries.len() < HNSW_MIN_N {
         runtime.hnsw = None;
-        return;
+        return false;
     }
     let metric = runtime.definition.metric;
     let (points, values): (Vec<_>, Vec<_>) = runtime
@@ -7720,6 +7725,7 @@ fn build_hnsw_from_entries(runtime: &mut VectorIndexRuntime) {
     runtime.hnsw = Some(BuiltHnsw {
         map: std::sync::Arc::new(map),
     });
+    true
 }
 
 #[derive(Debug)]
@@ -8613,7 +8619,13 @@ impl<'a> WriteTransaction<'a> {
                 self.txn_id, self.start_snapshot_txn_id
             )));
         }
-        self.db.commit_txn(self.txn_id)?;
+        // EVAL-PERF-RELEASE Finding 2: tell `commit_txn` whether any node
+        // was touched in this txn. Vector indexes are keyed strictly by
+        // (label, property) on nodes — edge-only and edge-property-only txns
+        // cannot affect them, so the expensive HNSW rebuild is skipped when
+        // `touched_nodes` is empty.
+        let node_changes = !self.touched_nodes.is_empty();
+        self.db.commit_txn(self.txn_id, node_changes)?;
         self.undo_log.clear();
         self.closed = true;
         Ok(WriteCommitSummary {
@@ -11356,6 +11368,12 @@ pub struct Database {
     meta_dirty: bool,
     header_dirty: bool,
     wal_buffer: Vec<u8>,
+    /// EVAL-PERF-RELEASE Finding 2 (BLOCKER): observability counter for HNSW
+    /// rebuild events. Bumped every time `build_hnsw_from_entries` is called
+    /// across `materialized_vector_indexes`. Public via
+    /// `vector_index_rebuilds_total()` so regression tests can assert that
+    /// unrelated commits do NOT trigger a rebuild.
+    vector_index_rebuilds_total: u64,
 }
 
 impl Database {
@@ -11456,6 +11474,7 @@ impl Database {
             meta_dirty: false,
             header_dirty: false,
             wal_buffer: Vec::new(),
+            vector_index_rebuilds_total: 0,
         };
         db.ensure_meta_lengths();
         db.ensure_node_property_rows(&[])?;
@@ -11533,6 +11552,7 @@ impl Database {
             meta_dirty: false,
             header_dirty: false,
             wal_buffer: Vec::new(),
+            vector_index_rebuilds_total: 0,
         };
         db.load_or_init_free_list()?;
         let legacy_node_properties = db.load_or_init_meta()?;
@@ -12093,6 +12113,15 @@ impl Database {
             return self.sync_vector_index_sidecar();
         }
         Ok(())
+    }
+
+    /// Number of times an HNSW index has been (re)built since this
+    /// `Database` handle was opened. Bumped once per call to
+    /// `build_hnsw_from_entries`. Test/observability only — exists so the
+    /// EVAL-PERF-RELEASE Finding 2 regression test can prove that
+    /// node-untouching commits no longer trigger a full rebuild.
+    pub fn vector_index_rebuilds_total(&self) -> u64 {
+        self.vector_index_rebuilds_total
     }
 
     pub fn list_vector_indexes(&self) -> Vec<VectorIndexDefinition> {
@@ -17328,7 +17357,16 @@ impl Database {
         Ok(false)
     }
 
-    fn commit_txn(&mut self, txn_id: u64) -> Result<(), DbError> {
+    /// EVAL-PERF-RELEASE Finding 2 (BLOCKER): the `node_changes` flag tells
+    /// `commit_txn` whether the txn touched any node (created/labels/properties).
+    /// When `false`, we skip
+    /// `rebuild_vector_indexes_from_catalog_without_sidecar`, which used to
+    /// run a full HNSW rebuild on every commit — costing hundreds of ms per
+    /// edge-only or no-op commit on a 10k-vector index. Edge-only,
+    /// edge-property-only, and no-op transactions cannot affect any vector
+    /// index because indexes are keyed strictly by `(label, property)` on
+    /// nodes, so it is safe to skip the rebuild.
+    fn commit_txn(&mut self, txn_id: u64, node_changes: bool) -> Result<(), DbError> {
         for version in &mut self.node_versions {
             if version.txn_id == txn_id {
                 version.committed = true;
@@ -17371,7 +17409,13 @@ impl Database {
             self.last_committed_txn_id = txn_id;
         }
         self.rebuild_property_indexes_from_catalog()?;
-        self.rebuild_vector_indexes_from_catalog_without_sidecar()?;
+        if node_changes {
+            // EVAL-PERF-RELEASE Finding 2: only rebuild vector indexes when
+            // the txn actually changed a node (label/property/create). Edge
+            // mutations and pure no-ops cannot affect any vector index, and
+            // the rebuild is hundreds of ms per commit at 10k vectors.
+            self.rebuild_vector_indexes_from_catalog_without_sidecar()?;
+        }
         self.rebuild_fulltext_indexes_from_catalog()?;
         self.flush_deferred_meta()?;
         Ok(())
@@ -19478,7 +19522,12 @@ impl Database {
                 hnsw: None,
             };
             #[cfg(feature = "vector-search")]
-            build_hnsw_from_entries(&mut runtime);
+            {
+                if build_hnsw_from_entries(&mut runtime) {
+                    self.vector_index_rebuilds_total =
+                        self.vector_index_rebuilds_total.saturating_add(1);
+                }
+            }
             loaded.insert(index.definition.name.clone(), runtime);
         }
         self.materialized_vector_indexes = loaded;
@@ -19543,7 +19592,12 @@ impl Database {
                 hnsw: None,
             };
             #[cfg(feature = "vector-search")]
-            build_hnsw_from_entries(&mut runtime);
+            {
+                if build_hnsw_from_entries(&mut runtime) {
+                    self.vector_index_rebuilds_total =
+                        self.vector_index_rebuilds_total.saturating_add(1);
+                }
+            }
             self.materialized_vector_indexes
                 .insert(definition.name.clone(), runtime);
         }
@@ -19569,7 +19623,12 @@ impl Database {
                 hnsw: None,
             };
             #[cfg(feature = "vector-search")]
-            build_hnsw_from_entries(&mut runtime);
+            {
+                if build_hnsw_from_entries(&mut runtime) {
+                    self.vector_index_rebuilds_total =
+                        self.vector_index_rebuilds_total.saturating_add(1);
+                }
+            }
             self.materialized_vector_indexes
                 .insert(definition.name.clone(), runtime);
         }
@@ -21955,6 +22014,7 @@ mod tests {
             meta_dirty: false,
             header_dirty: false,
             wal_buffer: Vec::new(),
+            vector_index_rebuilds_total: 0,
         }
     }
 
