@@ -64,6 +64,7 @@ pub struct TemporalFilter {
 /// * `SystemTime` — `transaction_time_millis <= filter.timestamp_millis`;
 ///   valid-window args are ignored.
 #[inline]
+#[must_use]
 pub fn temporal_filter_matches(
     filter: &TemporalFilter,
     valid_from: Option<i64>,
