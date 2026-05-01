@@ -1,0 +1,21 @@
+# C2-B3 (HIGH): without this file, `COPY . .` in Dockerfile pulls
+# `target/` (potentially several GB on a developer machine), all
+# `node_modules/`, `.git/`, plus untracked dot-directories — slowing
+# local builds 10×+ and bleeding developer-local files into the build
+# context. CI builds are unaffected (clean checkout) but local builds
+# bleed.
+target/
+**/node_modules/
+**/.git
+**/.git/**
+/dist/
+/coverage/
+/data/
+/tmp/
+/.planning/
+/.research/
+/.claude/
+CLAUDE.md
+*.log
+.env
+.env.*
