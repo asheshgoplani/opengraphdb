@@ -4116,22 +4116,39 @@ const HTTP_CORS_HEADERS: &str = "Access-Control-Allow-Origin: *\r\n\
      Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
      Access-Control-Allow-Headers: Content-Type, Authorization\r\n";
 
+// EVAL-FRONTEND-QUALITY-CYCLE2 H-6: baseline security headers emitted on every
+// HTTP response (SPA, API, error, SSE). The playground accepts user-supplied
+// RDF/Turtle that is rendered into the SPA — CSP gates any literal that tries
+// to break out into script execution, X-Frame-Options + frame-ancestors prevent
+// clickjacking, and the rest are defense-in-depth defaults.
+const HTTP_SECURITY_HEADERS: &str =
+    "Content-Security-Policy: default-src 'self'; frame-ancestors 'none'\r\n\
+     X-Content-Type-Options: nosniff\r\n\
+     X-Frame-Options: DENY\r\n\
+     Referrer-Policy: strict-origin-when-cross-origin\r\n\
+     Permissions-Policy: geolocation=(), camera=(), microphone=()\r\n";
+
 fn write_http_response(
     stream: &mut TcpStream,
     response: HttpResponseMessage,
 ) -> Result<(), CliError> {
-    let content_encoding_header = match response.content_encoding {
-        Some(encoding) => format!("Content-Encoding: {encoding}\r\n"),
-        None => String::new(),
+    let (content_encoding_header, vary_header) = match response.content_encoding {
+        Some(encoding) => (
+            format!("Content-Encoding: {encoding}\r\n"),
+            "Vary: Accept-Encoding\r\n".to_string(),
+        ),
+        None => (String::new(), String::new()),
     };
     let header = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\n{}Connection: close\r\n{}\r\n",
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\n{}{}Connection: close\r\n{}{}\r\n",
         response.status,
         response.reason,
         response.content_type,
         response.body.len(),
         content_encoding_header,
+        vary_header,
         HTTP_CORS_HEADERS,
+        HTTP_SECURITY_HEADERS,
     );
     let mut encoded = header.into_bytes();
     encoded.extend_from_slice(&response.body);
@@ -5108,11 +5125,13 @@ fn handle_trace_sse(
         "anonymous".to_string()
     };
 
-    // Write SSE response headers immediately. CORS headers mirror write_http_response
-    // so playground Live Mode can consume the stream from a non-backend origin.
+    // Write SSE response headers immediately. CORS + security headers mirror
+    // write_http_response so playground Live Mode can consume the stream from
+    // a non-backend origin and the H-6 baseline applies to every transport.
     let header = format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n{}\r\n",
+        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n{}{}\r\n",
         HTTP_CORS_HEADERS,
+        HTTP_SECURITY_HEADERS,
     );
     io_runtime(
         stream.write_all(header.as_bytes()),
