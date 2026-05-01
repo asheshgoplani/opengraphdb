@@ -7514,6 +7514,9 @@ fn property_value_to_rdf_literal(value: &PropertyValue) -> Literal {
                 .collect::<Vec<_>>()
                 .join(",")
         )),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // future variants serialize as their debug representation.
+        other => Literal::from(format!("{other:?}")),
     }
 }
 
@@ -7824,6 +7827,9 @@ fn property_value_to_export_json(value: &PropertyValue) -> Value {
                 .map(|(key, value)| (key.clone(), property_value_to_export_json(value)))
                 .collect(),
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants export as JSON null.
+        _ => Value::Null,
     }
 }
 
@@ -7869,6 +7875,9 @@ fn property_value_to_export_csv(value: &PropertyValue) -> String {
                 .collect::<Vec<_>>()
                 .join(",")
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // future variants render via Debug for CSV stability.
+        other => format!("{other:?}"),
     }
 }
 
@@ -8290,6 +8299,9 @@ fn format_property_value(value: &PropertyValue) -> String {
                 .collect::<Vec<_>>()
                 .join(",")
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // future variants format via Debug.
+        other => format!("{other:?}"),
     }
 }
 

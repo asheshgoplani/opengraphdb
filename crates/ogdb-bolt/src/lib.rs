@@ -96,7 +96,16 @@ pub struct PackStructure {
     pub fields: Vec<PackValue>,
 }
 
+/// PackStream value variants encoded by [`packstream_encode`] /
+/// decoded by [`packstream_decode`].
+///
+/// `#[non_exhaustive]` so future PackStream additions (e.g. dedicated
+/// temporal types) can land without breaking downstream `match` arms.
+/// The wire format is governed by Bolt protocol minor versions; the Rust
+/// API stability promise is the non_exhaustive marker.
+/// (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum PackValue {
     Null,
     Bool(bool),
@@ -557,6 +566,10 @@ fn pack_value_from_property(value: &PropertyValue) -> PackValue {
                 .map(|(key, value)| (key.clone(), pack_value_from_property(value)))
                 .collect(),
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants encode as PackStream null until each gets
+        // a dedicated mapping in this transport.
+        _ => PackValue::Null,
     }
 }
 

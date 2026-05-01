@@ -215,6 +215,9 @@ fn property_value_to_json(value: &PropertyValue) -> Value {
                 .map(|(key, value)| (key.clone(), property_value_to_json(value)))
                 .collect(),
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants surface as JSON null until each gets a mapping.
+        _ => Value::Null,
     }
 }
 

@@ -27,7 +27,12 @@
 /// `ValidTime` queries the application time axis (`valid_from` /
 /// `valid_to` per edge); `SystemTime` queries the transaction-time
 /// axis (`transaction_time_millis` per edge).
+///
+/// `#[non_exhaustive]` so a future axis (e.g. a third "decision time")
+/// can be added without breaking downstream `match` arms.
+/// (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum TemporalScope {
     /// Application time axis (`valid_from`/`valid_to` per edge).
     ValidTime,

@@ -21,7 +21,11 @@
 use serde::{Deserialize, Serialize};
 
 /// Distance metric variants supported by `ogdb-core`'s vector index.
+///
+/// `#[non_exhaustive]` so additional metrics (e.g. Manhattan, Hamming) can
+/// be added without breaking downstream `match` arms. (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum VectorDistanceMetric {
     /// Cosine distance (`1 - dot/(‖a‖·‖b‖)`); zero-norm vectors return 1.0.
     Cosine,

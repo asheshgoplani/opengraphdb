@@ -45,7 +45,11 @@ pub enum IngestError {
 }
 
 /// Supported document formats for ingestion.
+///
+/// `#[non_exhaustive]` so additional ingest formats (e.g. HTML, DOCX) can be
+/// added without breaking downstream `match` arms. (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum DocumentFormat {
     /// PDF document — parsed via `lopdf` (`document-ingest` feature).
     Pdf,
