@@ -26,6 +26,9 @@ source "$HOME/.cargo/env"
 # in workflows must pin a fully-qualified version that matches
 # rust-toolchain.toml's channel.
 ./scripts/check-rust-toolchain-pin.sh
+# EVAL-RUST-QUALITY-CYCLE3 H12: every advisory ignore in deny.toml must
+# carry a 're-evaluate by YYYY-MM-DD' that is still in the future.
+./scripts/check-deny-expirations.sh
 
 cargo fmt --all --check
 cargo check --workspace
