@@ -18,6 +18,12 @@
 // the deprecations only when the python feature is enabled so the
 // rest of the crate (re-exports, CLI runner) keeps the strict gate.
 #![cfg_attr(feature = "python", allow(deprecated))]
+// EVAL-RUST-QUALITY-CYCLE2 H11: the workspace `unsafe_op_in_unsafe_fn` lint
+// fires on pyo3-macro-generated code (`#[pymethods]` synthesises
+// `unsafe extern "C" fn` bodies that call BoundRef::ref_from_ptr). The
+// macro output is not editable. Suppress here; the actual unsafe
+// operations are documented in pyo3.
+#![allow(unsafe_op_in_unsafe_fn)]
 
 use ogdb_cli::run as run_cli;
 use ogdb_core::{

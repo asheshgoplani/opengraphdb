@@ -1,13 +1,7 @@
-//! # ogdb-node
-//!
-//! Node.js (`napi-rs`-based) bindings for OpenGraphDB. Exposes the same
-//! shape as [`ogdb_core::Database`] over the N-API ABI for Node 18+ /
-//! Bun / Deno (Node-API compat). Status: **experimental**.
-//!
-//! See <https://github.com/asheshgoplani/opengraphdb> for the parent project
-//! and `bindings/node/` (planned) for usage examples; runnable Node
-//! integration recipes (cosmos.gl renderer wrapped as an MCP tool) live in
-//! [`documentation/COOKBOOK.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/COOKBOOK.md).
+// EVAL-RUST-QUALITY-CYCLE2 H11: the workspace `unsafe_op_in_unsafe_fn` lint
+// fires on napi-macro-generated code (`#[napi]` synthesises `unsafe extern "C"
+// fn` bodies). The macro output is not editable; suppress here.
+#![allow(unsafe_op_in_unsafe_fn)]
 
 use ogdb_cli::run as run_cli;
 use ogdb_core::{

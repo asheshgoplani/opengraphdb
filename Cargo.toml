@@ -37,7 +37,35 @@ documentation = "https://docs.rs/ogdb-core"
 keywords = ["graph", "vector", "database", "embedded", "agent"]
 categories = ["database", "data-structures", "science"]
 readme = "README.md"
-rust-version = "1.87"
+rust-version = "1.88"
+
+# EVAL-RUST-QUALITY-CYCLE2 H10 (HIGH): centralise common dep pins so a bump
+# touches one line, not eight. Each crate Cargo.toml references these via
+# `serde.workspace = true` etc. Crates that need extra features layer them
+# in per-crate (e.g. the napi/pyo3 feature flags stay local).
+[workspace.dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "1"
+tempfile = "3"
+libc = "0.2"
+proptest = { version = "1", default-features = false, features = ["std"] }
+
+# EVAL-RUST-QUALITY-CYCLE2 H11 (HIGH): single source of truth for safety- and
+# discipline-oriented lints. Each crate Cargo.toml opts in with
+# `[lints] workspace = true`. Noisy lint groups (clippy::pedantic, the cast
+# group, must_use_candidate) are tracked as follow-ups (cycle 3) — enabling
+# them today would generate hundreds of warnings in ogdb-core and break the
+# `cargo clippy -- -D warnings` gate. The two below are the highest-leverage
+# safety lints that already fit cleanly into the workspace.
+[workspace.lints.rust]
+unsafe_op_in_unsafe_fn = "warn"
+# `cfg(coverage)` is set by `cargo llvm-cov` instrumentation in ogdb-core's
+# coverage harness. Declaring it here keeps `unexpected_cfgs` quiet.
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
+
+[workspace.lints.clippy]
+undocumented_unsafe_blocks = "warn"
 
 # Cross-crate inlining for the IS-1 hot path. The 5 ogdb-core-split-* refactors
 # (vector/algorithms/text/temporal/import) moved plain-data types and pure

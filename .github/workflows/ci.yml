@@ -103,6 +103,41 @@ jobs:
           NODE_OPTIONS: --max-old-space-size=4096
         run: npm run build
 
+  msrv:
+    # EVAL-RUST-QUALITY-CYCLE2 B4 (BLOCKER): root Cargo.toml declares
+    # `rust-version = "1.88"` but every other CI job uses
+    # `dtolnay/rust-toolchain@stable`. A dependency upgrade can quietly
+    # pull a feature requiring a newer toolchain and CI passes; the next
+    # user installing against 1.88 hits a build error. Lock the toolchain
+    # to the declared MSRV here so a regression fails the PR.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust 1.88 (workspace MSRV)
+        uses: dtolnay/rust-toolchain@1.88
+
+      - name: Setup Node
+        # `include_dir!` reads `frontend/dist-app/` at compile time, so the
+        # SPA build is a prerequisite even on the MSRV-only check.
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build SPA dist for include_dir!
+        working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm ci
+          npm run build:app
+
+      - name: cargo check against MSRV
+        run: cargo check --workspace --all-features
+
   cross-platform-build:
     # EVAL-PERF-RELEASE.md Finding 6 (BLOCKER): catch macOS / Windows
     # breakage on the PR, not at the v* tag. We build ogdb-cli only — full

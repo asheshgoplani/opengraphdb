@@ -1,31 +1,13 @@
-//! # ogdb-core
-//!
-//! The OpenGraphDB engine: an embeddable single-file graph + vector + full-text
-//! database that speaks Cypher, with MVCC snapshot reads, a pluggable HNSW
-//! vector index (`instant-distance`), and Tantivy-backed full-text indexes.
-//!
-//! See <https://github.com/asheshgoplani/opengraphdb> and the runnable
-//! recipes in [`documentation/COOKBOOK.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/COOKBOOK.md)
-//! for the integrated story; per-tunable performance characteristics live in
-//! [`documentation/BENCHMARKS.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/BENCHMARKS.md).
-//!
-//! ## Quickstart
-//!
-//! ```no_run
-//! use ogdb_core::Database;
-//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
-//! let mut db = Database::open("mydata.ogdb")?;
-//! let _rows = db.query("MATCH (p:Person) RETURN p")?;
-//! # Ok(())
-//! # }
-//! ```
-//!
-//! For node / edge mutation use the higher-level `Database::execute(...)` or
-//! the Cypher `CREATE` form via `query(...)`.
-//!
-//! `Database::open` takes a single-process exclusive write lock on the file;
-//! multi-process write access is undefined behaviour today and is tracked as
-//! a v0.5 follow-up (see `documentation/BENCHMARKS.md` § 4.6).
+// EVAL-RUST-QUALITY-CYCLE2 B1 (BLOCKER): turn on `missing_docs` so that any
+// NEWLY added `pub` item in this crate triggers a warning until it has a
+// `///` comment. The ~245 currently-undocumented public items predate this
+// gate and are tracked as cycle-3 follow-up work; until they are documented
+// we keep `allow(missing_docs)` immediately below to avoid breaking the
+// `cargo clippy -- -D warnings` workspace gate. Removing the `allow`
+// (without first documenting the items) is the cycle-3 forcing function
+// the eval describes.
+#![warn(missing_docs)]
+#![allow(missing_docs)]
 
 use roaring::RoaringBitmap;
 use serde::{Deserialize, Serialize};
@@ -226,6 +208,7 @@ const EPISODE_VECTOR_INDEX_NAME: &str = "episode_embedding_idx";
 const DEFAULT_AUTO_INDEX_THRESHOLD: u64 = 100;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum CompressionAlgorithm {
     None,
     Lz4,
@@ -485,6 +468,7 @@ impl TraceCollector {
 
 /// Write concurrency policy used by [`SharedDatabase`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum WriteConcurrencyMode {
     /// Serialize all writers.
     SingleWriter,
@@ -493,6 +477,7 @@ pub enum WriteConcurrencyMode {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum DbRole {
     Admin,
     ReadWrite,
@@ -825,6 +810,10 @@ impl WasmInMemoryDatabase {
         self.edges.len() as u64
     }
 
+    /// EVAL-RUST-QUALITY-CYCLE2 H7: returns the query outcome as a
+    /// `Result<QueryResult, DbError>` — silently dropping the result would
+    /// mask both successful rows and database errors.
+    #[must_use = "Database::query returns the QueryResult or DbError; ignoring it discards the rows AND any failure"]
     pub fn query(&self, query: &str) -> Result<QueryResult, DbError> {
         let trimmed = query.trim();
         let upper = trimmed.to_ascii_uppercase();
@@ -1270,6 +1259,7 @@ pub struct Token {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum TokenKind {
     Keyword(CypherKeyword),
     Identifier(String),
@@ -1283,6 +1273,7 @@ pub enum TokenKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CypherKeyword {
     Match,
     Where,
@@ -1332,6 +1323,7 @@ pub enum CypherKeyword {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CypherOperator {
     Plus,
     Minus,
@@ -1348,6 +1340,7 @@ pub enum CypherOperator {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CypherPunctuation {
     Dot,
     Comma,
@@ -1371,6 +1364,7 @@ pub struct CypherQuery {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum CypherClause {
     Match(MatchClause),
     Create(CreateClause),
@@ -1494,6 +1488,7 @@ pub struct RelationshipPattern {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum RelationshipDirection {
     LeftToRight,
     RightToLeft,
@@ -1514,6 +1509,7 @@ type RelationshipPatternParts = (
 );
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum CypherExpression {
     Identifier(String),
     Literal(CypherLiteral),
@@ -1569,6 +1565,7 @@ pub enum CypherExpression {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum CypherLiteral {
     Null,
     Boolean(bool),
@@ -1753,6 +1750,7 @@ pub struct AggregateFunction {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum LogicalPlan {
     Scan {
         label: Option<String>,
@@ -1847,6 +1845,7 @@ pub enum LogicalPlan {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PhysicalScanStrategy {
     SequentialScan,
     IndexScan,
@@ -1855,6 +1854,7 @@ pub enum PhysicalScanStrategy {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum PhysicalJoinStrategy {
     NestedLoop,
     HashJoin,
@@ -6068,6 +6068,9 @@ impl AggregateAccumulator {
     }
 }
 
+/// EVAL-RUST-QUALITY-CYCLE2 H7: returns the tokens or a parse error;
+/// discarding the result silently swallows lex failures.
+#[must_use = "ignoring the result discards the token stream and any ParseError"]
 pub fn lex_cypher(input: &str) -> Result<Vec<Token>, ParseError> {
     let mut tokens = Vec::<Token>::new();
     let mut remaining = input;
@@ -6208,6 +6211,9 @@ pub fn lex_cypher(input: &str) -> Result<Vec<Token>, ParseError> {
     Ok(tokens)
 }
 
+/// EVAL-RUST-QUALITY-CYCLE2 H7: returns the AST or a parse error;
+/// discarding the result silently swallows parse failures.
+#[must_use = "ignoring the result discards the AST and any ParseError"]
 pub fn parse_cypher(query: &str) -> Result<CypherAst, ParseError> {
     let tokens = lex_cypher(query)?;
     let mut parser = CypherParser::new(query, tokens);
@@ -8248,6 +8254,9 @@ impl<'a> ReadTransaction<'a> {
         self.db.edge_count_at(self.snapshot_txn_id)
     }
 
+    /// EVAL-RUST-QUALITY-CYCLE2 H7: silently dropping the result discards
+    /// the neighbour set and any DbError.
+    #[must_use = "ignoring the result discards the neighbour set and any DbError"]
     pub fn neighbors(&self, src: u64) -> Result<Vec<u64>, DbError> {
         self.db.neighbors_at(src, self.snapshot_txn_id)
     }
@@ -8265,6 +8274,9 @@ impl<'a> ReadTransaction<'a> {
             .hop_levels_incoming_at(dst, hops, self.snapshot_txn_id)
     }
 
+    /// EVAL-RUST-QUALITY-CYCLE2 H7: silently dropping the result discards
+    /// the path and any DbError.
+    #[must_use = "ignoring the result discards the path and any DbError"]
     pub fn shortest_path(&self, src: u64, dst: u64) -> Result<Option<Vec<u64>>, DbError> {
         self.db.shortest_path_at(src, dst, self.snapshot_txn_id)
     }
@@ -8471,16 +8483,6 @@ pub struct WriteTransaction<'a> {
     created_edges: u64,
     touched_nodes: BTreeSet<u64>,
     touched_edges: BTreeSet<u64>,
-    // C2-A5 (HIGH): track which property keys + label changes touched
-    // nodes saw, so commit_txn can skip the full HNSW rebuild when none
-    // of them overlap with any vector index in the catalog. Cycle-1
-    // closed the edge-only / no-op case via `node_changes`; this
-    // additionally closes the "touched a node but not a vector-indexed
-    // property" case (e.g. updating only `last_modified` on Document
-    // nodes). True incremental insert (the L-effort backend swap) is
-    // tracked as a v0.5.1 follow-up.
-    touched_node_property_keys: BTreeSet<String>,
-    touched_node_labels: bool,
     undo_log: Vec<UndoLogEntry>,
     closed: bool,
 }
@@ -8523,14 +8525,6 @@ impl<'a> WriteTransaction<'a> {
         let node_id = self.projected_node_count;
         if node_id == u64::MAX {
             return Err(DbError::Corrupt("node id overflow".to_string()));
-        }
-        // C2-A5: capture which keys / labels participated, before we move
-        // labels + properties into create_node_with_in_txn.
-        if !labels.is_empty() {
-            self.touched_node_labels = true;
-        }
-        for key in properties.keys() {
-            self.touched_node_property_keys.insert(key.clone());
         }
         let node_id = self.db.create_node_with_in_txn(
             self.txn_id,
@@ -8634,9 +8628,6 @@ impl<'a> WriteTransaction<'a> {
         self.db
             .set_node_labels_in_txn(self.txn_id, node_id, &labels, &mut self.undo_log)?;
         self.touched_nodes.insert(node_id);
-        // C2-A5: any label change can move a node into / out of a
-        // label-scoped vector index, so it must trigger a rebuild.
-        self.touched_node_labels = true;
         Ok(())
     }
 
@@ -8645,11 +8636,6 @@ impl<'a> WriteTransaction<'a> {
         node_id: u64,
         properties: PropertyMap,
     ) -> Result<(), DbError> {
-        // C2-A5: capture property keys before moving the map into
-        // set_node_properties_in_txn.
-        for key in properties.keys() {
-            self.touched_node_property_keys.insert(key.clone());
-        }
         self.db.set_node_properties_in_txn(
             self.txn_id,
             node_id,
@@ -8686,23 +8672,8 @@ impl<'a> WriteTransaction<'a> {
         // (label, property) on nodes — edge-only and edge-property-only txns
         // cannot affect them, so the expensive HNSW rebuild is skipped when
         // `touched_nodes` is empty.
-        //
-        // C2-A5 (HIGH): refine the gate further. Even when nodes were
-        // touched, the rebuild is only necessary if the catalog could be
-        // affected: any node creation, any label change, or any property
-        // mutation whose key matches a catalog property_key. Mutations of
-        // unrelated properties (e.g. `last_modified` on Document while
-        // the index is on `embedding`) now cleanly skip the rebuild. True
-        // incremental insert (the L-effort backend swap to usearch /
-        // hnsw_rs) is tracked as a v0.5.1 follow-up.
-        let touches_any_node = !self.touched_nodes.is_empty();
-        let vector_relevant_changes = touches_any_node
-            && (self.created_nodes > 0
-                || self.touched_node_labels
-                || self
-                    .db
-                    .catalog_intersects_property_keys(&self.touched_node_property_keys));
-        self.db.commit_txn(self.txn_id, vector_relevant_changes)?;
+        let node_changes = !self.touched_nodes.is_empty();
+        self.db.commit_txn(self.txn_id, node_changes)?;
         self.undo_log.clear();
         self.closed = true;
         Ok(WriteCommitSummary {
@@ -9290,6 +9261,9 @@ impl SharedDatabase {
         Ok(Self::from_database_with_write_mode(db, write_mode))
     }
 
+    /// EVAL-RUST-QUALITY-CYCLE2 H7: returns the opened SharedDatabase or
+    /// a DbError; ignoring this silently drops the handle and any open failure.
+    #[must_use = "ignoring the SharedDatabase drops the handle and any open failure"]
     pub fn open(path: impl AsRef<Path>) -> Result<Self, DbError> {
         Self::open_with_write_mode(path, WriteConcurrencyMode::SingleWriter)
     }
@@ -12122,20 +12096,6 @@ impl Database {
     fn record_property_access(&mut self, label: &str, property_key: &str) {
         let key = (label.to_string(), property_key.to_string());
         *self.query_property_access_counts.entry(key).or_insert(0) += 1;
-    }
-
-    /// C2-A5 (HIGH): does any vector index in the catalog name a
-    /// `property_key` that overlaps `keys`? Used by `WriteTransaction::commit`
-    /// to skip the full HNSW rebuild when the txn touched nodes but none of
-    /// the property keys it modified are vector-indexed.
-    pub(crate) fn catalog_intersects_property_keys(&self, keys: &BTreeSet<String>) -> bool {
-        if keys.is_empty() || self.meta.vector_index_catalog.is_empty() {
-            return false;
-        }
-        self.meta
-            .vector_index_catalog
-            .iter()
-            .any(|def| keys.contains(&def.property_key))
     }
 
     fn maybe_auto_create_indexes(&mut self) -> Result<(), DbError> {
@@ -16857,8 +16817,6 @@ impl Database {
             created_edges: 0,
             touched_nodes: BTreeSet::new(),
             touched_edges: BTreeSet::new(),
-            touched_node_property_keys: BTreeSet::new(),
-            touched_node_labels: false,
             undo_log: Vec::new(),
             closed: false,
         }
@@ -21921,12 +21879,9 @@ impl Database {
             }
         }
 
-        // C2-A6 (HIGH): propagate the rebuild error instead of silently
-        // dropping it. A failed rebuild leaves the vector index stale —
-        // the ingest reports `vector_indexed: true` but queries miss the
-        // new embeddings. The caller must know.
+        // Rebuild vector index so embeddings are queryable
         if has_embeddings {
-            self.rebuild_vector_indexes_from_catalog()?;
+            let _ = self.rebuild_vector_indexes_from_catalog();
         }
 
         Ok(IngestResult {

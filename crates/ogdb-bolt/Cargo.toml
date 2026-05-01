@@ -14,5 +14,7 @@ keywords = ["graph", "database", "opengraphdb", "bolt", "neo4j"]
 categories = ["database", "network-programming"]
 
 [dependencies]
-# C2-A1: version pin required for `cargo publish`.
-ogdb-core = { path = "../ogdb-core", version = "0.4.0" }
+ogdb-core = { path = "../ogdb-core" }
+
+[lints]
+workspace = true

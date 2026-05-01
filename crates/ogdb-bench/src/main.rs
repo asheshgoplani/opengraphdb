@@ -923,10 +923,15 @@ mod budget_gates {
 
     fn getrusage_rss_bytes() -> Option<u64> {
         let mut usage = std::mem::MaybeUninit::<libc::rusage>::uninit();
+        // SAFETY: `usage` is a stack-allocated, properly aligned `rusage`
+        // and `getrusage` only writes through the pointer; on success the
+        // memory is fully initialized, which we check before reading.
         let result = unsafe { libc::getrusage(libc::RUSAGE_SELF, usage.as_mut_ptr()) };
         if result != 0 {
             return None;
         }
+        // SAFETY: `getrusage` returned 0 above, indicating a successful
+        // syscall that fully initialized the `rusage` struct.
         let usage = unsafe { usage.assume_init() };
         let raw = u64::try_from(usage.ru_maxrss).ok()?;
         #[cfg(target_os = "macos")]
