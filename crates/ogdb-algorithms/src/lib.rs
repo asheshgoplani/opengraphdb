@@ -77,6 +77,7 @@ pub struct Subgraph {
 /// * `visible_nodes` — ids to assign labels to.
 ///
 /// Returns `Vec<(node_id, community_id)>` in `visible_nodes` order.
+#[must_use]
 pub fn label_propagation(adjacency: &[Vec<u64>], visible_nodes: &[u64]) -> Vec<(u64, u64)> {
     let mut labels = (0..adjacency.len() as u64).collect::<Vec<_>>();
 
@@ -127,6 +128,7 @@ pub fn label_propagation(adjacency: &[Vec<u64>], visible_nodes: &[u64]) -> Vec<(
 /// Runs up to 20 rounds. Returns `Vec<(node_id, community_id)>` in
 /// `visible_nodes` order. Returns `(node_id, node_id)` self-communities
 /// when `m2 <= 0.0`.
+#[must_use]
 pub fn louvain(adjacency: &[Vec<u64>], visible_nodes: &[u64], resolution: f64) -> Vec<(u64, u64)> {
     if visible_nodes.is_empty() {
         return Vec::new();
@@ -205,6 +207,7 @@ pub fn louvain(adjacency: &[Vec<u64>], visible_nodes: &[u64], resolution: f64) -
 /// within each Louvain community via BFS. The refined split assigns a
 /// fresh community id to the second (and subsequent) connected
 /// component of every Louvain group.
+#[must_use]
 pub fn leiden(adjacency: &[Vec<u64>], visible_nodes: &[u64], resolution: f64) -> Vec<(u64, u64)> {
     if visible_nodes.is_empty() {
         return Vec::new();

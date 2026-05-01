@@ -27,14 +27,13 @@
 //! multi-process write access is undefined behaviour today and is tracked as
 //! a v0.5 follow-up (see `documentation/BENCHMARKS.md` § 4.6).
 
-// EVAL-RUST-QUALITY-CYCLE2 B1 (BLOCKER): turn on `missing_docs` so that any
-// NEWLY added `pub` item in this crate triggers a warning until it has a
-// `///` comment. The ~245 currently-undocumented public items predate this
-// gate and are tracked as cycle-3 follow-up work; until they are documented
-// we keep `allow(missing_docs)` immediately below to avoid breaking the
-// `cargo clippy -- -D warnings` workspace gate. Removing the `allow`
-// (without first documenting the items) is the cycle-3 forcing function
-// the eval describes.
+// EVAL-RUST-QUALITY-CYCLE2 B1: `missing_docs` is `warn`-on-add. The ~245
+// currently-undocumented public items predate this gate; the
+// `allow(missing_docs)` below converts the new-PR warning into a
+// no-op for legacy items. Cycle 3's forcing function (B1 + N20) is to
+// split this 41 kLoC lib.rs into modules and document each section as
+// it moves; removing the `allow` is the cycle-N gate that locks in
+// the new docs.
 #![warn(missing_docs)]
 #![allow(missing_docs)]
 // Style lints surfaced by clippy 1.88+; cleanup tracked as a follow-up slice
@@ -1190,8 +1189,13 @@ pub struct RagResult {
     pub community_id: Option<u64>,
 }
 
-/// Which retrieval signals to include in hybrid search
+/// Which retrieval signals to include in hybrid search.
+///
+/// `#[non_exhaustive]` keeps the wire-format / public surface stable across
+/// 0.x — additional fusion signals can be introduced without a major-version
+/// bump. (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum RetrievalSignal {
     Bm25,
     Vector,
@@ -1230,8 +1234,13 @@ impl Default for RrfConfig {
     }
 }
 
-/// Result of drilling into a community
+/// Result of drilling into a community.
+///
+/// Marked `#[non_exhaustive]` so a future variant (e.g. `MixedHierarchy`)
+/// can be added without breaking downstream `match` exhaustiveness.
+/// (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum DrillResult {
     /// Community has sub-communities at a finer granularity
     SubCommunities(Vec<CommunitySummary>),
@@ -1629,7 +1638,13 @@ pub enum CypherLiteral {
     String(String),
 }
 
+/// Binary operators in the Cypher AST.
+///
+/// `#[non_exhaustive]` so additional operators (e.g. STARTS WITH / ENDS WITH /
+/// CONTAINS string predicates) can be added without breaking downstream
+/// `match` arms. (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CypherBinaryOperator {
     Add,
     Subtract,
@@ -1652,14 +1667,25 @@ pub enum CypherBinaryOperator {
     ContainsText,
 }
 
+/// Unary operators in the Cypher AST.
+///
+/// `#[non_exhaustive]` for forward compatibility with future unary forms
+/// (e.g. bitwise complement). (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum CypherUnaryOperator {
     Not,
     Negate,
     Positive,
 }
 
+/// Semantic / inferred type slot used by the Cypher analyzer.
+///
+/// `#[non_exhaustive]` so future scalar refinements (e.g. `Date`, `Duration`)
+/// can be added without breaking downstream pattern matches.
+/// (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum SemanticType {
     Unknown,
     Null,
@@ -1933,7 +1959,13 @@ pub struct WcojRelation {
     pub temporal_filter: Option<TemporalFilter>,
 }
 
+/// Physical-plan node produced by the Cypher planner.
+///
+/// `#[non_exhaustive]` so the planner can grow new operators (e.g. an
+/// index-only path or a hash-join) without breaking downstream consumers
+/// that pattern-match on this enum. (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum PhysicalPlan {
     PhysicalScan {
         label: Option<String>,
@@ -4749,6 +4781,10 @@ fn property_value_to_json(value: &PropertyValue) -> serde_json::Value {
                 .map(|(key, value)| (key.clone(), property_value_to_json(value)))
                 .collect(),
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants serialize as JSON null until each gets a
+        // dedicated mapping.
+        _ => serde_json::Value::Null,
     }
 }
 
@@ -4796,6 +4832,9 @@ fn format_property_value(value: &PropertyValue) -> String {
                 .collect::<Vec<_>>()
                 .join(", ")
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants format as their debug representation.
+        other => format!("{other:?}"),
     }
 }
 
@@ -4812,6 +4851,9 @@ fn property_value_type_name(value: &PropertyValue) -> &'static str {
         PropertyValue::Duration { .. } => "duration",
         PropertyValue::List(_) => "list",
         PropertyValue::Map(_) => "map",
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants are reported as "unknown" until classified.
+        _ => "unknown",
     }
 }
 
@@ -5526,6 +5568,9 @@ fn runtime_value_key(value: &RuntimeValue) -> String {
                     .collect::<Vec<_>>()
                     .join(",")
             ),
+            // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+            // future variants get a debug-formatted key so equality keeps working.
+            other => format!("unknown:{other:?}"),
         },
     }
 }
@@ -5585,6 +5630,9 @@ fn runtime_value_truthy(value: &RuntimeValue) -> bool {
         RuntimeValue::Property(PropertyValue::Duration { .. }) => true,
         RuntimeValue::Property(PropertyValue::List(value)) => !value.is_empty(),
         RuntimeValue::Property(PropertyValue::Map(value)) => !value.is_empty(),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants are treated as truthy by default.
+        RuntimeValue::Property(_) => true,
     }
 }
 
@@ -19505,15 +19553,19 @@ impl Database {
         let Some(filter) = temporal_filter else {
             return Ok(true);
         };
+        // TemporalScope is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // future scopes default to system-time semantics until explicitly handled.
         let (valid_from, valid_to) = match filter.scope {
             TemporalScope::ValidTime => self.edge_valid_window_at(edge_id, snapshot_txn_id)?,
             TemporalScope::SystemTime => (None, None),
+            _ => (None, None),
         };
         let tx_time = match filter.scope {
             TemporalScope::SystemTime => {
                 self.edge_transaction_time_millis_at(edge_id, snapshot_txn_id)?
             }
             TemporalScope::ValidTime => 0,
+            _ => 0,
         };
         Ok(temporal_filter_matches(
             filter, valid_from, valid_to, tx_time,
@@ -21821,6 +21873,13 @@ impl Database {
                 let text = std::str::from_utf8(data)
                     .map_err(|e| DbError::InvalidArgument(format!("Invalid UTF-8: {e}")))?;
                 parse_plaintext_sections(text, config.max_chunk_words)
+            }
+            // DocumentFormat is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+            // future formats are rejected explicitly until each gets a parser path.
+            _ => {
+                return Err(DbError::InvalidArgument(
+                    "unsupported document format".to_string(),
+                ));
             }
         };
 

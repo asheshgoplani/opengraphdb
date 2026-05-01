@@ -15,6 +15,17 @@
 //! gcc -I bindings/c -L target/release -logdb_ffi -ldl -lpthread example.c -o example
 //! ```
 
+// EVAL-RUST-QUALITY-CYCLE3 H8: any pointer-deref helper whose preconditions
+// cannot be checked by the type system must be `unsafe fn`, even when its
+// only callers are already unsafe themselves. Lighting up
+// `clippy::not_unsafe_ptr_arg_deref` keeps that invariant from regressing
+// when a future Rust-side helper accidentally calls one of these from
+// safe code.
+#![warn(clippy::not_unsafe_ptr_arg_deref)]
+// EVAL-RUST-QUALITY-CYCLE3 B1: every pub item carries a `///` summary +
+// `# Safety` paragraph. `cargo doc -p ogdb-ffi` runs under -D missing_docs.
+#![warn(missing_docs)]
+
 use ogdb_cli::run as run_cli;
 use ogdb_core::{DbError, Header, PropertyMap, PropertyValue, SharedDatabase};
 use serde_json::Value;
@@ -25,10 +36,19 @@ use std::path::PathBuf;
 use std::ptr;
 use std::sync::{Mutex, OnceLock};
 
+/// Sentinel returned by `ogdb_create_node` / `ogdb_add_edge` when the
+/// operation fails. Callers should always test against this constant
+/// rather than hard-coding `u64::MAX`.
 pub const OGDB_INVALID_ID: u64 = u64::MAX;
 const OGDB_STATUS_OK: i32 = 0;
 const OGDB_STATUS_ERR: i32 = 1;
 
+/// Opaque handle to an open OpenGraphDB database returned by
+/// [`ogdb_init`] / [`ogdb_open`] and freed by [`ogdb_close`].
+///
+/// The C ABI layout is `#[repr(C)]` with a single private byte so the
+/// type is opaque to the C caller; Rust internals cast through
+/// `OgdbHandleInner` (a private type).
 #[repr(C)]
 pub struct OgdbHandle {
     _private: u8,
@@ -67,14 +87,21 @@ fn clear_last_error() {
     }
 }
 
-fn parse_cstr_required(raw: *const c_char, name: &str) -> Result<String, String> {
+/// # Safety
+///
+/// EVAL-RUST-QUALITY-CYCLE3 H8: this helper dereferences `raw` via
+/// [`CStr::from_ptr`]. The function is `unsafe fn` so callers must
+/// affirm in an `unsafe { ... }` block that:
+///
+/// * `raw` is either null (handled below) or points to a valid
+///   NUL-terminated UTF-8 string,
+/// * the pointed-to memory remains valid for the duration of this call.
+unsafe fn parse_cstr_required(raw: *const c_char, name: &str) -> Result<String, String> {
     if raw.is_null() {
         return Err(format!("{name} cannot be null"));
     }
-    // SAFETY: every caller is one of the `pub unsafe extern "C" fn` items
-    // below, each of which documents that all `*const c_char` parameters
-    // must be non-null and point to a valid NUL-terminated UTF-8 string for
-    // the duration of the call. Null was just rejected immediately above.
+    // SAFETY: caller (now an `unsafe` block) has affirmed the pointer is
+    // a valid NUL-terminated UTF-8 string. Null was just rejected.
     let value = unsafe { CStr::from_ptr(raw) }
         .to_str()
         .map_err(|_| format!("{name} must be valid utf-8"))?;
@@ -84,14 +111,16 @@ fn parse_cstr_required(raw: *const c_char, name: &str) -> Result<String, String>
     Ok(value.to_string())
 }
 
-fn parse_cstr_optional(raw: *const c_char, name: &str) -> Result<Option<String>, String> {
+/// # Safety
+///
+/// Same precondition as [`parse_cstr_required`]: `raw` must be either null
+/// (returns `Ok(None)`) or point to a valid NUL-terminated UTF-8 string.
+unsafe fn parse_cstr_optional(raw: *const c_char, name: &str) -> Result<Option<String>, String> {
     if raw.is_null() {
         return Ok(None);
     }
-    // SAFETY: callers are `pub unsafe extern "C" fn` items below. Their docs
-    // require optional `*const c_char` arguments to either be null (handled
-    // immediately above) or point to a valid NUL-terminated UTF-8 string for
-    // the duration of the call.
+    // SAFETY: caller (now an `unsafe` block) has affirmed the pointer is a
+    // valid NUL-terminated UTF-8 string. Null was just rejected.
     let value = unsafe { CStr::from_ptr(raw) }
         .to_str()
         .map_err(|_| format!("{name} must be valid utf-8"))?;
@@ -254,6 +283,9 @@ fn property_value_to_json(value: &PropertyValue) -> Value {
                 .map(|(key, value)| (key.clone(), property_value_to_json(value)))
                 .collect(),
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants surface as JSON null until each gets a mapping.
+        _ => Value::Null,
     }
 }
 
@@ -310,18 +342,25 @@ fn string_to_c_ptr(payload: String) -> *mut c_char {
     sanitize_error_message(payload).into_raw()
 }
 
-fn with_handle_mut<T, F>(handle: *mut OgdbHandle, op: F) -> Result<T, String>
+/// # Safety
+///
+/// EVAL-RUST-QUALITY-CYCLE3 H8: callers must guarantee that
+///
+/// * `handle` is either null (rejected below) or a pointer returned from
+///   [`ogdb_init`] / [`ogdb_open`] that has not yet been freed by
+///   [`ogdb_close`], and
+/// * no other thread is concurrently mutating the same handle —
+///   exactly the aliasing rules a `&mut` reference would require.
+unsafe fn with_handle_mut<T, F>(handle: *mut OgdbHandle, op: F) -> Result<T, String>
 where
     F: FnOnce(&mut OgdbHandleInner) -> Result<T, String>,
 {
     if handle.is_null() {
         return Err("database handle is null".to_string());
     }
-    // SAFETY: `handle` was returned by `ogdb_init` / `ogdb_open` (each
-    // documents that requirement) and the caller is a `pub unsafe extern
-    // "C" fn` whose own `# Safety` paragraph forwards that contract. Null
-    // was just rejected; the C caller is responsible for not aliasing the
-    // handle, exactly like a `&mut` would require.
+    // SAFETY: caller has affirmed the precondition above; null was just
+    // rejected. The cast preserves layout since OgdbHandleInner is the
+    // hidden representation of OgdbHandle.
     let handle_ref = unsafe { &mut *(handle as *mut OgdbHandleInner) };
     op(handle_ref)
 }
@@ -340,6 +379,12 @@ fn parse_metric(raw: Option<&str>) -> Result<ogdb_core::VectorDistanceMetric, St
     }
 }
 
+/// Read the last-error message buffered by this thread.
+///
+/// Returns a borrowed pointer (do not free) to a NUL-terminated C string
+/// describing the most recent failure on this thread, or null if no error
+/// has been recorded since the last successful call. The buffer remains
+/// valid until the next FFI call on the same thread.
 #[no_mangle]
 pub extern "C" fn ogdb_last_error() -> *const c_char {
     let Ok(slot) = last_error_store().lock() else {
@@ -354,7 +399,9 @@ pub extern "C" fn ogdb_last_error() -> *const c_char {
 pub unsafe extern "C" fn ogdb_init(path: *const c_char) -> *mut OgdbHandle {
     clear_last_error();
     let result = (|| -> Result<OgdbHandleInner, String> {
-        let path = parse_cstr_required(path, "path")?;
+        // SAFETY: function-level `# Safety` paragraph requires `path` to be a
+        // valid NUL-terminated UTF-8 string; forwarded to the helper.
+        let path = unsafe { parse_cstr_required(path, "path") }?;
         let shared =
             SharedDatabase::init(&path, Header::default_v1()).map_err(|e| e.to_string())?;
         Ok(OgdbHandleInner {
@@ -377,7 +424,8 @@ pub unsafe extern "C" fn ogdb_init(path: *const c_char) -> *mut OgdbHandle {
 pub unsafe extern "C" fn ogdb_open(path: *const c_char) -> *mut OgdbHandle {
     clear_last_error();
     let result = (|| -> Result<OgdbHandleInner, String> {
-        let path = parse_cstr_required(path, "path")?;
+        // SAFETY: same precondition as ogdb_init forwarded to the helper.
+        let path = unsafe { parse_cstr_required(path, "path") }?;
         let shared = SharedDatabase::open(&path).map_err(|e| e.to_string())?;
         Ok(OgdbHandleInner {
             path: PathBuf::from(path),
@@ -419,16 +467,21 @@ pub unsafe extern "C" fn ogdb_create_node(
     properties_json: *const c_char,
 ) -> u64 {
     clear_last_error();
-    let result = with_handle_mut(handle, |handle| {
-        let labels_raw = parse_cstr_optional(labels_json, "labels_json")?;
-        let labels = parse_labels_json(labels_raw.as_deref())?;
-        let properties_raw = parse_cstr_optional(properties_json, "properties_json")?;
-        let properties = parse_properties_json(properties_raw.as_deref())?;
-        handle
-            .shared
-            .with_write(|db| db.create_node_with(&labels, &properties))
-            .map_err(|e| e.to_string())
-    });
+    // SAFETY: function-level `# Safety` paragraph forwards the handle +
+    // C-string preconditions to the helpers; null pointers are rejected
+    // inside each helper.
+    let result = unsafe {
+        with_handle_mut(handle, |handle| {
+            let labels_raw = parse_cstr_optional(labels_json, "labels_json")?;
+            let labels = parse_labels_json(labels_raw.as_deref())?;
+            let properties_raw = parse_cstr_optional(properties_json, "properties_json")?;
+            let properties = parse_properties_json(properties_raw.as_deref())?;
+            handle
+                .shared
+                .with_write(|db| db.create_node_with(&labels, &properties))
+                .map_err(|e| e.to_string())
+        })
+    };
     match result {
         Ok(node_id) => node_id,
         Err(error) => {
@@ -451,23 +504,27 @@ pub unsafe extern "C" fn ogdb_add_edge(
     properties_json: *const c_char,
 ) -> u64 {
     clear_last_error();
-    let result = with_handle_mut(handle, |handle| {
-        let edge_type = parse_cstr_optional(edge_type, "edge_type")?;
-        let properties_raw = parse_cstr_optional(properties_json, "properties_json")?;
-        let properties = parse_properties_json(properties_raw.as_deref())?;
-        handle
-            .shared
-            .with_write(|db| {
-                if let Some(edge_type) = edge_type {
-                    db.add_typed_edge(src, dst, &edge_type, &properties)
-                } else if properties.is_empty() {
-                    db.add_edge(src, dst)
-                } else {
-                    db.add_edge_with_properties(src, dst, &properties)
-                }
-            })
-            .map_err(|e| e.to_string())
-    });
+    // SAFETY: function-level `# Safety` paragraph forwards the handle +
+    // C-string preconditions to the helpers.
+    let result = unsafe {
+        with_handle_mut(handle, |handle| {
+            let edge_type = parse_cstr_optional(edge_type, "edge_type")?;
+            let properties_raw = parse_cstr_optional(properties_json, "properties_json")?;
+            let properties = parse_properties_json(properties_raw.as_deref())?;
+            handle
+                .shared
+                .with_write(|db| {
+                    if let Some(edge_type) = edge_type {
+                        db.add_typed_edge(src, dst, &edge_type, &properties)
+                    } else if properties.is_empty() {
+                        db.add_edge(src, dst)
+                    } else {
+                        db.add_edge_with_properties(src, dst, &properties)
+                    }
+                })
+                .map_err(|e| e.to_string())
+        })
+    };
     match result {
         Ok(edge_id) => edge_id,
         Err(error) => {
@@ -483,14 +540,18 @@ pub unsafe extern "C" fn ogdb_add_edge(
 /// `cypher` must be a non-null pointer to a valid NUL-terminated UTF-8 string.
 pub unsafe extern "C" fn ogdb_query(handle: *mut OgdbHandle, cypher: *const c_char) -> *mut c_char {
     clear_last_error();
-    let result = with_handle_mut(handle, |handle| {
-        let query = parse_cstr_required(cypher, "cypher")?;
-        let result = handle
-            .shared
-            .with_write(|db| db.query(&query).map_err(map_query_error))
-            .map_err(|e| e.to_string())?;
-        Ok(result.to_json())
-    });
+    // SAFETY: function-level `# Safety` paragraph forwards the handle +
+    // cypher preconditions to the helpers.
+    let result = unsafe {
+        with_handle_mut(handle, |handle| {
+            let query = parse_cstr_required(cypher, "cypher")?;
+            let result = handle
+                .shared
+                .with_write(|db| db.query(&query).map_err(map_query_error))
+                .map_err(|e| e.to_string())?;
+            Ok(result.to_json())
+        })
+    };
     match result {
         Ok(payload) => string_to_c_ptr(payload),
         Err(error) => {
@@ -511,27 +572,31 @@ pub unsafe extern "C" fn ogdb_import(
     src_path: *const c_char,
 ) -> i32 {
     clear_last_error();
-    let result = with_handle_mut(handle, |handle| {
-        let format = parse_cstr_required(format, "format")?.to_ascii_lowercase();
-        let src_path = parse_cstr_required(src_path, "src_path")?;
-        match format.as_str() {
-            "csv" | "json" | "jsonl" => run_import_export_cli(vec![
-                "--format".to_string(),
-                format,
-                "import".to_string(),
-                handle.path.display().to_string(),
-                src_path,
-            ]),
-            "rdf" => run_import_export_cli(vec![
-                "import-rdf".to_string(),
-                handle.path.display().to_string(),
-                src_path,
-            ]),
-            other => Err(format!(
-                "unsupported import format: {other} (expected csv|json|jsonl|rdf)"
-            )),
-        }
-    });
+    // SAFETY: function-level `# Safety` paragraph forwards the handle +
+    // C-string preconditions to the helpers.
+    let result = unsafe {
+        with_handle_mut(handle, |handle| {
+            let format = parse_cstr_required(format, "format")?.to_ascii_lowercase();
+            let src_path = parse_cstr_required(src_path, "src_path")?;
+            match format.as_str() {
+                "csv" | "json" | "jsonl" => run_import_export_cli(vec![
+                    "--format".to_string(),
+                    format,
+                    "import".to_string(),
+                    handle.path.display().to_string(),
+                    src_path,
+                ]),
+                "rdf" => run_import_export_cli(vec![
+                    "import-rdf".to_string(),
+                    handle.path.display().to_string(),
+                    src_path,
+                ]),
+                other => Err(format!(
+                    "unsupported import format: {other} (expected csv|json|jsonl|rdf)"
+                )),
+            }
+        })
+    };
     match result {
         Ok(()) => OGDB_STATUS_OK,
         Err(error) => {
@@ -552,27 +617,31 @@ pub unsafe extern "C" fn ogdb_export(
     format: *const c_char,
 ) -> i32 {
     clear_last_error();
-    let result = with_handle_mut(handle, |handle| {
-        let dst_path = parse_cstr_required(dst_path, "dst_path")?;
-        let format = parse_cstr_required(format, "format")?.to_ascii_lowercase();
-        match format.as_str() {
-            "csv" | "json" | "jsonl" => run_import_export_cli(vec![
-                "--format".to_string(),
-                format,
-                "export".to_string(),
-                handle.path.display().to_string(),
-                dst_path,
-            ]),
-            "rdf" => run_import_export_cli(vec![
-                "export-rdf".to_string(),
-                handle.path.display().to_string(),
-                dst_path,
-            ]),
-            other => Err(format!(
-                "unsupported export format: {other} (expected csv|json|jsonl|rdf)"
-            )),
-        }
-    });
+    // SAFETY: function-level `# Safety` paragraph forwards the handle +
+    // C-string preconditions to the helpers.
+    let result = unsafe {
+        with_handle_mut(handle, |handle| {
+            let dst_path = parse_cstr_required(dst_path, "dst_path")?;
+            let format = parse_cstr_required(format, "format")?.to_ascii_lowercase();
+            match format.as_str() {
+                "csv" | "json" | "jsonl" => run_import_export_cli(vec![
+                    "--format".to_string(),
+                    format,
+                    "export".to_string(),
+                    handle.path.display().to_string(),
+                    dst_path,
+                ]),
+                "rdf" => run_import_export_cli(vec![
+                    "export-rdf".to_string(),
+                    handle.path.display().to_string(),
+                    dst_path,
+                ]),
+                other => Err(format!(
+                    "unsupported export format: {other} (expected csv|json|jsonl|rdf)"
+                )),
+            }
+        })
+    };
     match result {
         Ok(()) => OGDB_STATUS_OK,
         Err(error) => {
@@ -588,13 +657,17 @@ pub unsafe extern "C" fn ogdb_export(
 /// `dst_path` must be a non-null pointer to a valid NUL-terminated UTF-8 string.
 pub unsafe extern "C" fn ogdb_backup(handle: *mut OgdbHandle, dst_path: *const c_char) -> i32 {
     clear_last_error();
-    let result = with_handle_mut(handle, |handle| {
-        let dst_path = parse_cstr_required(dst_path, "dst_path")?;
-        handle
-            .shared
-            .with_write(|db| db.backup(dst_path))
-            .map_err(|e| e.to_string())
-    });
+    // SAFETY: function-level `# Safety` paragraph forwards the handle +
+    // dst_path preconditions to the helpers.
+    let result = unsafe {
+        with_handle_mut(handle, |handle| {
+            let dst_path = parse_cstr_required(dst_path, "dst_path")?;
+            handle
+                .shared
+                .with_write(|db| db.backup(dst_path))
+                .map_err(|e| e.to_string())
+        })
+    };
     match result {
         Ok(()) => OGDB_STATUS_OK,
         Err(error) => {
@@ -609,12 +682,16 @@ pub unsafe extern "C" fn ogdb_backup(handle: *mut OgdbHandle, dst_path: *const c
 /// `handle` must be a valid handle from `ogdb_init`/`ogdb_open`.
 pub unsafe extern "C" fn ogdb_checkpoint(handle: *mut OgdbHandle) -> i32 {
     clear_last_error();
-    let result = with_handle_mut(handle, |handle| {
-        handle
-            .shared
-            .with_write(|db| db.checkpoint())
-            .map_err(|e| e.to_string())
-    });
+    // SAFETY: function-level `# Safety` paragraph forwards the handle
+    // precondition to with_handle_mut.
+    let result = unsafe {
+        with_handle_mut(handle, |handle| {
+            handle
+                .shared
+                .with_write(|db| db.checkpoint())
+                .map_err(|e| e.to_string())
+        })
+    };
     match result {
         Ok(()) => OGDB_STATUS_OK,
         Err(error) => {
@@ -629,7 +706,9 @@ pub unsafe extern "C" fn ogdb_checkpoint(handle: *mut OgdbHandle) -> i32 {
 /// `handle` must be a valid handle from `ogdb_init`/`ogdb_open`.
 pub unsafe extern "C" fn ogdb_metrics(handle: *mut OgdbHandle) -> *mut c_char {
     clear_last_error();
-    let result = with_handle_mut(handle, |handle| metric_to_json(handle));
+    // SAFETY: function-level `# Safety` paragraph forwards the handle
+    // precondition to with_handle_mut.
+    let result = unsafe { with_handle_mut(handle, |handle| metric_to_json(handle)) };
     match result {
         Ok(payload) => string_to_c_ptr(payload),
         Err(error) => {
@@ -696,5 +775,27 @@ mod tests {
         assert!(parse_metric(Some("dot")).is_ok());
         assert!(parse_metric(Some("dot_product")).is_ok());
         assert!(parse_metric(Some("bad")).is_err());
+    }
+
+    /// EVAL-RUST-QUALITY-CYCLE3 H8 regression: the three pointer-deref
+    /// helpers must be `unsafe fn`. The `unsafe { ... }` blocks below are
+    /// only legal because of that signature; if a future PR strips the
+    /// `unsafe` qualifier, this test file fails to compile under the
+    /// workspace's `cargo clippy -- -D warnings` gate (the
+    /// `unused_unsafe` warning becomes an error). The bodies pass null
+    /// pointers, which every helper rejects deterministically without
+    /// dereferencing — the test exercises the signature, not memory.
+    #[test]
+    fn pointer_deref_helpers_are_unsafe_fn() {
+        // SAFETY: each helper rejects null before any deref happens, so
+        // null is the only safe pointer to pass without UB.
+        let required = unsafe { parse_cstr_required(ptr::null(), "x") };
+        assert!(required.is_err(), "null required must error, not deref");
+        // SAFETY: same as above — null is rejected immediately.
+        let optional = unsafe { parse_cstr_optional(ptr::null(), "x") };
+        assert!(matches!(optional, Ok(None)), "null optional must be None");
+        // SAFETY: null handle is rejected before any deref.
+        let handled = unsafe { with_handle_mut::<(), _>(ptr::null_mut(), |_| Ok(())) };
+        assert!(handled.is_err(), "null handle must error, not deref");
     }
 }

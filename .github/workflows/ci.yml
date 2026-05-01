@@ -16,7 +16,11 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        # EVAL-RUST-QUALITY-CYCLE3 H11: pin to the workspace MSRV so a
+        # `dtolnay/rust-toolchain@stable` re-run on an old PR does not
+        # silently drift across rustc versions. Bump in lockstep with
+        # /Cargo.toml `rust-version` and /rust-toolchain.toml.
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Setup Node
         # Slice S7 (.planning/frontend-overhaul/PLAN.md) embeds the built SPA
@@ -116,7 +120,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Rust 1.88 (workspace MSRV)
-        uses: dtolnay/rust-toolchain@1.88
+        # EVAL-RUST-QUALITY-CYCLE3 H11: pin to a fully-qualified version
+        # so re-runs of older PRs are deterministic.
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Setup Node
         # `include_dir!` reads `frontend/dist-app/` at compile time, so the
@@ -138,6 +144,54 @@ jobs:
       - name: cargo check against MSRV
         run: cargo check --workspace --all-features
 
+  semver:
+    # EVAL-RUST-QUALITY-CYCLE3 B4 (BLOCKER): the workspace ships v0.4.0 to
+    # crates.io. Without cargo-semver-checks, an accidental breaking change
+    # to a #[non_exhaustive] enum, a method's signature, or a removed pub
+    # item slips through CI and breaks every downstream `cargo add
+    # ogdb-core@^0.4`. Run in advisory mode initially (`|| echo` swallows
+    # the failure) so the gate lands before the baseline-clean PR.
+    # Drop the `|| echo` once one green run posts.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Setup Node
+        # ogdb-cli `include_dir!` requires the SPA build for cargo to even
+        # begin compiling — semver-checks runs `cargo build` under the hood.
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build SPA dist for include_dir!
+        working-directory: frontend
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: |
+          npm ci
+          npm run build:app
+
+      - name: Install cargo-semver-checks
+        run: cargo install cargo-semver-checks --locked
+
+      - name: cargo semver-checks (advisory until baseline clean)
+        run: |
+          set -u
+          for crate in ogdb-types ogdb-vector ogdb-text ogdb-temporal \
+                       ogdb-algorithms ogdb-import ogdb-export \
+                       ogdb-core ogdb-bolt ogdb-cli; do
+            cargo semver-checks check-release -p "$crate" \
+              || echo "::warning::semver regression in $crate (advisory)"
+          done
+
   cross-platform-build:
     # EVAL-PERF-RELEASE.md Finding 6 (BLOCKER): catch macOS / Windows
     # breakage on the PR, not at the v* tag. We build ogdb-cli only — full
@@ -155,7 +209,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        # EVAL-RUST-QUALITY-CYCLE3 H11: pin to MSRV across every CI job
+        # so cross-platform behavior cannot drift between platforms.
+        uses: dtolnay/rust-toolchain@1.88.0
 
       - name: Setup Node
         uses: actions/setup-node@v4

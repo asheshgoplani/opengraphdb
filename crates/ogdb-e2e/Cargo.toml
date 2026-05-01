@@ -3,6 +3,9 @@ name = "ogdb-e2e"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+# EVAL-RUST-QUALITY-CYCLE3 H10: see ogdb-bench/Cargo.toml.
+rust-version.workspace = true
+description = "OpenGraphDB end-to-end test harness — internal, publish=false."
 publish = false
 
 [dependencies]

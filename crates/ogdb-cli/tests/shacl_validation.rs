@@ -1,4 +1,4 @@
-use ogdb_cli::{parse_shacl_shapes, validate_against_shacl};
+use ogdb_cli::{parse_shacl_shapes, validate_against_shacl, ShaclLoadError};
 use ogdb_core::{Database, Header, PropertyMap, PropertyValue};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -242,4 +242,40 @@ fn shacl_cli_exits_with_code_0_on_conformance() {
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("conforms"), "stdout was: {stdout}");
+}
+
+#[test]
+fn parse_shacl_shapes_returns_typed_io_error_for_missing_file() {
+    // EVAL-RUST-QUALITY-CYCLE3 H9 regression: the function used to return
+    // Box<dyn std::error::Error>, which forced callers to lose error variant
+    // information at the boundary. Now it returns ShaclLoadError so callers
+    // can match on Io vs RdfParse — exercise the Io path here.
+    let missing = Path::new("/nonexistent-shapes-file-for-h9-regression.ttl");
+    let err = parse_shacl_shapes(missing).expect_err("missing file must error");
+    match err {
+        ShaclLoadError::Io(_) => {}
+        ShaclLoadError::RdfParse(msg) => panic!("expected Io, got RdfParse: {msg}"),
+        // ShaclLoadError is non_exhaustive (CYCLE3 B3); future variants
+        // surface here without breaking this test's intent.
+        other => panic!("expected Io, got {other:?}"),
+    }
+}
+
+#[test]
+fn parse_shacl_shapes_returns_typed_rdf_parse_error_for_malformed_input() {
+    // Exercise the RdfParse arm: a syntactically broken Turtle file must
+    // surface as ShaclLoadError::RdfParse, not as a stringly-typed Box<dyn>.
+    let dir = unique_test_dir("h9-rdf-parse");
+    let bad = dir.join("bad.ttl");
+    fs::write(
+        &bad,
+        "@prefix sh: <http://www.w3.org/ns/shacl#> .\nthis is not turtle ;;;",
+    )
+    .expect("write bad shapes");
+    let err = parse_shacl_shapes(&bad).expect_err("malformed shapes must error");
+    match err {
+        ShaclLoadError::RdfParse(_) => {}
+        ShaclLoadError::Io(io) => panic!("expected RdfParse, got Io: {io}"),
+        other => panic!("expected RdfParse, got {other:?}"),
+    }
 }

@@ -1,18 +1,29 @@
 //! # ogdb-node
 //!
-//! Node.js (`napi-rs`-based) bindings for OpenGraphDB. Exposes the same
-//! shape as [`ogdb_core::Database`] over the N-API ABI for Node 18+ /
-//! Bun / Deno (Node-API compat). Status: **experimental**.
+//! Node.js (`napi-rs`-based) bindings for OpenGraphDB. Exposes a
+//! `Database` class that wraps [`ogdb_core::Database`] with `init` /
+//! `open` / `close` / `createNode` / `addEdge` / `query` / `importCsv` /
+//! `importJson` / `importRdf` / `export` / vector + text index helpers
+//! / `vectorSearch` / `textSearch` / `backup` / `checkpoint` / `metrics`,
+//! over the N-API ABI for Node 18+ / Bun / Deno (Node-API compat).
+//! Status: **experimental**.
 //!
 //! See <https://github.com/asheshgoplani/opengraphdb> for the parent project
 //! and `bindings/node/` (planned) for usage examples; runnable Node
 //! integration recipes (cosmos.gl renderer wrapped as an MCP tool) live in
 //! [`documentation/COOKBOOK.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/COOKBOOK.md).
 
-// EVAL-RUST-QUALITY-CYCLE2 H11: the workspace `unsafe_op_in_unsafe_fn` lint
-// fires on napi-macro-generated code (`#[napi]` synthesises `unsafe extern "C"
-// fn` bodies). The macro output is not editable; suppress here.
-#![allow(unsafe_op_in_unsafe_fn)]
+// EVAL-RUST-QUALITY-CYCLE3 H7: the workspace `unsafe_op_in_unsafe_fn` lint
+// fires on napi-macro-generated code (`#[napi]` synthesises `unsafe extern
+// "C" fn` bodies whose internals deref NAPI handles directly). The macro
+// output is not editable, and napi expands `#[napi]` into sibling
+// `extern "C"` items that escape `#[allow]` attributes placed on the impl
+// block. Narrow the allow so it only fires when the `node` feature is
+// enabled — the rest of the crate (re-exports, helpers, CLI runner) still
+// gets the workspace lint at full strength. There are zero hand-written
+// `unsafe fn` blocks in this crate today; verified by
+// `grep -nE 'unsafe \\{|unsafe fn' crates/ogdb-node/src/`.
+#![cfg_attr(feature = "node", allow(unsafe_op_in_unsafe_fn))]
 
 use ogdb_cli::run as run_cli;
 use ogdb_core::{
@@ -204,6 +215,9 @@ fn property_value_to_json(value: &PropertyValue) -> Value {
                 .map(|(key, value)| (key.clone(), property_value_to_json(value)))
                 .collect(),
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants surface as JSON null until each gets a mapping.
+        _ => Value::Null,
     }
 }
 

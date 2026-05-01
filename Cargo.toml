@@ -46,7 +46,9 @@ rust-version = "1.88"
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
-thiserror = "1"
+# EVAL-RUST-QUALITY-CYCLE3 H13: bumped 1 → 2 to consolidate Cargo.lock
+# (transitive deps already pulled thiserror 2; we shipped two majors).
+thiserror = "2"
 tempfile = "3"
 libc = "0.2"
 proptest = { version = "1", default-features = false, features = ["std"] }
@@ -72,6 +74,22 @@ undocumented_unsafe_blocks = "warn"
 uninlined_format_args = "allow"
 only_used_in_recursion = "allow"
 duplicated_attributes = "allow"
+# EVAL-RUST-QUALITY-CYCLE3 H6: cycle-3 lights up the cast / must_use /
+# pedantic discipline cycle 2 explicitly deferred. Each entry below is
+# either a tightening (warn / deny) or a deliberate ratchet (allow with
+# a documented rationale) — the table is the single source of truth so
+# cycle 4 can flip an `allow` to `warn` lint-by-lint. With
+# `cargo clippy -- -D warnings`, every `warn` here is a hard CI gate.
+#
+# Started at `allow` with `priority = -1` (group level) so the rest of
+# the table can selectively re-enable individual lints with `warn`.
+# Pedantic-as-warn would generate ~hundreds of warnings in ogdb-core
+# (proven by experimentation) and is gated as a per-cycle ratchet.
+pedantic = { level = "allow", priority = -1 }
+must_use_candidate = "allow"
+cast_possible_truncation = "allow"
+cast_sign_loss = "allow"
+cast_lossless = "allow"
 
 # Cross-crate inlining for the IS-1 hot path. The 5 ogdb-core-split-* refactors
 # (vector/algorithms/text/temporal/import) moved plain-data types and pure

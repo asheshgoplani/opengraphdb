@@ -81,8 +81,25 @@ for crate in "${INTERNAL[@]}"; do
   if ! grep -qE '^[[:space:]]*publish[[:space:]]*=[[:space:]]*false' "$toml"; then
     fail "$crate is internal but missing 'publish = false'"
   fi
-  echo "ok: $crate is publish=false"
+  # EVAL-RUST-QUALITY-CYCLE3 H10: even publish=false harness crates need
+  # rust-version metadata so `cargo metadata`-driven downstream tooling
+  # (security scanners, release tooling, MSRV reports) sees a uniform
+  # MSRV across every workspace member.
+  if ! grep -qE '^[[:space:]]*rust-version[[:space:]]*(=|\.workspace[[:space:]]*=)' "$toml"; then
+    fail "$crate missing required [package].rust-version (or rust-version.workspace = true)"
+  fi
+  echo "ok: $crate is publish=false with rust-version metadata"
 done
+
+# H10: every PUBLISHABLE crate must also carry rust-version metadata.
+# (Most do via `rust-version.workspace = true`; this re-asserts the gate.)
+for crate in "${PUBLISHABLE[@]}"; do
+  toml="$ROOT/crates/$crate/Cargo.toml"
+  if ! grep -qE '^[[:space:]]*rust-version[[:space:]]*(=|\.workspace[[:space:]]*=)' "$toml"; then
+    fail "$crate missing required [package].rust-version"
+  fi
+done
+echo "ok: every workspace crate carries rust-version metadata (H10)"
 
 # Workspace package metadata block must define the shared fields.
 ws="$ROOT/Cargo.toml"
