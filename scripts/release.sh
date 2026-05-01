@@ -49,14 +49,32 @@ if [[ "${OGDB_SKIP_FRONTEND:-0}" != "1" ]]; then
 fi
 
 # 2) Build the cargo release binary for the target triple.
+#
+# C3-H6 (HIGH): use `cargo auditable` so the binary embeds its full
+# dependency tree under a `.dep-v0` linker section. Downstream SCA
+# tools (`cargo-auditable extract`, Trivy, Grype, OSV-Scanner) can
+# then read advisories straight off a shipped binary without the
+# original Cargo.lock. ~5 KB cost. Falls back to plain `cargo build`
+# if `cargo-auditable` is not available and not installable (e.g.
+# offline / restricted CI image).
 echo "release.sh: building ogdb release binary for $TARGET"
+if ! command -v cargo-auditable >/dev/null 2>&1; then
+  echo "release.sh: cargo-auditable not found; attempting `cargo install --locked`"
+  cargo install cargo-auditable --locked || \
+    echo "release.sh: cargo install cargo-auditable failed; falling back to plain cargo build"
+fi
+if command -v cargo-auditable >/dev/null 2>&1; then
+  CARGO_BUILD=(cargo auditable build)
+else
+  CARGO_BUILD=(cargo build)
+fi
 if rustup target list --installed | grep -q "^$TARGET\$"; then
-  cargo build --release --locked -p ogdb-cli --target "$TARGET"
+  "${CARGO_BUILD[@]}" --release --locked -p ogdb-cli --target "$TARGET"
   BIN_DIR="target/$TARGET/release"
 else
   # Native build path — no `--target` so we don't force a rebuild.
   echo "release.sh: target $TARGET not installed via rustup; falling back to host build"
-  cargo build --release --locked -p ogdb-cli
+  "${CARGO_BUILD[@]}" --release --locked -p ogdb-cli
   BIN_DIR="target/release"
 fi
 
