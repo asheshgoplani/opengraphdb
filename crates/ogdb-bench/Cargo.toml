@@ -14,10 +14,20 @@ serde_json.workspace = true
 name = "rag_benchmark"
 harness = false
 
+# C3-H3 (HIGH): Criterion harness for the BENCHMARKS.md throughput
+# rows. Without this, a perf regression like C3-B4 (cycle-2 commit_txn
+# gate reverted by merge) is invisible until the next manual baseline
+# run. Wrapping the existing ogdb-eval throughput drivers in Criterion
+# gives PR-time delta detection.
+[[bench]]
+name = "throughput_benches"
+harness = false
+
 [dev-dependencies]
 libc.workspace = true
 tempfile.workspace = true
 criterion = "0.5"
+ogdb-eval = { path = "../ogdb-eval", default-features = false }
 
 [lints]
 workspace = true
