@@ -1,0 +1,11 @@
+# C3-H5 (HIGH): single source of truth for the rust toolchain version.
+# Cargo.toml `[workspace.package].rust-version`, the Dockerfile build
+# stage, and `.github/workflows/ci.yml`'s rust-toolchain pin used to
+# encode the same fact independently — cycle-3 BLOCKER C3-B2 was the
+# predictable failure (Cargo.toml bumped to 1.88, Dockerfile stayed at
+# 1.87). Pin the toolchain here so `rustup` picks it up automatically
+# in every dev / Docker / CI shell.
+[toolchain]
+channel = "1.88"
+components = ["rustfmt", "clippy"]
+profile = "minimal"
