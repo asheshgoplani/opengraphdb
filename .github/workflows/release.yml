@@ -1,0 +1,151 @@
+name: Release
+
+# EVAL-PERF-RELEASE.md Findings 4 / 5 / 6 (BLOCKER): on `v*` tag push,
+# build the cross-platform matrix (linux x86_64/aarch64, macOS x86_64/aarch64,
+# windows x86_64), package each as ogdb-<version>-<target>.{tar.xz,zip}, and
+# upload to the auto-created GitHub Release. This replaces the prior
+# "no release pipeline" state called out in the eval.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build SPA dist for include_dir!
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build:app
+
+      - name: Install cross (linux aarch64 only)
+        if: matrix.cross == true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          mkdir -p .cargo
+          cat >> .cargo/config.toml <<'EOF'
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          EOF
+
+      - name: Build release archive (unix)
+        if: runner.os != 'Windows'
+        env:
+          OGDB_SKIP_FRONTEND: "1"
+        run: bash scripts/release.sh ${{ matrix.target }}
+
+      - name: Build release archive (windows)
+        if: runner.os == 'Windows'
+        env:
+          OGDB_SKIP_FRONTEND: "1"
+        shell: bash
+        run: bash scripts/release.sh ${{ matrix.target }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ogdb-${{ matrix.target }}
+          path: dist/ogdb-*
+
+  release:
+    name: publish github release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/ogdb-*
+          generate_release_notes: true
+          draft: false
+
+  docker:
+    # EVAL-PERF-RELEASE.md Finding 9 (HIGH): build + push the distroless
+    # Docker image to ghcr.io on every v* tag so `ogdb serve --http` users
+    # can `docker pull ghcr.io/asheshgoplani/opengraphdb:vX.Y.Z`.
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: meta
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/opengraphdb:${{ steps.meta.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/opengraphdb:latest

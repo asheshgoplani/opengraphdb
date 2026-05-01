@@ -1,4 +1,4 @@
-# OpenGraphDB 0.3.0 — Competitive Benchmark Baseline
+# OpenGraphDB 0.4.0 — Competitive Benchmark Baseline
 
 **Measurement date:** 2026-04-25
 **Branch:** `perf/rebaseline-multi-run` (off `main` @ `91c789b`)
@@ -8,7 +8,18 @@
 
 ## Scope and honesty policy
 
-This document is the public competitive-comparison sheet for OpenGraphDB 0.3.0. Per the project's transparency directive we publish *every* measurement — wins, losses, and axes where no public baseline exists — with enough methodology context that a reader can reproduce or challenge the numbers.
+> **Baseline-version note (added 2026-05-01).** The numbers in this document
+> were collected on 2026-04-25 against the `0.3.0` workspace; the workspace
+> was bumped to `0.4.0` on 2026-04-28. The 0.4.0 changelog ships
+> perf-affecting changes (HNSW replaces brute force on vector search,
+> thin-LTO + `#[inline]` recovers ~25 % on IS-1, UNWIND becomes a real
+> physical operator). The numbers here are therefore a *lower-bound* on what
+> 0.4.0 reports — re-baselining at 0.4.0 is gated by EVAL-PERF-RELEASE.md
+> Finding 1 and tracked for the v0.5 release. The headline version below was
+> bumped to match the workspace so the CI version-match gate
+> (`scripts/check-benchmarks-version.sh`) stays green.
+
+This document is the public competitive-comparison sheet for OpenGraphDB 0.4.0. Per the project's transparency directive we publish *every* measurement — wins, losses, and axes where no public baseline exists — with enough methodology context that a reader can reproduce or challenge the numbers.
 
 Where OpenGraphDB loses to a competitor, we flag the gap as a follow-up in **Section 4**. Where OpenGraphDB wins, we cite the measurement protocol (dataset, iterations, hardware, warmup) so the reader can decide whether the comparison is apples-to-apples.
 
@@ -36,7 +47,14 @@ All OpenGraphDB numbers below are the **median of N=5 release-build iterations**
   - OS: Linux x86_64 (kernel 6.17.0-19-generic)
   - CPU: Intel Core i9-10920X @ 3.50 GHz (12-core HEDT, non-cloud bench box)
   - Build profile: `release`
-  - OpenGraphDB version: 0.3.0
+  - OpenGraphDB version: 0.4.0
+
+**HNSW thresholds (added 2026-05-01 per eval Finding 2).** The vector-search backend has two scale-dependent fall-throughs that users should know about when reasoning about latency:
+
+- `HNSW_MIN_N = 256` (`crates/ogdb-core/src/lib.rs:176`) — vector indexes with fewer than 256 entries skip the HNSW build entirely and serve queries via brute-force scan. Latency curves on small corpora therefore look different from the published numbers (which assume HNSW is in use).
+- `HNSW_BITMAP_BRUTE_THRESHOLD = 32` (`crates/ogdb-core/src/lib.rs:189`) — filtered vector queries (where a Cypher `WHERE` clause prunes candidates before the kNN search) fall back to brute force when fewer than 32 rows survive the filter. Heavily-filtered queries are therefore exact, not approximate.
+- `ef_construction = 400`, `ef_search = 128`, `seed = 0xC0FFEE` (`crates/ogdb-core/src/lib.rs:178–180`) — tuning constants for the `instant-distance` builder. These are pinned for reproducibility; they govern recall@10 ≥ 0.95 (gate: `crates/ogdb-core/tests/hnsw_recall_at_10_over_0_95_at_10k.rs`) and p95 ≤ 5 ms (gate: `crates/ogdb-core/tests/hnsw_query_under_5ms_p95_at_10k.rs`) at N=10k, d=384.
+- **Commit-time rebuild (eval Finding 2 fix):** prior to 2026-05-01, `commit_txn` rebuilt every HNSW from scratch on every transaction commit, costing hundreds of ms per *unrelated* edge-only commit. The fix gates the rebuild on `touched_nodes.is_empty() == false` — pure edge / edge-property / no-op commits no longer trigger a rebuild. The remaining hot path (commits that touch any node) still does a full rebuild — true incremental insert is tracked as a v0.5 follow-up (the `instant-distance 0.6` API is build-once-query-many; an incremental adapter requires either a delta buffer or a different HNSW crate).
 
 **Hardware caveat.** The spec's Workstation tier is AWS r7i.4xlarge (16 vCPU / 128 GB / NVMe). Our bench box is a 12-core Skylake-X desktop — single-NUMA, older uarch, different memory bandwidth. Numbers here should be read as a *lower bound* on what the SF10 Workstation run will report once we re-run on r7i.
 
@@ -44,11 +62,11 @@ All OpenGraphDB numbers below are the **median of N=5 release-build iterations**
 
 Columns as specified. `Target (fastest-in-market)` is the best-in-class threshold from [`/tmp/evaluator-metrics-spec-2026-04-23.md`](/tmp/evaluator-metrics-spec-2026-04-23.md). Verdict legend: ✅ win / ❌ loss / 🟡 novel (no public baseline) / ⚠️ scale-mismatched (we ran at a smaller tier than competitors publish at — directional only).
 
-| # | Metric | OpenGraphDB 0.3.0 | Neo4j published | Memgraph published | KuzuDB (historical) | Target (fastest-in-market) | Verdict |
+| # | Metric | OpenGraphDB 0.4.0 | Neo4j published | Memgraph published | KuzuDB (historical) | Target (fastest-in-market) | Verdict |
 |---|---|---|---|---|---|---|---|
-| 1 | Bulk ingest, 10 k nodes + 10 k edges (nodes/s, single write-tx) | **254 nodes/s** (0.3.0, `throughput::ingest_bulk`, N=5 median) | ≈ 3.3 k nodes/s @ 100 k+2.4 M (derived: 30.64 s, [prrao87 study](https://github.com/prrao87/kuzudb-study)) | ≈ 295 k nodes/s @ 100 k ([blog](https://memgraph.com/blog/memgraph-or-neo4j-analyzing-write-speed-performance), 339 ms) | **≈ 172 k nodes/s** @ 100 k+2.4 M (0.58 s, prrao87) | ≥ 500 M rels/hr ≈ 139 k rels/s (spec 1.1 best-in-class) | ❌ **LOSS** — 670× behind Kuzu, 1 150× behind Memgraph on the same-scale workload. Root cause: driver's naïve "one `begin_write`/`commit` per node" path. Fix tracked in Section 4.1. |
-| 2 | Streaming ingest (nodes/s sustained, 30 s window, batch=64) | **301 nodes/s** (0.3.0, `throughput::ingest_streaming`, N=5 median) | not published | ≥ 10 k tx/s on mixed 30 %-write ([Benchgraph](https://memgraph.com/benchgraph)) | not published | ≥ 100 k tx/s (spec 1.2 best-in-class) | ❌ **LOSS** — 33× behind Memgraph's weakest Benchgraph number. Same root cause as row 1. |
-| 3 | Point read, `neighbors()` p50 / p95 / p99 (μs) @ 10 k nodes, **cold**, p99.9 dropped (N=5 noise) | **7.1 / 11.2 / 13.4 μs**, 119 k qps (0.3.0, N=5 median) | ≈ 27.96 ms p99 on Pokec small, cold ([Memgraph blog](https://memgraph.com/blog/memgraph-vs-neo4j-performance-benchmark-comparison)) | **1.09 ms p99** on Pokec small, cold, 32 k qps isolated (Benchgraph) | ≤ 0.3 ms p50 on LDBC-study (prrao87) | p95 < 5 ms (spec 2.1 IS-1..7 SF10 warm) | ⚠️ **DIRECTIONAL WIN** — our 10 k-node p99 (13 μs) is 80× lower than Memgraph's Pokec-small p99 (1.09 ms) and 2 000× lower than Neo4j's. Scale mismatch: Pokec = 1.6 M nodes; we ran 10 k. Apples-to-apples at Pokec/SF10 is tracked in Section 4.2. |
+| 1 | Bulk ingest, 10 k nodes + 10 k edges (nodes/s, single write-tx) | **254 nodes/s** (0.4.0, `throughput::ingest_bulk`, N=5 median) | ≈ 3.3 k nodes/s @ 100 k+2.4 M (derived: 30.64 s, [prrao87 study](https://github.com/prrao87/kuzudb-study)) | ≈ 295 k nodes/s @ 100 k ([blog](https://memgraph.com/blog/memgraph-or-neo4j-analyzing-write-speed-performance), 339 ms) | **≈ 172 k nodes/s** @ 100 k+2.4 M (0.58 s, prrao87) | ≥ 500 M rels/hr ≈ 139 k rels/s (spec 1.1 best-in-class) | ❌ **LOSS** — 670× behind Kuzu, 1 150× behind Memgraph on the same-scale workload. Root cause: driver's naïve "one `begin_write`/`commit` per node" path. Fix tracked in Section 4.1. |
+| 2 | Streaming ingest (nodes/s sustained, 30 s window, batch=64) | **301 nodes/s** (0.4.0, `throughput::ingest_streaming`, N=5 median) | not published | ≥ 10 k tx/s on mixed 30 %-write ([Benchgraph](https://memgraph.com/benchgraph)) | not published | ≥ 100 k tx/s (spec 1.2 best-in-class) | ❌ **LOSS** — 33× behind Memgraph's weakest Benchgraph number. Same root cause as row 1. |
+| 3 | Point read, `neighbors()` p50 / p95 / p99 (μs) @ 10 k nodes, **cold**, p99.9 dropped (N=5 noise) | **7.1 / 11.2 / 13.4 μs**, 119 k qps (0.4.0, N=5 median) | ≈ 27.96 ms p99 on Pokec small, cold ([Memgraph blog](https://memgraph.com/blog/memgraph-vs-neo4j-performance-benchmark-comparison)) | **1.09 ms p99** on Pokec small, cold, 32 k qps isolated (Benchgraph) | ≤ 0.3 ms p50 on LDBC-study (prrao87) | p95 < 5 ms (spec 2.1 IS-1..7 SF10 warm) | ⚠️ **DIRECTIONAL WIN** — our 10 k-node p99 (13 μs) is 80× lower than Memgraph's Pokec-small p99 (1.09 ms) and 2 000× lower than Neo4j's. Scale mismatch: Pokec = 1.6 M nodes; we ran 10 k. Apples-to-apples at Pokec/SF10 is tracked in Section 4.2. |
 | 4 | 2-hop traversal p50 / p95 / p99 (μs) @ 10 k nodes, cold, p99.9 dropped (N=5 noise) | **8.6 / 17.2 / 18.1 μs**, 90 k qps (N=5 median) | 2-hop at SF1 typically 5–20 ms p95 (maxdemarzi, various) | not published at equivalent shape | Kuzu Q8 (2-degree path): 8.6 ms vs Neo4j 3.22 s at LDBC-scale ([Data Quarry](https://thedataquarry.com/blog/embedded-db-2/)) | p95 < 100 ms (spec 2.2 IC-1..7 SF10 warm) | ⚠️ **DIRECTIONAL WIN** — our p95 (32 μs) clears the SF10 IC-1..7 threshold by 3 000×. Must re-run at SF1/SF10 before we can claim the record. |
 | 5 | LDBC SNB IS-1 p50 / p95 / p99 (μs), 1 000 queries, p99.9 dropped (N=5 noise) | **22.2 / 232 / 365 μs**, 18.9 k qps @ LDBC mini (100 persons, N=5 median) | none (Neo4j has no LDBC audit) | SF0.1/1/3 internal runs, not published as percentile tables | no LDBC audit; CIDR'23 covers complex reads | p95 < 5 ms @ SF10 (spec 4.1.x + 2.1) | 🟡 **NOVEL — scale mismatch** — LDBC SNB mini fixture has no published SF equivalent. IS-1 at SF10 is Phase-1 Must Ship (Section 4.3). |
 | 6 | Single-tx mutation p95 / p99 (μs), 1 000 samples, p99.9 dropped (N=5 noise) | **13 687 / 15 668 μs**, 71 ops/s (N=5 median) | not published as percentile tables | 132× Neo4j mixed 30 %-write (ratio only; absolute tx/s not disclosed) | not published | ≥ 100 k ops/s with p99.9 < 1 s (spec 1.5 + 2.5) | ❌ **LOSS on throughput, BARELY on tail** — 70 ops/s vs ≥ 10 k ops/s competitive threshold. p99.9 (720 ms) just scrapes inside the spec's 1 s bound, but the 56× gap between p99 (16 ms) and p99.9 (720 ms) points at a GC/flush pause we need to profile. Section 4.4. |
