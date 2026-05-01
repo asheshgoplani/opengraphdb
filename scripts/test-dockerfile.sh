@@ -25,6 +25,29 @@ grep -qE '^[[:space:]]*FROM[[:space:]]+rust:' "$DOCKERFILE" \
   || fail "Dockerfile must use a rust: base image for the build stage"
 ok "build stage uses rust: image"
 
+# C2-A2 (BLOCKER): the Dockerfile rust base image must satisfy the workspace
+# `rust-version` MSRV. cargo ≥ 1.74 enforces rust-version as a hard error
+# during `cargo build`; a stale Dockerfile breaks the release-time docker job.
+ws_msrv=$(awk '
+  /^\[workspace\.package\]/ { in_b = 1; next }
+  /^\[/ && !/^\[workspace\.package\]/ { in_b = 0 }
+  in_b && /^[[:space:]]*rust-version[[:space:]]*=/ {
+    gsub(/[^0-9.]/, "")
+    print
+    exit
+  }
+' "$ROOT/Cargo.toml")
+df_rust=$(grep -oE 'FROM rust:[0-9]+\.[0-9]+(\.[0-9]+)?' "$DOCKERFILE" | head -1 | sed 's/FROM rust://')
+[[ -n "$ws_msrv" ]] || fail "could not parse workspace rust-version from Cargo.toml"
+[[ -n "$df_rust" ]] || fail "could not parse FROM rust: tag from Dockerfile"
+# Lex compare on dotted X.Y[.Z] is correct for X<10 — fine for the foreseeable future.
+# Build a sortable pair: "version_to_compare\nversion_lower_bound", sort -V, take first.
+lowest=$(printf '%s\n%s\n' "$df_rust" "$ws_msrv" | sort -V | head -1)
+if [[ "$lowest" != "$ws_msrv" ]]; then
+  fail "Dockerfile rust=$df_rust < workspace MSRV $ws_msrv (cargo will reject build)"
+fi
+ok "Dockerfile rust=$df_rust >= workspace MSRV $ws_msrv"
+
 grep -qE '^[[:space:]]*FROM[[:space:]]+(gcr\.io/distroless|debian:.*-slim)' "$DOCKERFILE" \
   || fail "Dockerfile must use distroless or slim Debian for runtime"
 ok "runtime stage uses distroless / debian-slim"
