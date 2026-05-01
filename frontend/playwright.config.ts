@@ -37,6 +37,13 @@ export default defineConfig({
         },
       },
     },
+    {
+      name: 'mobile-chrome',
+      testMatch: /eval-cycle1-mobile\.spec\.ts/,
+      use: {
+        ...devices['Pixel 7'],
+      },
+    },
   ],
   webServer: {
     command: `npm run dev -- --host 127.0.0.1 --port ${process.env.PLAYWRIGHT_PORT ?? 5173}`,

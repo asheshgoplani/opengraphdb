@@ -109,6 +109,7 @@ export function ShowcaseCard({
     if (!element || typeof ResizeObserver === 'undefined') return
 
     const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
       const width = Math.floor(entry.contentRect.width)
       setDimensions({ width: Math.max(width, 260), height: 200 })
     })

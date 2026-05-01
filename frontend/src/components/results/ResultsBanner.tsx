@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge'
 import type { QueryResponse } from '@/types/api'
 import { FileJson, FileSpreadsheet } from 'lucide-react'
 import { exportAsCsv, exportAsJson } from '@/components/query/export-utils'
+import { getResultsSummaryText } from './results-summary-utils'
 
 interface ResultsBannerProps {
   nodeCount: number
@@ -10,26 +11,6 @@ interface ResultsBannerProps {
   isLimited: boolean
   resultLimit: number
   queryResponse?: QueryResponse
-}
-
-interface ResultsSummaryInput {
-  nodeCount: number
-  edgeCount: number
-  isLimited: boolean
-  resultLimit: number
-}
-
-export function getResultsSummaryText({
-  nodeCount,
-  edgeCount,
-  isLimited,
-  resultLimit,
-}: ResultsSummaryInput): string {
-  if (isLimited) {
-    return `Showing first ${resultLimit} records`
-  }
-
-  return `${nodeCount} nodes · ${edgeCount} edges`
 }
 
 export function ResultsBanner({

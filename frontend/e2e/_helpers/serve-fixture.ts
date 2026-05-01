@@ -165,7 +165,7 @@ export function useOgdbServeFixture(
   // Give ourselves headroom for a cold `cargo build --release -p ogdb-cli` on
   // a fresh worktree. The default beforeAll timeout is 30s which is too tight
   // if the binary has to be built from scratch.
-  testInstance.beforeAll(async ({}, testInfo) => {
+  testInstance.beforeAll(async (_, testInfo) => {
     testInfo.setTimeout(180_000)
     ensureReleaseBinary()
 

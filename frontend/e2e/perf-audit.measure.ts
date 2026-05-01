@@ -54,7 +54,7 @@ async function main() {
     headless: true,
     args: ['--use-angle=swiftshader', '--use-gl=swiftshader', '--no-sandbox'],
   })
-  const results: Record<string, any[]> = {}
+  const results: Record<string, Array<Record<string, number | string>>> = {}
   for (const route of ROUTES) {
     results[route] = []
     for (let i = 0; i < RUNS; i++) {
@@ -74,7 +74,7 @@ async function main() {
     const rs = results[route]
     console.log(`${route}`)
     for (const key of ['dom', 'load', 'lcp', 'tti'] as const) {
-      const s = stats(rs.map((r) => r[key]))
+      const s = stats(rs.map((r) => r[key] as number))
       console.log(`  ${key.padEnd(5)} p50=${s.p50.toFixed(0)}ms p95=${s.p95.toFixed(0)}ms min=${s.min.toFixed(0)} max=${s.max.toFixed(0)}`)
     }
   }

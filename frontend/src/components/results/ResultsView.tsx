@@ -4,15 +4,10 @@ import { TableView } from './TableView'
 import type { GraphData } from '@/types/graph'
 import { cn } from '@/lib/utils'
 import { LayoutGrid, Network } from 'lucide-react'
+import { getResultsViewToggleClass } from './results-view-utils'
 
 interface ResultsViewProps {
   graphData: GraphData
-}
-
-export function getResultsViewToggleClass(isActive: boolean): string {
-  return isActive
-    ? 'bg-primary text-primary-foreground'
-    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
 }
 
 export function ResultsView({ graphData }: ResultsViewProps) {

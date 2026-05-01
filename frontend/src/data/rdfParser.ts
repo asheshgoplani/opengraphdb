@@ -77,6 +77,7 @@ function parseNTriples(text: string): Triple[] {
     const tokens = tokenize(line)
     if (tokens.length < 3) continue
     const [s, p, o] = tokens
+    if (!s || !p) continue
     triples.push({
       subject: unwrap(s),
       predicate: unwrap(p),
@@ -97,12 +98,12 @@ function parseTurtle(text: string): Triple[] {
     if (!line) continue
 
     const prefixMatch = /^@prefix\s+([\w-]*):\s*<([^>]+)>\s*\.?$/i.exec(line)
-    if (prefixMatch) {
+    if (prefixMatch && prefixMatch[1] !== undefined && prefixMatch[2] !== undefined) {
       prefixes[prefixMatch[1]] = prefixMatch[2]
       continue
     }
     const baseMatch = /^@base\s+<([^>]+)>\s*\.?$/i.exec(line)
-    if (baseMatch) {
+    if (baseMatch && baseMatch[1] !== undefined) {
       prefixes[''] = baseMatch[1]
       continue
     }
@@ -118,27 +119,29 @@ function parseTurtle(text: string): Triple[] {
     let p: string | null = null
     let rest: string[] = []
 
+    const t0 = tokens[0]
+    const t1 = tokens[1]
     if (endsWithComma && currentSubject && triples.length > 0) {
-      p = triples[triples.length - 1].predicate
+      p = triples[triples.length - 1]?.predicate ?? null
       rest = tokens
     } else if (endsWithSemi || (!endsWithDot && tokens.length >= 2 && currentSubject)) {
-      if (tokens.length >= 2 && currentSubject && !looksLikeSubject(tokens[0], prefixes)) {
-        p = expand(tokens[0], prefixes)
+      if (tokens.length >= 2 && currentSubject && t0 && !looksLikeSubject(t0, prefixes)) {
+        p = expand(t0, prefixes)
         rest = tokens.slice(1)
-      } else if (tokens.length >= 2) {
-        s = expand(tokens[0], prefixes)
-        p = expand(tokens[1], prefixes)
+      } else if (tokens.length >= 2 && t0 && t1) {
+        s = expand(t0, prefixes)
+        p = expand(t1, prefixes)
         rest = tokens.slice(2)
       } else {
         continue
       }
     } else {
-      if (tokens.length >= 3) {
-        s = expand(tokens[0], prefixes)
-        p = expand(tokens[1], prefixes)
+      if (tokens.length >= 3 && t0 && t1) {
+        s = expand(t0, prefixes)
+        p = expand(t1, prefixes)
         rest = tokens.slice(2)
-      } else if (tokens.length === 2 && currentSubject) {
-        p = expand(tokens[0], prefixes)
+      } else if (tokens.length === 2 && currentSubject && t0) {
+        p = expand(t0, prefixes)
         rest = tokens.slice(1)
       } else {
         continue
@@ -165,6 +168,7 @@ function looksLikeSubject(token: string, prefixes: Record<string, string>): bool
   if (token.startsWith('_:')) return true
   if (/^[\w-]+:[\w-]+$/.test(token)) {
     const prefix = token.split(':')[0]
+    if (prefix === undefined) return false
     return prefixes[prefix] !== undefined
   }
   return false
@@ -196,7 +200,7 @@ function tokenize(line: string): string[] {
         if (line[end] === '"') break
         end++
       }
-      let closeIdx = end
+      const closeIdx = end
       let j = closeIdx + 1
       while (j < line.length && line[j] !== ' ' && line[j] !== '\t' && line[j] !== '.' && line[j] !== ';' && line[j] !== ',') {
         j++

@@ -1,22 +1,8 @@
-import { motion, type HTMLMotionProps, type Transition } from 'framer-motion'
+import { motion, type HTMLMotionProps } from 'framer-motion'
 import { forwardRef } from 'react'
+import { PANEL_MOTION, PANEL_TRANSITION } from './motion-presets'
 
-// Shared premium motion preset — fade + subtle y-translate, 280ms ease-out.
-// Every panel mount across /playground, /app, semantic / schema / temporal / MCP / perf
-// uses this preset so the tool breathes with one rhythm.
-export const PANEL_TRANSITION: Transition = {
-  duration: 0.28,
-  ease: [0.25, 0.46, 0.45, 0.94],
-}
-
-export const PANEL_MOTION = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: 6 },
-  transition: PANEL_TRANSITION,
-}
-
-export const CARD_HOVER_DURATION_MS = 200
+export { PANEL_MOTION, PANEL_TRANSITION, CARD_HOVER_DURATION_MS } from './motion-presets'
 
 type MotionPanelProps = HTMLMotionProps<'section'> & {
   'data-testid'?: string

@@ -24,7 +24,8 @@ import { QueryCard } from '../src/components/playground/QueryCard'
 import { ConnectionBadge } from '../src/components/playground/ConnectionBadge'
 import { LiveModeToggle } from '../src/components/playground/LiveModeToggle'
 import { StatsPanel } from '../src/components/playground/StatsPanel'
-import PlaygroundPage, { groupQueriesByCategory } from '../src/pages/PlaygroundPage'
+import PlaygroundPage from '../src/pages/PlaygroundPage'
+import { groupQueriesByCategory } from '../src/pages/playground-utils'
 import { getDatasetList, getDatasetQueries, runDatasetQuery } from '../src/data/datasets'
 
 function renderPlayground(initialEntry: string) {

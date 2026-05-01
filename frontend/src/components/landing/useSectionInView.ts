@@ -19,8 +19,8 @@ export function useSectionInView<T extends HTMLElement>({
     if (!element) return
 
     if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') {
-      setIsInView(true)
-      return
+      const fallback = window.setTimeout(() => setIsInView(true), 0)
+      return () => window.clearTimeout(fallback)
     }
 
     let hasIntersected = false

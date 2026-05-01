@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
+import compression from 'vite-plugin-compression'
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -65,6 +66,8 @@ export default defineConfig({
     react(),
     cypherLintWorkerMiddleware(),
     renameHtmlOutput('index-app.html', 'index.html'),
+    compression({ algorithm: 'gzip', ext: '.gz', threshold: 1024 }),
+    compression({ algorithm: 'brotliCompress', ext: '.br', threshold: 1024 }),
   ],
   resolve: {
     alias: {
@@ -83,13 +86,18 @@ export default defineConfig({
   build: {
     outDir: 'dist-app',
     emptyOutDir: true,
+    sourcemap: 'hidden',
     rollupOptions: {
       input: path.resolve(__dirname, 'index-app.html'),
       output: {
+        // NOTE: @neo4j-cypher/react-codemirror is dynamically imported by
+        // CypherEditorPanel (H1 — defer-load until first editor interaction)
+        // so it's left out of manualChunks here; rollup creates a code-split
+        // chunk for it automatically and the 8.3 MB lint worker stays out of
+        // the cold playground bundle.
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'graph-vendor': ['react-force-graph-2d'],
-          'codemirror-vendor': ['@neo4j-cypher/react-codemirror'],
           'motion-vendor': ['framer-motion'],
           'tanstack-vendor': ['@tanstack/react-query', '@tanstack/react-table'],
           'state-vendor': ['zustand'],

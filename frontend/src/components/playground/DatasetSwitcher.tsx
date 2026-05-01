@@ -11,11 +11,16 @@ export function DatasetSwitcher({ activeDataset, onSwitch }: DatasetSwitcherProp
 
   return (
     <div className="space-y-2">
-      <label className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+      <label
+        htmlFor="dataset-switcher"
+        className="font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground"
+      >
         Dataset
       </label>
       <select
+        id="dataset-switcher"
         data-testid="dataset-switcher"
+        aria-label="Dataset"
         className="w-full rounded-md border bg-background px-3 py-2 text-sm ring-offset-background transition-colors focus:outline-none focus:ring-2 focus:ring-ring"
         value={activeDataset}
         onChange={(event) => onSwitch(event.target.value as DatasetKey)}

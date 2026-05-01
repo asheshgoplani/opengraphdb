@@ -204,7 +204,7 @@ const WON_PRIZE_LINKS: GraphEdge[] = LAUREATE_SEEDS
   .map((laureate) => ({
     id: `wd-wp-${edgeIdCounter++}`,
     source: laureate.id,
-    target: CATEGORY_NAME_TO_ID[laureate.category],
+    target: CATEGORY_NAME_TO_ID[laureate.category]!,
     type: 'WON_PRIZE_IN',
     properties: { year: laureate.prizeYear },
   }))
@@ -214,7 +214,7 @@ const BORN_IN_LINKS: GraphEdge[] = LAUREATE_SEEDS
   .map((laureate) => ({
     id: `wd-bi-${edgeIdCounter++}`,
     source: laureate.id,
-    target: COUNTRY_CODE_TO_ID[laureate.birthCountry],
+    target: COUNTRY_CODE_TO_ID[laureate.birthCountry]!,
     type: 'BORN_IN',
     properties: {},
   }))
@@ -224,7 +224,7 @@ const AFFILIATED_WITH_LINKS: GraphEdge[] = LAUREATE_SEEDS
   .map((laureate) => ({
     id: `wd-af-${edgeIdCounter++}`,
     source: laureate.id,
-    target: INSTITUTION_NAME_TO_ID[laureate.institution!],
+    target: INSTITUTION_NAME_TO_ID[laureate.institution!]!,
     type: 'AFFILIATED_WITH',
     properties: {},
   }))

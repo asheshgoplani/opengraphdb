@@ -33,37 +33,20 @@ import {
   getDatasetQueries,
   runDatasetQuery,
   type DatasetKey,
-  type GuidedQuery,
 } from '@/data/datasets'
 import { useSettingsStore } from '@/stores/settings'
 import type { BackendQueryResponse } from '@/types/api'
 import type { GraphData } from '@/types/graph'
 
+import { QUERY_CATEGORIES, groupQueriesByCategory } from './playground-utils'
+
 const DATASET_KEYS: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata', 'community']
-export const QUERY_CATEGORIES = ['Explore', 'Traverse', 'Analyze'] as const
-type QueryCategory = (typeof QUERY_CATEGORIES)[number]
 
 function toDatasetKey(value: string | null): DatasetKey {
   if (value && DATASET_KEYS.includes(value as DatasetKey)) {
     return value as DatasetKey
   }
   return 'movielens'
-}
-
-export function groupQueriesByCategory(
-  queries: GuidedQuery[],
-): Record<QueryCategory, GuidedQuery[]> {
-  const grouped: Record<QueryCategory, GuidedQuery[]> = {
-    Explore: [],
-    Traverse: [],
-    Analyze: [],
-  }
-
-  for (const query of queries) {
-    grouped[query.category ?? 'Explore'].push(query)
-  }
-
-  return grouped
 }
 
 export default function PlaygroundPage() {
@@ -249,17 +232,17 @@ export default function PlaygroundPage() {
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <header className="border-b bg-card/80 backdrop-blur-sm">
-        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2 sm:px-4">
-          <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2 px-3 py-2 sm:px-4">
+          <div className="flex min-w-0 items-center gap-3">
             <Button asChild variant="ghost" size="sm">
               <Link to="/" className="inline-flex items-center gap-1">
                 <ArrowLeft className="h-4 w-4" />
                 Back
               </Link>
             </Button>
-            <h1 className="flex items-center gap-2 text-[17px] font-medium leading-none tracking-tight text-foreground"><Logo size={20} aria-hidden="true" /> Playground</h1>
+            <h1 className="flex min-w-0 items-center gap-2 truncate text-[17px] font-medium leading-none tracking-tight text-foreground"><Logo size={20} aria-hidden="true" /> Playground</h1>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2 overflow-x-auto">
             <PowerModeToggle isActive={isPowerMode} onToggle={setIsPowerMode} />
             <LiveModeToggle isLive={isLiveMode} onChange={handleModeChange} disabled={isLiveLoading} />
             <ConnectionBadge queryTimeMs={queryTimeMs} isLive={isLiveMode} liveError={liveError} />
@@ -267,7 +250,7 @@ export default function PlaygroundPage() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-w-0 flex-1 overflow-hidden">
         <aside className="hidden w-[320px] shrink-0 space-y-4 overflow-y-auto border-r bg-muted/20 p-4 md:block">
           <DatasetSwitcher activeDataset={activeDataset} onSwitch={handleDatasetSwitch} />
           <div>
@@ -555,7 +538,7 @@ export default function PlaygroundPage() {
                 </motion.div>
               )}
             </AnimatePresence>
-            <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10">
+            <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-10 hidden sm:block">
               <div className="pointer-events-auto">
                 <PerfStrip
                   queryTimeMs={queryTimeMs}

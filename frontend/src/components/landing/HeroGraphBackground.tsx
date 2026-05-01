@@ -34,13 +34,16 @@ function createHeroGraphData(nodeCount = 22, linkCount = 32): GraphData {
     const sourceIndex = Math.floor(rand() * nodeCount)
     const targetIndex = Math.floor(rand() * nodeCount)
     if (sourceIndex === targetIndex) continue
+    const sourceNode = nodes[sourceIndex]
+    const targetNode = nodes[targetIndex]
+    if (!sourceNode || !targetNode) continue
     const key = `${Math.min(sourceIndex, targetIndex)}-${Math.max(sourceIndex, targetIndex)}`
     if (seen.has(key)) continue
     seen.add(key)
     links.push({
       id: `hero-link-${links.length}`,
-      source: nodes[sourceIndex].id,
-      target: nodes[targetIndex].id,
+      source: sourceNode.id,
+      target: targetNode.id,
       type: 'CONNECTS',
       properties: {},
     })
@@ -49,10 +52,11 @@ function createHeroGraphData(nodeCount = 22, linkCount = 32): GraphData {
   return { nodes, links }
 }
 
-function colorFor(label?: string) {
-  if (!label) return PALETTE[0]
+function colorFor(label?: string): string {
+  const fallback = PALETTE[0] ?? '#888'
+  if (!label) return fallback
   const code = label.charCodeAt(0) - 65
-  return PALETTE[Math.abs(code) % PALETTE.length]
+  return PALETTE[Math.abs(code) % PALETTE.length] ?? fallback
 }
 
 function prefersReducedMotion() {
@@ -60,16 +64,44 @@ function prefersReducedMotion() {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+type IdleWindow = Window & {
+  requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number
+  cancelIdleCallback?: (id: number) => void
+}
+
 export function HeroGraphBackground() {
   const containerRef = useRef<HTMLDivElement>(null)
   const [dimensions, setDimensions] = useState({ width: 1200, height: 720 })
-  const reducedMotion = useMemo(prefersReducedMotion, [])
+  const reducedMotion = useMemo(() => prefersReducedMotion(), [])
   const graphData = useMemo(() => createHeroGraphData(reducedMotion ? 14 : 22, reducedMotion ? 18 : 32), [reducedMotion])
+
+  // H6: defer canvas mount past first paint so the hero <h1> becomes the LCP
+  // candidate. requestIdleCallback where supported; setTimeout fallback in
+  // Safari and during reduced-motion (where the canvas barely animates anyway).
+  const [mountCanvas, setMountCanvas] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const w = window as IdleWindow
+    let idleId = 0
+    let timeoutId = 0
+    const schedule = () => setMountCanvas(true)
+    if (typeof w.requestIdleCallback === 'function') {
+      idleId = w.requestIdleCallback(schedule, { timeout: 1500 })
+    } else {
+      timeoutId = window.setTimeout(schedule, 600)
+    }
+    return () => {
+      if (idleId && typeof w.cancelIdleCallback === 'function') w.cancelIdleCallback(idleId)
+      if (timeoutId) window.clearTimeout(timeoutId)
+    }
+  }, [])
 
   useEffect(() => {
     const element = containerRef.current
     if (!element || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(([entry]) => {
+      if (!entry) return
       const width = Math.floor(entry.contentRect.width)
       const height = Math.floor(entry.contentRect.height)
       setDimensions({ width: Math.max(width, 320), height: Math.max(height, 320) })
@@ -86,6 +118,7 @@ export function HeroGraphBackground() {
       style={{ zIndex: 0 }}
       aria-hidden="true"
     >
+      {!mountCanvas ? null : (
       <ForceGraph2D<GraphNode, GraphEdge>
         graphData={graphData}
         width={dimensions.width}
@@ -128,6 +161,7 @@ export function HeroGraphBackground() {
         enableZoomInteraction={false}
         enablePanInteraction={false}
       />
+      )}
     </div>
   )
 }

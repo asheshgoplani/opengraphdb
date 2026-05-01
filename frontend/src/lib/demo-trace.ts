@@ -20,8 +20,14 @@ export function runSimulatedTrace(options: SimulatedTraceOptions): void {
       return
     }
 
+    const nodeId = nodeIds[currentIndex]
+    if (nodeId === undefined) {
+      onComplete()
+      return
+    }
+
     onStep({
-      nodeId: nodeIds[currentIndex],
+      nodeId,
       stepIndex: currentIndex,
     })
 

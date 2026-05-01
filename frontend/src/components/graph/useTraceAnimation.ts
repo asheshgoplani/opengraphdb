@@ -43,7 +43,9 @@ export function useTraceAnimation() {
         return
       }
 
-      advanceTrace(currentTrace.steps[idx].nodeId, idx + 1)
+      const step = currentTrace.steps[idx]
+      if (!step) return
+      advanceTrace(step.nodeId, idx + 1)
 
       timeoutRef.current = setTimeout(() => {
         rafRef.current = requestAnimationFrame(tick)

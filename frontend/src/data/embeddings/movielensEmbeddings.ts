@@ -79,11 +79,13 @@ export function embed(text: string, genre?: string): number[] {
 
   if (genre && GENRE_BIAS[genre]) {
     const bias = GENRE_BIAS[genre]
-    TOPIC_DIMS.forEach((topic, idx) => {
-      if (bias[topic]) {
-        vec[idx] += bias[topic] ?? 0
-      }
-    })
+    if (bias) {
+      TOPIC_DIMS.forEach((topic, idx) => {
+        if (bias[topic] && vec[idx] !== undefined) {
+          vec[idx] = (vec[idx] ?? 0) + (bias[topic] ?? 0)
+        }
+      })
+    }
   }
 
   // Small non-zero floor so every movie has SOME embedding.
@@ -98,8 +100,10 @@ export function embed(text: string, genre?: string): number[] {
     // Seed from title-char hash so query-zero vectors don't all collide.
     let h = 0
     for (let i = 0; i < lowered.length; i += 1) h = (h * 31 + lowered.charCodeAt(i)) >>> 0
-    vec[h % EMBEDDING_DIM] += 0.3
-    vec[(h >>> 4) % EMBEDDING_DIM] += 0.2
+    const i1 = h % EMBEDDING_DIM
+    const i2 = (h >>> 4) % EMBEDDING_DIM
+    vec[i1] = (vec[i1] ?? 0) + 0.3
+    vec[i2] = (vec[i2] ?? 0) + 0.2
   }
 
   return normalise(vec)
@@ -108,7 +112,7 @@ export function embed(text: string, genre?: string): number[] {
 export function cosine(a: number[], b: number[]): number {
   let dot = 0
   for (let i = 0; i < a.length && i < b.length; i += 1) {
-    dot += a[i] * b[i]
+    dot += (a[i] ?? 0) * (b[i] ?? 0)
   }
   return dot
 }

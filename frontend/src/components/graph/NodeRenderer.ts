@@ -45,7 +45,7 @@ export function getLabelColor(
   if (!labelIndex.has(label)) {
     labelIndex.set(label, labelIndex.size)
   }
-  return LABEL_COLORS[labelIndex.get(label)! % LABEL_COLORS.length]
+  return LABEL_COLORS[labelIndex.get(label)! % LABEL_COLORS.length] ?? LABEL_COLORS[0]!
 }
 
 export function paintNode(

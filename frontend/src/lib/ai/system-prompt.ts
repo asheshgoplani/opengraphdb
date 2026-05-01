@@ -54,7 +54,7 @@ export function extractCypherBlocks(markdown: string): string[] {
   let match: RegExpExecArray | null
 
   while ((match = pattern.exec(markdown)) !== null) {
-    const block = match[1].trim()
+    const block = match[1]?.trim()
     if (block) {
       blocks.push(block)
     }
