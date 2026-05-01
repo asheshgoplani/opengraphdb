@@ -25,6 +25,16 @@ resolver = "2"
 version = "0.4.0"
 edition = "2021"
 license = "Apache-2.0"
+# EVAL-PERF-RELEASE Finding 7 (HIGH): cargo publish requires
+# description / repository / homepage on every crate. We declare them once
+# at the workspace level; per-crate Cargo.toml inherits via
+# `description.workspace = true` etc.
+description = "OpenGraphDB — embedded graph + vector + full-text database. Single binary, MIT/Apache-licensed, agent-native."
+repository = "https://github.com/asheshgoplani/opengraphdb"
+homepage = "https://github.com/asheshgoplani/opengraphdb"
+keywords = ["graph", "vector", "database", "embedded", "agent"]
+categories = ["database", "data-structures", "science"]
+readme = "README.md"
 
 # Cross-crate inlining for the IS-1 hot path. The 5 ogdb-core-split-* refactors
 # (vector/algorithms/text/temporal/import) moved plain-data types and pure

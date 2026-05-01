@@ -46,6 +46,9 @@ jobs:
       - name: BENCHMARKS.md version-match gate (eval Finding 1)
         run: bash scripts/check-benchmarks-version.sh
 
+      - name: Crate metadata gate (eval Finding 7)
+        run: bash scripts/test-crate-metadata.sh
+
       - name: Run test workflow
         run: ./scripts/test.sh
 

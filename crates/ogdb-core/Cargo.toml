@@ -3,6 +3,12 @@ name = "ogdb-core"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
 
 [features]
 default = ["vector-search", "fulltext-search", "document-ingest"]
@@ -16,13 +22,13 @@ wasm-bindings = ["dep:wasm-bindgen"]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [dependencies]
-ogdb-vector = { path = "../ogdb-vector" }
-ogdb-algorithms = { path = "../ogdb-algorithms" }
-ogdb-text = { path = "../ogdb-text" }
-ogdb-temporal = { path = "../ogdb-temporal" }
-ogdb-types = { path = "../ogdb-types" }
-ogdb-import = { path = "../ogdb-import", default-features = false }
-ogdb-export = { path = "../ogdb-export" }
+ogdb-vector = { path = "../ogdb-vector", version = "0.4.0" }
+ogdb-algorithms = { path = "../ogdb-algorithms", version = "0.4.0" }
+ogdb-text = { path = "../ogdb-text", version = "0.4.0" }
+ogdb-temporal = { path = "../ogdb-temporal", version = "0.4.0" }
+ogdb-types = { path = "../ogdb-types", version = "0.4.0" }
+ogdb-import = { path = "../ogdb-import", version = "0.4.0", default-features = false }
+ogdb-export = { path = "../ogdb-export", version = "0.4.0" }
 lz4_flex = "0.11.6"
 instant-distance = { version = "0.6.1", optional = true }
 roaring = "0.10"

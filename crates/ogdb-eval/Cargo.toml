@@ -3,6 +3,7 @@ name = "ogdb-eval"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+publish = false
 
 [dependencies]
 ogdb-core = { path = "../ogdb-core", default-features = false }

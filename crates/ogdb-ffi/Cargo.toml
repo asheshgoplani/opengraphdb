@@ -3,12 +3,18 @@ name = "ogdb-ffi"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
 
 [lib]
 name = "ogdb_ffi"
 crate-type = ["rlib", "cdylib", "staticlib"]
 
 [dependencies]
-ogdb-core = { path = "../ogdb-core" }
-ogdb-cli = { path = "../ogdb-cli" }
+ogdb-core = { path = "../ogdb-core", version = "0.4.0" }
+ogdb-cli = { path = "../ogdb-cli", version = "0.4.0" }
 serde_json = "1"

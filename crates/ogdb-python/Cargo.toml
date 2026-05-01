@@ -3,6 +3,12 @@ name = "ogdb-python"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
 
 [lib]
 name = "ogdb_python"
@@ -14,7 +20,7 @@ python = ["dep:pyo3"]
 extension-module = ["python", "pyo3/extension-module"]
 
 [dependencies]
-ogdb-core = { path = "../ogdb-core" }
-ogdb-cli = { path = "../ogdb-cli" }
+ogdb-core = { path = "../ogdb-core", version = "0.4.0" }
+ogdb-cli = { path = "../ogdb-cli", version = "0.4.0" }
 pyo3 = { version = "0.21", optional = true, features = ["abi3-py39"] }
 serde_json = "1"

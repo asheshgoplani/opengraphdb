@@ -3,6 +3,12 @@ name = "ogdb-bolt"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+description.workspace = true
+repository.workspace = true
+homepage.workspace = true
+keywords.workspace = true
+categories.workspace = true
+readme.workspace = true
 
 [dependencies]
-ogdb-core = { path = "../ogdb-core" }
+ogdb-core = { path = "../ogdb-core", version = "0.4.0" }
