@@ -56,13 +56,14 @@ The full public-docs index is in [`documentation/README.md`](documentation/READM
 ```bash
 ogdb init mydata.ogdb              # create a fresh database file
 ogdb create-node mydata.ogdb       # write a node
+ogdb add-edge mydata.ogdb 1 2      # link two existing node ids
 ogdb query mydata.ogdb "MATCH (n) RETURN n"
 ogdb serve --http mydata.ogdb      # HTTP / MCP / Prometheus on :8080
 ogdb mcp --stdio mydata.ogdb       # speak MCP over stdio for Claude/Cursor/Goose
 ogdb backup mydata.ogdb backup.ogdb --online --compact
 ```
 
-The full surface includes `import`/`export` (CSV, JSON, JSONL), `import-rdf`/`export-rdf` (Turtle, N-Triples, RDF/XML, JSON-LD, N-Quads), `validate-shacl`, `checkpoint`, `metrics`, `schema`, `stats`, `info`, `shell` (interactive REPL), and read traversals (`neighbors`, `incoming`, `hop`, `hop-in`).
+The full surface includes `demo` (seed canonical movies / social / fraud datasets into a fresh database), `import`/`export` (CSV, JSON, JSONL), `import-rdf`/`export-rdf` (Turtle, N-Triples, RDF/XML, JSON-LD, N-Quads), `validate-shacl`, `migrate` (schema migrations: `CREATE INDEX` / `DROP INDEX`), `checkpoint`, `metrics`, `schema`, `stats`, `info`, `shell` (interactive REPL), and read traversals (`neighbors`, `incoming`, `hop`, `hop-in`).
 
 ```bash
 ogdb --help        # full command reference
