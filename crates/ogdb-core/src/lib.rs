@@ -122,10 +122,9 @@ use tantivy::schema::{
 #[cfg(feature = "fulltext-search")]
 use tantivy::{doc, Index as TantivyIndex, ReloadPolicy};
 
-#[cfg(unix)]
-use std::os::unix::fs::FileExt;
-#[cfg(windows)]
-use std::os::windows::fs::FileExt;
+mod platform_io;
+
+use crate::platform_io::FileExt;
 
 pub const HEADER_SIZE: usize = 64;
 const MAGIC: [u8; 8] = *b"OGDB0001";
@@ -21854,14 +21853,7 @@ impl Database {
 
 fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> Result<(), DbError> {
     while !buf.is_empty() {
-        #[cfg(any(unix, windows))]
         let read = file.read_at(buf, offset)?;
-        #[cfg(not(any(unix, windows)))]
-        let read = {
-            let mut cloned = file.try_clone()?;
-            cloned.seek(SeekFrom::Start(offset))?;
-            cloned.read(buf)?
-        };
         if read == 0 {
             return Err(DbError::Io(std::io::Error::new(
                 ErrorKind::UnexpectedEof,
@@ -21876,14 +21868,7 @@ fn read_exact_at(file: &File, mut buf: &mut [u8], mut offset: u64) -> Result<(),
 
 fn write_all_at(file: &File, mut buf: &[u8], mut offset: u64) -> Result<(), DbError> {
     while !buf.is_empty() {
-        #[cfg(any(unix, windows))]
         let written = file.write_at(buf, offset)?;
-        #[cfg(not(any(unix, windows)))]
-        let written = {
-            let mut cloned = file.try_clone()?;
-            cloned.seek(SeekFrom::Start(offset))?;
-            cloned.write(buf)?
-        };
         if written == 0 {
             return Err(DbError::Io(std::io::Error::new(
                 ErrorKind::WriteZero,
