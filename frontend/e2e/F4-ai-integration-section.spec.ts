@@ -60,18 +60,43 @@ test.describe('F4 — AI Integration section (Slice R2)', () => {
     }
   })
 
-  test('each card links to /documentation/ai-integration/<pattern>.md', async ({ page }) => {
+  // EVAL-FRONTEND-QUALITY-CYCLE3.md H-6: cycle-2 linked at
+  // `/documentation/ai-integration/*.md`, which resolves to a 404 / SPA-
+  // fallback because the .md files live at the repo root. Cycle-3 ships
+  // an in-app `/docs/<slug>` route that lazy-loads the markdown via
+  // Vite `?raw` and renders it. We pin the URL pattern AND assert a
+  // real navigation produces the expected H1 — the eval explicitly
+  // called out the missing click-through assertion as the reason the
+  // broken link sailed through.
+  test('each card links to /docs/<slug>', async ({ page }) => {
     await page.goto('/')
     const cards = page.locator('[data-testid="ai-pattern-card"]')
     await expect(cards).toHaveCount(EXPECTED_CARD_COUNT)
 
     for (let i = 0; i < EXPECTED_CARD_COUNT; i++) {
-      const link = cards.nth(i).locator('a[href*="/documentation/ai-integration/"]')
-      await expect(link).toHaveAttribute(
-        'href',
-        /\/documentation\/ai-integration\/[a-z0-9-]+\.md$/,
-      )
+      const link = cards.nth(i).locator('a[href^="/docs/"]')
+      await expect(link).toHaveAttribute('href', /\/docs\/[a-z0-9-]+$/)
     }
+  })
+
+  test('clicking the first pattern link navigates to a rendered doc page', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    const firstLink = page
+      .locator('[data-testid="ai-pattern-card"]')
+      .first()
+      .locator('a[href^="/docs/"]')
+    const href = await firstLink.getAttribute('href')
+    expect(href, 'first card must have a /docs/<slug> href').toMatch(/^\/docs\/[a-z0-9-]+$/)
+
+    await firstLink.click()
+    await expect(page).toHaveURL(new RegExp(`${href}$`))
+    const article = page.locator('[data-testid="doc-page-article"]')
+    await expect(article).toBeVisible()
+    await expect(article.locator('h1').first()).toBeVisible()
+    const h1 = (await article.locator('h1').first().innerText()).trim()
+    expect(h1.length, 'doc page H1 must be non-empty').toBeGreaterThan(0)
   })
 
   // Cycle-2 docs eval C2-B2: the three remaining ai-integration md files were
