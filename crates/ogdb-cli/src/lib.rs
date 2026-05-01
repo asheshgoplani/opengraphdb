@@ -4127,13 +4127,44 @@ fn read_http_request(stream: &mut TcpStream) -> Result<HttpReadOutcome, CliError
     }))
 }
 
-// CORS headers emitted on every HTTP response. The backend is designed to be
-// reachable from browser playgrounds and notebooks served from arbitrary origins
-// (file://, localhost dev servers, static-site hosts), so we default to an open
-// allow-list. A future `--cors` flag can narrow this to a specific origin.
-const HTTP_CORS_HEADERS: &str = "Access-Control-Allow-Origin: *\r\n\
-     Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
+// EVAL-FRONTEND-QUALITY-CYCLE3.md H-5: cycle-2 M-12 was diagnosed but never
+// shipped — the embedded server emitted `Access-Control-Allow-Origin: *` so
+// any cross-origin caller could exfiltrate the user's DB once `ogdb serve
+// --http :8080` was reachable on a LAN. Cycle-3 narrows the default: ACAO is
+// emitted only when the request `Origin` matches a localhost variant
+// (`http://localhost(:port)?` / `http://127.0.0.1(:port)?`). Anything else
+// gets no ACAO header back, and the browser's same-origin policy enforces
+// the block. Methods + Headers stay constant so preflights for a localhost
+// origin still produce a usable triplet. The opt-in broader allow-list is
+// tracked as a follow-up `--cors-allow-origin` CLI flag.
+const HTTP_CORS_METHODS_AND_HEADERS: &str = "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
      Access-Control-Allow-Headers: Content-Type, Authorization\r\n";
+
+/// Returns `true` when `origin` is one of the localhost forms we trust by
+/// default — `http://localhost`, `http://localhost:<port>`, `http://127.0.0.1`,
+/// or `http://127.0.0.1:<port>`. Any other origin (including IPv6 loopback
+/// `[::1]`, file://, https variants, and LAN IPs) returns `false`.
+fn is_localhost_origin(origin: &str) -> bool {
+    let stripped = match origin.strip_prefix("http://") {
+        Some(rest) => rest,
+        None => return false,
+    };
+    let host = stripped.split('/').next().unwrap_or("");
+    let host_only = host.split(':').next().unwrap_or("");
+    if host_only != "localhost" && host_only != "127.0.0.1" {
+        return false;
+    }
+    // After stripping the scheme + (optional) port, no path/query/fragment
+    // should remain — `http://localhost.evil.example` would otherwise sneak
+    // in via `host_only == "localhost"` if we forgot to anchor the segment.
+    if host.contains('@') {
+        return false;
+    }
+    if let Some(port) = host.strip_prefix(host_only).and_then(|s| s.strip_prefix(':')) {
+        return port.bytes().all(|b| b.is_ascii_digit()) && !port.is_empty();
+    }
+    host == host_only
+}
 
 // EVAL-FRONTEND-QUALITY-CYCLE3 BLOCKER-2 (carried from cycle-2 H-6): baseline
 // security headers emitted on every HTTP response (SPA, API, error, SSE). The
@@ -4159,23 +4190,48 @@ Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()\r\n";
 fn write_http_response(
     stream: &mut TcpStream,
     response: HttpResponseMessage,
+    request_origin: Option<&str>,
 ) -> Result<(), CliError> {
-    let (content_encoding_header, vary_header) = match response.content_encoding {
+    let (content_encoding_header, encoding_vary) = match response.content_encoding {
         Some(encoding) => (
             format!("Content-Encoding: {encoding}\r\n"),
-            "Vary: Accept-Encoding\r\n".to_string(),
+            "Accept-Encoding".to_string(),
         ),
         None => (String::new(), String::new()),
     };
+
+    // EVAL-FRONTEND-QUALITY-CYCLE3.md H-5: only emit Access-Control-Allow-Origin
+    // when the request's Origin is a localhost variant. Other origins get no
+    // ACAO header back (and the browser blocks the response). The Vary list
+    // gains `Origin` whenever the response varies by origin so caches don't
+    // cross-pollinate localhost responses to LAN callers.
+    let mut vary_parts: Vec<&str> = Vec::new();
+    if !encoding_vary.is_empty() {
+        vary_parts.push(&encoding_vary);
+    }
+    let cors_origin_header = match request_origin {
+        Some(origin) if is_localhost_origin(origin) => {
+            vary_parts.push("Origin");
+            format!("Access-Control-Allow-Origin: {origin}\r\n")
+        }
+        _ => String::new(),
+    };
+    let vary_header = if vary_parts.is_empty() {
+        String::new()
+    } else {
+        format!("Vary: {}\r\n", vary_parts.join(", "))
+    };
+
     let header = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\n{}{}Connection: close\r\n{}{}\r\n",
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\n{}{}Connection: close\r\n{}{}{}\r\n",
         response.status,
         response.reason,
         response.content_type,
         response.body.len(),
         content_encoding_header,
         vary_header,
-        HTTP_CORS_HEADERS,
+        cors_origin_header,
+        HTTP_CORS_METHODS_AND_HEADERS,
         HTTP_SECURITY_HEADERS,
     );
     let mut encoded = header.into_bytes();
@@ -5155,10 +5211,21 @@ fn handle_trace_sse(
 
     // Write SSE response headers immediately. CORS + security headers mirror
     // write_http_response so playground Live Mode can consume the stream from
-    // a non-backend origin and the H-6 baseline applies to every transport.
+    // a localhost origin and the H-6 baseline applies to every transport.
+    // EVAL-FRONTEND-QUALITY-CYCLE3.md H-5: ACAO is reflected only when the
+    // request Origin is a localhost variant; non-localhost callers get no
+    // ACAO header and the browser blocks consumption of the stream.
+    let request_origin = request.headers.get("origin").map(|s| s.as_str());
+    let cors_origin_header = match request_origin {
+        Some(origin) if is_localhost_origin(origin) => {
+            format!("Access-Control-Allow-Origin: {origin}\r\nVary: Origin\r\n")
+        }
+        _ => String::new(),
+    };
     let header = format!(
-        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n{}{}\r\n",
-        HTTP_CORS_HEADERS,
+        "HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: close\r\n{}{}{}\r\n",
+        cors_origin_header,
+        HTTP_CORS_METHODS_AND_HEADERS,
         HTTP_SECURITY_HEADERS,
     );
     io_runtime(
@@ -5277,7 +5344,11 @@ fn handle_serve_http(
                 detail,
             } => {
                 let response = http_error(status, reason, detail);
-                let _ = write_http_response(&mut stream, response);
+                // Pre-dispatch reject path — request never parsed into headers,
+                // so we have no Origin to reflect. Browsers will see no ACAO
+                // header and block, which is correct: a malformed request from
+                // a non-localhost origin shouldn't get any CORS info.
+                let _ = write_http_response(&mut stream, response, None);
                 requests_processed = requests_processed.saturating_add(1);
                 if requests_processed >= max_requests {
                     return Ok(format!(
@@ -5294,6 +5365,13 @@ fn handle_serve_http(
                     prom_metrics::TXN_ACTIVE.inc();
                 }
                 let timer = Instant::now();
+                // Capture the request Origin before dispatch consumes the
+                // request — the writer needs it to decide whether to emit
+                // Access-Control-Allow-Origin (H-5).
+                let request_origin = request
+                    .headers
+                    .get("origin")
+                    .cloned();
 
                 // Intercept POST /query/trace before normal dispatch — SSE writes directly to stream
                 if request.method == "POST" && request.path == "/query/trace" {
@@ -5302,7 +5380,11 @@ fn handle_serve_http(
                         Err(err) => {
                             let response =
                                 http_error(500, "Internal Server Error", err.to_string());
-                            let _ = write_http_response(&mut stream, response);
+                            let _ = write_http_response(
+                                &mut stream,
+                                response,
+                                request_origin.as_deref(),
+                            );
                             500
                         }
                     };
@@ -5346,7 +5428,7 @@ fn handle_serve_http(
                 prom_metrics::REQUEST_DURATION_SECONDS
                     .with_label_values(&[&route_label])
                     .observe(elapsed);
-                write_http_response(&mut stream, response)?;
+                write_http_response(&mut stream, response, request_origin.as_deref())?;
                 requests_processed = requests_processed.saturating_add(1);
                 if requests_processed >= max_requests {
                     return Ok(format!(
@@ -8524,6 +8606,43 @@ mod tests {
     use std::thread;
     use std::time::Duration;
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    // EVAL-FRONTEND-QUALITY-CYCLE3.md H-5: lock the localhost-origin matcher.
+    // A future regex tweak that re-allows `http://localhost.evil.example`
+    // (because it starts with `localhost`) is the exact attack the eval flagged.
+    #[test]
+    fn is_localhost_origin_accepts_loopback_variants_and_rejects_others() {
+        // Accept the plain loopback names with optional port.
+        assert!(is_localhost_origin("http://localhost"));
+        assert!(is_localhost_origin("http://localhost:5173"));
+        assert!(is_localhost_origin("http://localhost:8080"));
+        assert!(is_localhost_origin("http://127.0.0.1"));
+        assert!(is_localhost_origin("http://127.0.0.1:8080"));
+
+        // Reject schemes other than http (https + custom) — playground over
+        // https against an http backend cannot work anyway.
+        assert!(!is_localhost_origin("https://localhost:5173"));
+        assert!(!is_localhost_origin("file://localhost"));
+
+        // Reject look-alike hostnames whose first label is `localhost`.
+        assert!(!is_localhost_origin("http://localhost.evil.example"));
+        assert!(!is_localhost_origin("http://127.0.0.1.evil.example"));
+
+        // Reject IPv6 loopback (we don't reflect `[::1]` today; track as a
+        // follow-up if the platform actually exercises that).
+        assert!(!is_localhost_origin("http://[::1]"));
+
+        // Reject LAN IPs and bare IPs that aren't 127.0.0.1.
+        assert!(!is_localhost_origin("http://192.168.1.10:8080"));
+        assert!(!is_localhost_origin("http://10.0.0.1"));
+
+        // Reject malformed inputs.
+        assert!(!is_localhost_origin(""));
+        assert!(!is_localhost_origin("localhost"));
+        assert!(!is_localhost_origin("http://localhost:abc"));
+        assert!(!is_localhost_origin("http://localhost:"));
+        assert!(!is_localhost_origin("http://user@localhost"));
+    }
 
     fn temp_db_path(tag: &str) -> PathBuf {
         let mut path = env::temp_dir();
@@ -16809,7 +16928,7 @@ ex:acme a schema:Organization ;
                 content_encoding: None,
                 body: b"{}".to_vec(),
             };
-            write_http_response(&mut stream, response).expect("write http response");
+            write_http_response(&mut stream, response, None).expect("write http response");
         });
         let stream = TcpStream::connect(addr).expect("connect helper listener");
         let _ = read_http_response(stream);
@@ -17018,6 +17137,7 @@ ex:acme a schema:Organization ;
                 content_encoding: None,
                 body: b"{}".to_vec(),
             },
+            None,
         )
         .expect_err("writing on a shut down stream should fail");
         assert!(write_err

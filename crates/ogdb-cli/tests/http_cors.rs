@@ -3,16 +3,26 @@
 //! Context: playground correctness audit 2026-04-22 found that `ogdb serve --http`
 //! emitted no CORS headers, which caused Live Mode / Power Mode / BackendSchemaStrip
 //! in the browser playground to fail with "Failed to fetch" whenever the page was
-//! served from any origin other than the backend's own host:port. This test pins
-//! the two contracts:
+//! served from any origin other than the backend's own host:port.
 //!
-//!   1. Every response from the HTTP server carries Access-Control-Allow-Origin
-//!      (and Methods / Headers), regardless of origin.
-//!   2. An OPTIONS preflight to any endpoint returns 204 with the full preflight
-//!      header triplet (Allow-Origin, Allow-Methods, Allow-Headers).
+//! EVAL-FRONTEND-QUALITY-CYCLE3.md H-5: cycle-2 M-12 was diagnosed but never
+//! shipped — the wildcard `Access-Control-Allow-Origin: *` exposed any LAN
+//! caller to a malicious page on the same network. Cycle-3 narrows the
+//! default: ACAO is reflected only when the request `Origin` is a localhost
+//! variant (`http://localhost(:port)?` / `http://127.0.0.1(:port)?`); other
+//! origins get no ACAO header and the browser blocks the response.
 //!
-//! Regressions here mean the playground breaks silently in the browser — cargo
-//! tests all still pass, but users get "Failed to fetch" and blame network/DNS.
+//! This test pins three contracts:
+//!
+//!   1. A localhost cross-origin GET still gets a usable Access-Control-Allow-Origin
+//!      reflecting that exact origin (and Methods / Headers).
+//!   2. A non-localhost origin (`http://evil.example`) gets NO ACAO header.
+//!   3. An OPTIONS preflight from a localhost origin returns 204 with the
+//!      full preflight header triplet.
+//!
+//! Regressions here mean either the playground breaks silently in the browser
+//! (Live Mode / Power Mode / BackendSchemaStrip fail with "Failed to fetch")
+//! OR the server re-opens cross-origin exfiltration to LAN attackers.
 
 use ogdb_cli::run;
 use std::collections::HashMap;
@@ -157,13 +167,20 @@ fn spawn_http_server(
 }
 
 #[test]
-fn http_response_carries_cors_headers_for_cross_origin_get() {
-    // Scenario: the playground (served from file:// or any non-backend origin)
-    // issues `GET /schema` with `Origin: http://foo`. Without CORS, the browser
-    // blocks the response. We pin that Access-Control-Allow-Origin is present.
-    let (addr, handle, path) = spawn_http_server("cors-get", 1);
+fn http_response_reflects_cors_for_localhost_origin() {
+    // Scenario: the playground served from `http://localhost:5173` (vite dev
+    // server) issues `GET /schema` against the backend on `http://localhost:8080`.
+    // Without ACAO the browser blocks the response. Cycle-3 H-5 reflects the
+    // localhost origin back; we pin both ACAO == origin and Vary: Origin so
+    // caches don't cross-pollinate.
+    let (addr, handle, path) = spawn_http_server("cors-localhost-get", 1);
 
-    let response = send(&addr, "GET", "/schema", &[("Origin", "http://foo")]);
+    let response = send(
+        &addr,
+        "GET",
+        "/schema",
+        &[("Origin", "http://localhost:5173")],
+    );
     assert_eq!(response.status, 200, "expected 200 for /schema");
 
     let acao = response
@@ -171,13 +188,23 @@ fn http_response_carries_cors_headers_for_cross_origin_get() {
         .get("access-control-allow-origin")
         .unwrap_or_else(|| {
             panic!(
-                "missing Access-Control-Allow-Origin; got headers: {:?}",
+                "missing Access-Control-Allow-Origin for localhost origin; got headers: {:?}",
                 response.headers
             )
         });
+    assert_eq!(
+        acao, "http://localhost:5173",
+        "ACAO must reflect the request's localhost origin, not wildcard"
+    );
+
+    let vary = response
+        .headers
+        .get("vary")
+        .map(|s| s.to_ascii_lowercase())
+        .unwrap_or_default();
     assert!(
-        acao == "*" || acao == "http://foo",
-        "unexpected ACAO value: {acao}"
+        vary.contains("origin"),
+        "Vary must include Origin when ACAO is reflected; got Vary={vary:?}"
     );
 
     // The body must still be valid JSON — CORS headers must not displace the schema payload.
@@ -185,6 +212,39 @@ fn http_response_carries_cors_headers_for_cross_origin_get() {
         serde_json::from_slice(&response.body).expect("schema body json");
     assert!(schema.get("labels").is_some(), "schema missing labels key");
 
+    let serve_result = handle.join().expect("join http serve thread");
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve exit nonzero: {}",
+        serve_result.stderr
+    );
+    cleanup(&path);
+}
+
+#[test]
+fn http_response_omits_acao_for_non_localhost_origin() {
+    // EVAL-FRONTEND-QUALITY-CYCLE3 H-5: a malicious page at `http://evil.example`
+    // asking `GET /schema` against `ogdb serve --http :8080` on a LAN-reachable
+    // box must NOT get an `Access-Control-Allow-Origin` back. The browser then
+    // blocks the response. Pre-fix the wildcard `*` allowed exfiltration of the
+    // entire DB schema across origins.
+    let (addr, handle, path) = spawn_http_server("cors-evil", 1);
+
+    let response = send(&addr, "GET", "/schema", &[("Origin", "http://evil.example")]);
+    assert_eq!(
+        response.status, 200,
+        "expected 200 for /schema (the request still completes server-side)"
+    );
+
+    // The server still answers, but no ACAO header — browser will refuse the
+    // response back to the cross-origin caller.
+    assert!(
+        !response.headers.contains_key("access-control-allow-origin"),
+        "non-localhost origin must get no Access-Control-Allow-Origin; got headers: {:?}",
+        response.headers
+    );
+
+    // Methods + Headers may still appear; they are inert without ACAO.
     let serve_result = handle.join().expect("join http serve thread");
     assert_eq!(
         serve_result.exit_code, 0,
@@ -210,7 +270,7 @@ fn http_options_preflight_returns_204_with_full_cors_headers() {
         "OPTIONS",
         "/query",
         &[
-            ("Origin", "http://foo"),
+            ("Origin", "http://localhost:5173"),
             ("Access-Control-Request-Method", "POST"),
             ("Access-Control-Request-Headers", "Content-Type"),
         ],
@@ -223,10 +283,13 @@ fn http_options_preflight_returns_204_with_full_cors_headers() {
         response.headers,
         String::from_utf8_lossy(&response.body)
     );
-    assert!(
-        response.headers.contains_key("access-control-allow-origin"),
-        "preflight missing Access-Control-Allow-Origin: {:?}",
-        response.headers
+    let acao = response
+        .headers
+        .get("access-control-allow-origin")
+        .unwrap_or_else(|| panic!("preflight missing ACAO: {:?}", response.headers));
+    assert_eq!(
+        acao, "http://localhost:5173",
+        "preflight ACAO must reflect the localhost origin"
     );
     let methods = response
         .headers
