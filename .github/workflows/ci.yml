@@ -63,6 +63,13 @@ jobs:
       - name: Run test workflow
         run: ./scripts/test.sh
 
+      # EVAL-RUST-QUALITY-CYCLE4 H4: dual-pin doctest execution. scripts/test.sh
+      # already runs `cargo test --workspace --doc`; surface it as a discrete CI
+      # step so a failure points at doctests directly instead of being buried
+      # in the larger test workflow log.
+      - name: Run doctests
+        run: cargo test --workspace --doc
+
       - name: Run coverage gate
         run: ./scripts/coverage.sh
 

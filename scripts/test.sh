@@ -48,6 +48,9 @@ source "$HOME/.cargo/env"
 # require new [workspace.lints.*] allows to be inventoried with a
 # CYCLE<N> ratchet rationale.
 ./scripts/check-workspace-lint-pins.sh
+# EVAL-RUST-QUALITY-CYCLE4 H4: assert that 'cargo test --workspace --doc'
+# is wired into scripts/test.sh and ci.yml so doctests stay gated.
+./scripts/check-doc-tests-wired.sh
 
 cargo fmt --all --check
 cargo check --workspace
@@ -77,3 +80,9 @@ cargo audit \
 # care if our deps' docs warn).
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps --all-features
 cargo test --workspace --all-targets
+# EVAL-RUST-QUALITY-CYCLE4 H4: --all-targets does NOT cover doctests
+# (it expands to --lib --bins --tests --benches --examples). The //!
+# quickstart in ogdb-core (and any future /// example on a pub item)
+# needs --doc to actually run, otherwise an API rename silently breaks
+# the docs.rs landing page without CI feedback.
+cargo test --workspace --doc
