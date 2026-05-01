@@ -54,6 +54,10 @@ source "$HOME/.cargo/env"
 # EVAL-RUST-QUALITY-CYCLE4 H5: bindings/c, bindings/go, proto must each
 # carry a README so downstream FFI consumers don't land in opaque dirs.
 ./scripts/check-binding-readmes.sh
+# EVAL-RUST-QUALITY-CYCLE4 H3: ratchet on undocumented pub items in
+# ogdb-core / ogdb-node / ogdb-python — caps each at the cycle-4
+# baseline, so new pub items must land with /// doc comments.
+./scripts/check-doc-ratchet.sh
 
 cargo fmt --all --check
 cargo check --workspace

@@ -29,6 +29,14 @@
 // zero hand-written `unsafe fn` blocks in this crate today; verified by
 // `grep -nE 'unsafe \\{|unsafe fn' crates/ogdb-python/src/`.
 #![cfg_attr(feature = "python", allow(unsafe_op_in_unsafe_fn))]
+// EVAL-RUST-QUALITY-CYCLE4 H3: declare missing_docs so new pub items
+// fire a PR-time warning. Cycle-3 H3 left this crate without the
+// declaration at all (double-excluded). The paired allow below is
+// the holding pattern for the existing pyo3-exported surface; the
+// scripts/check-doc-ratchet.sh gate caps the undocumented count
+// at the cycle-4 baseline, so future PRs cannot grow it.
+#![warn(missing_docs)]
+#![allow(missing_docs)]
 
 use ogdb_cli::run as run_cli;
 use ogdb_core::{

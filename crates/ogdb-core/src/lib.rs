@@ -27,13 +27,21 @@
 //! multi-process write access is undefined behaviour today and is tracked as
 //! a v0.5 follow-up (see `documentation/BENCHMARKS.md` § 4.6).
 
-// EVAL-RUST-QUALITY-CYCLE2 B1: `missing_docs` is `warn`-on-add. The ~245
-// currently-undocumented public items predate this gate; the
+// EVAL-RUST-QUALITY-CYCLE2 B1 → CYCLE4 H3: `missing_docs` is `warn`-on-add.
+// The currently-undocumented public items predate this gate; the
 // `allow(missing_docs)` below converts the new-PR warning into a
-// no-op for legacy items. Cycle 3's forcing function (B1 + N20) is to
-// split this 41 kLoC lib.rs into modules and document each section as
-// it moves; removing the `allow` is the cycle-N gate that locks in
-// the new docs.
+// no-op for legacy items. Cycle 4 adds the
+// `scripts/check-doc-ratchet.sh` gate that caps the undocumented
+// count at the cycle-4 baseline — new pub items MUST land with a
+// `///` doc comment.
+//
+// CYCLE4-DOC-RATCHET: 290 pub items remain undocumented as of the
+// cycle-4 commit. Each PR touching ogdb-core lib.rs MUST decrement
+// this counter (or hold it steady) — see scripts/check-doc-ratchet.sh
+// for the enforcement. The forcing function for closure is the
+// cycle-3 N20 split of lib.rs into modules; documenting each
+// section as it moves brings the counter to zero, at which point
+// the `#![allow(missing_docs)]` below can be removed.
 #![warn(missing_docs)]
 #![allow(missing_docs)]
 // Style lints surfaced by clippy 1.88+; cleanup tracked as a follow-up slice
