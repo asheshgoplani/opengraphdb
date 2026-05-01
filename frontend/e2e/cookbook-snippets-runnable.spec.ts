@@ -176,7 +176,8 @@ test.describe('cookbook snippets — runnable against ogdb serve --http', () => 
     readCookbook()
     const { status, json } = await postJson('/mcp/tools', {})
     expect(status).toBe(200)
-    const tools = (json as { tools?: { name?: string }[] } | null)?.tools ?? []
+    const tools =
+      (json as { tools?: { name?: string; description?: string }[] } | null)?.tools ?? []
     const names = tools.map((t) => t.name).filter((n): n is string => typeof n === 'string')
     for (const required of [
       'execute_cypher',
@@ -186,6 +187,14 @@ test.describe('cookbook snippets — runnable against ogdb serve --http', () => 
       'rag_retrieve',
     ]) {
       expect(names, `tool catalog must include ${required}`).toContain(required)
+    }
+    // C2-H5 regression: every tool must carry a non-empty description.
+    // Cycle 1 shipped the cookbook with `"description": "..."` placeholders for
+    // all 20 entries; this assertion blocks that from re-shipping.
+    for (const tool of tools) {
+      const desc = tool.description ?? ''
+      expect(desc.length, `tool ${tool.name ?? '<unnamed>'} must have a non-empty description`).toBeGreaterThan(0)
+      expect(desc, `tool ${tool.name ?? '<unnamed>'} description must not be a placeholder`).not.toMatch(/^\.\.\.+$/)
     }
   })
 

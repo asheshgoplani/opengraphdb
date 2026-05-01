@@ -77,35 +77,27 @@ curl -s -X POST $BASE/mcp/invoke \
   -d '{ "name": "browse_schema", "arguments": {} }'
 ```
 
-**Expected output.** `/mcp/tools` returns a `tools` array containing the
-twenty tools below. Names are stable across releases; the spec test pins them.
+**Expected output.** `/mcp/tools` returns a `tools` array of twenty entries.
+Each entry has a `name`, a non-empty `description`, and a JSON-Schema
+`inputSchema`. Names (stable across releases — pinned by
+`crates/ogdb-cli/src/lib.rs::mcp_full_ai_tools_round_trip_and_stdio_mode`):
 
-```json
-{
-  "tools": [
-    { "name": "browse_schema",       "description": "..." },
-    { "name": "execute_cypher",      "description": "..." },
-    { "name": "get_node_neighborhood","description": "..." },
-    { "name": "search_nodes",        "description": "..." },
-    { "name": "list_datasets",       "description": "..." },
-    { "name": "query",               "description": "..." },
-    { "name": "schema",              "description": "..." },
-    { "name": "upsert_node",         "description": "..." },
-    { "name": "upsert_edge",         "description": "..." },
-    { "name": "subgraph",            "description": "..." },
-    { "name": "shortest_path",       "description": "..." },
-    { "name": "vector_search",       "description": "..." },
-    { "name": "text_search",         "description": "..." },
-    { "name": "temporal_diff",       "description": "..." },
-    { "name": "import_rdf",          "description": "..." },
-    { "name": "export_rdf",          "description": "..." },
-    { "name": "agent_store_episode", "description": "..." },
-    { "name": "agent_recall",        "description": "..." },
-    { "name": "rag_build_summaries", "description": "..." },
-    { "name": "rag_retrieve",        "description": "..." }
-  ]
-}
+```text
+browse_schema  execute_cypher  get_node_neighborhood  search_nodes
+list_datasets  query           schema                 upsert_node
+upsert_edge    subgraph        shortest_path          vector_search
+text_search    temporal_diff   import_rdf             export_rdf
+agent_store_episode  agent_recall  rag_build_summaries  rag_retrieve
 ```
+
+The descriptions are not duplicated here on purpose: keeping a 20-entry copy
+in sync with the source is the rot pattern eval cycle 2 flagged
+(`"description": "..."` placeholders shipped for >1 release). The canonical
+descriptions are the ones returned by `POST /mcp/tools` against a live
+`ogdb serve --http`; the e2e in
+[`frontend/e2e/cookbook-snippets-runnable.spec.ts`](../frontend/e2e/cookbook-snippets-runnable.spec.ts)
+asserts `description.length > 0` for every tool on every CI run, so
+`"..."`-style placeholders cannot regress in.
 
 `/mcp/invoke` returns the tool's result body directly on success (200) or an
 `{ "error": "..." }` object on a 4xx / 5xx:
