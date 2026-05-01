@@ -578,8 +578,19 @@ Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo
   - `scripts/coverage.sh`
 
 
-[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.4.0...HEAD
-[0.4.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.3.0...v0.4.0
-[0.3.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.2.0...v0.3.0
-[0.2.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.1.0...v0.2.0
-[0.1.0]: https://github.com/asheshgoplani/opengraphdb/releases/tag/v0.1.0
+<!--
+  Compare-link footer: only resolved tags appear as URLs. Tags that exist
+  locally but have not been pushed to GitHub render as `<not-yet-pushed>`
+  placeholders so the link doesn't 404. Tags that were never cut at all
+  render as `<unreleased>`. The CI gate `scripts/check-changelog-tags.sh`
+  verifies every URL footer resolves to a real local tag.
+
+  Push status as of 2026-05-01: no `v*` tag is pushed to origin
+  (`git ls-remote origin --tags 'refs/tags/v*'` is empty). Update this
+  block as part of the release-tag-push step in the public release runbook.
+-->
+[Unreleased]: <not-yet-pushed: compare against v0.4.0 once pushed>
+[0.4.0]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
+[0.3.0]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
+[0.2.0]: <unreleased: no tag was cut for 0.2.0>
+[0.1.0]: <unreleased: no tag was cut for 0.1.0>

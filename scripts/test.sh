@@ -8,6 +8,7 @@ source "$HOME/.cargo/env"
 ./scripts/check-crate-metadata.sh
 ./scripts/check-shipped-doc-coverage.sh
 ./scripts/check-public-doc-tmp-leak.sh
+./scripts/check-changelog-tags.sh
 
 cargo fmt --all --check
 cargo check --workspace
