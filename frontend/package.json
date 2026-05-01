@@ -17,9 +17,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.90.0",
-    "@deck.gl/core": "^9.2.10",
     "@deck.gl/layers": "^9.2.10",
-    "@deck.gl/react": "^9.2.10",
     "@google/genai": "^1.50.1",
     "@mlc-ai/web-llm": "^0.2.82",
     "@neo4j-cypher/react-codemirror": "^2.0.0-next.32",
@@ -41,9 +39,7 @@
     "react-dom": "^19.2.0",
     "react-force-graph-2d": "^1.29.1",
     "react-map-gl": "^8.1.0",
-    "react-resizable-panels": "^4.7.0",
     "react-router-dom": "^7.13.1",
-    "streamdown": "^2.5.0",
     "tailwind-merge": "^3.5.0",
     "zustand": "^5.0.11"
   },
