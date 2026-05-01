@@ -91,6 +91,8 @@ fn all_eleven_variants_pattern_match_through_shim() {
         ogdb_core::PropertyValue::Duration { .. } => 8,
         ogdb_core::PropertyValue::List(_) => 9,
         ogdb_core::PropertyValue::Map(_) => 10,
+        // PropertyValue is #[non_exhaustive] (cycle-3 rust B3).
+        _ => 11,
     };
 }
 

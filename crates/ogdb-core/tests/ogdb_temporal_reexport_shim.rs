@@ -127,6 +127,8 @@ fn pattern_match_through_shim_compiles() {
         match f.scope {
             ogdb_core::TemporalScope::ValidTime => "valid",
             ogdb_core::TemporalScope::SystemTime => "system",
+            // TemporalScope is #[non_exhaustive] (cycle-3 rust B3).
+            _ => "unknown",
         }
     }
     let v = ogdb_core::TemporalFilter {
