@@ -654,7 +654,7 @@ function TabPill({ active, onClick, disabled, icon: Icon, label, tabKey, blurb }
       <Icon className={cn('relative h-3.5 w-3.5', active ? 'text-accent' : 'text-muted-foreground')} />
       <div className="relative flex flex-col leading-none">
         <span className="font-serif text-[13px] tracking-tight">{label}</span>
-        <span className="mt-0.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground/70">{blurb}</span>
+        <span className="mt-0.5 text-[9px] uppercase tracking-[0.14em] text-muted-foreground">{blurb}</span>
       </div>
     </button>
   )

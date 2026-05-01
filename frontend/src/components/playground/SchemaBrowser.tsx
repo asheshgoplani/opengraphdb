@@ -162,7 +162,6 @@ export function SchemaBrowser({
       aria-label="Schema"
       className="rounded-lg border border-border/60 bg-muted/30 px-3 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5"
     >
-      <div role="tree" aria-label="Schema tree">
       <div className="mb-2 flex items-center justify-between">
         <div className="flex items-center gap-1.5">
           <Database className="h-3.5 w-3.5 text-accent" />
@@ -187,7 +186,7 @@ export function SchemaBrowser({
         </button>
       </div>
 
-      <div className="space-y-1.5 text-[12px]">
+      <div className="space-y-1.5 text-[12px]" role="tree" aria-label="Schema tree">
         <div
           role="treeitem"
           aria-label="Labels"
@@ -350,7 +349,6 @@ export function SchemaBrowser({
           Filtering canvas to <span className="font-mono">{selectedLabel}</span>. Click the label again to clear.
         </p>
       )}
-      </div>
     </section>
   )
 }
