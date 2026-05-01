@@ -206,7 +206,7 @@ opengraphdb/
 │   │   │   ├── lib.rs
 │   │   │   ├── bolt/
 │   │   │   │   ├── mod.rs
-│   │   │   │   ├── protocol.rs      # Bolt v4/v5 message parsing
+│   │   │   │   ├── protocol.rs      # Bolt v1 message parsing (v4/v5 negotiation is a v0.5 follow-up)
 │   │   │   │   ├── codec.rs         # PackStream encoding/decoding
 │   │   │   │   └── session.rs       # Connection session state
 │   │   │   ├── http/
@@ -1346,69 +1346,75 @@ HNSW storage:
 └── Raw vectors: page-aligned f32 arrays (for SIMD distance computation)
 ```
 
-### Implementation: USearch (Primary)
+### Implementation: instant-distance (current, 0.4.0)
+
+> **Reality check (0.4.0):** the original Decision-6 sketch in this section
+> chose `usearch` (C++ FFI) as primary with `hnsw_rs` as a pure-Rust
+> fallback. Neither shipped. 0.4.0 ships **`instant-distance`** — a pure-
+> Rust HNSW with zero FFI boundary, gated behind the `vector-search`
+> feature (`crates/ogdb-core/Cargo.toml::[features]`). The trade-off is
+> batch-rebuild only on commits that touch any indexed property; cycle-2
+> C2-A5 narrows the rebuild trigger to mutations touching catalog-listed
+> properties only, recovering most of the latency budget. See
+> `documentation/BENCHMARKS.md` § Row 6 mutation p99 caveat.
 
 ```rust
-/// Vector index uses USearch (C++ FFI) for HNSW with on-disk mmap serving.
-/// Abstracted behind VectorIndex trait; pure-Rust hnsw_rs available as fallback.
-trait VectorIndex: Send + Sync {
-    fn add(&self, id: InternalId, vector: &[f32]) -> Result<()>;
-    fn remove(&self, id: InternalId) -> Result<()>;
-    fn search(&self, query: &[f32], k: usize) -> Result<Vec<(InternalId, f32)>>;
-    fn filtered_search(&self, query: &[f32], k: usize,
-                       filter: &dyn Fn(InternalId) -> bool) -> Result<Vec<(InternalId, f32)>>;
-    fn save(&self) -> Result<()>;
-    fn len(&self) -> usize;
+/// Vector index uses `instant-distance` HNSW (pure Rust). Tuning constants
+/// pinned at `crates/ogdb-core/src/lib.rs::HNSW_M` /
+/// `::HNSW_EF_CONSTRUCTION` / `::HNSW_EF_SEARCH` / `::HNSW_BUILDER_SEED`.
+/// VectorIndex is an internal abstraction; see VectorIndexRuntime +
+/// BuiltHnsw in `crates/ogdb-core/src/lib.rs`.
+use instant_distance::{Builder as HnswBuilder, HnswMap, Point, Search};
+
+struct HnswVectorPoint {
+    vector: Vec<f32>,
+    metric: VectorDistanceMetric,
 }
 
-struct USearchVectorIndex {
-    index: usearch::Index,
-    index_path: PathBuf,  // e.g., "mydb.ogdb.vecindex"
-    config: HNSWConfig,
+impl Point for HnswVectorPoint {
+    fn distance(&self, other: &Self) -> f32 { /* cosine / l2 / dot */ }
 }
 
-impl USearchVectorIndex {
-    fn open(db_path: &Path, config: HNSWConfig) -> Result<Self> {
-        let index_path = db_path.with_extension("ogdb.vecindex");
-        let options = IndexOptions {
-            dimensions: config.dimensions,
-            metric: MetricKind::Cos,
-            quantization: ScalarKind::F16,  // 2x memory savings vs f32
-            connectivity: config.m,
-            expansion_add: config.ef_construction,
-            expansion_search: config.ef_search,
-            multi: false,
-        };
-        let index = Index::new(&options)?;
-        if index_path.exists() {
-            index.view(&index_path)?;  // mmap: no RAM load
-        }
-        Ok(Self { index, index_path, config })
-    }
+struct BuiltHnsw {
+    map: std::sync::Arc<HnswMap<HnswVectorPoint, u64>>,
+}
+
+struct VectorIndexRuntime {
+    definition: VectorIndexDefinition,
+    hnsw: Option<BuiltHnsw>,
 }
 ```
 
 ### SIMD Distance Computation
 
-USearch delegates to SimSIMD for hardware-optimized distance computation:
-- **x86_64:** AVX-512, AVX2, SSE4.2 (auto-detected at runtime)
-- **ARM:** NEON, SVE (Apple Silicon, AWS Graviton)
-- **Fallback:** Scalar for other architectures
+`instant-distance` uses scalar Rust for distance computation. SIMD
+auto-vectorisation comes from the LLVM backend; the recall@10 ≥ 0.95 +
+p95 ≤ 5 ms gates in `crates/ogdb-core/tests/hnsw_*.rs` are the forcing
+function for staying within the latency budget without explicit SIMD.
 
-### Incremental Updates
+### Updates (batch-rebuild model)
 
-- Insert: `index.add(id, &vector)` — standard HNSW insert with layer promotion
-- Delete: `index.remove(id)` — true removal with graph repair (not just tombstone)
-- Update: `index.remove(id)` + `index.add(id, &new_vector)`
-- Persistence: `index.save(&path)` after batch of writes; WAL logs vector ops for crash recovery
+`instant-distance` does **not** support incremental insert / delete —
+the index is rebuilt from the in-memory catalog on every transaction
+commit that touches an indexed property (gated by C2-A5 to skip
+unrelated property edits).
 
-### Pure-Rust Fallback (hnsw_rs)
+- Insert / update / delete: append to `VectorIndexRuntime.entries`,
+  then `build_hnsw_from_entries(runtime)` rebuilds `BuiltHnsw` if the
+  commit touched catalog-listed properties.
+- Persistence: `<db>.ogdb.vecindex` snapshot via the
+  `PersistedVectorIndexStore` shape (entries + metadata; the HNSW graph
+  itself is rebuilt on open from those entries).
 
-Enabled via `--features pure-rust-vector` for environments where C++ FFI is unacceptable:
-- Same `VectorIndex` trait, different implementation
-- Uses `hnsw_rs` crate with `anndists` for SIMD (x86 AVX2 via simdeez)
-- Custom persistence layer needed (bincode serialization + page-aligned writes)
-- No incremental delete (tombstone-based, skip during search, rebuild periodically)
+### v0.5.1 backend-swap candidates
+
+True incremental insert is the v0.5.1 forcing function. Candidate
+replacement libraries (each with a different trade-off):
+- `usearch` (C++ FFI) — mmap, incremental delete, SIMD via SimSIMD
+- `hnsw_rs` (pure-Rust) — would need a custom persistence layer
+
+`documentation/BENCHMARKS.md` § Row 6 (mutation p99 = 15.6 ms) is the
+latency benchmark that pins this swap to the v0.5.1 milestone.
 
 ---
 
@@ -1650,7 +1656,7 @@ enum ExportFormat { Json, Jsonl, Csv, Ttl, Jsonld, Cypher }
 - Cypher syntax highlighting
 - Tab completion for labels, types, properties, functions
 - Multi-line input (detect unclosed parentheses/brackets)
-- History stored in `~/.opengraphdb_history`
+- History stored in `~/.ogdb_history` (`crates/ogdb-cli/src/lib.rs::shell_history_path`)
 - Special commands: `:schema`, `:stats`, `:help`, `:quit`
 
 ### Backup Command Implementation
@@ -1710,29 +1716,44 @@ fn checkpoint_command(db_path: &Path) -> Result<()> {
 
 ### Rust API
 
+> **Reality check (0.4.0):** the original Decision-4 sketch in this
+> section anticipated a `params!` / `props!` macro pair, a `db.begin()`
+> / `db.commit()` transaction handle, a `db.query_scalar(...)` helper,
+> and a `db.importer()` builder. None of these landed in 0.4.0 — the
+> shipped surface uses positional `Database::query(&str)` for ad-hoc
+> queries (parameter binding is via the Cypher literal in the query
+> string), `Database::begin_read()` / `Database::begin_write()` for
+> explicit MVCC scopes, and `crates/ogdb-import/src/lib.rs` for bulk
+> ingestion (no `db.importer()` builder yet). The macro-flavored API is
+> tracked as a v0.5 ergonomic pass.
+
+The shipped 0.4.0 surface (mirrors the rustdoc sample at
+`crates/ogdb-core/src/lib.rs:14`):
+
 ```rust
-use opengraphdb::{Database, Config, Value};
+use ogdb_core::{Database, DbError};
 
-// Open/create database
-let db = Database::open("mydata.ogdb", Config::default())?;
+fn run() -> Result<(), DbError> {
+    let mut db = Database::open("mydata.ogdb")?;
 
-// Transaction-based API
-let tx = db.begin()?;
-let results = tx.query("MATCH (n:Person) WHERE n.age > $age RETURN n.name",
-                        params! { "age" => 30 })?;
-for row in results {
-    let name: String = row.get("n.name")?;
+    // Read query — auto-snapshot via begin_read().
+    let _rows = db.query(
+        "MATCH (p:Person) WHERE p.age > 30 RETURN p.name"
+    )?;
+
+    // Explicit MVCC scopes for transactional reads / writes.
+    let _snapshot = db.begin_read();
+    let _writer = db.begin_write();
+
+    // Node creation goes through create_node(...) + commit_txn().
+    // (See crates/ogdb-core/src/lib.rs::create_node for the typed entry
+    // point, or use the Cypher CREATE form via query(...) / execute(...).)
+
+    // Bulk import: use crates/ogdb-import/src/lib.rs::ingest_jsonl etc.
+    // — the streaming API. There is no `db.importer()` builder in 0.4.0.
+
+    Ok(())
 }
-tx.commit()?;
-
-// Convenience API (auto-commit single queries)
-let count: i64 = db.query_scalar("MATCH (n) RETURN count(n)", params!{})?;
-
-// Batch import
-let mut importer = db.importer()?;
-importer.add_node(&["Person"], props! { "name" => "John", "age" => 30 })?;
-importer.add_edge("WORKS_AT", node_a, node_b, props! { "since" => 2020 })?;
-importer.commit()?;
 ```
 
 ### Thread Safety
@@ -1746,7 +1767,18 @@ importer.commit()?;
 
 ## 25. Server Mode & Bolt Protocol
 
-### Bolt Protocol v4.4+
+### Bolt Protocol v1 (0.4.0)
+
+`ogdb-bolt` ships **Bolt v1** today
+(`crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_1`). The handshake declines
+anything else; Neo4j 4.x / 5.x drivers that negotiate v4/v5 by default
+will reject the handshake on connect — see
+`documentation/MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage" for
+the user-facing impact. v4/v5 negotiation is a v0.5 follow-up tracked
+in `documentation/COMPATIBILITY.md` § 4.
+
+The HELLO/RUN/PULL/GOODBYE message flow below is broadly the same in
+v1; only the version and capability set differ:
 
 ```
 Client                          Server
@@ -1991,8 +2023,9 @@ fn bench_single_hop(c: &mut Criterion) {
     let db = setup_ldbc_sf1();  // LDBC Scale Factor 1 (1M nodes, 5M edges)
     c.bench_function("single_hop_expand", |b| {
         b.iter(|| {
-            db.query("MATCH (n:Person)-[:KNOWS]->(m) WHERE n.id = $id RETURN m",
-                     params! { "id" => 42 })
+            // Parameter binding via the Cypher literal (no params! macro
+            // in 0.4.0 — see § 24 reality check).
+            db.query("MATCH (n:Person)-[:KNOWS]->(m) WHERE n.id = 42 RETURN m")
         })
     });
 }
@@ -2192,48 +2225,30 @@ OpenGraphDB uses `tracing` crate for structured logging. Users get free OTel int
 
 ## 34. Configuration System
 
-### Hierarchy (lowest to highest priority)
+> **Reality check (0.4.0):** the original Decision-4 sketch in this
+> section described a 5-level priority chain (compiled defaults →
+> `~/.opengraphdb/config.toml` → env vars → CLI flags → per-database
+> settings) plus an `OGDB_BUFFER_POOL_SIZE`-style env-var surface.
+> None of the file or env layers shipped — 0.4.0 uses **CLI flags
+> only**. Per-database settings live in the catalog
+> (`<db>.ogdb-meta.json`); HNSW tuning constants are pinned at
+> `crates/ogdb-core/src/lib.rs::HNSW_M` /
+> `::HNSW_EF_CONSTRUCTION` / `::HNSW_EF_SEARCH` /
+> `::HNSW_BUILDER_SEED`.
 
-```
-1. Compiled defaults
-2. Config file: ~/.opengraphdb/config.toml
-3. Environment variables: OGDB_BUFFER_POOL_SIZE=256m
-4. CLI flags: --buffer-pool-size 256m
-5. Per-database settings (stored in catalog)
-```
+### Surface in 0.4.0
 
-### Config File
+- **CLI flags only** (clap, see `crates/ogdb-cli/src/lib.rs::Cli`).
+- **Per-database catalog**: `<db>.ogdb-meta.json` carries vector-index
+  definitions, label catalog, etc. (auto-managed; not a user-edited
+  config file).
+- **No global `~/.opengraphdb/config.toml`** and no
+  `OGDB_BUFFER_POOL_SIZE`-style env vars in 0.4.0. Document any
+  temporary need for an env knob via a `--feature-flag` on the relevant
+  CLI subcommand instead.
 
-```toml
-# ~/.opengraphdb/config.toml
-
-[storage]
-page_size = 8192              # 4096 | 8192 | 16384 | 32768
-buffer_pool_size = "256m"     # Memory for page cache
-wal_sync_mode = "fsync"       # "fsync" | "fdatasync" | "none" (dangerous)
-checkpoint_interval = 1000    # Transactions between checkpoints
-checkpoint_wal_size = "64m"   # Max WAL size before forced checkpoint
-
-[query]
-default_limit = 1000          # RETURN without LIMIT caps here
-query_timeout = "30s"         # Max query execution time
-batch_size = 1024             # Vectorized batch size
-
-[vector]
-hnsw_m = 16                   # HNSW connections per layer
-hnsw_ef_construction = 200    # Build-time search width
-hnsw_ef_search = 50           # Query-time search width
-
-[server]
-host = "127.0.0.1"
-port = 7687
-max_connections = 100
-idle_timeout = "30m"
-
-[logging]
-level = "info"                # trace | debug | info | warn | error
-format = "compact"            # "compact" | "json" | "pretty"
-```
+The config-file / env-var hierarchy is on the v0.5 ergonomics roadmap
+(tracked alongside the `params!` / `props!` macro pair in § 24).
 
 ---
 
@@ -2273,7 +2288,7 @@ format = "compact"            # "compact" | "json" | "pretty"
 | Cypher parsing | `winnow` | nom's successor: faster, better errors, `cut_err()` for parse commitment |
 | REPL | `rustyline` | Readline-compatible, cross-platform |
 | RDF parsing | `oxrdfio` (`oxttl`, `oxrdfxml`, `oxjsonld`) | Streaming, lightweight, rio's successor by same author |
-| Vector search | `usearch` (C++ FFI) or `hnsw_rs` (pure Rust) | USearch: only lib with mmap + incremental delete + SIMD. Used by ClickHouse/DuckDB |
+| Vector search | `instant-distance` (pure Rust) | Current (0.4.0): zero FFI, zero C++ toolchain, batch-rebuild only — see § 17. v0.5.1 backend-swap candidates: `usearch` (C++ FFI, mmap, incremental delete) and `hnsw_rs` (pure-Rust, would need custom persistence). |
 | Full-text | `tantivy` | Rust-native Lucene equivalent |
 | Python bindings | `pyo3` + `maturin` | Standard PyO3 workflow |
 | Node.js bindings | `napi-rs` | Standard NAPI workflow |
@@ -2289,28 +2304,45 @@ format = "compact"            # "compact" | "json" | "pretty"
 
 ## 37. Build System & Cross-Compilation
 
-### Workspace Cargo.toml
+### Workspace Cargo.toml (0.4.0)
+
+> **Reality check (0.4.0):** the original Decision-6 sketch listed
+> `crates/ogdb-query` and `crates/ogdb-server`. Neither landed — query
+> parsing/planning lives inside
+> `crates/ogdb-core/src/lib.rs::parse` and adjacent helpers; the server
+> (HTTP / Bolt / MCP) lives inside
+> `crates/ogdb-cli/src/lib.rs::handle_serve_*`. A future split is a
+> v0.5+ refactor, not a 0.4 commitment. Keep this section in sync with
+> root `Cargo.toml` — `scripts/check-design-vs-impl.sh` (C4-H5 branch)
+> fails CI on drift.
 
 ```toml
 [workspace]
 members = [
-    "crates/ogdb-core",
-    "crates/ogdb-query",
-    "crates/ogdb-vector",
-    "crates/ogdb-text",
-    "crates/ogdb-temporal",
-    "crates/ogdb-import",
-    "crates/ogdb-export",
-    "crates/ogdb-server",
-    "crates/ogdb-cli",
-    "crates/ogdb-python",
-    "crates/ogdb-node",
-    "crates/ogdb-algorithms",
+    "crates/ogdb-algorithms",  # graph algorithms
+    "crates/ogdb-bench",       # synthetic micro-bench
+    "crates/ogdb-bolt",        # Bolt v1 wire (cycle-2 C2-H7)
+    "crates/ogdb-cli",         # `ogdb` binary (CLI + HTTP + MCP server)
+    "crates/ogdb-core",        # engine
+    "crates/ogdb-e2e",         # end-to-end driver tests
+    "crates/ogdb-eval",        # benchmark / driver harness
+    "crates/ogdb-export",      # CSV/JSON/JSONL/RDF emit
+    "crates/ogdb-ffi",         # C ABI for bindings (cbindgen)
+    "crates/ogdb-fuzz",        # cargo-fuzz harness
+    "crates/ogdb-import",      # CSV/JSON/JSONL/RDF ingest
+    "crates/ogdb-node",        # napi-rs bindings (`@opengraphdb/node` on npm)
+    "crates/ogdb-python",      # PyO3 bindings (`opengraphdb` on PyPI)
+    "crates/ogdb-tck",         # openCypher TCK harness
+    "crates/ogdb-temporal",    # temporal scope + datetime helpers
+    "crates/ogdb-text",        # full-text helpers
+    "crates/ogdb-types",       # value types extracted from core
+    "crates/ogdb-vector",      # HNSW + vector-distance helpers
 ]
 resolver = "2"
 
 [workspace.dependencies]
-# Shared versions across all crates
+# Shared versions across all crates (excerpt; see root Cargo.toml for
+# the canonical list).
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 thiserror = "2"
@@ -2580,29 +2612,46 @@ cleaner checkpoint logic
 mydb.ogdb          — Main database file (pages)
 mydb.ogdb-wal      — Write-ahead log (sequential)
 mydb.ogdb.ftindex/ — Tantivy full-text index (rebuildable artifact by default)
-mydb.ogdb.vecindex — USearch vector index file (rebuildable artifact by default)
+mydb.ogdb.vecindex — instant-distance HNSW snapshot (rebuildable artifact by default)
 ```
 
-### Decision 6: HNSW Vector Index → **USearch** (primary) / **hnsw_rs** (pure-Rust fallback)
+### Decision 6: HNSW Vector Index → **`instant-distance`** (current, 0.4.0) / `usearch` + `hnsw_rs` (v0.5.1 swap candidates)
 
-**Chosen:** USearch with C++ FFI (primary), hnsw_rs as pure-Rust alternative
-**Rejected:** instant-distance (no incremental inserts), hora (abandoned at v0.1.1),
-Qdrant extraction (too tightly coupled), building from scratch (high effort)
+**Chosen (0.4.0):** `instant-distance` (pure Rust). Trade-off: batch-rebuild only on commits that touch indexed properties (cycle-2 C2-A5 narrows the trigger).
+**Candidates for v0.5.1 incremental-insert swap:** `usearch` (C++ FFI, mmap, incremental delete, SIMD via SimSIMD) — tracked alongside `hnsw_rs` (pure-Rust, custom persistence layer needed).
+**Rejected:** hora (abandoned at v0.1.1; deprecated `packed_simd_2` crate), Qdrant extraction (too tightly coupled), building from scratch (high effort).
 
-**Key evidence:**
-- USearch: only library with mmap disk serving + incremental delete + SIMD (AVX2+NEON) +
-  filtered search. Used by ClickHouse and DuckDB in production
-- `view_from_buffer` enables memory-mapping our own page files into USearch
-- C++ core is single header file (3K SLOC), manageable FFI boundary
-- hnsw_rs fallback: pure Rust, good SIMD support, would need custom persistence layer (non-trivial extra effort)
-- instant-distance: batch-build only, no incremental inserts (dealbreaker for a database)
-- hora: abandoned, uses deprecated `packed_simd_2` crate
+**Why the original Decision 6 chose USearch but 0.4.0 ships instant-distance:**
+`instant-distance` ships a usable HNSW with **zero FFI boundary** (lighter
+cross-platform builds, no C++ toolchain dependency), at the cost of full
+rebuild on commits that touch any indexed property. Cycle-2 C2-A5
+(`crates/ogdb-core/src/lib.rs::commit_txn`) gates the rebuild to skip
+pure-edge / unrelated-property commits, recovering most of the latency
+budget. Row 6 mutation p99 = 15.6 ms in `documentation/BENCHMARKS.md`
+includes the rebuild on `embedding`-touching commits and is the forcing
+function for the v0.5.1 backend swap.
 
-**Integration:**
-- USearch manages its own index file (`mydb.ogdb.vecindex`)
-- On startup: `index.view("path")` for mmap without RAM load
-- WAL of vector operations for crash recovery
-- Feature flag: `--features pure-rust-vector` to use hnsw_rs instead of USearch
+**Key evidence (preserved from original Decision 6):**
+- `usearch`: only library with mmap disk serving + incremental delete +
+  SIMD (AVX2+NEON) + filtered search. Used by ClickHouse and DuckDB in
+  production. C++ core is single header file (~3K SLOC); manageable FFI
+  boundary. Tracked as the leading v0.5.1 candidate.
+- `hnsw_rs`: pure Rust, good SIMD support, would need a custom
+  persistence layer (non-trivial extra effort).
+- `instant-distance`: batch-build only, no incremental inserts. Cycle-2
+  C2-A5 + the C2-A5 regression test
+  (`crates/ogdb-core/tests/c2_a5_hnsw_skip_rebuild_on_unrelated_property.rs`)
+  pin the rebuild-elision behaviour and recover most of the
+  steady-state latency.
+
+**Integration (0.4.0):**
+- The HNSW graph is rebuilt from `VectorIndexRuntime.entries` at commit
+  time (when the catalog says the touched properties matter); the
+  rebuilt graph is held in `BuiltHnsw.map` (`HnswMap<HnswVectorPoint, u64>`).
+- Snapshot file: `<db>.ogdb.vecindex` carries the entries +
+  catalog metadata; the HNSW graph itself is rebuilt on open.
+- Feature flag: `--features vector-search` gates the entire stack
+  (`crates/ogdb-core/Cargo.toml::[features]`).
 
 ### Decision 7: Tantivy Storage → **Subdirectory** (`mydb.ogdb.ftindex/`)
 

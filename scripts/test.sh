@@ -11,6 +11,10 @@ source "$HOME/.cargo/env"
 ./scripts/check-changelog-tags.sh
 ./scripts/check-doc-anchors.sh
 ./scripts/check-binary-name.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE4 H1..H5: design specification (DESIGN.md /
+# ARCHITECTURE.md / README.md / SPEC.md / skills/) must not drift from
+# the shipped implementation. Pinned source of truth is in `crates/`.
+./scripts/check-design-vs-impl.sh
 
 # C2-A7 (HIGH): npm package version must match workspace version.
 ./scripts/check-npm-version.sh

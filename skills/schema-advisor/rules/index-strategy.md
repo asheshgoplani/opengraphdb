@@ -88,7 +88,7 @@ tantivy full-text indexing.
 ## Vector Search
 
 For semantic similarity queries, do not use property indexes. Use the `vector_search`
-MCP tool instead, which is backed by usearch ANN indexing.
+MCP tool instead, which is backed by `instant-distance` HNSW ANN indexing.
 
 ```
 // Use vector_search tool for:

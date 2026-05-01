@@ -173,7 +173,7 @@ Architecture is considered stable only if all gates pass:
 - Cypher parsing: `winnow`
 - RDF parsing: `oxrdfio`/Oxigraph family
 - Full-text: `tantivy`
-- Vector ANN: `usearch` primary, pure-Rust fallback supported
+- Vector ANN: `instant-distance` (pure-Rust HNSW). Tuning constants pinned at `crates/ogdb-core/src/lib.rs::HNSW_M` / `::HNSW_EF_CONSTRUCTION` / `::HNSW_EF_SEARCH` / `::HNSW_BUILDER_SEED`; recall@10 ≥ 0.95 and p95 ≤ 5 ms gates pin the choice (`crates/ogdb-core/tests/hnsw_*.rs`). True incremental insert (vs. the current full rebuild on `embedding`-touching commits) is tracked as a v0.5.1 backend-swap follow-up; `usearch` (C++ FFI) and `hnsw_rs` (pure-Rust) remain candidate replacements — see `documentation/BENCHMARKS.md` § Row 6 mutation p99 caveat.
 - Telemetry: `tracing`
 - CLI: `clap`, `rustyline`
 

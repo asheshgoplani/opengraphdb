@@ -149,4 +149,4 @@ Do not reimplement functionality that MCP tools handle natively:
 | Neighborhood | `get_node_neighborhood` | `MATCH (n)-[*1..1]-(m) WHERE id(n) = ...` |
 | Schema discovery | `browse_schema` | `CALL db.schema()` |
 
-The MCP tools are optimized for these operations and often use specialized indexes (usearch for vectors, tantivy for text) that Cypher cannot access.
+The MCP tools are optimized for these operations and often use specialized indexes (`instant-distance` HNSW for vectors, `tantivy` for text) that Cypher cannot access.

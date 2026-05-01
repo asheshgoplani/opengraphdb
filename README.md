@@ -39,7 +39,7 @@ let rows = db.query("MATCH (p:Person) RETURN p")?;
 
 ## What's in the box
 
-- **Embeddable** — link as a Rust crate, call from Python/Node bindings, or run `ogdb serve` for HTTP/Bolt/gRPC.
+- **Embeddable** — link as a Rust crate, call from Python/Node bindings, or run `ogdb serve` for HTTP, Bolt v1, or MCP. (gRPC is on the v2 roadmap, see `SPEC.md` § 10.)
 - **Cypher / GQL** — the query language developers already know, with `OPTIONAL MATCH`, `UNION`, `EXISTS`, pattern comprehension, and CASE semantics.
 - **AI-native** — MCP server built in (20 tools), hybrid retrieval (vector kNN + 1-hop + RRF), and graph-feature reranking — all in one engine, not three.
 

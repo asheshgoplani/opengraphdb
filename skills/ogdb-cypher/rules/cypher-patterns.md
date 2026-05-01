@@ -344,7 +344,7 @@ Use the `vector_search` MCP tool for semantic similarity:
 vector_search(label: "Document", property: "embedding", query_vector: [...], top_k: 10)
 ```
 
-Do NOT attempt vector operations in Cypher. Vector search runs on a separate usearch ANN index outside the Cypher engine.
+Do NOT attempt vector operations in Cypher. Vector search runs on a separate `instant-distance` HNSW ANN index outside the Cypher engine.
 
 ### Full-Text Search
 
