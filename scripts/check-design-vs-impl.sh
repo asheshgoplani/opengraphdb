@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# C4 regression gate: design specification (DESIGN.md / ARCHITECTURE.md /
+# C4/C5 regression gate: design specification (DESIGN.md / ARCHITECTURE.md /
 # README.md / SPEC.md / skills/) must not drift from the shipped
-# implementation. Every cycle-4 HIGH finding was a doc claim that
-# contradicted the code; this gate pins each one to a single source of
-# truth in `crates/`.
+# implementation. Every cycle-4 + cycle-5 HIGH finding was a doc claim
+# that contradicted the code; this gate pins each one to a single source
+# of truth in `crates/`.
 #
 # Covers:
 #   - C4-H1: vector-ANN library (Cargo.toml is source of truth)
@@ -11,12 +11,10 @@
 #   - C4-H3: fictional Rust API (`use opengraphdb::`, params!, props!, etc.)
 #   - C4-H4: Bolt version (crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_1)
 #   - C4-H5: workspace member list (Cargo.toml [workspace] members)
+#   - C5-H2: every `cargo add <crate>` in user-facing docs must name a
+#     real workspace crate (Python+npm packages legitimately ship as
+#     `opengraphdb`, but no such Rust crate exists).
 #
-# Allowed contexts (intentional): the eval reports under
-# `documentation/EVAL-*` document past drift and must keep the original
-# strings; the same applies to `documentation/SECURITY-FOLLOWUPS.md` and
-# `documentation/MIGRATION-FROM-NEO4J.md` which reference the rejected
-# libraries / Neo4j-side defaults by name.
 set -euo pipefail
 
 DOCS=(README.md ARCHITECTURE.md SPEC.md DESIGN.md)
@@ -124,6 +122,33 @@ if grep -qE '^\[workspace\]' Cargo.toml 2>/dev/null && \
   if [[ -n "$diff_out" ]]; then
     echo "ERROR (C4-H5): DESIGN.md workspace member list has drifted from Cargo.toml:" >&2
     echo "$diff_out" >&2
+    fail=1
+  fi
+fi
+
+# -------- C5-H2: cargo add must target a real workspace crate --------
+# `pip install opengraphdb` and `npm install opengraphdb` are legitimate
+# (the Python+npm packages ship as `opengraphdb`); only the Rust
+# `cargo add` form has to match a real crate name.
+REAL_CRATE_NAMES=$(find crates/ -maxdepth 2 -name Cargo.toml 2>/dev/null \
+  | xargs grep -h '^name = "' 2>/dev/null \
+  | sed -E 's/^name = "([^"]+)".*/\1/' \
+  | sort -u)
+if [[ -n "$REAL_CRATE_NAMES" ]]; then
+  BAD_CARGO_ADDS=$(grep -RnE 'cargo add [a-z][a-z0-9_-]*' \
+        "${EXISTING[@]}" 2>/dev/null \
+      | grep -vE "$SKIP_RE" \
+      | while IFS= read -r line; do
+          crate=$(echo "$line" | grep -oE 'cargo add [a-z][a-z0-9_-]*' | awk '{print $3}')
+          [[ -z "$crate" ]] && continue
+          if ! grep -qx "$crate" <<< "$REAL_CRATE_NAMES"; then
+            echo "$line"
+          fi
+        done)
+  if [[ -n "$BAD_CARGO_ADDS" ]]; then
+    echo "ERROR (C5-H2): doc(s) advertise a 'cargo add <crate>' that does not exist in the workspace:" >&2
+    echo "$BAD_CARGO_ADDS" >&2
+    echo "  Real crates: $(echo $REAL_CRATE_NAMES | tr '\n' ' ')" >&2
     fail=1
   fi
 fi
