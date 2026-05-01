@@ -60,7 +60,7 @@ All OpenGraphDB numbers below are the **median of N=5 release-build iterations**
 
 ## 2. Competitive comparison table
 
-Columns as specified. `Target (fastest-in-market)` is the best-in-class threshold from [`/tmp/evaluator-metrics-spec-2026-04-23.md`](/tmp/evaluator-metrics-spec-2026-04-23.md). Verdict legend: ✅ win / ❌ loss / 🟡 novel (no public baseline) / ⚠️ scale-mismatched (we ran at a smaller tier than competitors publish at — directional only).
+Columns as specified. `Target (fastest-in-market)` is the best-in-class threshold from each competitor's published numbers (Neo4j Cypher Tuning Guide, Memgraph Benchmarks 2024, KuzuDB v0.7 release notes — see Section 5 for source links). Verdict legend: ✅ win / ❌ loss / 🟡 novel (no public baseline) / ⚠️ scale-mismatched (we ran at a smaller tier than competitors publish at — directional only).
 
 | # | Metric | OpenGraphDB 0.4.0 | Neo4j published | Memgraph published | KuzuDB (historical) | Target (fastest-in-market) | Verdict |
 |---|---|---|---|---|---|---|---|

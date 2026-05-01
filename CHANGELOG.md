@@ -7,10 +7,17 @@ Versioning follows Semantic Versioning.
 
 ## [Unreleased]
 
-- Post-v0.4.0 changes will land here.
-
 ### Added
 - `ogdb-cli` embeds the built playground SPA (`frontend/dist-app/`) into the binary via `include_dir!` and serves it from `serve --http`: `GET /` returns the SPA shell, `GET /assets/*` returns the embedded asset with the right `Content-Type`, and any unknown non-API GET falls back to `index.html` so React Router can resolve the route on the client. Existing API endpoints (`GET /health`, `GET /metrics*`, `GET /schema`, all POST routes) are preserved; only previously-unhandled GETs route into the static handler. CI builds the SPA before cargo via a new `Build SPA dist for include_dir!` step in the `quality` job. Slice S7 of `.planning/frontend-overhaul/PLAN.md`.
+- Cross-platform `platform_io::FileExt` shim so positional `read_at`/`write_at` work on Windows (via `seek_read`/`seek_write`). Unblocks `cross-platform-build (windows-latest)` matrix in CI.
+- `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1) and `SECURITY.md` (vulnerability-disclosure path).
+- `.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.{md,yml}` standardising bug + feature intake.
+
+### Changed
+- README: added CI / verify-claims / latest-release / license badges at the top.
+- `CHANGELOG.md` link footer ratchets through `v0.4.0` (`Unreleased` now compares against `v0.4.0`, not `v0.3.0`).
+- `CONTRIBUTING.md` coverage gate updated: command is now `./scripts/coverage.sh`, threshold is the script's ratchet (93% / 3000 uncovered lines as of v0.4.0; ratchets DOWN only).
+- `documentation/BENCHMARKS.md`: removed leaked `/tmp/evaluator-metrics-spec-2026-04-23.md` link; competitor source attribution now points at Section 5.
 
 ## [0.4.0] - 2026-04-28
 
@@ -571,7 +578,8 @@ Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo
   - `scripts/coverage.sh`
 
 
-[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/asheshgoplani/opengraphdb/releases/tag/v0.1.0
