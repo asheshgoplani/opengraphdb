@@ -145,12 +145,14 @@ pub struct DiffEngine {
 }
 
 impl DiffEngine {
+    #[must_use]
     pub fn new(threshold: Threshold) -> Self {
         Self { threshold }
     }
 
     /// Compare `current` against `baseline` and emit one event per metric
     /// that crossed the threshold. Pure function; no I/O.
+    #[must_use]
     pub fn diff(&self, baseline: &EvaluationRun, current: &EvaluationRun) -> Vec<RegressionEvent> {
         let mut events = Vec::new();
         for (name, base_metric) in &baseline.metrics {
@@ -204,6 +206,7 @@ impl DiffEngine {
     /// meets the caller-supplied threshold. Difficulty-bucket metrics
     /// (`pass_rate_easy|medium|hard`) are skipped — they are not skills.
     /// `delta_pct` is signed percentage; negative = regression.
+    #[must_use]
     pub fn diff_skill_quality(
         &self,
         baseline: &EvaluationRun,

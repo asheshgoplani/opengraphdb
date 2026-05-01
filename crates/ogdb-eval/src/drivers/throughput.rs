@@ -166,15 +166,17 @@ pub fn ingest_bulk(db_dir: &Path, n_nodes: u32) -> Result<EvaluationRun, Through
     }
     let elapsed_s = started.elapsed().as_secs_f64();
     let nodes_per_sec = if elapsed_s > 0.0 {
-        n_nodes as f64 / elapsed_s
+        f64::from(n_nodes) / elapsed_s
     } else {
         0.0
     };
     let disk_mb = dir_disk_bytes(db_dir) as f64 / (1024.0 * 1024.0);
 
     let mut run = evaluation_run_skeleton("throughput", "ingest_bulk", "synthetic");
-    run.metrics
-        .insert("nodes".to_string(), metric(n_nodes as f64, "count", true));
+    run.metrics.insert(
+        "nodes".to_string(),
+        metric(f64::from(n_nodes), "count", true),
+    );
     run.metrics
         .insert("elapsed_s".to_string(), metric(elapsed_s, "s", false));
     run.metrics.insert(
@@ -216,7 +218,7 @@ pub fn read_point(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Throughp
     }
     let wall_s = started.elapsed().as_secs_f64();
     let qps = if wall_s > 0.0 {
-        samples as f64 / wall_s
+        f64::from(samples) / wall_s
     } else {
         0.0
     };
@@ -226,8 +228,10 @@ pub fn read_point(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Throughp
     insert_tail(&mut run, p50, p95, p99, p999);
     run.metrics
         .insert("qps".to_string(), metric(qps, "qps", true));
-    run.metrics
-        .insert("samples".to_string(), metric(samples as f64, "count", true));
+    run.metrics.insert(
+        "samples".to_string(),
+        metric(f64::from(samples), "count", true),
+    );
     run.notes = format!("neighbors() point lookup; {samples} samples over {node_count} nodes");
     Ok(run)
 }
@@ -264,7 +268,7 @@ pub fn read_traversal(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Thro
     }
     let wall_s = started.elapsed().as_secs_f64();
     let qps = if wall_s > 0.0 {
-        samples as f64 / wall_s
+        f64::from(samples) / wall_s
     } else {
         0.0
     };
@@ -299,7 +303,7 @@ pub fn mutation(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Throughput
         let id = xorshift(&mut rng) % node_count;
         let labels: Vec<String> = Vec::new();
         let mut props = PropertyMap::new();
-        props.insert("touched".to_string(), PropertyValue::I64(i as i64));
+        props.insert("touched".to_string(), PropertyValue::I64(i64::from(i)));
         let t0 = Instant::now();
         // ogdb-core does not expose a per-node set_property on the public
         // surface without going through a write-tx; we call create_node_with
@@ -320,7 +324,7 @@ pub fn mutation(db_dir: &Path, samples: u32) -> Result<EvaluationRun, Throughput
     }
     let wall_s = started.elapsed().as_secs_f64();
     let updates_per_sec = if wall_s > 0.0 {
-        samples as f64 / wall_s
+        f64::from(samples) / wall_s
     } else {
         0.0
     };

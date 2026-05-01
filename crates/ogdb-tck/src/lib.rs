@@ -48,6 +48,7 @@ pub struct TckRunReport {
 }
 
 impl TckRunReport {
+    #[must_use]
     pub fn meets_tier1_floor(&self, floor: f64) -> bool {
         self.tier1_pass_rate >= floor
     }

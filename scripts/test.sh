@@ -44,6 +44,10 @@ source "$HOME/.cargo/env"
 # EVAL-RUST-QUALITY-CYCLE4 B1: forbid `|| echo "::warning::..."` swallow
 # on cargo steps (cycle-3 cargo-semver-checks anti-pattern).
 ./scripts/check-no-advisory-swallow.sh
+# EVAL-RUST-QUALITY-CYCLE4 H6 + B2: pin unsafe_op_in_unsafe_fn=deny and
+# require new [workspace.lints.*] allows to be inventoried with a
+# CYCLE<N> ratchet rationale.
+./scripts/check-workspace-lint-pins.sh
 
 cargo fmt --all --check
 cargo check --workspace

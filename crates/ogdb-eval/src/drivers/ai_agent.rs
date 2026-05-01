@@ -68,8 +68,8 @@ pub fn enrichment_roundtrip(
         let mut ids = Vec::with_capacity(entities_per_doc as usize);
         for i in 0..entities_per_doc {
             let mut props = PropertyMap::new();
-            props.insert("doc_id".to_string(), PropertyValue::I64(doc as i64));
-            props.insert("entity_ord".to_string(), PropertyValue::I64(i as i64));
+            props.insert("doc_id".to_string(), PropertyValue::I64(i64::from(doc)));
+            props.insert("entity_ord".to_string(), PropertyValue::I64(i64::from(i)));
             let id = tx
                 .create_node_with(vec!["Entity".to_string()], props)
                 .map_err(|e| AiAgentError::Db(format!("create_node_with: {e}")))?;
@@ -92,7 +92,7 @@ pub fn enrichment_roundtrip(
     }
     let wall_s = started.elapsed().as_secs_f64();
     let docs_per_sec = if wall_s > 0.0 {
-        n_docs as f64 / wall_s
+        f64::from(n_docs) / wall_s
     } else {
         0.0
     };
@@ -112,7 +112,7 @@ pub fn enrichment_roundtrip(
     run.metrics
         .insert("t_persist_p99_9_us".to_string(), metric(p999, "us", false));
     run.metrics
-        .insert("docs".to_string(), metric(n_docs as f64, "count", true));
+        .insert("docs".to_string(), metric(f64::from(n_docs), "count", true));
     run.notes = format!(
         "enrichment; {n_docs} docs × {entities_per_doc} entities + {edges_per_doc} edges; single-writer tx per doc"
     );
@@ -155,7 +155,7 @@ pub fn hybrid_retrieval(
         for i in 0..n_nodes {
             let vec = random_vector(&mut rng, DIM);
             let mut props = PropertyMap::new();
-            props.insert("ord".to_string(), PropertyValue::I64(i as i64));
+            props.insert("ord".to_string(), PropertyValue::I64(i64::from(i)));
             props.insert("embedding".to_string(), PropertyValue::Vector(vec));
             let id = tx
                 .create_node_with(vec!["Entity".to_string()], props)
@@ -205,10 +205,12 @@ pub fn hybrid_retrieval(
         .insert("p99_9_us".to_string(), metric(p999, "us", false));
     run.metrics.insert(
         "queries".to_string(),
-        metric(n_queries as f64, "count", true),
+        metric(f64::from(n_queries), "count", true),
     );
-    run.metrics
-        .insert("nodes".to_string(), metric(n_nodes as f64, "count", true));
+    run.metrics.insert(
+        "nodes".to_string(),
+        metric(f64::from(n_nodes), "count", true),
+    );
     run.notes = format!(
         "vector kNN + 1-hop expansion; {n_queries} queries over {n_nodes} nodes (dim={DIM}). \
          NDCG@10 DEFERRED: no BEIR corpus in-tree — see documentation/BENCHMARKS.md"
@@ -257,7 +259,7 @@ pub fn concurrent_writes(
     let mut total_commits = 0u64;
     for h in handles {
         match h.join() {
-            Ok(Ok(n)) => total_commits += n as u64,
+            Ok(Ok(n)) => total_commits += u64::from(n),
             Ok(Err(e)) => return Err(AiAgentError::Db(e)),
             Err(_) => return Err(AiAgentError::Join),
         }
@@ -272,7 +274,7 @@ pub fn concurrent_writes(
     let mut run = evaluation_run_skeleton("ai_agent", "concurrent_writes", "synthetic");
     run.metrics.insert(
         "threads".to_string(),
-        metric(n_threads as f64, "count", true),
+        metric(f64::from(n_threads), "count", true),
     );
     run.metrics.insert(
         "commits_total".to_string(),
@@ -361,7 +363,7 @@ pub fn re_ranking(
     let mut run = evaluation_run_skeleton("ai_agent", "re_ranking", "synthetic");
     run.metrics.insert(
         "candidates".to_string(),
-        metric(candidates as f64, "count", true),
+        metric(f64::from(candidates), "count", true),
     );
     run.metrics
         .insert("batch_us".to_string(), metric(batch_us, "us", false));

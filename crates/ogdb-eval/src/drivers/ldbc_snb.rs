@@ -43,7 +43,7 @@ pub fn run_is1(db_path: &Path, query_count: u32) -> Result<EvaluationRun, Is1Err
     let mut samples_us: Vec<f64> = Vec::with_capacity(query_count as usize);
     let started = Instant::now();
     for i in 0..query_count {
-        let person_id = (i as i64) % person_count;
+        let person_id = i64::from(i) % person_count;
         let cypher = format!("MATCH (p:Person {{id: {person_id}}}) RETURN p.firstName, p.lastName");
         let q_start = Instant::now();
         let result = db
@@ -68,7 +68,7 @@ pub fn run_is1(db_path: &Path, query_count: u32) -> Result<EvaluationRun, Is1Err
     }
     let total_elapsed = started.elapsed().as_secs_f64();
     let qps = if total_elapsed > 0.0 {
-        query_count as f64 / total_elapsed
+        f64::from(query_count) / total_elapsed
     } else {
         0.0
     };
@@ -102,7 +102,7 @@ pub fn run_is1(db_path: &Path, query_count: u32) -> Result<EvaluationRun, Is1Err
         .insert("p99_9_us".to_string(), metric(p999, "us", false));
     run.metrics.insert(
         "queries".to_string(),
-        metric(query_count as f64, "count", true),
+        metric(f64::from(query_count), "count", true),
     );
     run.notes =
         format!("IS-1 Profile of Person; {query_count} queries against {person_count} persons");

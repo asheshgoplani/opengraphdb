@@ -87,7 +87,7 @@ fn median_aggregate_takes_median_of_each_metric() {
             vec![synthetic_run(
                 "throughput",
                 "ingest_streaming",
-                100.0 * (i as f64 + 1.0),
+                100.0 * (f64::from(i) + 1.0),
                 9999.0,
             )]
         })
@@ -117,8 +117,13 @@ fn median_aggregate_groups_by_suite_subsuite_dataset() {
     let iters: Vec<Vec<EvaluationRun>> = (0..3)
         .map(|i| {
             vec![
-                synthetic_run("throughput", "ingest_streaming", 100.0 + i as f64, 0.0),
-                synthetic_run("throughput", "read_point", 1000.0 + 10.0 * i as f64, 0.0),
+                synthetic_run("throughput", "ingest_streaming", 100.0 + f64::from(i), 0.0),
+                synthetic_run(
+                    "throughput",
+                    "read_point",
+                    1000.0 + 10.0 * f64::from(i),
+                    0.0,
+                ),
             ]
         })
         .collect();

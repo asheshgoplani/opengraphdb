@@ -37,7 +37,7 @@ impl DetRng {
 
     fn gen_range_u32(&mut self, start: u32, end: u32) -> u32 {
         assert!(start < end, "invalid range [{start}, {end})");
-        let span = (end - start) as u64;
+        let span = u64::from(end - start);
         start + (self.next_u64() % span) as u32
     }
 }
@@ -257,6 +257,8 @@ impl CsrDeltaModel {
 
     fn maybe_compact(&mut self) {
         let base_edges = self.base.edges.len().max(1);
+        // delta_threshold * len() is non-negative by construction.
+        #[allow(clippy::cast_sign_loss)]
         let threshold = (self.delta_threshold * base_edges as f64) as usize;
         if self.delta_edges < threshold.max(1) {
             return;
@@ -432,6 +434,8 @@ fn percentile_ns(values: &[u64], pct: f64) -> u64 {
     }
     let mut sorted = values.to_vec();
     sorted.sort_unstable();
+    // (len-1)*pct with pct ∈ [0,1] and len > 0; result is non-negative.
+    #[allow(clippy::cast_sign_loss)]
     let idx = ((sorted.len() - 1) as f64 * pct).round() as usize;
     sorted[idx]
 }
@@ -487,7 +491,9 @@ fn build_initial_adj(cfg: &Config, rng: &mut DetRng) -> Vec<Vec<u32>> {
 }
 
 fn hot_node_count(cfg: &Config) -> u32 {
-    let hot = (cfg.nodes as f64 * cfg.hot_node_share).round() as u32;
+    // nodes * hot_node_share with both factors non-negative; clamp follows.
+    #[allow(clippy::cast_sign_loss)]
+    let hot = (f64::from(cfg.nodes) * cfg.hot_node_share).round() as u32;
     hot.clamp(1, cfg.nodes.max(1))
 }
 

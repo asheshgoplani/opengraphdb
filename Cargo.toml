@@ -79,22 +79,33 @@ undocumented_unsafe_blocks = "warn"
 uninlined_format_args = "allow"
 only_used_in_recursion = "allow"
 duplicated_attributes = "allow"
-# EVAL-RUST-QUALITY-CYCLE3 H6: cycle-3 lights up the cast / must_use /
-# pedantic discipline cycle 2 explicitly deferred. Each entry below is
-# either a tightening (warn / deny) or a deliberate ratchet (allow with
-# a documented rationale) — the table is the single source of truth so
-# cycle 4 can flip an `allow` to `warn` lint-by-lint. With
-# `cargo clippy -- -D warnings`, every `warn` here is a hard CI gate.
+# EVAL-RUST-QUALITY-CYCLE3 H6 → CYCLE4 B2: cycle 3 added the cast /
+# must_use / pedantic discipline as `allow` with the stated intent of
+# flipping individual entries to `warn` per cycle. Cycle 4 lands the
+# first three flips; `cast_possible_truncation` stays at allow with a
+# documented cycle-5 ratchet (surfaces ~300 sites in ogdb-core's
+# WAL-replay path). With `cargo clippy -- -D warnings`, every `warn`
+# here is a hard CI gate.
 #
-# Started at `allow` with `priority = -1` (group level) so the rest of
-# the table can selectively re-enable individual lints with `warn`.
 # Pedantic-as-warn would generate ~hundreds of warnings in ogdb-core
 # (proven by experimentation) and is gated as a per-cycle ratchet.
 pedantic = { level = "allow", priority = -1 }
-must_use_candidate = "allow"
+# EVAL-RUST-QUALITY-CYCLE4 B2: flipped to `warn`. Mechanical sites
+# tagged with `#[must_use]` or `#[allow(clippy::must_use_candidate)]`
+# inline; the rest already returned values are consumed by callers.
+must_use_candidate = "warn"
+# EVAL-RUST-QUALITY-CYCLE4 B2: flipped to `warn`. Suggests `From::from`
+# / `as`-replacement on widening casts that never lose information.
+cast_lossless = "warn"
+# EVAL-RUST-QUALITY-CYCLE4 B2: flipped to `warn`. Surfaces signed →
+# unsigned casts where the source value is non-negative by construction
+# (loop counters, lengths). Per-site `#[allow]` documents the proof.
+cast_sign_loss = "warn"
+# EVAL-RUST-QUALITY-CYCLE5 ratchet: ~300 `u64 as usize` truncation
+# sites in ogdb-core. Closing this is a 1-day cleanup
+# (`usize::try_from(x).expect("u64 fits on 64-bit")`); the cycle-5
+# eval is the forcing function.
 cast_possible_truncation = "allow"
-cast_sign_loss = "allow"
-cast_lossless = "allow"
 
 # Cross-crate inlining for the IS-1 hot path. The 5 ogdb-core-split-* refactors
 # (vector/algorithms/text/temporal/import) moved plain-data types and pure

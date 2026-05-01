@@ -189,6 +189,7 @@ pub fn load_specs_from_dir(dir: &Path) -> Result<Vec<SkillSpec>, SkillQualityErr
 /// Pure function. Evaluates one case's `must_contain` / `must_not_contain`
 /// / `pattern` against the adapter's response text and computes a weighted
 /// `score ∈ [0.0, 1.0]` from the `scoring` dict.
+#[must_use]
 pub fn score_case(case: &EvalCase, resp: &AdapterResponse, skill: &str) -> CaseResult {
     let text = resp.text.as_str();
 
@@ -255,6 +256,7 @@ fn key_matches_text(key: &str, text: &str) -> bool {
 
 /// Aggregate per-case results into an `EvaluationRun` with the metric set
 /// described in PLAN.md §3.
+#[must_use]
 pub fn aggregate(results: &[CaseResult]) -> EvaluationRun {
     let total = results.len() as f64;
     let passed = results.iter().filter(|r| r.passed).count() as f64;

@@ -138,7 +138,7 @@ pub fn run_pagerank(
     let mut run = evaluation_run_skeleton("graphalytics", "PageRank", "ldbc-mini-sf0");
     run.metrics.insert(
         "iterations".to_string(),
-        metric(iterations as f64, "count", false),
+        metric(f64::from(iterations), "count", false),
     );
     run.metrics
         .insert("nodes".to_string(), metric(n as f64, "nodes", true));

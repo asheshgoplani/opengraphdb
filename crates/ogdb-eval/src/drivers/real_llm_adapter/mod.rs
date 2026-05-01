@@ -42,6 +42,7 @@ pub struct RetryPolicy {
 impl RetryPolicy {
     /// Read `OGDB_LLM_MAX_RETRIES` + `OGDB_LLM_RETRY_BASE_MS`; fall back
     /// to the `DEFAULT_*` constants on parse errors or missing vars.
+    #[must_use]
     pub fn from_env() -> Self {
         let max_retries = std::env::var(MAX_RETRIES_ENV)
             .ok()
@@ -57,6 +58,7 @@ impl RetryPolicy {
         }
     }
 
+    #[must_use]
     pub fn defaults() -> Self {
         Self {
             max_retries: DEFAULT_MAX_RETRIES,

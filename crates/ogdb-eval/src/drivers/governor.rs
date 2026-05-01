@@ -31,11 +31,13 @@ pub enum GovernorState {
 
 /// Read the current governor for cpu0. Returns `Unavailable` if the
 /// sysfs path is missing or unreadable. Never panics.
+#[must_use]
 pub fn detect_governor() -> GovernorState {
     detect_governor_at(Path::new(GOVERNOR_PATH))
 }
 
 /// Test seam — read the governor at an arbitrary path.
+#[must_use]
 pub fn detect_governor_at(path: &Path) -> GovernorState {
     match fs::read_to_string(path) {
         Ok(s) => GovernorState::Available(s.trim().to_string()),
