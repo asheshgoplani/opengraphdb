@@ -33,6 +33,19 @@ cargo clippy --workspace --all-targets --all-features -- -D warnings
 # Advisory + license + bans gate. Deferrals must point at
 # `documentation/SECURITY-FOLLOWUPS.md` per `deny.toml` ignore.
 cargo deny check advisories licenses bans sources
+# C3-H7 (HIGH): defense-in-depth. cargo-deny is the canonical gate, but
+# cargo-audit reads RustSec advisories with a different parser + a
+# different ignore-list shape — running both means a new advisory has to
+# slip past *two* allowlist hops to land. Mirrors the deferrals in
+# deny.toml so a green run here doesn't conflict.
+if ! command -v cargo-audit >/dev/null 2>&1; then
+  cargo install cargo-audit --locked
+fi
+cargo audit \
+  --ignore RUSTSEC-2025-0020 \
+  --ignore RUSTSEC-2026-0002 \
+  --ignore RUSTSEC-2026-0097 \
+  --deny warnings
 # EVAL-RUST-QUALITY-CYCLE2 §H9 (HIGH): catch broken intra-doc links,
 # malformed ```rust blocks, and dead links at PR time instead of after
 # publishing to docs.rs. `--no-deps` keeps the gate fast (we don't
