@@ -224,7 +224,7 @@ jobs:
           npm run build:app
 
       - name: Install cargo-semver-checks
-        run: cargo install cargo-semver-checks --locked
+        run: cargo install cargo-semver-checks --locked --version 0.44.0
 
       - name: cargo semver-checks (advisory until baseline clean)
         run: |
