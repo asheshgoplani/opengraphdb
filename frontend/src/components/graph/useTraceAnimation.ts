@@ -18,11 +18,15 @@ export function useTraceAnimation() {
     }
   }, [])
 
-  useEffect(() => {
-    if (!trace || !trace.isPlaying || trace.steps.length === 0) return
+  const isPlaying = trace?.isPlaying ?? false
+  const currentStepIndex = trace?.currentStepIndex ?? 0
+  const speedMultiplier = trace?.speedMultiplier ?? 1
+  const stepsLen = trace?.steps.length ?? 0
 
-    const { steps, currentStepIndex, speedMultiplier } = trace
-    if (currentStepIndex >= steps.length) {
+  useEffect(() => {
+    if (!isPlaying || stepsLen === 0) return
+
+    if (currentStepIndex >= stepsLen) {
       useGraphStore.setState((state) => ({
         trace: state.trace ? { ...state.trace, isPlaying: false } : null,
       }))
@@ -54,7 +58,7 @@ export function useTraceAnimation() {
 
     rafRef.current = requestAnimationFrame(tick)
     return stop
-  }, [trace?.isPlaying, trace?.currentStepIndex, trace?.speedMultiplier, advanceTrace, stop])
+  }, [isPlaying, currentStepIndex, speedMultiplier, stepsLen, advanceTrace, stop])
 
   return { isPlaying: trace?.isPlaying ?? false, stop }
 }
