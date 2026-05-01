@@ -89,17 +89,23 @@ test.describe('F5 · power tab executes real Cypher against ogdb serve', () => {
     const powerToggle = page.getByRole('button', { name: /Power mode/i })
     await expect(powerToggle, 'the Power mode toggle must exist on the header').toBeVisible()
     await powerToggle.click()
+    const powerPanel = page.getByTestId('power-mode-panel')
     await expect(
-      page.getByTestId('power-mode-panel'),
+      powerPanel,
       'clicking Power mode must reveal the Cypher editor panel',
     ).toBeVisible()
 
-    // The @neo4j-cypher/react-codemirror editor renders a contenteditable;
-    // focus it and type. We use keyboard typing (not evaluate) so that the
-    // CodeMirror state machine runs just like a real developer typed it.
-    const editor = page.getByRole('textbox', { name: /Cypher query editor/i })
+    // H1 (b53f1d1) lazy-loads CypherEditor + lintWorker on first interaction.
+    // Click the placeholder textarea first to flip editorActivated=true and
+    // trigger the lazy chunk fetch; THEN wait for the CodeMirror surface
+    // (.cm-content) to mount before typing. Typing immediately after the
+    // first click would race the lazy swap and drop characters.
+    // keyboard.insertText is atomic (matches qa-followups.spec.ts).
+    await page.getByTestId('cypher-editor-placeholder').click()
+    const editor = powerPanel.locator('.cm-content').first()
+    await editor.waitFor({ state: 'visible' })
     await editor.click()
-    await page.keyboard.type('MATCH (n) RETURN n LIMIT 10')
+    await page.keyboard.insertText('MATCH (n) RETURN n LIMIT 10')
 
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/query') && !r.url().includes('/trace'),
@@ -162,11 +168,15 @@ test.describe('F5 · power tab executes real Cypher against ogdb serve', () => {
 
     // Act — Power mode on; type deliberately bad Cypher; Run.
     await page.getByRole('button', { name: /Power mode/i }).click()
-    await expect(page.getByTestId('power-mode-panel')).toBeVisible()
+    const powerPanel = page.getByTestId('power-mode-panel')
+    await expect(powerPanel).toBeVisible()
 
-    const editor = page.getByRole('textbox', { name: /Cypher query editor/i })
+    // Same lazy-editor settle pattern as the success-path test above.
+    await page.getByTestId('cypher-editor-placeholder').click()
+    const editor = powerPanel.locator('.cm-content').first()
+    await editor.waitFor({ state: 'visible' })
     await editor.click()
-    await page.keyboard.type('THIS_IS_NOT_CYPHER_AT_ALL 123 $$$')
+    await page.keyboard.insertText('THIS_IS_NOT_CYPHER_AT_ALL 123 $$$')
 
     const responsePromise = page.waitForResponse(
       (r) => r.url().includes('/api/query') && !r.url().includes('/trace'),
