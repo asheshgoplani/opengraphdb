@@ -19,7 +19,7 @@ edges.
   `POST /mcp/tools` is the canonical list — see
   [`COOKBOOK.md` Recipe 1](../COOKBOOK.md#recipe-1--ai-agent-over-mcp) and the
   source-of-truth handler at
-  [`crates/ogdb-cli/src/lib.rs::execute_mcp_tools_list`](../../crates/ogdb-cli/src/lib.rs).
+  [`crates/ogdb-cli/src/lib.rs::execute_mcp_request`](../../crates/ogdb-cli/src/lib.rs) (the `"tools/list"` arm).
 - **Rendering surface (this pattern):** A render-graph MCP tool wrapping
   the same cosmos.gl renderer the playground uses. The Cypher input runs
   through the same `ogdb serve --http` backend — there is no shadow query

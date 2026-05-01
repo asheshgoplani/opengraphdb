@@ -23,7 +23,7 @@ Each `ogdb-*` crate published to crates.io follows **standard cargo SemVer**:
 
 ## 2. File-format SemVer
 
-Five constants govern on-disk format compatibility (`crates/ogdb-core/src/lib.rs:155–159`):
+Five constants govern on-disk format compatibility, declared together in `crates/ogdb-core/src/lib.rs` (`META_FORMAT_VERSION`, `FREE_LIST_FORMAT_VERSION`, `CSR_LAYOUT_FORMAT_VERSION`, `NODE_PROPERTY_STORE_FORMAT_VERSION`, `VECTOR_INDEX_FORMAT_VERSION` — all `pub const` items, grep by name):
 
 | Constant | Current | Governs |
 |---|---|---|
