@@ -1,5 +1,4 @@
-import { useCallback, useMemo, useSyncExternalStore } from 'react'
-import { CypherEditor } from '@neo4j-cypher/react-codemirror'
+import { lazy, Suspense, useCallback, useMemo, useState, useSyncExternalStore } from 'react'
 import type { DbSchema } from '@neo4j-cypher/language-support'
 import { Loader2, Play } from 'lucide-react'
 import { useSchemaQuery } from '@/api/queries'
@@ -10,6 +9,12 @@ import { useQueryStore } from '@/stores/query'
 import { resolveTheme } from '@/components/layout/theme-utils'
 import { prepareCypherQuery } from './query-utils'
 import { SaveQueryDialog } from './SaveQueryDialog'
+
+// H1: defer-load the cypher editor + 8.3 MB lintWorker chunk until first
+// interaction. Cold playground load no longer pays the worker cost.
+const CypherEditorLazy = lazy(() =>
+  import('@neo4j-cypher/react-codemirror').then((m) => ({ default: m.CypherEditor })),
+)
 
 interface CypherEditorPanelProps {
   onRunQuery: (query: string) => void
@@ -65,6 +70,7 @@ export function CypherEditorPanel({ onRunQuery, isRunning = false }: CypherEdito
 
   const schema = useSchemaAsDbSchema()
   const resolvedTheme = useResolvedEditorTheme()
+  const [editorActivated, setEditorActivated] = useState(false)
 
   const handleExecute = useCallback(
     (cmd: string) => {
@@ -80,19 +86,50 @@ export function CypherEditorPanel({ onRunQuery, isRunning = false }: CypherEdito
   return (
     <div className="border-b bg-card p-3">
       <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="flex-1 overflow-hidden rounded-md border border-input">
-          <CypherEditor
-            value={currentQuery}
-            onChange={(value) => setCurrentQuery(value)}
-            onExecute={handleExecute}
-            history={history}
-            schema={schema}
-            theme={resolvedTheme}
-            lint={true}
-            placeholder="Enter a Cypher query... e.g., MATCH (n) RETURN n LIMIT 25"
-            ariaLabel="Cypher query editor"
-            className="min-h-[80px] max-h-[200px]"
-          />
+        <div
+          className="flex-1 overflow-hidden rounded-md border border-input"
+          onPointerDown={() => setEditorActivated(true)}
+          onFocusCapture={() => setEditorActivated(true)}
+        >
+          {editorActivated ? (
+            <Suspense
+              fallback={
+                <textarea
+                  data-testid="cypher-editor-fallback"
+                  aria-label="Cypher query editor"
+                  className="min-h-[80px] w-full resize-none bg-background p-2 text-sm font-mono outline-none"
+                  value={currentQuery}
+                  onChange={(event) => setCurrentQuery(event.target.value)}
+                  placeholder="Enter a Cypher query..."
+                />
+              }
+            >
+              <CypherEditorLazy
+                value={currentQuery}
+                onChange={(value) => setCurrentQuery(value)}
+                onExecute={handleExecute}
+                history={history}
+                schema={schema}
+                theme={resolvedTheme}
+                lint={true}
+                placeholder="Enter a Cypher query... e.g., MATCH (n) RETURN n LIMIT 25"
+                ariaLabel="Cypher query editor"
+                className="min-h-[80px] max-h-[200px]"
+              />
+            </Suspense>
+          ) : (
+            <textarea
+              data-testid="cypher-editor-placeholder"
+              aria-label="Cypher query editor"
+              className="min-h-[80px] w-full resize-none bg-background p-2 text-sm font-mono outline-none"
+              value={currentQuery}
+              onChange={(event) => {
+                setCurrentQuery(event.target.value)
+                setEditorActivated(true)
+              }}
+              placeholder="Enter a Cypher query... e.g., MATCH (n) RETURN n LIMIT 25"
+            />
+          )}
         </div>
 
         <div className="flex gap-1 sm:flex-col sm:self-end">

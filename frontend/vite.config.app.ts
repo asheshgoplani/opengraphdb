@@ -90,10 +90,14 @@ export default defineConfig({
     rollupOptions: {
       input: path.resolve(__dirname, 'index-app.html'),
       output: {
+        // NOTE: @neo4j-cypher/react-codemirror is dynamically imported by
+        // CypherEditorPanel (H1 — defer-load until first editor interaction)
+        // so it's left out of manualChunks here; rollup creates a code-split
+        // chunk for it automatically and the 8.3 MB lint worker stays out of
+        // the cold playground bundle.
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router-dom'],
           'graph-vendor': ['react-force-graph-2d'],
-          'codemirror-vendor': ['@neo4j-cypher/react-codemirror'],
           'motion-vendor': ['framer-motion'],
           'tanstack-vendor': ['@tanstack/react-query', '@tanstack/react-table'],
           'state-vendor': ['zustand'],
