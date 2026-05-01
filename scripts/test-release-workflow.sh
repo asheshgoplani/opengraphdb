@@ -38,6 +38,17 @@ grep -q "softprops/action-gh-release\|gh release create\|gh release upload" "$WO
   || fail "release.yml must upload assets to a GitHub Release (Findings 4/5)"
 ok "release.yml uploads release assets"
 
+# C2-A3 (BLOCKER): the SPA build step must carry NODE_OPTIONS=4096 so
+# macOS / Windows runners do not OOM in vite. Mirror of `ci.yml` fix
+# from commit 91d26f2.
+awk '
+  /Build SPA dist for include_dir/ { found = 1 }
+  found && /NODE_OPTIONS.*4096/ { print "yes"; found = 0 }
+  /^[[:space:]]*-[[:space:]]*name:/ && !/Build SPA dist/ { found = 0 }
+' "$WORKFLOW" | grep -q yes \
+  || fail "release.yml SPA build step must set NODE_OPTIONS=--max-old-space-size=4096 (C2-A3)"
+ok "release.yml SPA build sets NODE_OPTIONS=4096"
+
 # --- 2. release.sh exists & is a shippable driver ----------------------------
 [[ -f "$SCRIPT" ]] || fail "missing $SCRIPT (Finding 4)"
 [[ -x "$SCRIPT" ]] || fail "$SCRIPT must be executable"

@@ -53,6 +53,13 @@ jobs:
 
       - name: Build SPA dist for include_dir!
         working-directory: frontend
+        # C2-A3 (BLOCKER): mirror the ci.yml fix from `91d26f2` — macOS
+        # (and especially aarch64-apple-darwin) runners OOM under v8's
+        # default heap when vite builds. Without this env, every macOS +
+        # Windows build in the matrix fails before reaching cargo,
+        # leaving a "successful" Release with only Linux binaries.
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           npm ci
           npm run build:app
