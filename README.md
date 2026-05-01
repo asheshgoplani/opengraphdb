@@ -1,5 +1,10 @@
 # OpenGraphDB
 
+[![CI](https://github.com/asheshgoplani/opengraphdb/actions/workflows/ci.yml/badge.svg)](https://github.com/asheshgoplani/opengraphdb/actions/workflows/ci.yml)
+[![verify-claims](https://github.com/asheshgoplani/opengraphdb/actions/workflows/verify-claims.yml/badge.svg)](https://github.com/asheshgoplani/opengraphdb/actions/workflows/verify-claims.yml)
+[![Latest release](https://img.shields.io/github/v/release/asheshgoplani/opengraphdb)](https://github.com/asheshgoplani/opengraphdb/releases)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
+
 **An embeddable, Cypher-speaking graph database with vector + full-text + RDF + MCP built in. Single binary. Single file. Apache 2.0.**
 
 ---
