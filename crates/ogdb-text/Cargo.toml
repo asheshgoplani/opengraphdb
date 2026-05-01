@@ -3,6 +3,15 @@ name = "ogdb-text"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "OpenGraphDB text utilities for tokenisation and full-text indexing."
+keywords = ["graph", "database", "opengraphdb", "text", "tokenisation"]
+categories = ["text-processing", "database"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

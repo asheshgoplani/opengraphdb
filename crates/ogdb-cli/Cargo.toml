@@ -3,6 +3,15 @@ name = "ogdb-cli"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "OpenGraphDB command-line interface and embedded HTTP / Bolt / MCP server (`ogdb` binary)."
+keywords = ["graph", "database", "opengraphdb", "cli", "cypher"]
+categories = ["command-line-utilities", "database"]
 
 [[bin]]
 name = "ogdb"

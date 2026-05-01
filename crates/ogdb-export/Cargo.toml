@@ -3,6 +3,15 @@ name = "ogdb-export"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "OpenGraphDB graph export helpers (NDJSON / GraphML / RDF serialisation)."
+keywords = ["graph", "database", "opengraphdb", "export", "ndjson"]
+categories = ["data-structures", "database"]
 
 [dependencies]
 ogdb-types = { path = "../ogdb-types" }

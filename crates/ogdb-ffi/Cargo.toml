@@ -3,6 +3,15 @@ name = "ogdb-ffi"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "OpenGraphDB C FFI bindings (libogdb_ffi shared / static library)."
+keywords = ["graph", "database", "opengraphdb", "ffi", "c-bindings"]
+categories = ["external-ffi-bindings", "database"]
 
 [lib]
 name = "ogdb_ffi"

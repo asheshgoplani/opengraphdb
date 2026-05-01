@@ -3,6 +3,15 @@ name = "ogdb-vector"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "OpenGraphDB vector distance metrics and helpers for embedding-similarity search."
+keywords = ["graph", "database", "opengraphdb", "vector", "embedding"]
+categories = ["data-structures", "database"]
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }

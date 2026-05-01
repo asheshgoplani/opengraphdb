@@ -3,6 +3,15 @@ name = "ogdb-node"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
+authors.workspace = true
+repository.workspace = true
+homepage.workspace = true
+documentation.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+description = "OpenGraphDB Node.js bindings (napi-rs-based)."
+keywords = ["graph", "database", "opengraphdb", "nodejs", "napi"]
+categories = ["api-bindings", "database"]
 
 [lib]
 name = "ogdb_node"
