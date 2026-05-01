@@ -73,3 +73,38 @@ jobs:
 
       - name: Token-leak gate
         run: bash scripts/check-token-leaks.sh
+
+  cross-platform-build:
+    # EVAL-PERF-RELEASE.md Finding 6 (BLOCKER): catch macOS / Windows
+    # breakage on the PR, not at the v* tag. We build ogdb-cli only — full
+    # `cargo test` on macOS/Windows would gate every PR on a 30-min job;
+    # this slim build verifies the platform compiles. The full release
+    # workflow (.github/workflows/release.yml) does the cross-target build
+    # matrix on tag push.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build SPA dist for include_dir!
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build:app
+
+      - name: Build ogdb-cli (release)
+        run: cargo build --release -p ogdb-cli

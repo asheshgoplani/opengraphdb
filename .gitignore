@@ -3,6 +3,7 @@
 **/*.rs.bk
 /coverage
 /data/
+/dist/
 
 # OS / editor
 .DS_Store
