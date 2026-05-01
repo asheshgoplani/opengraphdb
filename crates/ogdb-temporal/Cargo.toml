@@ -12,3 +12,6 @@ rust-version.workspace = true
 description = "OpenGraphDB temporal-scope filters (valid-time / system-time bitemporal edge model)."
 keywords = ["graph", "database", "opengraphdb", "temporal", "bitemporal"]
 categories = ["data-structures", "database"]
+
+[lints]
+workspace = true

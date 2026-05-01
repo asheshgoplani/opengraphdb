@@ -9,13 +9,13 @@ publish = false
 ogdb-core = { path = "../ogdb-core", default-features = false }
 regex = "1"
 reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"], optional = true }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror = "1"
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
-libc = "0.2"
-tempfile = "3"
+libc.workspace = true
+tempfile.workspace = true
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 wiremock = "0.6"
 
@@ -24,3 +24,6 @@ default = ["llm-anthropic"]
 llm-anthropic = ["dep:reqwest"]
 llm-openai = ["dep:reqwest"]
 llm-local = ["dep:reqwest"]
+
+[lints]
+workspace = true

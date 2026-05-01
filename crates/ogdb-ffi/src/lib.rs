@@ -54,6 +54,10 @@ fn parse_cstr_required(raw: *const c_char, name: &str) -> Result<String, String>
     if raw.is_null() {
         return Err(format!("{name} cannot be null"));
     }
+    // SAFETY: every caller is one of the `pub unsafe extern "C" fn` items
+    // below, each of which documents that all `*const c_char` parameters
+    // must be non-null and point to a valid NUL-terminated UTF-8 string for
+    // the duration of the call. Null was just rejected immediately above.
     let value = unsafe { CStr::from_ptr(raw) }
         .to_str()
         .map_err(|_| format!("{name} must be valid utf-8"))?;
@@ -67,6 +71,10 @@ fn parse_cstr_optional(raw: *const c_char, name: &str) -> Result<Option<String>,
     if raw.is_null() {
         return Ok(None);
     }
+    // SAFETY: callers are `pub unsafe extern "C" fn` items below. Their docs
+    // require optional `*const c_char` arguments to either be null (handled
+    // immediately above) or point to a valid NUL-terminated UTF-8 string for
+    // the duration of the call.
     let value = unsafe { CStr::from_ptr(raw) }
         .to_str()
         .map_err(|_| format!("{name} must be valid utf-8"))?;
@@ -292,6 +300,11 @@ where
     if handle.is_null() {
         return Err("database handle is null".to_string());
     }
+    // SAFETY: `handle` was returned by `ogdb_init` / `ogdb_open` (each
+    // documents that requirement) and the caller is a `pub unsafe extern
+    // "C" fn` whose own `# Safety` paragraph forwards that contract. Null
+    // was just rejected; the C caller is responsible for not aliasing the
+    // handle, exactly like a `&mut` would require.
     let handle_ref = unsafe { &mut *(handle as *mut OgdbHandleInner) };
     op(handle_ref)
 }
@@ -372,7 +385,10 @@ pub unsafe extern "C" fn ogdb_close(handle: *mut OgdbHandle) {
     if handle.is_null() {
         return;
     }
-    drop(Box::from_raw(handle as *mut OgdbHandleInner));
+    // SAFETY: `handle` was produced by `Box::into_raw` inside
+    // `ogdb_init`/`ogdb_open`. The function-level `# Safety` paragraph
+    // requires the caller to drop the pointer here exactly once.
+    drop(unsafe { Box::from_raw(handle as *mut OgdbHandleInner) });
 }
 
 #[no_mangle]
@@ -614,7 +630,11 @@ pub unsafe extern "C" fn ogdb_free(ptr: *mut c_char) {
     if ptr.is_null() {
         return;
     }
-    drop(CString::from_raw(ptr));
+    // SAFETY: `ptr` was produced by `CString::into_raw` (via
+    // `string_to_c_ptr` / `sanitize_error_message`). The function-level
+    // `# Safety` paragraph requires the caller to free the pointer here
+    // exactly once and never use it again.
+    drop(unsafe { CString::from_raw(ptr) });
 }
 
 #[cfg(test)]

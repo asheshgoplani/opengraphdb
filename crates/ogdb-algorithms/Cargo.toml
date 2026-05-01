@@ -15,3 +15,5 @@ categories = ["algorithms", "data-structures"]
 
 [dependencies]
 
+[lints]
+workspace = true

@@ -1,3 +1,13 @@
+// EVAL-RUST-QUALITY-CYCLE2 H5: this integration test calls the FFI surface
+// directly. Each `unsafe` block exercises the documented safety contract
+// of the corresponding `pub unsafe extern "C" fn` (handle produced by
+// `ogdb_init`, NUL-terminated UTF-8 inputs, single ownership transfer,
+// etc.) — duplicating that contract on every line would obscure the test,
+// so we suppress the per-block lint here and rely on the SAFETY comments
+// in `crates/ogdb-ffi/src/lib.rs` for the documented invariants.
+#![allow(clippy::undocumented_unsafe_blocks)]
+#![allow(unsafe_op_in_unsafe_fn)]
+
 use std::ffi::{CStr, CString};
 use std::fs;
 use std::os::raw::c_char;

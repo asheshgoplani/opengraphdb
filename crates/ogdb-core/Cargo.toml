@@ -21,8 +21,11 @@ document-ingest = ["ogdb-import/document-ingest"]
 tracing = ["dep:tracing"]
 wasm-bindings = ["dep:wasm-bindgen"]
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
+[lints]
+# Inherits `unexpected_cfgs` (cfg(coverage)) and the workspace safety/discipline
+# lints (unsafe_op_in_unsafe_fn, undocumented_unsafe_blocks) from the root
+# Cargo.toml. See EVAL-RUST-QUALITY-CYCLE2 H11.
+workspace = true
 
 [dependencies]
 ogdb-vector = { path = "../ogdb-vector" }
@@ -35,8 +38,8 @@ ogdb-export = { path = "../ogdb-export" }
 lz4_flex = "0.11.6"
 instant-distance = { version = "0.6.1", optional = true }
 roaring = "0.10"
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde.workspace = true
+serde_json.workspace = true
 tantivy = { version = "0.25", optional = true }
 tracing = { version = "0.1", optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
@@ -46,4 +49,4 @@ winnow = "0.6"
 zstd = "0.13"
 
 [dev-dependencies]
-proptest = { version = "1", default-features = false, features = ["std"] }
+proptest.workspace = true
