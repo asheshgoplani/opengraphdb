@@ -14,7 +14,7 @@ keywords = ["graph", "database", "opengraphdb", "export", "ndjson"]
 categories = ["data-structures", "database"]
 
 [dependencies]
-ogdb-types = { path = "../ogdb-types" }
+ogdb-types = { path = "../ogdb-types", version = "0.4.0" }
 
 [lints]
 workspace = true
