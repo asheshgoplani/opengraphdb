@@ -33,6 +33,9 @@ source "$HOME/.cargo/env"
 # `unsafe_op_in_unsafe_fn` allow. Hand-written unsafe in either crate
 # would defeat the narrowing — fail CI in that case.
 ./scripts/check-bindings-no-handwritten-unsafe.sh
+# EVAL-RUST-QUALITY-CYCLE3 B2: every publishable crate's lib.rs must
+# start with a `//!` crate-root rustdoc block (docs.rs landing page).
+./scripts/check-crate-root-docs.sh
 
 cargo fmt --all --check
 cargo check --workspace

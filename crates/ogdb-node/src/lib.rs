@@ -1,3 +1,15 @@
+//! # ogdb-node
+//!
+//! Node.js (`napi-rs`-based) bindings for OpenGraphDB. Exposes a
+//! `Database` class that wraps [`ogdb_core::Database`] with `init` /
+//! `open` / `close` / `createNode` / `addEdge` / `query` / `importCsv` /
+//! `importJson` / `importRdf` / `export` / vector + text index helpers
+//! / `vectorSearch` / `textSearch` / `backup` / `checkpoint` / `metrics`.
+//! Status: **experimental**.
+//!
+//! See <https://github.com/asheshgoplani/opengraphdb> for the parent
+//! project and `bindings/node/` (planned) for usage examples.
+//!
 // EVAL-RUST-QUALITY-CYCLE3 H7: the workspace `unsafe_op_in_unsafe_fn` lint
 // fires on napi-macro-generated code (`#[napi]` synthesises `unsafe extern
 // "C" fn` bodies whose internals deref NAPI handles directly). The macro

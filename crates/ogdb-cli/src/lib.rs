@@ -1,11 +1,25 @@
-// EVAL-RUST-QUALITY-CYCLE2 B2 (BLOCKER): turn on `missing_docs` so that any
-// NEWLY added `pub` item in this crate triggers a warning until it has a
-// `///` comment. The currently-undocumented public items predate this gate
-// and are tracked as cycle-3 follow-up work; until they are documented we
-// keep `allow(missing_docs)` immediately below to avoid breaking the
-// `cargo clippy -- -D warnings` workspace gate. Removing the `allow`
-// (without first documenting the items) is the cycle-3 forcing function
-// the eval describes.
+//! # ogdb-cli
+//!
+//! Command-line interface and embedded HTTP / Bolt / MCP server for
+//! OpenGraphDB. Hosts the `ogdb` binary and the public `run` /
+//! `parse_shacl_shapes` / `validate_against_shacl` library entrypoints
+//! so a downstream Rust application can drive the CLI through the same
+//! parser as the binary.
+//!
+//! ## Quickstart
+//!
+//! ```bash
+//! cargo install ogdb-cli
+//! ogdb init mydata.ogdb
+//! ogdb query mydata.ogdb 'CREATE (n:Person {name: "Alice"})'
+//! ogdb serve --bolt :7687 --http :8080 mydata.ogdb
+//! ```
+//!
+//! See <https://github.com/asheshgoplani/opengraphdb> for the parent
+//! project and `documentation/CLI.md` for the full command reference.
+//!
+// EVAL-RUST-QUALITY-CYCLE2 B2: see ogdb-core/src/lib.rs for the same
+// `warn + allow` ratchet pattern.
 #![warn(missing_docs)]
 #![allow(missing_docs)]
 

@@ -1,11 +1,32 @@
-// EVAL-RUST-QUALITY-CYCLE2 B1 (BLOCKER): turn on `missing_docs` so that any
-// NEWLY added `pub` item in this crate triggers a warning until it has a
-// `///` comment. The ~245 currently-undocumented public items predate this
-// gate and are tracked as cycle-3 follow-up work; until they are documented
-// we keep `allow(missing_docs)` immediately below to avoid breaking the
-// `cargo clippy -- -D warnings` workspace gate. Removing the `allow`
-// (without first documenting the items) is the cycle-3 forcing function
-// the eval describes.
+//! # ogdb-core
+//!
+//! Embedded property-graph database core for OpenGraphDB. Owns storage,
+//! query planning, indexing (vector + full-text), bitemporal edges, the
+//! WAL, and the Cypher executor. The headline `Database` /
+//! `SharedDatabase` types are `pub` from this crate; sibling crates
+//! (`ogdb-bolt`, `ogdb-cli`, `ogdb-ffi`, `ogdb-node`, `ogdb-python`)
+//! layer transports and bindings on top.
+//!
+//! ## Quickstart
+//!
+//! ```rust,ignore
+//! use ogdb_core::{Database, Header};
+//! let db = Database::init("./mydata.ogdb", Header::default_v1())?;
+//! # Ok::<(), ogdb_core::DbError>(())
+//! ```
+//!
+//! See <https://github.com/asheshgoplani/opengraphdb> for the parent
+//! project, `documentation/ARCHITECTURE.md` for the storage / query / WAL
+//! architecture, and the published sibling crates on docs.rs for the
+//! transport surfaces (Bolt, HTTP, FFI, language bindings).
+//!
+// EVAL-RUST-QUALITY-CYCLE2 B1: `missing_docs` is `warn`-on-add. The ~245
+// currently-undocumented public items predate this gate; the
+// `allow(missing_docs)` below converts the new-PR warning into a
+// no-op for legacy items. Cycle 3's forcing function (B1 + N20) is to
+// split this 41 kLoC lib.rs into modules and document each section as
+// it moves; removing the `allow` is the cycle-N gate that locks in
+// the new docs.
 #![warn(missing_docs)]
 #![allow(missing_docs)]
 
