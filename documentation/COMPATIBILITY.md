@@ -64,9 +64,9 @@ Bolt, HTTP, and MCP wire formats are versioned **independently** of the workspac
 
 | Surface | Versioning | Notes |
 |---|---|---|
-| Bolt v4.x | `crates/ogdb-bolt/src/handshake.rs` (per Bolt spec) | Protocol negotiation per connection |
+| Bolt v1 | `crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_1` | v1-only today (the handshake declines anything else); v4 / v5 negotiation is tracked as a v0.5 follow-up. Neo4j 5.x drivers that won't accept v1 will reject the handshake on connect — see `MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage". |
 | HTTP / `/v1/...` | URL prefix | Add `/v2/...` for breaking changes; `/v1` deprecated then removed across two minors |
-| MCP (stdio + sse) | `mcp/manifest.json` `"version"` | Per MCP spec; bumped when tools/resources change |
+| MCP (stdio + HTTP) | tool catalog at `crates/ogdb-cli/src/lib.rs::execute_mcp_request` (the `"tools/list"` arm) | stdio: `ogdb mcp --stdio`. HTTP: `POST /mcp/tools` (catalog) + `POST /mcp/invoke` (execute). SSE is **not** implemented — earlier drafts of this row claimed `stdio + sse`, but `grep -n 'mcp/sse\|mcp_sse' crates/ogdb-cli/src` returns nothing; the only `text/event-stream` writer in the binary is the unrelated query-streaming endpoint. |
 | Prometheus `/metrics` | metric-name SemVer (additive only) | Removing a metric name is a breaking change |
 
 ---
