@@ -37,8 +37,12 @@ use std::collections::BTreeMap;
 /// The 11 variants match the wire format pinned by the hand-rolled
 /// [`Serialize`] / [`Deserialize`] impls (`{"Variant": payload}`) —
 /// adding or renaming a variant is a breaking change for the bolt
-/// wire / WAL contract.
+/// wire / WAL contract. The Rust API itself is `#[non_exhaustive]` so
+/// downstream consumers cannot write `match`-exhaustive arms over this
+/// enum; the wire-format compatibility check lives in `ogdb-bolt`.
+/// (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum PropertyValue {
     /// Boolean value.
     Bool(bool),

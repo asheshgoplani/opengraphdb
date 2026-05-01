@@ -8,10 +8,18 @@ feature-depth = 1
 
 [advisories]
 version = 2
+# EVAL-RUST-QUALITY-CYCLE3 H12: every advisory ignore carries an explicit
+# review-by date in its `reason` (`re-evaluate by YYYY-MM-DD`). The
+# `scripts/check-deny-expirations.sh` gate parses these dates and fails
+# the build once the date has passed, forcing a maintainer re-evaluation
+# instead of letting the deferral accumulate forever. cargo-deny 0.19's
+# config schema does not yet accept a top-level `expiration` field on
+# `[[advisories.ignore]]`, so we encode the date in the reason and gate
+# it externally.
 ignore = [
-    { id = "RUSTSEC-2025-0020", reason = "pyo3 0.21 PyString::from_object — deferred; pyo3 0.24 is a major API migration tracked as separate follow-up (see documentation/SECURITY-FOLLOWUPS.md §pyo3). Feature-gated (python not in default features)." },
-    { id = "RUSTSEC-2026-0002", reason = "lru 0.12 unsound IterMut; transitive via tantivy 0.25. Wait for tantivy 0.26 with lru ≥ 0.13. No safe upgrade path in our control." },
-    { id = "RUSTSEC-2026-0097", reason = "rand custom-logger unsoundness in 0.8 / 0.9; transitive via tower / instant-distance / proptest / oxrdf / reqwest / quinn-proto. Wait for upstream patches." },
+    { id = "RUSTSEC-2025-0020", reason = "pyo3 0.21 PyString::from_object — deferred; pyo3 0.24 is a major API migration tracked as separate follow-up (see documentation/SECURITY-FOLLOWUPS.md §pyo3). Feature-gated (python not in default features). re-evaluate by 2026-09-30." },
+    { id = "RUSTSEC-2026-0002", reason = "lru 0.12 unsound IterMut; transitive via tantivy 0.25. Wait for tantivy 0.26 with lru ≥ 0.13. No safe upgrade path in our control. re-evaluate by 2026-09-30." },
+    { id = "RUSTSEC-2026-0097", reason = "rand custom-logger unsoundness in 0.8 / 0.9; transitive via tower / instant-distance / proptest / oxrdf / reqwest / quinn-proto. Wait for upstream patches. re-evaluate by 2026-09-30." },
 ]
 
 [licenses]

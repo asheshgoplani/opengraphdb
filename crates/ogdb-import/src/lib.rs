@@ -45,7 +45,11 @@ pub enum IngestError {
 }
 
 /// Supported document formats for ingestion.
+///
+/// `#[non_exhaustive]` so additional ingest formats (e.g. HTML, DOCX) can be
+/// added without breaking downstream `match` arms. (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
 pub enum DocumentFormat {
     /// PDF document — parsed via `lopdf` (`document-ingest` feature).
     Pdf,
@@ -302,6 +306,7 @@ pub fn parse_markdown_sections(text: &str) -> Result<Vec<ParsedSection>, IngestE
 /// Split `text` into [`ParsedSection`]s of `max_chunk_words` each
 /// (`max_chunk_words = 0` is a sentinel meaning "single chunk
 /// containing all words"). Always available (no feature gate).
+#[must_use]
 pub fn parse_plaintext_sections(text: &str, max_chunk_words: usize) -> Vec<ParsedSection> {
     let words: Vec<&str> = text.split_whitespace().collect();
     if words.is_empty() {
@@ -327,6 +332,7 @@ pub fn parse_plaintext_sections(text: &str, max_chunk_words: usize) -> Vec<Parse
 
 /// Split `content` into chunks of at most `max_words` whitespace-separated
 /// words. `max_words = 0` returns the input unchanged as a single chunk.
+#[must_use]
 pub fn chunk_content(content: &str, max_words: usize) -> Vec<String> {
     if max_words == 0 {
         return vec![content.to_string()];
@@ -342,6 +348,7 @@ pub fn chunk_content(content: &str, max_words: usize) -> Vec<String> {
 /// pairs whenever `sections[from_idx].content` mentions
 /// `sections[to_idx].title` (case-insensitive, only for titles with
 /// ≥ 3 whitespace-delimited words).
+#[must_use]
 pub fn detect_cross_references(sections: &[ParsedSection]) -> Vec<(usize, usize)> {
     let mut refs = Vec::new();
     for (i, section) in sections.iter().enumerate() {

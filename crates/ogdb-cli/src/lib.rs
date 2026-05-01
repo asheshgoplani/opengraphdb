@@ -20,16 +20,12 @@
 //! curl -s -X POST http://localhost:7878/mcp/tools -d '{}'
 //! ```
 
-// EVAL-RUST-QUALITY-CYCLE2 B2 (BLOCKER): turn on `missing_docs` so that any
-// NEWLY added `pub` item in this crate triggers a warning until it has a
-// `///` comment. The currently-undocumented public items predate this gate
-// and are tracked as cycle-3 follow-up work; until they are documented we
-// keep `allow(missing_docs)` immediately below to avoid breaking the
-// `cargo clippy -- -D warnings` workspace gate. Removing the `allow`
-// (without first documenting the items) is the cycle-3 forcing function
-// the eval describes.
+// EVAL-RUST-QUALITY-CYCLE3 B1: ogdb-cli has only ~10 pub items; cycle 3
+// closes them and removes `allow(missing_docs)` so docs.rs/ogdb-cli is
+// fully covered. Any future pub item without a `///` comment now fails
+// CI under `cargo doc --no-deps -p ogdb-cli` with `RUSTDOCFLAGS=-D
+// missing_docs` (see scripts/check-shipped-doc-coverage.sh).
 #![warn(missing_docs)]
-#![allow(missing_docs)]
 
 use clap::{ArgAction, ArgGroup, Args, CommandFactory, Parser, Subcommand, ValueEnum};
 use ogdb_core::{
@@ -61,6 +57,7 @@ use std::time::{Duration, Instant};
 mod prom_metrics;
 mod static_assets;
 
+/// Display name embedded in the `ogdb` CLI's help text and metric labels.
 pub const APP_NAME: &str = "opengraphdb";
 const SERVER_MULTI_WRITER_RETRIES: usize = 3;
 static HTTP_QUERY_COUNT: AtomicU64 = AtomicU64::new(0);
@@ -615,10 +612,18 @@ fn parse_batch_size(raw: &str) -> Result<usize, String> {
     Ok(batch_size)
 }
 
+/// Outcome of a single [`run`] invocation.
+///
+/// Mirrors a Unix process result: `exit_code` is the status the binary
+/// exits with (0 on success, 1 on runtime errors, 2 on usage errors),
+/// and `stdout` / `stderr` are the captured streams.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CliResult {
+    /// Exit status the CLI returns to its caller.
     pub exit_code: i32,
+    /// Captured stdout payload (often a query result or status line).
     pub stdout: String,
+    /// Captured stderr payload (used for usage / runtime errors).
     pub stderr: String,
 }
 
@@ -662,9 +667,18 @@ impl CliResult {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum CliError {
+    /// Caller misuse (bad argument, missing flag, unknown subcommand).
     Usage(String),
+    /// Underlying database / IO / network failure during execution.
     Runtime(String),
-    RuntimeWithStdout { stdout: String, stderr: String },
+    /// Runtime failure that nonetheless produced partial stdout the
+    /// caller should still see (e.g. partial export bytes).
+    RuntimeWithStdout {
+        /// Partial stdout payload produced before the failure.
+        stdout: String,
+        /// Diagnostic message for stderr.
+        stderr: String,
+    },
 }
 
 impl Display for CliError {
@@ -684,6 +698,39 @@ impl From<DbError> for CliError {
     }
 }
 
+/// Errors emitted by [`parse_shacl_shapes`].
+///
+/// EVAL-RUST-QUALITY-CYCLE3 H9: replaces the prior
+/// `Box<dyn std::error::Error>` return type. `#[non_exhaustive]` keeps the
+/// public surface stable across 0.x — additional failure modes (e.g.
+/// distinct OWL vs. SHACL parser errors) can land without a major bump.
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
+pub enum ShaclLoadError {
+    /// I/O failure while opening or reading the shapes file.
+    #[error("io error reading SHACL shapes: {0}")]
+    Io(#[from] std::io::Error),
+    /// RDF parser rejected the shapes serialisation (e.g. invalid Turtle).
+    #[error("RDF parse error in SHACL shapes: {0}")]
+    RdfParse(String),
+}
+
+impl From<oxrdfio::RdfParseError> for ShaclLoadError {
+    fn from(value: oxrdfio::RdfParseError) -> Self {
+        Self::RdfParse(value.to_string())
+    }
+}
+
+impl From<ShaclLoadError> for CliError {
+    fn from(value: ShaclLoadError) -> Self {
+        Self::Runtime(format!("failed to parse SHACL shapes: {value}"))
+    }
+}
+
+/// Render the full `--help` text the `ogdb` binary emits.
+///
+/// Useful for downstream wrappers that want to surface the canonical
+/// help string in their own UI.
 pub fn usage() -> String {
     let mut cmd = Cli::command();
     cmd.render_help().to_string()
@@ -829,6 +876,13 @@ fn parse_cli(args: &[String]) -> Result<Cli, CliResult> {
     }
 }
 
+/// Drive a single `ogdb` invocation against the given argv slice.
+///
+/// `args[0]` is conventionally the program name (e.g. `"ogdb"`); the
+/// remaining elements are forwarded to clap. Returns the captured
+/// [`CliResult`] without writing to the process's actual stdout/stderr,
+/// so wrappers (e.g. ogdb-ffi, ogdb-node, ogdb-python) can surface the
+/// streams to their host language.
 pub fn run(args: &[String]) -> CliResult {
     let normalized_args = normalize_rdf_format_alias(args);
     let cli = match parse_cli(&normalized_args) {
@@ -6961,19 +7015,36 @@ fn to_cypher_edge_case(name: &str) -> String {
     result.trim_matches('_').to_string()
 }
 
+/// One SHACL `NodeShape` parsed from a shapes file.
+///
+/// Built by [`parse_shacl_shapes`] and consumed by
+/// [`validate_against_shacl`]. Variants of the SHACL spec we don't
+/// implement yet (e.g. `sh:datatype`, `sh:maxCount`) are silently
+/// dropped during parsing — only `sh:targetClass` + `sh:minCount`-1
+/// constraints flow through.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NodeShapeConstraint {
+    /// Stable identifier for the shape (the IRI or blank-node label).
     pub shape_id: String,
+    /// Local name of the SHACL `sh:targetClass`.
     pub target_class: String,
+    /// Properties whose `sh:minCount` is at least 1.
     pub required_properties: Vec<String>,
 }
 
+/// One violation reported by [`validate_against_shacl`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ShaclViolation {
+    /// Numeric ID of the offending node in the database.
     pub node_id: u64,
+    /// `shape_id` of the [`NodeShapeConstraint`] this node violates.
     pub shape_id: String,
+    /// Target class the node carries.
     pub target_class: String,
+    /// Property the constraint required.
     pub violated_property: String,
+    /// Human-readable description of the violation (used by `ogdb
+    /// validate-shacl` output).
     pub message: String,
 }
 
@@ -6999,9 +7070,12 @@ fn shacl_literal_to_i64(term: &Term) -> Option<i64> {
     }
 }
 
-pub fn parse_shacl_shapes(
-    shapes_path: &Path,
-) -> Result<Vec<NodeShapeConstraint>, Box<dyn std::error::Error>> {
+/// Parse a SHACL shapes file into [`NodeShapeConstraint`]s.
+///
+/// EVAL-RUST-QUALITY-CYCLE3 H9: returns the typed [`ShaclLoadError`]
+/// instead of `Box<dyn std::error::Error>`. Callers can match on
+/// [`ShaclLoadError::Io`] / [`ShaclLoadError::RdfParse`].
+pub fn parse_shacl_shapes(shapes_path: &Path) -> Result<Vec<NodeShapeConstraint>, ShaclLoadError> {
     let file = File::open(shapes_path)?;
     let reader = BufReader::new(file);
     let parser = RdfParser::from_format(RdfFormat::Turtle).for_reader(reader);
@@ -7100,6 +7174,11 @@ pub fn parse_shacl_shapes(
     Ok(constraints)
 }
 
+/// Run every node in `db` against the given SHACL shapes and return
+/// the list of violations.
+///
+/// `shapes` is typically produced by [`parse_shacl_shapes`]. Nodes
+/// whose labels don't match any shape's `target_class` are skipped.
 pub fn validate_against_shacl(
     db: &Database,
     shapes: &[NodeShapeConstraint],
@@ -7342,8 +7421,9 @@ fn parse_rdf_into_plan(
 }
 
 fn handle_validate_shacl(db_path: &str, shapes_path: &Path) -> Result<String, CliError> {
-    let shapes = parse_shacl_shapes(shapes_path)
-        .map_err(|e| CliError::Runtime(format!("failed to parse SHACL shapes: {e}")))?;
+    // EVAL-RUST-QUALITY-CYCLE3 H9: ShaclLoadError converts via #[from] so
+    // the CLI surface keeps producing the same Runtime/CliError shape.
+    let shapes = parse_shacl_shapes(shapes_path)?;
     if shapes.is_empty() {
         return Ok("No SHACL NodeShape constraints found in shapes file.".to_string());
     }
@@ -7536,6 +7616,9 @@ fn property_value_to_rdf_literal(value: &PropertyValue) -> Literal {
                 .collect::<Vec<_>>()
                 .join(",")
         )),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // future variants serialize as their debug representation.
+        other => Literal::from(format!("{other:?}")),
     }
 }
 
@@ -7846,6 +7929,9 @@ fn property_value_to_export_json(value: &PropertyValue) -> Value {
                 .map(|(key, value)| (key.clone(), property_value_to_export_json(value)))
                 .collect(),
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants export as JSON null.
+        _ => Value::Null,
     }
 }
 
@@ -7891,6 +7977,9 @@ fn property_value_to_export_csv(value: &PropertyValue) -> String {
                 .collect::<Vec<_>>()
                 .join(",")
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // future variants render via Debug for CSV stability.
+        other => format!("{other:?}"),
     }
 }
 
@@ -8312,6 +8401,9 @@ fn format_property_value(value: &PropertyValue) -> String {
                 .collect::<Vec<_>>()
                 .join(",")
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // future variants format via Debug.
+        other => format!("{other:?}"),
     }
 }
 

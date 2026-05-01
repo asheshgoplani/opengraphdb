@@ -15,6 +15,10 @@
 //! cargo run -p ogdb-cli -- serve --bolt :7687 mydata.ogdb
 //! ```
 
+// EVAL-RUST-QUALITY-CYCLE3 B1: every pub item in this crate carries a
+// `///` comment; `cargo doc -p ogdb-bolt` runs under `-D missing_docs`.
+#![warn(missing_docs)]
+
 use ogdb_core::{DbError, PropertyValue, QueryResult, SharedDatabase, WriteConcurrencyMode};
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -22,7 +26,11 @@ use std::fmt::{Display, Formatter};
 use std::io::{ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 
+/// 4-byte handshake preamble Neo4j Bolt drivers send to identify the
+/// protocol; mirrors the constant in the Bolt specification.
 pub const BOLT_MAGIC: u32 = 0x6060_B017;
+/// Bolt protocol version this server advertises during handshake.
+/// v4 / v5 negotiation is tracked as a v0.5 follow-up.
 pub const BOLT_VERSION_1: u32 = 1;
 
 // Cumulative per-message byte cap for chunked reassembly (audit 2026-04-22
@@ -61,8 +69,11 @@ const MSG_FAILURE: u8 = 0x7F;
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum BoltError {
+    /// Underlying TCP / IO failure (connection reset, buffer overflow, etc.).
     Io(std::io::Error),
+    /// Database error surfaced from [`SharedDatabase`].
     Db(DbError),
+    /// Bolt-protocol-level violation (handshake / framing / encoding).
     Protocol(String),
 }
 
@@ -90,35 +101,68 @@ impl From<DbError> for BoltError {
     }
 }
 
+/// PackStream `Structure` value: a 1-byte signature plus an ordered
+/// list of fields (each field is itself a [`PackValue`]).
 #[derive(Debug, Clone, PartialEq)]
 pub struct PackStructure {
+    /// Signature byte identifying the structure variant (e.g. Node,
+    /// Relationship, Date, Duration).
     pub signature: u8,
+    /// Ordered field list — variant semantics are signature-dependent.
     pub fields: Vec<PackValue>,
 }
 
+/// PackStream value variants encoded by [`packstream_encode`] /
+/// decoded by [`packstream_decode`].
+///
+/// `#[non_exhaustive]` so future PackStream additions (e.g. dedicated
+/// temporal types) can land without breaking downstream `match` arms.
+/// The wire format is governed by Bolt protocol minor versions; the Rust
+/// API stability promise is the non_exhaustive marker.
+/// (EVAL-RUST-QUALITY-CYCLE3 B3.)
 #[derive(Debug, Clone, PartialEq)]
+#[non_exhaustive]
 pub enum PackValue {
+    /// PackStream null marker (`0xC0`).
     Null,
+    /// Boolean variant (`0xC2` / `0xC3`).
     Bool(bool),
+    /// 64-bit signed integer.
     Integer(i64),
+    /// 64-bit IEEE-754 float.
     Float(f64),
+    /// Raw byte buffer.
     Bytes(Vec<u8>),
+    /// UTF-8 string.
     String(String),
+    /// Ordered list of values.
     List(Vec<PackValue>),
+    /// Map with string keys.
     Map(BTreeMap<String, PackValue>),
+    /// PackStream structure (signature + fields).
     Structure(PackStructure),
 }
 
+/// Serialise a [`PackValue`] tree into the PackStream wire format.
+///
+/// The returned bytes are the raw payload of one Bolt protocol record
+/// (no chunk framing); use [`serve`] for full server-side framing.
 pub fn packstream_encode(value: &PackValue) -> Result<Vec<u8>, BoltError> {
     let mut out = Vec::<u8>::new();
     encode_value(value, &mut out)?;
     Ok(out)
 }
 
+/// Decode a single PackStream value from `input`. Returns the parsed
+/// value and the byte count consumed; trailing bytes are left intact so
+/// callers can decode multiple values back-to-back.
 pub fn packstream_decode(input: &[u8]) -> Result<(PackValue, usize), BoltError> {
     decode_value(input, 0)
 }
 
+/// Drive the Bolt v1 client handshake on `stream`. Returns the agreed
+/// protocol version (`Some(1)` if the client accepted v1) or `None` if
+/// the client requested only versions we don't support.
 pub fn perform_handshake(stream: &mut TcpStream) -> Result<Option<u32>, BoltError> {
     let mut handshake = [0u8; 20];
     stream.read_exact(&mut handshake)?;
@@ -154,6 +198,12 @@ pub fn perform_handshake(stream: &mut TcpStream) -> Result<Option<u32>, BoltErro
     }
 }
 
+/// Run a single-threaded Bolt server bound to `bind_addr` against
+/// `shared_db`.
+///
+/// Returns the number of Bolt requests served. `max_requests` caps the
+/// total request count (used by integration tests); pass `None` to run
+/// until the listener is closed.
 pub fn serve(
     shared_db: SharedDatabase,
     bind_addr: &str,
@@ -557,6 +607,10 @@ fn pack_value_from_property(value: &PropertyValue) -> PackValue {
                 .map(|(key, value)| (key.clone(), pack_value_from_property(value)))
                 .collect(),
         ),
+        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
+        // unknown future variants encode as PackStream null until each gets
+        // a dedicated mapping in this transport.
+        _ => PackValue::Null,
     }
 }
 

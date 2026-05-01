@@ -77,6 +77,7 @@ pub fn normalize_fulltext_index_definition(
 
 /// Compute the sidecar directory path where a database at `path`
 /// stores its per-definition tantivy indexes (suffix `.ogdb.ftindex`).
+#[must_use]
 pub fn fulltext_index_root_path_for_db(path: &Path) -> PathBuf {
     let mut root_name = path.as_os_str().to_os_string();
     root_name.push(".ogdb.ftindex");
@@ -88,6 +89,7 @@ pub fn fulltext_index_root_path_for_db(path: &Path) -> PathBuf {
 /// input maps to `"_"` so the filesystem never sees a blank
 /// component.
 #[inline]
+#[must_use]
 pub fn sanitize_index_component(name: &str) -> String {
     let mut out = String::with_capacity(name.len());
     for ch in name.chars() {
@@ -106,6 +108,7 @@ pub fn sanitize_index_component(name: &str) -> String {
 
 /// Compute the per-index sidecar path for a database at `path` and
 /// an index named `index_name`.
+#[must_use]
 pub fn fulltext_index_path_for_name(path: &Path, index_name: &str) -> PathBuf {
     fulltext_index_root_path_for_db(path).join(sanitize_index_component(index_name))
 }

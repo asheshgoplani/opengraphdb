@@ -27,6 +27,20 @@ source "$HOME/.cargo/env"
 ./scripts/test-release-workflow.sh
 ./scripts/test-dockerfile.sh
 ./scripts/test-check-benchmarks-version.sh
+# EVAL-RUST-QUALITY-CYCLE3 H11: every `uses: dtolnay/rust-toolchain@`
+# in workflows must pin a fully-qualified version that matches
+# rust-toolchain.toml's channel.
+./scripts/check-rust-toolchain-pin.sh
+# EVAL-RUST-QUALITY-CYCLE3 H12: every advisory ignore in deny.toml must
+# carry a 're-evaluate by YYYY-MM-DD' that is still in the future.
+./scripts/check-deny-expirations.sh
+# EVAL-RUST-QUALITY-CYCLE3 H7: ogdb-node + ogdb-python feature-gate the
+# `unsafe_op_in_unsafe_fn` allow. Hand-written unsafe in either crate
+# would defeat the narrowing — fail CI in that case.
+./scripts/check-bindings-no-handwritten-unsafe.sh
+# EVAL-RUST-QUALITY-CYCLE3 B2: every publishable crate's lib.rs must
+# start with a `//!` crate-root rustdoc block (docs.rs landing page).
+./scripts/check-crate-root-docs.sh
 
 cargo fmt --all --check
 cargo check --workspace
