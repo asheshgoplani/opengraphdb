@@ -9,7 +9,7 @@
 # and found every one was off by ~70-200 lines after a single release.
 set -euo pipefail
 
-DOCS=(documentation README.md CONTRIBUTING.md CHANGELOG.md SECURITY.md CODE_OF_CONDUCT.md)
+DOCS=(documentation README.md CONTRIBUTING.md CHANGELOG.md SECURITY.md CODE_OF_CONDUCT.md skills)
 EXISTING=()
 for p in "${DOCS[@]}"; do
   [[ -e "$p" ]] && EXISTING+=("$p")
@@ -67,6 +67,41 @@ if [[ -n "$LINE_CITES" ]]; then
   echo "ERROR: user-facing docs still contain lib.rs:<line> citations:" >&2
   echo "$LINE_CITES" >&2
   echo "       Replace with named anchors: 'crates/<crate>/src/lib.rs::<symbol>'." >&2
+  EXIT=1
+fi
+
+# C3-H4 tightening: soft-line citations rot the same way exact ones do; a
+# `(around line 6319)` annotation went stale by 40 lines between cycle-2 and
+# cycle-3 in `skills/opengraphdb/references/cypher-coverage.md` and slipped
+# past the `lib\.rs:[0-9]+` regex above. Catch the fuzzy shapes too.
+FUZZY_CITES=$(grep -RnE '\b(around|approx\.?|approximate(ly)?|near|roughly|circa|~|≈)[[:space:]]+line[[:space:]]+[0-9]+' \
+  "${EXISTING[@]}" 2>/dev/null | grep -vE '/\* allow-line-cite \*/' || true)
+if [[ -n "$FUZZY_CITES" ]]; then
+  echo "ERROR: user-facing docs contain soft-line citations that rot under refactors:" >&2
+  echo "$FUZZY_CITES" >&2
+  echo "       Replace with named anchors: 'crates/<crate>/src/lib.rs::<symbol>'." >&2
+  EXIT=1
+fi
+
+# C3-H1 regression gate: forbid actual *links* (markdown `](...)` or HTML
+# `href="..."`) to the deleted file
+# `documentation/ai-integration/multi-agent-shared-kg.md` from any user-facing
+# surface (docs, skills, frontend strings). The file was removed in cycle 2
+# because it claimed cross-process Database::open "Just Works"; cycle-2-docs
+# intended to retarget every reference, but missed
+# `skills/opengraphdb/SKILL.md:340` (caught in cycle 3 §C3-H1).
+#
+# Bare-filename prose mentions are allowed (CHANGELOG / SKILL prose explains
+# why the file was removed); only resolvable link targets are rejected.
+SKG_LINKS=$(grep -RnE '\]\([^)]*multi-agent-shared-kg\.md|href="[^"]*multi-agent-shared-kg\.md' \
+  "${EXISTING[@]}" \
+  $( [[ -d skills ]] && echo skills ) \
+  $( [[ -d frontend/src ]] && echo frontend/src ) \
+  2>/dev/null | grep -vE '(^|/)EVAL-' || true)
+if [[ -n "$SKG_LINKS" ]]; then
+  echo "ERROR: stale link(s) to deleted documentation/ai-integration/multi-agent-shared-kg.md:" >&2
+  echo "$SKG_LINKS" >&2
+  echo "       The file was deleted in cycle 2; replace the link with prose." >&2
   EXIT=1
 fi
 

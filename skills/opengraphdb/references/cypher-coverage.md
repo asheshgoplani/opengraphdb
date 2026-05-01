@@ -1,12 +1,20 @@
-# OpenGraphDB Cypher coverage (0.3.0)
+# OpenGraphDB Cypher coverage (0.4.0)
 
-Authoritative feature × status grid for Cypher in OpenGraphDB 0.3.0. Sources of
+Authoritative feature × status grid for Cypher in OpenGraphDB 0.4.0. Sources of
 truth:
 
-- `crates/ogdb-tck/src/lib.rs` — TCK harness (Tier-1 categories, skipped scenarios).
-- `crates/ogdb-core/src/lib.rs` — keyword recogniser (around line 6319) and
-  `try_execute_builtin_call_query` (around line 13077) for the CALL whitelist.
+- `crates/ogdb-tck/src/lib.rs::should_skip_scenario` — TCK harness (Tier-1
+  categories, skipped scenarios).
+- `crates/ogdb-core/src/lib.rs::keyword_from_identifier` — keyword recogniser.
+- `crates/ogdb-core/src/lib.rs::try_execute_builtin_call_query` — CALL
+  whitelist dispatcher (the canonical source of the supported `CALL` surface;
+  see the `db.*` rows in "OpenGraphDB Cypher extensions" below).
 - `documentation/MIGRATION-FROM-NEO4J.md` §2 — published coverage delta.
+
+0.4.0 made `UNWIND` a real `PhysicalUnwind` operator (was a CLI string-desugar
+in 0.3.0); shipped HNSW ANN behind `CALL db.index.vector.queryNodes`; promoted
+the LLM provider adapters (Anthropic / OpenAI / Local) used by
+`semantic_distance(...)` and the `db.rag.*` calls behind feature flags.
 
 Status legend:
 
@@ -95,7 +103,7 @@ external openCypher TCK pass-rate is *not* yet published — see
 
 ## TCK skip rules
 
-The harness skips any scenario containing these tokens (`crates/ogdb-tck/src/lib.rs:230`):
+The harness skips any scenario containing these tokens (`crates/ogdb-tck/src/lib.rs::should_skip_scenario`):
 
 - `LOAD CSV`
 - `SHORTESTPATH` (the function — the procedure form is fine)
@@ -107,7 +115,7 @@ mechanical statement of the gap.
 
 ## Bolt / driver compatibility
 
-`ogdb-bolt` implements **Bolt v1 only** (`crates/ogdb-bolt/src/lib.rs:8-9`).
+`ogdb-bolt` implements **Bolt v1 only** (`crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_1`).
 Modern Neo4j drivers may negotiate v4/v5 first and fail. For clean
 compatibility use the HTTP `/query` endpoint or the MCP tool catalog.
 

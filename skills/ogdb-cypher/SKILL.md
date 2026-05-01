@@ -15,7 +15,7 @@ When a user asks about their graph data, you:
 OpenGraphDB uses openCypher as its primary query language. Queries run via:
 - **MCP tools**: `execute_cypher` (preferred for AI agents)
 - **HTTP API**: `POST /query` with `{"query": "MATCH ..."}` body
-- **CLI**: `opengraphdb query "MATCH ..."`
+- **CLI**: `ogdb query "MATCH ..."`
 
 The database supports embedded mode (zero-config, single-file `mydb.ogdb`) and server mode (HTTP + Bolt protocols).
 

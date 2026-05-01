@@ -23,7 +23,7 @@ OpenGraphDB is the "SQLite for graph databases": a single-binary, embeddable, hi
 | **Embeddable first** | Works as a library (in-process) with zero setup. No server required for basic use |
 | **Server when needed** | Scales up to standalone server mode for production multi-client workloads |
 | **AI-native** | MCP server built-in, agent memory patterns, GraphRAG primitives |
-| **CLI-first DX** | Single binary. `opengraphdb query "MATCH (n) RETURN n"` just works |
+| **CLI-first DX** | Single binary. `ogdb query "MATCH (n) RETURN n"` just works |
 | **Permissive license** | Apache 2.0. No AGPL traps, no BSL restrictions. Embed freely |
 | **Standards compliant** | Cypher (openCypher) query language with planned GQL (ISO 39075) conformance, following the openCypher-to-GQL evolution path |
 | **Multi-modal storage** | Graph + Vector + Full-text in one engine, not three |
@@ -222,22 +222,22 @@ to RDF when needed. No SPARQL engine required.
 
 ```bash
 # Import a TTL file (auto-detects format)
-opengraphdb import mydb.ogdb --format ttl ontology.ttl
+ogdb import mydb.ogdb --format ttl ontology.ttl
 
 # Import with explicit base URI
-opengraphdb import mydb.ogdb --format ttl data.ttl --base-uri "http://example.org/"
+ogdb import mydb.ogdb --format ttl data.ttl --base-uri "http://example.org/"
 
 # Import JSON-LD
-opengraphdb import mydb.ogdb --format jsonld schema.jsonld
+ogdb import mydb.ogdb --format jsonld schema.jsonld
 
 # Import N-Triples (streaming, good for large files)
-opengraphdb import mydb.ogdb --format nt dbpedia-dump.nt
+ogdb import mydb.ogdb --format nt dbpedia-dump.nt
 
 # Import multiple RDF files at once
-opengraphdb import mydb.ogdb --format ttl *.ttl
+ogdb import mydb.ogdb --format ttl *.ttl
 
 # Import an OWL ontology as schema (no instance data)
-opengraphdb import mydb.ogdb --format ttl --schema-only pizza-ontology.owl.ttl
+ogdb import mydb.ogdb --format ttl --schema-only pizza-ontology.owl.ttl
 ```
 
 #### Query Imported RDF Data with Cypher
@@ -270,14 +270,14 @@ RETURN n
 
 ```bash
 # Export entire graph as TTL
-opengraphdb export mydb.ogdb --format ttl > output.ttl
+ogdb export mydb.ogdb --format ttl > output.ttl
 
 # Export query results as TTL
-opengraphdb query mydb.ogdb "MATCH (p:Person)-[r]->(o) RETURN p, r, o" \
+ogdb query mydb.ogdb "MATCH (p:Person)-[r]->(o) RETURN p, r, o" \
   --format ttl > people.ttl
 
 # Export as JSON-LD (good for APIs)
-opengraphdb export mydb.ogdb --format jsonld > output.jsonld
+ogdb export mydb.ogdb --format jsonld > output.jsonld
 
 # Round-trip test: import → query → export preserves URIs and prefixes
 ```
@@ -326,9 +326,9 @@ opengraphdb export mydb.ogdb --format jsonld > output.jsonld
 | Mode | Use Case | How |
 |------|----------|-----|
 | **Embedded library** | In-process, zero setup | `cargo add opengraphdb` or Python/JS/Go bindings |
-| **CLI tool** | Ad-hoc queries, scripting, piping | `opengraphdb query "MATCH..."` |
-| **Standalone server** | Multi-client production | `opengraphdb serve --port 7687` (Bolt protocol compatible) |
-| **MCP server** | AI agent integration | `opengraphdb mcp` (built-in, zero config) |
+| **CLI tool** | Ad-hoc queries, scripting, piping | `ogdb query "MATCH..."` |
+| **Standalone server** | Multi-client production | `ogdb serve --port 7687` (Bolt protocol compatible) |
+| **MCP server** | AI agent integration | `ogdb mcp` (built-in, zero config) |
 
 ---
 
@@ -338,10 +338,10 @@ opengraphdb export mydb.ogdb --format jsonld > output.jsonld
 
 ```bash
 # Start as MCP server (for Claude, Cursor, etc.)
-opengraphdb mcp --db mydata.ogdb
+ogdb mcp --db mydata.ogdb
 
 # Or configure in claude settings:
-# { "command": "opengraphdb", "args": ["mcp", "--db", "mydata.ogdb"] }
+# { "command": "ogdb", "args": ["mcp", "--db", "mydata.ogdb"] }
 ```
 
 **MCP tools exposed:**
@@ -395,60 +395,60 @@ Native support for Retrieval Augmented Generation workflows:
 
 ```bash
 # Initialize a new database
-opengraphdb init myproject.ogdb
+ogdb init myproject.ogdb
 
 # Interactive REPL
-opengraphdb shell myproject.ogdb
+ogdb shell myproject.ogdb
 
 # One-shot query
-opengraphdb query myproject.ogdb "MATCH (n) RETURN count(n)"
+ogdb query myproject.ogdb "MATCH (n) RETURN count(n)"
 
 # Import data
-opengraphdb import myproject.ogdb --format csv nodes.csv edges.csv
-opengraphdb import myproject.ogdb --format json data.jsonl
-opengraphdb import myproject.ogdb --format ttl data.ttl
-opengraphdb import myproject.ogdb --format jsonld schema.jsonld
-opengraphdb import myproject.ogdb --format nt dbpedia.nt
+ogdb import myproject.ogdb --format csv nodes.csv edges.csv
+ogdb import myproject.ogdb --format json data.jsonl
+ogdb import myproject.ogdb --format ttl data.ttl
+ogdb import myproject.ogdb --format jsonld schema.jsonld
+ogdb import myproject.ogdb --format nt dbpedia.nt
 
 # Import with error tolerance (logs bad rows, continues)
-opengraphdb import myproject.ogdb --format ttl data.ttl --continue-on-error
+ogdb import myproject.ogdb --format ttl data.ttl --continue-on-error
 
 # Export data
-opengraphdb export myproject.ogdb --format json > backup.jsonl
-opengraphdb export myproject.ogdb --format ttl > backup.ttl
-opengraphdb export myproject.ogdb --format jsonld > backup.jsonld
+ogdb export myproject.ogdb --format json > backup.jsonl
+ogdb export myproject.ogdb --format ttl > backup.ttl
+ogdb export myproject.ogdb --format jsonld > backup.jsonld
 
 # Backup (checkpoint + file copy)
-opengraphdb backup myproject.ogdb backup.ogdb
+ogdb backup myproject.ogdb backup.ogdb
 
 # Manual checkpoint (then safe to cp)
-opengraphdb checkpoint myproject.ogdb
+ogdb checkpoint myproject.ogdb
 
 # Start server
-opengraphdb serve myproject.ogdb --port 7687
+ogdb serve myproject.ogdb --port 7687
 
 # Start MCP server
-opengraphdb mcp myproject.ogdb
+ogdb mcp myproject.ogdb
 
 # Database info and metrics
-opengraphdb info myproject.ogdb
-opengraphdb stats myproject.ogdb
+ogdb info myproject.ogdb
+ogdb stats myproject.ogdb
 
 # Schema management
-opengraphdb schema myproject.ogdb
-opengraphdb migrate myproject.ogdb --from schema-v1.cypher --to schema-v2.cypher
+ogdb schema myproject.ogdb
+ogdb migrate myproject.ogdb --from schema-v1.cypher --to schema-v2.cypher
 ```
 
 **Piping support (Unix philosophy):**
 ```bash
 # Pipe query results to jq
-opengraphdb query mydb.ogdb "MATCH (n:Person) RETURN n" --format json | jq '.name'
+ogdb query mydb.ogdb "MATCH (n:Person) RETURN n" --format json | jq '.name'
 
 # Pipe CSV into import
-cat users.csv | opengraphdb import mydb.ogdb --format csv --label User
+cat users.csv | ogdb import mydb.ogdb --format csv --label User
 
 # Chain with AI tools
-opengraphdb query mydb.ogdb "MATCH (n) RETURN n LIMIT 100" --format json | \
+ogdb query mydb.ogdb "MATCH (n) RETURN n LIMIT 100" --format json | \
   claude --prompt "Analyze these graph patterns"
 ```
 
@@ -529,7 +529,7 @@ OpenGraphDB targets the openCypher Technology Compatibility Kit (TCK) version **
 **Backup strategy (required):**
 ```bash
 # Checkpoint + file copy (SQLite pattern)
-opengraphdb backup mydb.ogdb backup.ogdb
+ogdb backup mydb.ogdb backup.ogdb
 ```
 
 Implementation: Force WAL checkpoint, acquire brief read lock, copy .ogdb file, release lock.
@@ -537,7 +537,7 @@ Implementation: Force WAL checkpoint, acquire brief read lock, copy .ogdb file, 
 **Logical backup:**
 ```bash
 # Export as JSON for cross-version compatibility
-opengraphdb export mydb.ogdb --format json > backup.jsonl
+ogdb export mydb.ogdb --format json > backup.jsonl
 ```
 
 **Optional extensions:**

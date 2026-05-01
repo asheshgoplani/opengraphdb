@@ -1,3 +1,32 @@
+//! # ogdb-core
+//!
+//! The OpenGraphDB engine: an embeddable single-file graph + vector + full-text
+//! database that speaks Cypher, with MVCC snapshot reads, a pluggable HNSW
+//! vector index (`instant-distance`), and Tantivy-backed full-text indexes.
+//!
+//! See <https://github.com/asheshgoplani/opengraphdb> and the runnable
+//! recipes in [`documentation/COOKBOOK.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/COOKBOOK.md)
+//! for the integrated story; per-tunable performance characteristics live in
+//! [`documentation/BENCHMARKS.md`](https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/BENCHMARKS.md).
+//!
+//! ## Quickstart
+//!
+//! ```no_run
+//! use ogdb_core::Database;
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
+//! let mut db = Database::open("mydata.ogdb")?;
+//! let _rows = db.query("MATCH (p:Person) RETURN p")?;
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! For node / edge mutation use the higher-level `Database::execute(...)` or
+//! the Cypher `CREATE` form via `query(...)`.
+//!
+//! `Database::open` takes a single-process exclusive write lock on the file;
+//! multi-process write access is undefined behaviour today and is tracked as
+//! a v0.5 follow-up (see `documentation/BENCHMARKS.md` § 4.6).
+
 // EVAL-RUST-QUALITY-CYCLE2 B1 (BLOCKER): turn on `missing_docs` so that any
 // NEWLY added `pub` item in this crate triggers a warning until it has a
 // `///` comment. The ~245 currently-undocumented public items predate this
@@ -162,11 +191,32 @@ const WAL_RECORD_ADD_EDGE: u8 = 2;
 /// the version marker.
 const WAL_RECORD_CREATE_NODE_V2: u8 = 3;
 const DELTA_COMPACTION_EDGE_THRESHOLD: usize = 256;
-const META_FORMAT_VERSION: u32 = 1;
-const FREE_LIST_FORMAT_VERSION: u32 = 1;
-const CSR_LAYOUT_FORMAT_VERSION: u32 = 1;
-const NODE_PROPERTY_STORE_FORMAT_VERSION: u32 = 1;
-const VECTOR_INDEX_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb-meta.json` catalog file.
+///
+/// Bumped only across minor releases; readers must accept old values per
+/// `documentation/COMPATIBILITY.md` § 2. Exposed as `pub const` so downstream
+/// crates can gate on the workspace's on-disk format at compile time.
+pub const META_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb-freelist.json` allocator file.
+///
+/// Same migration policy as [`META_FORMAT_VERSION`]
+/// (see `documentation/COMPATIBILITY.md` § 2).
+pub const FREE_LIST_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb-csr.json` traversal layout.
+///
+/// Same migration policy as [`META_FORMAT_VERSION`]
+/// (see `documentation/COMPATIBILITY.md` § 2).
+pub const CSR_LAYOUT_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb-props*` node-property store.
+///
+/// Same migration policy as [`META_FORMAT_VERSION`]
+/// (see `documentation/COMPATIBILITY.md` § 2).
+pub const NODE_PROPERTY_STORE_FORMAT_VERSION: u32 = 1;
+/// Format version for the `<db>.ogdb.vecindex` vector-index sidecar.
+///
+/// Same migration policy as [`META_FORMAT_VERSION`]
+/// (see `documentation/COMPATIBILITY.md` § 2).
+pub const VECTOR_INDEX_FORMAT_VERSION: u32 = 1;
 const DEFAULT_BUFFER_POOL_CAPACITY_PAGES: usize = 256;
 const NODE_PROPERTY_STORE_HEADER_SIZE: usize = 64;
 const NODE_PROPERTY_ROW_HEADER_SIZE: usize = 24;

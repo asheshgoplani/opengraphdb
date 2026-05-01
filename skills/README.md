@@ -108,7 +108,7 @@ npx @opengraphdb/mcp  # Add to your AI tool's MCP config
 npx @opengraphdb/skills install
 
 # 3. Start OpenGraphDB
-opengraphdb serve mydb.ogdb --http
+ogdb serve mydb.ogdb --http
 
 # Now your AI tool can:
 # - Understand graph database concepts (skills)
