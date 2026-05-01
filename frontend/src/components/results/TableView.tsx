@@ -60,6 +60,10 @@ export function TableView({ graphData }: TableViewProps) {
     return cols
   }, [propertyKeys])
 
+  // TanStack Table returns functions that cannot be safely memoized by
+  // React Compiler. Bail out on this single hook call rather than the
+  // whole component so the rest can still benefit from compilation.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data: graphData.nodes,
     columns,

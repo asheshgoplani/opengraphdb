@@ -3788,6 +3788,12 @@ struct HttpResponseMessage {
     reason: &'static str,
     content_type: String,
     body: Vec<u8>,
+    // EVAL-FRONTEND-QUALITY-CYCLE2.md BLOCKER-2: when serving a
+    // pre-compressed sibling from the embedded SPA dist (`<asset>.br` or
+    // `<asset>.gz`), this carries the `Content-Encoding` token so
+    // `write_http_response` can advertise the encoding and add
+    // `Vary: Accept-Encoding`. `None` means the body is uncompressed.
+    content_encoding: Option<&'static str>,
 }
 
 fn http_json_response(status: u16, reason: &'static str, payload: Value) -> HttpResponseMessage {
@@ -3796,6 +3802,7 @@ fn http_json_response(status: u16, reason: &'static str, payload: Value) -> Http
         reason,
         content_type: "application/json".to_string(),
         body: serde_json::to_vec_pretty(&payload).expect("http json serialization"),
+        content_encoding: None,
     }
 }
 
@@ -3805,6 +3812,7 @@ fn http_csv_response(status: u16, reason: &'static str, body: String) -> HttpRes
         reason,
         content_type: "text/csv".to_string(),
         body: body.into_bytes(),
+        content_encoding: None,
     }
 }
 
@@ -3819,6 +3827,7 @@ fn http_text_response(
         reason,
         content_type: content_type.to_string(),
         body: body.into_bytes(),
+        content_encoding: None,
     }
 }
 
@@ -4101,18 +4110,50 @@ const HTTP_CORS_HEADERS: &str = "Access-Control-Allow-Origin: *\r\n\
      Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n\
      Access-Control-Allow-Headers: Content-Type, Authorization\r\n";
 
+// EVAL-FRONTEND-QUALITY-CYCLE2.md H-6: the embedded server now ships an
+// XSS-attackable surface (the playground accepts user-supplied RDF/Turtle
+// from the dropzone), so every response carries a baseline set of
+// security headers. CSP is intentionally loose enough to keep the
+// existing inline JSON-LD <script> blocks working — tightening to
+// hash-based CSP is tracked as a follow-up once the marketing build emits
+// the JSON-LD as an external file.
+const HTTP_SECURITY_HEADERS: &str = "Content-Security-Policy: \
+default-src 'self'; \
+script-src 'self' 'unsafe-inline'; \
+style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; \
+font-src 'self' https://fonts.gstatic.com data:; \
+img-src 'self' data: blob:; \
+connect-src 'self' http://localhost:* http://127.0.0.1:*; \
+worker-src 'self' blob:; \
+frame-ancestors 'none'\r\n\
+X-Frame-Options: DENY\r\n\
+X-Content-Type-Options: nosniff\r\n\
+Referrer-Policy: strict-origin-when-cross-origin\r\n\
+Permissions-Policy: geolocation=(), camera=(), microphone=(), payment=()\r\n";
+
 fn write_http_response(
     stream: &mut TcpStream,
     response: HttpResponseMessage,
 ) -> Result<(), CliError> {
-    let header = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n{}\r\n",
+    let mut header = format!(
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n{}{}",
         response.status,
         response.reason,
         response.content_type,
         response.body.len(),
         HTTP_CORS_HEADERS,
+        HTTP_SECURITY_HEADERS,
     );
+    if let Some(encoding) = response.content_encoding {
+        // Pre-compressed asset served from the embedded SPA dist. Vary
+        // tells caches the response varies by Accept-Encoding so a
+        // brotli-capable client doesn't get served a gzip body from the
+        // shared cache.
+        header.push_str("Content-Encoding: ");
+        header.push_str(encoding);
+        header.push_str("\r\nVary: Accept-Encoding\r\n");
+    }
+    header.push_str("\r\n");
     let mut encoded = header.into_bytes();
     encoded.extend_from_slice(&response.body);
     io_runtime(stream.write_all(&encoded), "failed to write http response")?;
@@ -4128,6 +4169,7 @@ fn http_preflight_response() -> HttpResponseMessage {
         reason: "No Content",
         content_type: "text/plain".to_string(),
         body: Vec::new(),
+        content_encoding: None,
     }
 }
 
@@ -4675,6 +4717,7 @@ fn dispatch_http_request_with_budget(
                 reason: "OK",
                 content_type: "application/json".to_string(),
                 body: result.to_json().into_bytes(),
+                content_encoding: None,
             })
         }
         ("POST", "/import") => {
@@ -4928,12 +4971,25 @@ fn dispatch_http_request_with_budget(
         // `/favicon.ico`, `/`); anything else SPA-fallbacks to `index.html`
         // so React Router can resolve the path on the client.
         ("GET", _) => {
-            if let Some((bytes, mime)) = static_assets::lookup(&request.path) {
+            // EVAL-FRONTEND-QUALITY-CYCLE2.md BLOCKER-2: prefer brotli, then
+            // gzip, then raw — based on the request's Accept-Encoding. The
+            // SPA dist ships precompressed siblings (`*.br`, `*.gz`) for any
+            // chunk above the threshold; without negotiation we'd transfer
+            // ~17 MB of cypher infra raw on every cold playground load.
+            let accept_encoding = request
+                .headers
+                .get("accept-encoding")
+                .map(String::as_str)
+                .unwrap_or("");
+            if let Some((bytes, mime, encoding)) =
+                static_assets::lookup(&request.path, accept_encoding)
+            {
                 Ok(HttpResponseMessage {
                     status: 200,
                     reason: "OK",
                     content_type: mime.to_string(),
                     body: bytes.to_vec(),
+                    content_encoding: encoding,
                 })
             } else if let Some(bytes) = static_assets::index_html() {
                 // SPA-fallback: unknown non-API path — let React Router
@@ -4943,6 +4999,7 @@ fn dispatch_http_request_with_budget(
                     reason: "OK",
                     content_type: "text/html; charset=utf-8".to_string(),
                     body: bytes.to_vec(),
+                    content_encoding: None,
                 })
             } else {
                 // No SPA embedded (binary built without `npm run build:app`).
@@ -4953,6 +5010,7 @@ fn dispatch_http_request_with_budget(
                     reason: "OK",
                     content_type: "text/html; charset=utf-8".to_string(),
                     body: static_assets::missing_spa_stub().to_vec(),
+                    content_encoding: None,
                 })
             }
         }
@@ -16727,6 +16785,7 @@ ex:acme a schema:Organization ;
                 reason: "OK",
                 content_type: "application/json".to_string(),
                 body: b"{}".to_vec(),
+                content_encoding: None,
             };
             write_http_response(&mut stream, response).expect("write http response");
         });
@@ -16935,6 +16994,7 @@ ex:acme a schema:Organization ;
                 reason: "OK",
                 content_type: "application/json".to_string(),
                 body: b"{}".to_vec(),
+                content_encoding: None,
             },
         )
         .expect_err("writing on a shut down stream should fail");

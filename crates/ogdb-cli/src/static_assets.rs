@@ -58,19 +58,56 @@ cargo build --release</pre>
 </html>
 "#;
 
-/// Returns `(bytes, content-type)` for `path` inside the embedded SPA dist,
-/// or `None` if no file matches. The leading `/` is stripped, and an empty
-/// path (i.e. `GET /`) is mapped to `index.html` so that root requests
-/// serve the SPA shell.
-pub fn lookup(path: &str) -> Option<(&'static [u8], &'static str)> {
+/// Returns `(bytes, content-type, content-encoding)` for `path` inside the
+/// embedded SPA dist, or `None` if no file matches. The leading `/` is
+/// stripped, and an empty path (i.e. `GET /`) is mapped to `index.html` so
+/// that root requests serve the SPA shell.
+///
+/// EVAL-FRONTEND-QUALITY-CYCLE2.md BLOCKER-2: the SPA build ships
+/// precompressed siblings (`<asset>.br`, `<asset>.gz`) for every chunk over
+/// the threshold. When the client advertises support, we serve those
+/// directly and tell the caller to set `Content-Encoding`. The content type
+/// always reflects the *underlying* asset (e.g. `application/javascript`
+/// for `index-*.js.br`) — it's the encoding header that signals brotli.
+pub fn lookup(
+    path: &str,
+    accept_encoding: &str,
+) -> Option<(&'static [u8], &'static str, Option<&'static str>)> {
     let trimmed = path.trim_start_matches('/');
     let key = if trimmed.is_empty() {
         "index.html"
     } else {
         trimmed
     };
+    let mime = content_type_for(key);
+    if accepts_encoding(accept_encoding, "br") {
+        let br_key = format!("{key}.br");
+        if let Some(file) = APP_DIST.get_file(&br_key) {
+            return Some((file.contents(), mime, Some("br")));
+        }
+    }
+    if accepts_encoding(accept_encoding, "gzip") {
+        let gz_key = format!("{key}.gz");
+        if let Some(file) = APP_DIST.get_file(&gz_key) {
+            return Some((file.contents(), mime, Some("gzip")));
+        }
+    }
     let file = APP_DIST.get_file(key)?;
-    Some((file.contents(), content_type_for(key)))
+    Some((file.contents(), mime, None))
+}
+
+/// Returns true when the request's `Accept-Encoding` header advertises
+/// support for `coding`. We match on token boundaries so `accept_encoding`
+/// like `gzip, deflate` doesn't match a substring of an unrelated coding
+/// (e.g. `mybrotli`). Quality values are ignored — any non-zero `q=` is
+/// treated as accepting; `q=0` would disable but our embedded server
+/// doesn't support that nuance and the practical client population
+/// (browsers) never sends `q=0` for codings they actually advertise.
+fn accepts_encoding(header: &str, coding: &str) -> bool {
+    header.split(',').map(|s| s.trim()).any(|token| {
+        let name = token.split(';').next().unwrap_or("").trim();
+        name.eq_ignore_ascii_case(coding)
+    })
 }
 
 /// Returns the bytes of `index.html` (the SPA shell) when present, or
@@ -121,7 +158,20 @@ mod tests {
         // Caller (dispatch_http_request) is responsible for SPA fallback;
         // lookup itself must NOT silently return index.html for unknown paths
         // because that would mask /assets/* misses as 200 OK.
-        assert!(lookup("/no-such-asset.xyz").is_none());
+        assert!(lookup("/no-such-asset.xyz", "").is_none());
+    }
+
+    #[test]
+    fn accepts_encoding_token_match() {
+        assert!(accepts_encoding("gzip", "gzip"));
+        assert!(accepts_encoding("br, gzip, deflate", "br"));
+        assert!(accepts_encoding("br, gzip, deflate", "gzip"));
+        assert!(accepts_encoding("gzip;q=1.0, br;q=0.9", "br"));
+        // Token-boundary match: a coding name must match an exact comma-
+        // separated token, not a substring of one.
+        assert!(!accepts_encoding("mybrotli", "br"));
+        assert!(!accepts_encoding("identity", "gzip"));
+        assert!(!accepts_encoding("", "br"));
     }
 
     #[test]

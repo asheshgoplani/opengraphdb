@@ -61,6 +61,10 @@ jobs:
         run: ./scripts/coverage.sh
 
   frontend-quality:
+    # EVAL-FRONTEND-QUALITY-CYCLE2.md BLOCKER-1: prior job ran only the
+    # token-leak script, leaving lint/tsc/vitest/test:unit/build ungated. A
+    # green CI on this job must mean the SPA builds, types check, lints
+    # cleanly with zero warnings, and unit + vitest suites pass.
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -79,8 +83,25 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Lint
+        run: npm run lint -- --max-warnings 0
+
+      - name: Typecheck
+        run: npx tsc -p tsconfig.app.json --noEmit
+
+      - name: Unit tests
+        run: npm run test:unit
+
+      - name: Vitest
+        run: npm run test:vitest
+
       - name: Token-leak gate
         run: bash scripts/check-token-leaks.sh
+
+      - name: Build (matches release)
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npm run build
 
   cross-platform-build:
     # EVAL-PERF-RELEASE.md Finding 6 (BLOCKER): catch macOS / Windows

@@ -1,13 +1,27 @@
-import { useCallback, useMemo, useState } from 'react'
+import { Suspense, lazy, useCallback, useMemo, useState } from 'react'
 import type { GraphData, GraphNode } from '@/types/graph'
 import { useGraphStore } from '@/stores/graph'
 import { AppBackdrop } from '@/components/layout/AppBackdrop'
 import { GraphEmptyState } from './GraphEmptyState'
 import { GraphLegend } from './GraphLegend'
-import { GeoCanvas } from './GeoCanvas'
 import { useTraceAnimation } from './useTraceAnimation'
 import { TraceControls } from './TraceControls'
 import { ObsidianGraph } from '@/graph/obsidian/ObsidianGraph'
+
+// Lazy-load the geo canvas (deck.gl + maplibre, ~1 MB) so playground
+// visitors who never toggle to the geo layout don't pay for it on cold
+// load. EVAL-FRONTEND-QUALITY-CYCLE2.md H-5.
+const GeoCanvas = lazy(() =>
+  import('./GeoCanvas').then((m) => ({ default: m.GeoCanvas })),
+)
+
+function GeoCanvasFallback() {
+  return (
+    <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+      Loading map…
+    </div>
+  )
+}
 
 interface GraphCanvasProps {
   graphData: GraphData
@@ -60,7 +74,11 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
   }, [clearSelection])
 
   if (isGeographic) {
-    return <GeoCanvas graphData={graphData} />
+    return (
+      <Suspense fallback={<GeoCanvasFallback />}>
+        <GeoCanvas graphData={graphData} />
+      </Suspense>
+    )
   }
 
   if (graphData.nodes.length === 0) {

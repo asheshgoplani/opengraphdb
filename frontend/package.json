@@ -17,10 +17,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.90.0",
     "@deck.gl/layers": "^9.2.10",
-    "@google/genai": "^1.50.1",
-    "@mlc-ai/web-llm": "^0.2.82",
     "@neo4j-cypher/react-codemirror": "^2.0.0-next.32",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -35,7 +32,6 @@
     "framer-motion": "^12.38.0",
     "lucide-react": "^0.575.0",
     "maplibre-gl": "^5.19.0",
-    "openai": "^6.34.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "react-force-graph-2d": "^1.29.1",
@@ -45,6 +41,7 @@
     "zustand": "^5.0.11"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.11.3",
     "@eslint/js": "^9.39.1",
     "@playwright/test": "^1.58.2",
     "@types/node": "^24.10.1",
