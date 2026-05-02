@@ -1582,9 +1582,9 @@ The shipped 0.4.0 surface (mirrors the rustdoc sample at
 `crates/ogdb-core/src/lib.rs:14`):
 
 ```rust
-use ogdb_core::{Database, DbError};
+use ogdb_core::Database;
 
-fn run() -> Result<(), DbError> {
+fn run() -> Result<(), Box<dyn std::error::Error>> {
     let mut db = Database::open("mydata.ogdb")?;
 
     // Read query — auto-snapshot via begin_read().
