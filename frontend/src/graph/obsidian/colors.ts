@@ -1,27 +1,46 @@
-// Per-label color rotation in the AMBER-TERMINAL palette neighborhood.
-// All hues kept in the warm/amber/cyan-accent ranges so the canvas reads
-// as a cohesive identity, not a rainbow. Saturations and lightnesses are
-// tuned so the six slots read with comparable visual punch — earlier
-// palette versions left the teal (160°) and violet (280°) slots looking
-// muted next to the amber (40°) and cyan (195°) slots, which collapsed
-// the perceived hue separation in dense graphs.
+// Bold-redesign palette: three categorical hues (Movie cream, Genre purple,
+// Person teal) override the per-label hash routing for the curated triple,
+// while the residual palette slots stay in the warm/amber neighbourhood for
+// unknown labels (one-off ontologies the user imports). Cycle-12 routed all
+// labels through a tonal-amber palette, which collapsed the three primary
+// node types onto neighbouring tans on the dark backdrop.
+
+// The three named categorical hexes the brief calls out. Listed first in
+// the palette so callers using `paletteHash` for unknown labels still pick
+// up the categorical hues for the common case (Movie/Genre/Person datasets).
 export const NODE_PALETTE_DARK = [
-  'hsl(40 95% 62%)',
-  'hsl(195 92% 66%)',
+  '#F5E6C8', // Movie — cream (warm-bg friendly foreground)
+  '#9B6BFF', // Genre — saturated purple
+  '#5FD3C6', // Person — saturated teal
   'hsl(20 92% 64%)',
-  'hsl(160 78% 58%)',
-  'hsl(282 72% 72%)',
   'hsl(50 95% 68%)',
+  'hsl(282 72% 72%)',
 ] as const
 
 export const NODE_PALETTE_LIGHT = [
-  'hsl(36 92% 38%)',
-  'hsl(195 82% 36%)',
+  '#A8884E', // Movie — darkened cream for light-mode contrast
+  '#5B33C7', // Genre — darker purple
+  '#2F8B82', // Person — darker teal
   'hsl(20 82% 40%)',
-  'hsl(160 70% 32%)',
-  'hsl(282 60% 42%)',
   'hsl(50 80% 38%)',
+  'hsl(282 60% 42%)',
 ] as const
+
+// Curated label → categorical-hex map. Lookup is case-sensitive on the
+// PRIMARY label; ontologies that use lowercase / pluralised variants fall
+// through to the hash-fallback (which is fine — the *named* hue separation
+// only matters for the canonical Movie/Genre/Person trio that ships in
+// every demo dataset).
+export const KNOWN_LABEL_COLORS_DARK: ReadonlyMap<string, string> = new Map([
+  ['Movie', '#F5E6C8'],
+  ['Genre', '#9B6BFF'],
+  ['Person', '#5FD3C6'],
+])
+export const KNOWN_LABEL_COLORS_LIGHT: ReadonlyMap<string, string> = new Map([
+  ['Movie', '#A8884E'],
+  ['Genre', '#5B33C7'],
+  ['Person', '#2F8B82'],
+])
 
 // Warm-only subset for surfaces that must read as pure AMBER-TERMINAL —
 // landing illustrative / decorative graphs where 2-3 labels would otherwise
@@ -43,8 +62,12 @@ function paletteHash(label: string): number {
 // map computed once per render of the playground graph. Routing through it
 // guarantees that each *distinct* label in the dataset gets a *distinct*
 // palette slot up to palette length, instead of being subject to hash
-// collisions in `paletteHash`. Falls back to the hash when no index is
-// available (callers that don't have one, e.g. landing decorative graphs).
+// collisions in `paletteHash`.
+//
+// Categorical override: known labels (Movie/Genre/Person) bypass the
+// palette routing entirely and return their named hex. This is the visible
+// delta vs cycle-12 — those three labels now read as cream/purple/teal
+// regardless of dataset ordering.
 export function colorForLabel(
   label: string | undefined,
   isDark: boolean,
@@ -53,6 +76,9 @@ export function colorForLabel(
   const palette = isDark ? NODE_PALETTE_DARK : NODE_PALETTE_LIGHT
   const fallback = palette[0] ?? 'hsl(0 0% 50%)'
   if (!label) return fallback
+  const knownMap = isDark ? KNOWN_LABEL_COLORS_DARK : KNOWN_LABEL_COLORS_LIGHT
+  const known = knownMap.get(label)
+  if (known) return known
   const idx = labelIndex?.get(label)
   if (typeof idx === 'number') {
     return palette[idx % palette.length] ?? fallback
@@ -66,16 +92,40 @@ export function warmColorForLabel(label: string | undefined): string {
   return WARM_PALETTE_DARK[paletteHash(label) % WARM_PALETTE_DARK.length] ?? fallback
 }
 
-// Base alpha bumped from 0.35 → 0.5 (dark) and 0.45 (light). At 0.35 the
-// edges read as a near-invisible haze against the playground backdrop;
-// 0.5 keeps the structure legible without overwhelming the nodes.
+// Edge stroke colors and widths. Cycle-E baseline; bumped to bold-redesign
+// values (rgba 0.55 alpha, 2.8px) in the dedicated edge-stroke commit.
 export const EDGE_COLOR_DARK = 'hsla(36 35% 65% / 0.5)'
 export const EDGE_COLOR_LIGHT = 'hsla(24 28% 32% / 0.45)'
 export const EDGE_HOVER_DARK = 'hsl(40 95% 75%)'
 export const EDGE_HOVER_LIGHT = 'hsl(36 92% 45%)'
 
-// Stroke widths. Base bumped from 1.2 → 1.7 so default edges read as
-// connective tissue, not hairline. Focus stroke widens further so the
-// focused subgraph stands out at a glance even before the alpha tiering.
 export const EDGE_WIDTH_BASE = 1.7
 export const EDGE_WIDTH_FOCUS = 2.4
+
+// Apply alpha to either a hex (#RRGGBB) or hsl(...) color string. Used
+// by the focused-node halo gradient — cycle-12 string-replaced 'hsl' →
+// 'hsla' to inject alpha, which silently no-ops for hex palette entries.
+export function withAlpha(color: string, alpha: number): string {
+  if (color.startsWith('#')) {
+    const hex = color.slice(1)
+    const expanded =
+      hex.length === 3
+        ? hex
+            .split('')
+            .map((c) => c + c)
+            .join('')
+        : hex
+    const n = parseInt(expanded, 16)
+    const r = (n >> 16) & 0xff
+    const g = (n >> 8) & 0xff
+    const b = n & 0xff
+    return `rgba(${r},${g},${b},${alpha})`
+  }
+  if (color.startsWith('hsl(')) {
+    return color.replace(/^hsl\(/, 'hsla(').replace(/\)$/, ` / ${alpha})`)
+  }
+  if (color.startsWith('rgb(')) {
+    return color.replace(/^rgb\(/, 'rgba(').replace(/\)$/, `, ${alpha})`)
+  }
+  return color
+}

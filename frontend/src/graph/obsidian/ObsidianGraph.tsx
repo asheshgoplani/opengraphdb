@@ -14,6 +14,7 @@ import {
   EDGE_WIDTH_BASE,
   EDGE_WIDTH_FOCUS,
   colorForLabel,
+  withAlpha,
 } from './colors'
 import {
   type LabelBox,
@@ -260,9 +261,13 @@ export function ObsidianGraph({
       const r = NODE_RADIUS + Math.min(7, Math.log2(1 + deg) * 1.6)
       if (isFocus) {
         const grad = ctx.createRadialGradient(x, y, 0, x, y, HALO_RADIUS)
+        // `withAlpha` handles both #hex (categorical Movie/Genre/Person)
+        // and hsl(...) (warm-amber unknown labels) — cycle-12 hard-coded
+        // a `hsl(` → `hsla(` string-replace that silently no-op'd for
+        // hex palette entries, leaving the focus halo a solid disc.
         grad.addColorStop(0, color)
-        grad.addColorStop(0.55, color.replace(/\)$/, ' / 0.32)').replace('hsl', 'hsla'))
-        grad.addColorStop(1, color.replace(/\)$/, ' / 0)').replace('hsl', 'hsla'))
+        grad.addColorStop(0.55, withAlpha(color, 0.32))
+        grad.addColorStop(1, withAlpha(color, 0))
         ctx.fillStyle = grad
         ctx.beginPath()
         ctx.arc(x, y, HALO_RADIUS, 0, Math.PI * 2)

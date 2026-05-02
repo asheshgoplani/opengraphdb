@@ -10,9 +10,13 @@ import {
   colorForLabel,
 } from './colors.js'
 
-function alphaOf(hsla: string): number {
-  const m = hsla.match(/\/\s*([\d.]+)\s*\)/)
-  return m ? Number(m[1]) : 1
+function alphaOf(color: string): number {
+  // Bold-redesign edges use rgba(...) form; legacy/light edges use hsla().
+  // Match either trailing alpha pattern.
+  const rgba = color.match(/rgba\([^)]+,\s*([\d.]+)\s*\)\s*$/)
+  if (rgba) return Number(rgba[1])
+  const hsla = color.match(/\/\s*([\d.]+)\s*\)/)
+  return hsla ? Number(hsla[1]) : 1
 }
 
 test('NODE_PALETTE_DARK has six well-separated AMBER-TERMINAL slots', () => {
@@ -44,6 +48,10 @@ test('colorForLabel with labelIndex assigns distinct slots to distinct labels (â
   // labels hashed into the same palette slot, three Movie/Genre/Person
   // ontologies could land on the same color. Routing through labelIndex
   // guarantees one-to-one until we exceed palette length.
+  //
+  // Bold-redesign note: Movie/Genre/Person now bypass labelIndex and land
+  // on their named categorical hex; the other three (Director/Studio/Tag)
+  // route through palette[index]. We still expect six distinct colors.
   const labelIndex = new Map<string, number>([
     ['Movie', 0],
     ['Person', 1],
@@ -66,6 +74,8 @@ test('colorForLabel with labelIndex wraps modulo palette length past the 6th lab
     ['L6', 6],
   ])
   // Index 6 wraps to slot 0, matching the same color as index-0 label.
+  // Both labels are unknown to KNOWN_LABEL_COLORS_DARK so they take the
+  // labelIndex/palette path and modulo-wrap consistently.
   assert.equal(
     colorForLabel('L6', true, labelIndex),
     colorForLabel('L0', true, labelIndex),
@@ -111,7 +121,11 @@ test('colorForLabel with labelIndex falls through to hash for unknown labels', (
   // rather than returning fallback or undefined â€” important because the
   // index is keyed by primary label only; nodes can have a different
   // first-label string than what GraphCanvas indexed.
+  // Bold-redesign: palette[3..5] are still hsl(), so the unknown label
+  // path can return either an hsl() string (hash routes onto a palette
+  // slot in the warm-amber tier) or one of the 3 categorical hexes
+  // (slots 0..2). Match either form.
   const labelIndex = new Map<string, number>([['Movie', 0]])
   const c = colorForLabel('UnknownLabel', true, labelIndex)
-  assert.match(c, /^hsl\(/)
+  assert.match(c, /^(hsl|#)/)
 })
