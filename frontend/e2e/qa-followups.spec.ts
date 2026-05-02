@@ -77,9 +77,14 @@ test('Bug #2/#3: stale liveError clears after a successful Power Mode query', as
   const editorPanel = page.getByTestId('power-mode-panel')
   await expect(editorPanel).toBeVisible()
 
-  // Type a query, run it (1st call → 400). The CodeMirror surface inside
-  // CypherEditorPanel responds to keyboard.insertText after click-focus.
+  // CypherEditorPanel renders a placeholder <textarea> and only mounts the
+  // lazy-loaded CodeMirror editor (`.cm-content`) after a pointerdown/focus
+  // on the wrapper. Click the placeholder to activate the editor, then wait
+  // for the real surface to mount before typing.
+  const placeholder = editorPanel.getByTestId('cypher-editor-placeholder')
+  await placeholder.click()
   const editor = editorPanel.locator('.cm-content').first()
+  await editor.waitFor({ state: 'visible', timeout: 15_000 })
   await editor.click()
   await page.keyboard.insertText('MATCH (n) RETURN n LIMIT 1')
 
