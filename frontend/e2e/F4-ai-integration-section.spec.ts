@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// `frontend/package.json` is `"type": "module"`, so `__dirname` is undefined
+// at runtime. Resolve it from `import.meta.url` for the repo-root walk below.
+const SPEC_DIR = path.dirname(fileURLToPath(import.meta.url))
 
 // Cycle-2 docs eval C2-B2: card count was 4; the "multi-agent shared KG" pattern
 // was deleted because Database::open takes a single-process exclusive write lock
@@ -92,8 +97,9 @@ test.describe('F4 — AI Integration section (Slice R2)', () => {
 
     await firstLink.click()
     await expect(page).toHaveURL(new RegExp(`${href}$`))
+    // DocPage is React.lazy on both routers, so allow the chunk fetch.
     const article = page.locator('[data-testid="doc-page-article"]')
-    await expect(article).toBeVisible()
+    await expect(article).toBeVisible({ timeout: 15_000 })
     await expect(article.locator('h1').first()).toBeVisible()
     const h1 = (await article.locator('h1').first().innerText()).trim()
     expect(h1.length, 'doc page H1 must be non-empty').toBeGreaterThan(0)
@@ -106,7 +112,7 @@ test.describe('F4 — AI Integration section (Slice R2)', () => {
   // test asserts that smoke string never returns. (multi-agent-shared-kg.md
   // was deleted, so it's not in the list.)
   test('remaining ai-integration md files are not advertised as stubs', async () => {
-    const repoRoot = path.resolve(__dirname, '..', '..')
+    const repoRoot = path.resolve(SPEC_DIR, '..', '..')
     const targets = [
       'documentation/ai-integration/llm-to-cypher.md',
       'documentation/ai-integration/embeddings-hybrid-rrf.md',

@@ -21,6 +21,11 @@ import { RouteErrorBoundary } from './components/layout/RouteErrorBoundary'
 // page has painted so the next-click navigation is warm.
 const PlaygroundPageLazy = lazy(() => import('./pages/PlaygroundPage'))
 const ClaimsPageLazy = lazy(() => import('./pages/ClaimsPage'))
+// EVAL-FRONTEND-QUALITY-CYCLE3.md H-6: the marketing build's MarketingRouter
+// owns the `/docs/<slug>` AI-integration pattern pages. The dev router served
+// by `npm run dev` (this file) was missing that route, so e2e tests clicking
+// "Read the pattern" landed on `Navigate to=/` and never rendered DocPage.
+const DocPageLazy = lazy(() => import('./pages/DocPage'))
 
 export function AppRouter() {
   // Prefetch the heavy routes once the landing page has painted. Uses
@@ -57,6 +62,7 @@ export function AppRouter() {
           <Route path="/" element={<LandingPage />} />
           <Route path="/playground" element={<PlaygroundPageLazy />} />
           <Route path="/claims" element={<ClaimsPageLazy />} />
+          <Route path="/docs/:slug" element={<DocPageLazy />} />
           {/* QA bug #5 (2026-04-30): the dev router (legacy `npm run dev`) used
               to render the heavy `<App />` component for /app, while the
               production AppShellRouter already redirects /app→/playground.
