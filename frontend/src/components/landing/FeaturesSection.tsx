@@ -73,7 +73,7 @@ export function FeaturesSection() {
               >
                 <span
                   aria-hidden="true"
-                  className="font-display absolute -top-2 left-0 text-5xl font-light leading-none text-muted-foreground/35"
+                  className="font-display absolute -top-2 left-0 text-5xl font-light leading-none text-muted-foreground/80"
                 >
                   {String(index + 1).padStart(2, '0')}
                 </span>
