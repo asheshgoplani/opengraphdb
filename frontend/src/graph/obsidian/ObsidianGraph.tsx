@@ -33,6 +33,11 @@ interface Props {
   onBackgroundClick?: () => void
   hoveredNodeId?: string | number | null
   selectedNodeId?: string | number | null
+  // Deterministic-by-dataset label→index map. When supplied, distinct
+  // labels are guaranteed distinct palette slots up to palette length —
+  // eliminating hash collisions that previously left e.g. Movie + Person
+  // landing on the same amber slot.
+  labelIndex?: Map<string, number>
 }
 
 type RfgNode = GraphNode & { x?: number; y?: number }
@@ -71,6 +76,7 @@ export function ObsidianGraph({
   onBackgroundClick,
   hoveredNodeId,
   selectedNodeId,
+  labelIndex,
 }: Props) {
   const fgRef = useRef<ForceGraphMethods<RfgNode, RfgLink> | undefined>(undefined)
   // Tooltip overlay state (POLISH #2). Tracks node + screen-space coords.
@@ -237,7 +243,7 @@ export function ObsidianGraph({
       }
       ctx.save()
       ctx.globalAlpha = alpha
-      const color = colorForLabel(node.labels?.[0], isDark)
+      const color = colorForLabel(node.labels?.[0], isDark, labelIndex)
       const deg = degrees.get(node.id) ?? 0
       const r = NODE_RADIUS + Math.min(7, Math.log2(1 + deg) * 1.6)
       if (isFocus) {
@@ -256,7 +262,7 @@ export function ObsidianGraph({
       ctx.fill()
       ctx.restore()
     },
-    [degrees, focusHops, focused, isDark],
+    [degrees, focusHops, focused, isDark, labelIndex],
   )
 
   const drawLink = useCallback(

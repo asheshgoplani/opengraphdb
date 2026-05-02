@@ -95,6 +95,7 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
         onBackgroundClick={handleBackgroundClick}
         hoveredNodeId={hoveredNodeId}
         selectedNodeId={selectedNodeId}
+        labelIndex={labelIndex}
       />
       <GraphLegend labels={uniqueLabels} labelIndex={labelIndex} />
       <TraceControls />
