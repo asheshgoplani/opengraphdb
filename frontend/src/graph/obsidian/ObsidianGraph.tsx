@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type React from 'react'
 import ForceGraph2D from 'react-force-graph-2d'
 import type { ForceGraphMethods } from 'react-force-graph-2d'
 import { forceCollide } from 'd3-force'
@@ -14,13 +15,16 @@ import {
 } from './colors'
 import {
   type LabelBox,
+  compareLabelPriority,
   degreeMap,
+  kHopNeighbors,
   neighborSet,
   rectsOverlap,
   seedPositions,
   tuneForces,
 } from './layout'
 import { assignParallelCurvatures } from './parallelEdges'
+import { pickTooltipProps } from './tooltip'
 
 interface Props {
   graphData: GraphData
@@ -47,6 +51,14 @@ const LABEL_PAD_X = 4
 const LABEL_PAD_Y = 2
 const LABEL_OFFSET_Y = 9
 const MAX_LABEL_CHARS = 18
+// Zoom clamps (POLISH #4). Lower bound prevents over-zoom-out past ~2× the
+// fitted bounding box (a fully-fitted graph sits around scale ≈ 1; 0.4 lets
+// the user zoom out a bit for context but not so far the graph is a speck).
+// Upper bound caps over-zoom — past 8× a single node fills the viewport and
+// labels start clipping. Both are pointer-event clamps in RFG2 (does not
+// affect programmatic `zoomToFit` calls).
+const MIN_ZOOM = 0.4
+const MAX_ZOOM = 8
 
 function truncate(s: string): string {
   return s.length > MAX_LABEL_CHARS ? `${s.slice(0, MAX_LABEL_CHARS - 1)}…` : s
@@ -61,6 +73,16 @@ export function ObsidianGraph({
   selectedNodeId,
 }: Props) {
   const fgRef = useRef<ForceGraphMethods<RfgNode, RfgLink> | undefined>(undefined)
+  // Tooltip overlay state (POLISH #2). Tracks node + screen-space coords.
+  const [tooltip, setTooltip] = useState<{
+    node: RfgNode
+    x: number
+    y: number
+  } | null>(null)
+  // Internal sticky-focus id (POLISH #3). Set on tap/click so the
+  // neighbourhood fade persists on touch devices even when the parent
+  // doesn't wire `selectedNodeId`. Cleared on background tap.
+  const [stickyFocusId, setStickyFocusId] = useState<string | number | null>(null)
   const [isDark, setIsDark] = useState(() =>
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
   )
@@ -128,15 +150,24 @@ export function ObsidianGraph({
     fg.d3ReheatSimulation?.()
   }, [tuning, degrees])
 
-  const focused = hoveredNodeId ?? selectedNodeId ?? null
+  const focused = hoveredNodeId ?? selectedNodeId ?? stickyFocusId ?? null
   const focusNeighbors = useMemo(
     () => (focused != null ? neighborSet(graphData, focused) : null),
+    [focused, graphData],
+  )
+  // 2-hop tier: descending opacity from focus → 1-hop → 2-hop → rest
+  // (POLISH #5). BFS computed once per focus change.
+  const focusHops = useMemo(
+    () => (focused != null ? kHopNeighbors(graphData, focused, 2) : null),
     [focused, graphData],
   )
 
   // Each render frame we rebuild the visible-label list via collision pass.
   // The ref is published to window for E2E.
   const lastLabelBoxesRef = useRef<LabelBox[]>([])
+  // Pointer position relative to the container (POLISH #2). Declared here
+  // so the harness hook below can also place the tooltip.
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null)
 
   const lastHoverIdxRef = useRef<number | null>(null)
   useEffect(() => {
@@ -151,7 +182,18 @@ export function ObsidianGraph({
     w.__obsidianGraphReady = true
     w.__obsidianHoverNode = (idx) => {
       lastHoverIdxRef.current = idx
-      onNodeHover?.(seeded.nodes[idx] as GraphNode)
+      const node = seeded.nodes[idx]
+      onNodeHover?.(node as GraphNode)
+      // Mirror the React handler: also drive the tooltip overlay from the
+      // harness. If pointer position isn't known (no preceding mousemove),
+      // place the tooltip at the canvas centre via fallback so E2E tests
+      // can observe its presence.
+      if (node) {
+        const p = lastPointerRef.current ?? { x: 0, y: 0 }
+        setTooltip({ node, x: p.x, y: p.y })
+      } else {
+        setTooltip(null)
+      }
     }
     w.__obsidianDimmedCount = () => {
       const idx = lastHoverIdxRef.current
@@ -184,9 +226,15 @@ export function ObsidianGraph({
     (node: RfgNode, ctx: CanvasRenderingContext2D) => {
       const x = node.x ?? 0
       const y = node.y ?? 0
-      const isFaded = focusNeighbors != null && !focusNeighbors.has(node.id)
       const isFocus = focused === node.id
-      const alpha = isFaded ? 0.18 : 1
+      // 3-tier fade: 1.0 (focus + 1-hop) / 0.5 (2-hop) / 0.18 (rest).
+      // Binary fade was too abrupt; the middle tier reads as topology.
+      let alpha = 1
+      if (focusHops != null) {
+        const hop = focusHops.get(node.id)
+        if (hop == null) alpha = 0.18
+        else if (hop === 2) alpha = 0.5
+      }
       ctx.save()
       ctx.globalAlpha = alpha
       const color = colorForLabel(node.labels?.[0], isDark)
@@ -208,7 +256,7 @@ export function ObsidianGraph({
       ctx.fill()
       ctx.restore()
     },
-    [degrees, focusNeighbors, focused, isDark],
+    [degrees, focusHops, focused, isDark],
   )
 
   const drawLink = useCallback(
@@ -218,18 +266,27 @@ export function ObsidianGraph({
       if (typeof src !== 'object' || typeof tgt !== 'object') return
       const sId = src.id
       const tId = tgt.id
-      const isFaded =
-        focusNeighbors != null &&
-        sId != null &&
-        tId != null &&
-        !(focusNeighbors.has(sId) && focusNeighbors.has(tId))
+      // 3-tier edge fade: 1.0 if both endpoints are focus/1-hop;
+      // 0.3 if both endpoints are within 2-hop (the "ripple" tier);
+      // 0.06 otherwise. Bridging exactly one boundary still fades to keep
+      // the focus neighbourhood visually distinct.
+      let edgeAlpha = 1
+      if (focusHops != null && sId != null && tId != null) {
+        const sh = focusHops.get(sId)
+        const th = focusHops.get(tId)
+        if (sh == null || th == null) {
+          edgeAlpha = 0.06
+        } else if (Math.max(sh, th) >= 2) {
+          edgeAlpha = 0.3
+        }
+      }
       const sx = src.x ?? 0
       const sy = src.y ?? 0
       const tx = tgt.x ?? 0
       const ty = tgt.y ?? 0
       const curvature = (link as RfgLink & { curvature?: number }).curvature ?? 0
       ctx.save()
-      ctx.globalAlpha = isFaded ? 0.06 : 1
+      ctx.globalAlpha = edgeAlpha
       ctx.strokeStyle =
         focused != null && (sId === focused || tId === focused)
           ? isDark
@@ -260,37 +317,29 @@ export function ObsidianGraph({
       ctx.stroke()
       ctx.restore()
     },
-    [focusNeighbors, focused, isDark],
+    [focusHops, focused, isDark],
   )
 
-  // Pass 2: labels with collision detection. Highest-degree (and focused)
-  // nodes get priority; later candidates that would overlap an already-placed
-  // box are skipped. This is what gives the canvas the calm, Obsidian look.
+  // Pass 2: labels with collision detection. Priority order is
+  // focused → highest-degree → deterministic-by-id (POLISH #1, via
+  // `compareLabelPriority`). The focused label is always placed first AND
+  // its placement skips the collision check, so a hub label that arrived
+  // earlier in priority order can never hide it.
   const drawLabels = useCallback(
     (ctx: CanvasRenderingContext2D, globalScale: number) => {
       const placed: LabelBox[] = []
       const nodes = seeded.nodes
-      // Order: focused first, then highest-degree, then deterministic by id.
-      const priority = [...nodes].sort((a, b) => {
-        const fa = focused === a.id ? 1 : 0
-        const fb = focused === b.id ? 1 : 0
-        if (fa !== fb) return fb - fa
-        const da = degrees.get(a.id) ?? 0
-        const db = degrees.get(b.id) ?? 0
-        if (da !== db) return db - da
-        return String(a.id).localeCompare(String(b.id))
-      })
+      const priority = [...nodes].sort((a, b) =>
+        compareLabelPriority(a, b, focused, degrees),
+      )
       const fontFocus = LABEL_FONT_SIZE_FOCUS / globalScale
       const fontBase = LABEL_FONT_SIZE / globalScale
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
       const fillBase = isDark ? 'hsl(40 30% 96%)' : 'hsl(24 25% 11%)'
       const haloBase = isDark ? 'hsla(20 18% 6% / 0.55)' : 'hsla(40 25% 96% / 0.7)'
-      for (const node of priority) {
+      const drawOne = (node: RfgNode, opts: { skipCollision: boolean }) => {
         const isFocus = focused === node.id
-        const isNeighborOfFocus = focusNeighbors?.has(node.id) === true && !isFocus
-        // When a node is hovered, only draw labels of the focus + its neighbors.
-        if (focused != null && !isFocus && !isNeighborOfFocus) continue
         const x = node.x ?? 0
         const y = node.y ?? 0
         const raw = (node.label ?? node.labels?.[0] ?? String(node.id)) as string
@@ -303,11 +352,10 @@ export function ObsidianGraph({
         const lx = x - w / 2
         const ly = y + LABEL_OFFSET_Y / globalScale
         const box: LabelBox = { x: lx, y: ly, w, h, id: node.id }
-        // Skip if it would collide with anything already placed.
-        if (!isFocus && placed.some((p) => rectsOverlap(p, box))) continue
-        // Soft halo behind text for readability against edges/nodes.
+        if (!opts.skipCollision && placed.some((p) => rectsOverlap(p, box))) {
+          return
+        }
         ctx.save()
-        ctx.globalAlpha = focused != null && !isFocus && !isNeighborOfFocus ? 0.4 : 1
         ctx.fillStyle = haloBase
         ctx.beginPath()
         const radius = Math.min(4 / globalScale, h / 2)
@@ -328,12 +376,61 @@ export function ObsidianGraph({
         ctx.restore()
         placed.push(box)
       }
+      // 1) Focused label first, unconditional — never hidden by collisions.
+      if (focused != null) {
+        const focusedNode = nodes.find((n) => n.id === focused)
+        if (focusedNode) drawOne(focusedNode, { skipCollision: true })
+      }
+      // 2) Remaining labels in priority order. When a focus exists, only
+      // draw labels of focus + its 1-hop neighbours (2-hop stays unlabelled
+      // to keep the focus neighbourhood readable).
+      for (const node of priority) {
+        if (focused != null && node.id === focused) continue
+        const isNeighborOfFocus = focusNeighbors?.has(node.id) === true
+        if (focused != null && !isNeighborOfFocus) continue
+        drawOne(node, { skipCollision: false })
+      }
       lastLabelBoxesRef.current = placed
     },
-    [degrees, focusNeighbors, focused, isDark, seeded.nodes],
+    [degrees, focused, focusNeighbors, isDark, seeded.nodes],
   )
 
   const onResetView = () => fgRef.current?.zoomToFit(400, 60)
+
+  // Tooltip + sticky-touch handlers (POLISH #2 + #3).
+  // RFG2's `onNodeHover` second arg is the previously-hovered node; the
+  // pointer position is read from the latest mousemove on the container.
+  const containerRefSetTooltip = useCallback(
+    (n: RfgNode | null) => {
+      if (!n || lastPointerRef.current == null) {
+        setTooltip(null)
+        return
+      }
+      setTooltip({ node: n, x: lastPointerRef.current.x, y: lastPointerRef.current.y })
+    },
+    [],
+  )
+  const handleNodeHover = useCallback(
+    (n: RfgNode | null) => {
+      onNodeHover?.((n as GraphNode | null) ?? null)
+      containerRefSetTooltip(n)
+    },
+    [onNodeHover, containerRefSetTooltip],
+  )
+  const handleNodeClick = useCallback(
+    (n: RfgNode) => {
+      // Set internal sticky-focus so touch tap-and-release persists fade
+      // even when the parent doesn't wire `selectedNodeId`.
+      setStickyFocusId(n.id)
+      onNodeClick?.(n as GraphNode)
+    },
+    [onNodeClick],
+  )
+  const handleBackgroundClick = useCallback(() => {
+    setStickyFocusId(null)
+    setTooltip(null)
+    onBackgroundClick?.()
+  }, [onBackgroundClick])
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   // react-force-graph doesn't expose a way to set attributes on its <canvas>,
@@ -356,8 +453,31 @@ export function ObsidianGraph({
     fgRef.current?.zoomToFit(600, 60)
   }, [])
 
+  // Track pointer position for the tooltip + ensure tap-and-release on
+  // touch (no preceding `mousemove`) still positions the tooltip.
+  const onPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const rect = (e.currentTarget as HTMLDivElement).getBoundingClientRect()
+    lastPointerRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+  }, [])
+
+  // Tooltip body. Picks 1–2 properties from a curated key list so we
+  // never dump arbitrary internal keys (e.g. `__seed`, `cluster`) at the user.
+  const tooltipBody = tooltip
+    ? (() => {
+        const n = tooltip.node
+        const labelText = (n.label ?? n.labels?.[0] ?? String(n.id)) as string
+        const deg = degrees.get(n.id) ?? 0
+        const props = pickTooltipProps(n.properties)
+        return { labelText, deg, props }
+      })()
+    : null
+
   return (
-    <div ref={containerRef} className="relative h-full w-full">
+    <div
+      ref={containerRef}
+      className="relative h-full w-full"
+      onPointerMove={onPointerMove}
+    >
       <ForceGraph2D<RfgNode, RfgLink>
         ref={fgRef}
         graphData={seeded}
@@ -372,13 +492,34 @@ export function ObsidianGraph({
         d3AlphaDecay={0.02}
         d3VelocityDecay={0.35}
         warmupTicks={60}
+        minZoom={MIN_ZOOM}
+        maxZoom={MAX_ZOOM}
         onEngineStop={onEngineStop}
         onRenderFramePost={drawLabels}
-        onNodeClick={(n) => onNodeClick?.(n as GraphNode)}
-        onNodeHover={(n) => onNodeHover?.((n as GraphNode | null) ?? null)}
-        onBackgroundClick={() => onBackgroundClick?.()}
+        onNodeClick={(n) => handleNodeClick(n as RfgNode)}
+        onNodeHover={(n) => handleNodeHover((n as RfgNode | null) ?? null)}
+        onBackgroundClick={handleBackgroundClick}
         backgroundColor="transparent"
       />
+      {tooltipBody ? (
+        <div
+          role="tooltip"
+          data-testid="obsidian-node-tooltip"
+          className="pointer-events-none absolute z-10 max-w-[220px] rounded-md border border-border/60 bg-background/95 px-2.5 py-1.5 text-xs shadow-md backdrop-blur"
+          style={{
+            left: Math.round(tooltip!.x + 12),
+            top: Math.round(tooltip!.y + 12),
+          }}
+        >
+          <div className="font-medium text-foreground">{tooltipBody.labelText}</div>
+          <div className="text-muted-foreground">degree: {tooltipBody.deg}</div>
+          {tooltipBody.props.map(([k, v]) => (
+            <div key={k} className="truncate text-muted-foreground">
+              <span className="font-mono">{k}</span>: {v}
+            </div>
+          ))}
+        </div>
+      ) : null}
       <div className="pointer-events-none absolute right-3 top-3 flex gap-1">
         <Button
           variant="ghost"

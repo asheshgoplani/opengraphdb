@@ -54,6 +54,64 @@ export function neighborSet(data: GraphData, nodeId: string | number): Set<strin
   return out
 }
 
+// k-hop neighborhood via BFS. Returns a map from node-id to hop-distance
+// (0 = self, 1 = direct neighbor, 2 = 2-hop, …). Nodes not within `k` hops
+// are absent from the map. Used for the tiered fade (focus / 1-hop / 2-hop).
+export function kHopNeighbors(
+  data: GraphData,
+  nodeId: string | number,
+  k: number,
+): Map<string | number, number> {
+  const dist = new Map<string | number, number>()
+  dist.set(nodeId, 0)
+  if (k <= 0) return dist
+  // Build adjacency once (O(m)) so BFS is O(n+m), not O(k·m).
+  const adj = new Map<string | number, Array<string | number>>()
+  for (const l of data.links) {
+    const s = typeof l.source === 'object' ? l.source.id : l.source
+    const t = typeof l.target === 'object' ? l.target.id : l.target
+    if (!adj.has(s)) adj.set(s, [])
+    if (!adj.has(t)) adj.set(t, [])
+    adj.get(s)!.push(t)
+    adj.get(t)!.push(s)
+  }
+  let frontier: Array<string | number> = [nodeId]
+  for (let h = 1; h <= k; h += 1) {
+    const next: Array<string | number> = []
+    for (const u of frontier) {
+      const nbrs = adj.get(u)
+      if (!nbrs) continue
+      for (const v of nbrs) {
+        if (!dist.has(v)) {
+          dist.set(v, h)
+          next.push(v)
+        }
+      }
+    }
+    if (next.length === 0) break
+    frontier = next
+  }
+  return dist
+}
+
+// Priority comparator for the label-collision pass. Order:
+//   focused (1) > highest-degree > deterministic-by-id (lex on String(id)).
+// Extracted as a pure function so the ordering is testable without rendering.
+export function compareLabelPriority(
+  a: { id: string | number },
+  b: { id: string | number },
+  focused: string | number | null,
+  degrees: Map<string | number, number>,
+): number {
+  const fa = focused != null && a.id === focused ? 1 : 0
+  const fb = focused != null && b.id === focused ? 1 : 0
+  if (fa !== fb) return fb - fa
+  const da = degrees.get(a.id) ?? 0
+  const db = degrees.get(b.id) ?? 0
+  if (da !== db) return db - da
+  return String(a.id).localeCompare(String(b.id))
+}
+
 export function degreeMap(data: GraphData): Map<string | number, number> {
   const out = new Map<string | number, number>()
   for (const n of data.nodes) out.set(n.id, 0)
