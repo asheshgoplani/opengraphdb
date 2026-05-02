@@ -270,11 +270,10 @@ export default function PlaygroundPage() {
                   }
 
                   return (
-                    <div key={category} data-testid={`query-category-${category.toLowerCase()}`}>
+                    <div key={category}>
                       <p className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
                         <span
                           aria-hidden="true"
-                          data-testid={`category-indicator-${category.toLowerCase()}`}
                           className={`h-1.5 w-1.5 rounded-full ${CATEGORY_INDICATOR[category]}`}
                         />
                         {category}
