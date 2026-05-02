@@ -92,15 +92,50 @@ export function warmColorForLabel(label: string | undefined): string {
   return WARM_PALETTE_DARK[paletteHash(label) % WARM_PALETTE_DARK.length] ?? fallback
 }
 
-// Edge stroke colors and widths. Cycle-E baseline; bumped to bold-redesign
-// values (rgba 0.55 alpha, 2.8px) in the dedicated edge-stroke commit.
-export const EDGE_COLOR_DARK = 'hsla(36 35% 65% / 0.5)'
+// Edge stroke colors. Bold-redesign value: rgba(255,180,120,0.55) — warm
+// orange at 0.55 alpha so edges read as connective tissue at first paint.
+// Cycle-12 was hsla(36 35% 65% / 0.5), which presented as a near-invisible
+// haze against the playground backdrop.
+export const EDGE_COLOR_DARK = 'rgba(255,180,120,0.55)'
 export const EDGE_COLOR_LIGHT = 'hsla(24 28% 32% / 0.45)'
 export const EDGE_HOVER_DARK = 'hsl(40 95% 75%)'
 export const EDGE_HOVER_LIGHT = 'hsl(36 92% 45%)'
 
-export const EDGE_WIDTH_BASE = 1.7
-export const EDGE_WIDTH_FOCUS = 2.4
+// Stroke widths. Bold-redesign bump 1.7 → 2.8 so default edges read as
+// connective tissue, not hairline. Focus stroke widens further so the
+// focused subgraph stands out at a glance even before the alpha tiering.
+export const EDGE_WIDTH_BASE = 2.8
+export const EDGE_WIDTH_FOCUS = 3.6
+
+// Subtle blur halo (px) applied ONLY on edges connected to the focused
+// node. Globally-applied shadowBlur is the most expensive 2D-canvas op
+// and would smear the entire graph; gating it on focus is the brief's
+// explicit ask.
+export const EDGE_HALO_BLUR_PX = 2
+
+// Pure helper extracted from the ObsidianGraph drawLink callback so the
+// stroke + halo contract is unit-testable with a mock CanvasRenderingContext.
+// `isFocusEdge` true → FOCUS width + blur halo + hover color.
+// `isFocusEdge` false → BASE width + zero halo + base color.
+export function applyEdgeStrokeStyle(
+  ctx: CanvasRenderingContext2D,
+  opts: { isFocusEdge: boolean; isDark: boolean },
+): void {
+  const baseColor = opts.isDark ? EDGE_COLOR_DARK : EDGE_COLOR_LIGHT
+  const hoverColor = opts.isDark ? EDGE_HOVER_DARK : EDGE_HOVER_LIGHT
+  if (opts.isFocusEdge) {
+    ctx.strokeStyle = hoverColor
+    ctx.lineWidth = EDGE_WIDTH_FOCUS
+    ctx.shadowColor = hoverColor
+    ctx.shadowBlur = EDGE_HALO_BLUR_PX
+  } else {
+    ctx.strokeStyle = baseColor
+    ctx.lineWidth = EDGE_WIDTH_BASE
+    // Explicitly clear shadowBlur — without this, a leftover from a prior
+    // focus-edge draw would smear non-focus edges.
+    ctx.shadowBlur = 0
+  }
+}
 
 // Apply alpha to either a hex (#RRGGBB) or hsl(...) color string. Used
 // by the focused-node halo gradient — cycle-12 string-replaced 'hsl' →

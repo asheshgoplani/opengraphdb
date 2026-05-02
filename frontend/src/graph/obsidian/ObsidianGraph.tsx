@@ -6,16 +6,7 @@ import { forceCollide } from 'd3-force'
 import { Compass } from 'lucide-react'
 import type { GraphData, GraphNode } from '@/types/graph'
 import { Button } from '@/components/ui/button'
-import {
-  EDGE_COLOR_DARK,
-  EDGE_COLOR_LIGHT,
-  EDGE_HOVER_DARK,
-  EDGE_HOVER_LIGHT,
-  EDGE_WIDTH_BASE,
-  EDGE_WIDTH_FOCUS,
-  colorForLabel,
-  withAlpha,
-} from './colors'
+import { applyEdgeStrokeStyle, colorForLabel, withAlpha } from './colors'
 import {
   type LabelBox,
   ENTRY_DURATION_MS,
@@ -311,22 +302,13 @@ export function ObsidianGraph({
       ctx.save()
       ctx.globalAlpha = edgeAlpha
       const isFocusEdge = focused != null && (sId === focused || tId === focused)
-      ctx.strokeStyle = isFocusEdge
-        ? isDark
-          ? EDGE_HOVER_DARK
-          : EDGE_HOVER_LIGHT
-        : isDark
-          ? EDGE_COLOR_DARK
-          : EDGE_COLOR_LIGHT
-      ctx.lineWidth = isFocusEdge ? EDGE_WIDTH_FOCUS : EDGE_WIDTH_BASE
+      // Stroke + halo come from the shared helper — same contract the
+      // canvas-mock unit test pins. shadowBlur is set to 0 on the
+      // non-focus branch so a stale halo from a previous focus-edge
+      // draw can't smear into baseline edges (shadowBlur is sticky on
+      // the same ctx across draw calls).
+      applyEdgeStrokeStyle(ctx, { isFocusEdge, isDark })
       ctx.lineCap = 'round'
-      // Subtle glow on focus edges (canvas shadowBlur). Skipped for
-      // non-focus edges — shadowBlur is the single most expensive 2D
-      // canvas op and we redraw every link every frame.
-      if (isFocusEdge) {
-        ctx.shadowColor = isDark ? EDGE_HOVER_DARK : EDGE_HOVER_LIGHT
-        ctx.shadowBlur = 4
-      }
       ctx.beginPath()
       ctx.moveTo(sx, sy)
       if (curvature === 0) {
