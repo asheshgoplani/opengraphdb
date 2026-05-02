@@ -122,6 +122,8 @@
     --muted-foreground: 28 14% 30%;
     --accent: 195 78% 38%;
     --accent-foreground: 40 30% 98%;
+    --success: 158 64% 26%;
+    --success-foreground: 40 30% 98%;
     --destructive: 0 72% 48%;
     --destructive-foreground: 40 30% 98%;
     --border: 36 30% 86%;
@@ -152,6 +154,8 @@
     --muted-foreground: 36 18% 78%;
     --accent: 195 90% 65%;
     --accent-foreground: 24 25% 11%;
+    --success: 158 70% 60%;
+    --success-foreground: 24 25% 11%;
     --destructive: 0 62% 44%;
     --destructive-foreground: 40 30% 96%;
     --border: 24 14% 22%;
