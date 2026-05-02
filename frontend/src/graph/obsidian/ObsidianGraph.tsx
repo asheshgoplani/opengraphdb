@@ -17,6 +17,8 @@ import {
 } from './colors'
 import {
   type LabelBox,
+  ENTRY_DURATION_MS,
+  ENTRY_OVERZOOM,
   TOP_HUB_LABELS_DEFAULT,
   compareLabelPriority,
   degreeMap,
@@ -188,6 +190,8 @@ export function ObsidianGraph({
       __obsidianDimmedCount?: () => number
       __obsidianLabelBounds?: () => LabelBox[]
       __obsidianNodePositions?: () => Array<{ id: string | number; x: number; y: number }>
+      __obsidianFitCount?: () => number
+      __obsidianEntryAnimated?: () => boolean
     }
     w.__obsidianGraphReady = true
     w.__obsidianHoverNode = (idx) => {
@@ -220,12 +224,16 @@ export function ObsidianGraph({
       seeded.nodes
         .filter((n) => typeof n.x === 'number' && typeof n.y === 'number')
         .map((n) => ({ id: n.id, x: n.x as number, y: n.y as number }))
+    w.__obsidianFitCount = () => fitCountRef.current
+    w.__obsidianEntryAnimated = () => hasFittedRef.current
     return () => {
       delete w.__obsidianGraphReady
       delete w.__obsidianHoverNode
       delete w.__obsidianDimmedCount
       delete w.__obsidianLabelBounds
       delete w.__obsidianNodePositions
+      delete w.__obsidianFitCount
+      delete w.__obsidianEntryAnimated
     }
   }, [onNodeHover, seeded.nodes, focusNeighbors, graphData])
 
@@ -491,8 +499,29 @@ export function ObsidianGraph({
   }, [])
 
   // Auto-fit once the simulation cools so the user doesn't see clipped nodes.
+  // First cool runs the entry animation (cycle D): start at ENTRY_OVERZOOM
+  // and animate to the natural fit over ENTRY_DURATION_MS so the first
+  // impression is dynamic rather than a cut-to-static-frame. Subsequent
+  // cools (e.g. dataset switches) use a shorter, less ostentatious fit.
+  const hasFittedRef = useRef(false)
+  const fitCountRef = useRef(0)
   const onEngineStop = useCallback(() => {
-    fgRef.current?.zoomToFit(600, 60)
+    const fg = fgRef.current
+    if (!fg) return
+    // Refs are mutated outside render; the harness effect's closures
+    // re-read .current on each invocation so there's no captured-stale-
+    // value bug. Disable the immutability rule narrowly here.
+    // eslint-disable-next-line react-hooks/immutability
+    fitCountRef.current += 1
+    if (!hasFittedRef.current) {
+      // eslint-disable-next-line react-hooks/immutability
+      hasFittedRef.current = true
+      // Snap to overzoom instantly, then animate to fit.
+      fg.zoom(ENTRY_OVERZOOM, 0)
+      fg.zoomToFit(ENTRY_DURATION_MS, 60)
+      return
+    }
+    fg.zoomToFit(400, 60)
   }, [])
 
   // Track pointer position for the tooltip + ensure tap-and-release on

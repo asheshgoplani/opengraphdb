@@ -1,6 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  ENTRY_DURATION_MS,
+  ENTRY_OVERZOOM,
   TOP_HUB_LABELS_DEFAULT,
   compareLabelPriority,
   kHopNeighbors,
@@ -128,6 +130,24 @@ test('topHubsByDegree caps at min(n, node-count) and treats n≤0 as empty', () 
   assert.deepEqual(topHubsByDegree(data, degrees, 10), ['a', 'b'])
   assert.deepEqual(topHubsByDegree(data, degrees, 0), [])
   assert.deepEqual(topHubsByDegree(data, degrees, -1), [])
+})
+
+test('ENTRY_OVERZOOM is greater than 1 — entry actually dollies inward', () => {
+  // Cycle D: the entry animation is a "settle from outside". If overzoom
+  // ever drifts to ≤1 the camera would START at fit, leaving the
+  // animation invisible.
+  assert.ok(
+    ENTRY_OVERZOOM > 1,
+    `ENTRY_OVERZOOM must be > 1 to produce a visible dolly, got ${ENTRY_OVERZOOM}`,
+  )
+})
+
+test('ENTRY_DURATION_MS is long enough to read as motion, short enough not to lag', () => {
+  // <400ms reads as a glitch; >2000ms feels sluggish on cold-load.
+  assert.ok(
+    ENTRY_DURATION_MS >= 400 && ENTRY_DURATION_MS <= 2000,
+    `ENTRY_DURATION_MS must be in [400, 2000], got ${ENTRY_DURATION_MS}`,
+  )
 })
 
 test('TOP_HUB_LABELS_DEFAULT is a sane positive constant', () => {

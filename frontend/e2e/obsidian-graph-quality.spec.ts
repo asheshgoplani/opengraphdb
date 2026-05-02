@@ -15,6 +15,8 @@ declare global {
     __obsidianDimmedCount?: () => number
     __obsidianLabelBounds?: () => LabelBound[]
     __obsidianNodePositions?: () => Array<{ id: string | number; x: number; y: number }>
+    __obsidianFitCount?: () => number
+    __obsidianEntryAnimated?: () => boolean
   }
 }
 
@@ -157,6 +159,24 @@ test.describe('Obsidian graph quality polish (POLISH #1–5)', () => {
     const ys = positions.map((p) => p.y)
     const span = Math.max(...xs) - Math.min(...xs) + Math.max(...ys) - Math.min(...ys)
     expect(span).toBeGreaterThan(50)
+  })
+
+  test('POLISH #7 (cycle D): entry animation runs on first cool', async ({ page }) => {
+    // The first onEngineStop sets the entry-animated flag and bumps
+    // fit-count to ≥ 1. Together they pin the dolly-in contract: a cut-
+    // to-fit (no entry animation) would leave hasFittedRef false.
+    await waitGraphSettled(page)
+    const ran = await page.evaluate(
+      () => window.__obsidianEntryAnimated?.() ?? false,
+    )
+    expect(ran, 'entry-animation flag must be true after settle').toBe(true)
+    const fits = await page.evaluate(
+      () => window.__obsidianFitCount?.() ?? 0,
+    )
+    expect(
+      fits,
+      `expected ≥1 zoomToFit calls after settle; got ${fits}`,
+    ).toBeGreaterThan(0)
   })
 
   test('POLISH #6 (cycle C): top-N hub labels render with NO focus', async ({ page }) => {

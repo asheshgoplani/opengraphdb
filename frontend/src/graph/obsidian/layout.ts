@@ -163,6 +163,13 @@ export function rectsOverlap(a: LabelBox, b: LabelBox): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 }
 
+// Entry-animation constants (cycle D). On the first engine-cool, the
+// camera starts at ENTRY_OVERZOOM and animates to the natural fit over
+// ENTRY_DURATION_MS — reads as a cinematic "settle from outside" dolly
+// instead of the prior cut-to-fit, so the first impression is dynamic.
+export const ENTRY_OVERZOOM = 1.6
+export const ENTRY_DURATION_MS = 900
+
 // Default count of "always-visible" hub labels (cycle C). With no node
 // focused, the top-N highest-degree nodes get labels drawn unconditionally
 // (skipCollision = true) so the user always sees the principal vertices
