@@ -72,8 +72,38 @@ export default function ClaimsPage() {
         </p>
 
         {state.kind === 'loading' && (
-          <div className="mt-10 rounded-lg border border-border/70 bg-card/60 p-6 text-sm text-muted-foreground">
-            Loading claim status…
+          <div
+            data-testid="claims-page-loading"
+            role="status"
+            aria-live="polite"
+            aria-busy="true"
+          >
+            <span className="sr-only">Loading claim status…</span>
+            <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-3" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={i}
+                  className="animate-pulse rounded-lg border border-border/70 bg-card/60 p-4"
+                >
+                  <div className="h-3 w-20 rounded bg-muted" />
+                  <div className="mt-2 h-5 w-32 rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+            <div
+              className="mt-8 overflow-hidden rounded-lg border border-border/70"
+              aria-hidden="true"
+            >
+              <div className="space-y-3 p-6">
+                {[0, 1, 2, 3].map((i) => (
+                  <div key={i} className="flex animate-pulse gap-4">
+                    <div className="h-4 w-16 rounded bg-muted" />
+                    <div className="h-4 flex-1 rounded bg-muted" />
+                    <div className="h-4 w-32 rounded bg-muted" />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
