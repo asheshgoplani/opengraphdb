@@ -66,7 +66,16 @@ export function warmColorForLabel(label: string | undefined): string {
   return WARM_PALETTE_DARK[paletteHash(label) % WARM_PALETTE_DARK.length] ?? fallback
 }
 
-export const EDGE_COLOR_DARK = 'hsla(36 30% 60% / 0.35)'
-export const EDGE_COLOR_LIGHT = 'hsla(24 25% 30% / 0.35)'
+// Base alpha bumped from 0.35 → 0.5 (dark) and 0.45 (light). At 0.35 the
+// edges read as a near-invisible haze against the playground backdrop;
+// 0.5 keeps the structure legible without overwhelming the nodes.
+export const EDGE_COLOR_DARK = 'hsla(36 35% 65% / 0.5)'
+export const EDGE_COLOR_LIGHT = 'hsla(24 28% 32% / 0.45)'
 export const EDGE_HOVER_DARK = 'hsl(40 95% 75%)'
 export const EDGE_HOVER_LIGHT = 'hsl(36 92% 45%)'
+
+// Stroke widths. Base bumped from 1.2 → 1.7 so default edges read as
+// connective tissue, not hairline. Focus stroke widens further so the
+// focused subgraph stands out at a glance even before the alpha tiering.
+export const EDGE_WIDTH_BASE = 1.7
+export const EDGE_WIDTH_FOCUS = 2.4

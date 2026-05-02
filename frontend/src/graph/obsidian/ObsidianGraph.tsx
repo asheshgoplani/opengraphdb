@@ -11,6 +11,8 @@ import {
   EDGE_COLOR_LIGHT,
   EDGE_HOVER_DARK,
   EDGE_HOVER_LIGHT,
+  EDGE_WIDTH_BASE,
+  EDGE_WIDTH_FOCUS,
   colorForLabel,
 } from './colors'
 import {
@@ -293,15 +295,23 @@ export function ObsidianGraph({
       const curvature = (link as RfgLink & { curvature?: number }).curvature ?? 0
       ctx.save()
       ctx.globalAlpha = edgeAlpha
-      ctx.strokeStyle =
-        focused != null && (sId === focused || tId === focused)
-          ? isDark
-            ? EDGE_HOVER_DARK
-            : EDGE_HOVER_LIGHT
-          : isDark
-            ? EDGE_COLOR_DARK
-            : EDGE_COLOR_LIGHT
-      ctx.lineWidth = 1.2
+      const isFocusEdge = focused != null && (sId === focused || tId === focused)
+      ctx.strokeStyle = isFocusEdge
+        ? isDark
+          ? EDGE_HOVER_DARK
+          : EDGE_HOVER_LIGHT
+        : isDark
+          ? EDGE_COLOR_DARK
+          : EDGE_COLOR_LIGHT
+      ctx.lineWidth = isFocusEdge ? EDGE_WIDTH_FOCUS : EDGE_WIDTH_BASE
+      ctx.lineCap = 'round'
+      // Subtle glow on focus edges (canvas shadowBlur). Skipped for
+      // non-focus edges — shadowBlur is the single most expensive 2D
+      // canvas op and we redraw every link every frame.
+      if (isFocusEdge) {
+        ctx.shadowColor = isDark ? EDGE_HOVER_DARK : EDGE_HOVER_LIGHT
+        ctx.shadowBlur = 4
+      }
       ctx.beginPath()
       ctx.moveTo(sx, sy)
       if (curvature === 0) {

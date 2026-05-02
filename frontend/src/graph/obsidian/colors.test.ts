@@ -1,10 +1,19 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  EDGE_COLOR_DARK,
+  EDGE_COLOR_LIGHT,
+  EDGE_WIDTH_BASE,
+  EDGE_WIDTH_FOCUS,
   NODE_PALETTE_DARK,
   NODE_PALETTE_LIGHT,
   colorForLabel,
 } from './colors.js'
+
+function alphaOf(hsla: string): number {
+  const m = hsla.match(/\/\s*([\d.]+)\s*\)/)
+  return m ? Number(m[1]) : 1
+}
 
 test('NODE_PALETTE_DARK has six well-separated AMBER-TERMINAL slots', () => {
   // Six slots is the contract callers (ObsidianGraph, HeroGraphBackground)
@@ -60,6 +69,40 @@ test('colorForLabel with labelIndex wraps modulo palette length past the 6th lab
   assert.equal(
     colorForLabel('L6', true, labelIndex),
     colorForLabel('L0', true, labelIndex),
+  )
+})
+
+test('EDGE_COLOR_* alpha is high enough to read against the playground bg', () => {
+  // Regression for "edges nearly invisible against dark background".
+  // Below 0.4 the edge haze loses connective-tissue legibility on the
+  // playground backdrop. Pin a floor so future palette edits can't drift
+  // back into invisibility.
+  assert.ok(
+    alphaOf(EDGE_COLOR_DARK) >= 0.4,
+    `EDGE_COLOR_DARK alpha must be ≥ 0.4 for legibility, got ${alphaOf(EDGE_COLOR_DARK)}`,
+  )
+  assert.ok(
+    alphaOf(EDGE_COLOR_LIGHT) >= 0.4,
+    `EDGE_COLOR_LIGHT alpha must be ≥ 0.4 for legibility, got ${alphaOf(EDGE_COLOR_LIGHT)}`,
+  )
+})
+
+test('EDGE_WIDTH_BASE is thicker than the historical 1.2px hairline', () => {
+  // Pre-cycle-B value was 1.2 — at this width edges read as a haze, not a
+  // structure. Pin a floor of 1.5 so we can't slip back into hairline
+  // territory without a deliberate new threshold.
+  assert.ok(
+    EDGE_WIDTH_BASE >= 1.5,
+    `EDGE_WIDTH_BASE must be ≥ 1.5px to render as connective tissue, got ${EDGE_WIDTH_BASE}`,
+  )
+})
+
+test('EDGE_WIDTH_FOCUS is strictly thicker than EDGE_WIDTH_BASE', () => {
+  // The focused subgraph must stand out by stroke width alone, not just
+  // color/alpha — so the focus stroke must be measurably thicker than base.
+  assert.ok(
+    EDGE_WIDTH_FOCUS > EDGE_WIDTH_BASE,
+    `EDGE_WIDTH_FOCUS (${EDGE_WIDTH_FOCUS}) must be > EDGE_WIDTH_BASE (${EDGE_WIDTH_BASE})`,
   )
 })
 
