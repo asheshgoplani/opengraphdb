@@ -196,3 +196,16 @@ export function topHubsByDegree(
   })
   return sorted.slice(0, Math.min(n, sorted.length)).map((node) => node.id)
 }
+
+// Returns the id the entry-dolly should target (top-1 hub by degree, with
+// the same deterministic tie-break as `topHubsByDegree`). Returns null
+// for an empty graph so the caller can fall back to viewport-fit. Brief:
+// "dolly-into-top-1-hub at ~1.6× fit-zoom, so the first frame shows a
+// labeled hub neighborhood, not a fog of dots."
+export function selectEntryFocusNodeId(
+  data: GraphData,
+  degrees: Map<string | number, number>,
+): string | number | null {
+  const top = topHubsByDegree(data, degrees, 1)
+  return top[0] ?? null
+}

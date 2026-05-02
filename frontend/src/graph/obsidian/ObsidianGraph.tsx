@@ -18,6 +18,7 @@ import {
   neighborSet,
   rectsOverlap,
   seedPositions,
+  selectEntryFocusNodeId,
   topHubsByDegree,
   tuneForces,
 } from './layout'
@@ -184,6 +185,7 @@ export function ObsidianGraph({
       __obsidianNodePositions?: () => Array<{ id: string | number; x: number; y: number }>
       __obsidianFitCount?: () => number
       __obsidianEntryAnimated?: () => boolean
+      __obsidianEntryFocusId?: () => string | number | null
     }
     w.__obsidianGraphReady = true
     w.__obsidianHoverNode = (idx) => {
@@ -218,6 +220,10 @@ export function ObsidianGraph({
         .map((n) => ({ id: n.id, x: n.x as number, y: n.y as number }))
     w.__obsidianFitCount = () => fitCountRef.current
     w.__obsidianEntryAnimated = () => hasFittedRef.current
+    // Bold-redesign change 3: the entry dolly targets the top-1 hub by
+    // degree instead of viewport-fit. Expose the chosen id so the
+    // playground entry-frame snapshot test can read it back.
+    w.__obsidianEntryFocusId = () => entryFocusIdRef.current
     return () => {
       delete w.__obsidianGraphReady
       delete w.__obsidianHoverNode
@@ -226,6 +232,7 @@ export function ObsidianGraph({
       delete w.__obsidianNodePositions
       delete w.__obsidianFitCount
       delete w.__obsidianEntryAnimated
+      delete w.__obsidianEntryFocusId
     }
   }, [onNodeHover, seeded.nodes, focusNeighbors, graphData])
 
@@ -492,6 +499,7 @@ export function ObsidianGraph({
   // cools (e.g. dataset switches) use a shorter, less ostentatious fit.
   const hasFittedRef = useRef(false)
   const fitCountRef = useRef(0)
+  const entryFocusIdRef = useRef<string | number | null>(null)
   const onEngineStop = useCallback(() => {
     const fg = fgRef.current
     if (!fg) return
@@ -503,13 +511,35 @@ export function ObsidianGraph({
     if (!hasFittedRef.current) {
       // eslint-disable-next-line react-hooks/immutability
       hasFittedRef.current = true
-      // Snap to overzoom instantly, then animate to fit.
+      // Bold-redesign change 3: dolly into the top-1 hub at ENTRY_OVERZOOM
+      // × fit-zoom, so the first frame shows a labeled hub neighborhood,
+      // not a fog of dots. Cycle-12 cut-to-fit gave every node ~6px and
+      // no label survived the entry frame.
+      const targetId = selectEntryFocusNodeId(graphData, degrees)
+      // eslint-disable-next-line react-hooks/immutability
+      entryFocusIdRef.current = targetId
+      const targetNode = targetId != null
+        ? seeded.nodes.find((n) => n.id === targetId)
+        : null
+      if (targetNode && typeof targetNode.x === 'number' && typeof targetNode.y === 'number') {
+        // Snap to fit so we have a stable baseline-zoom to scale from.
+        fg.zoomToFit(0, 60)
+        const fitZ = fg.zoom()
+        // Animate camera + zoom inward over ENTRY_DURATION_MS — this is
+        // the visible delta vs cycle-12. centerAt + zoom run concurrently
+        // in react-force-graph's animation loop.
+        fg.centerAt(targetNode.x, targetNode.y, ENTRY_DURATION_MS)
+        fg.zoom(fitZ * ENTRY_OVERZOOM, ENTRY_DURATION_MS)
+        return
+      }
+      // Empty / position-less graph: fall back to legacy fit dolly so the
+      // first impression isn't a frozen blank canvas.
       fg.zoom(ENTRY_OVERZOOM, 0)
       fg.zoomToFit(ENTRY_DURATION_MS, 60)
       return
     }
     fg.zoomToFit(400, 60)
-  }, [])
+  }, [degrees, graphData, seeded.nodes])
 
   // Track pointer position for the tooltip + ensure tap-and-release on
   // touch (no preceding `mousemove`) still positions the tooltip.

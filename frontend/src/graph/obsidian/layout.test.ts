@@ -8,6 +8,7 @@ import {
   kHopNeighbors,
   neighborSet,
   seedPositions,
+  selectEntryFocusNodeId,
   topHubsByDegree,
 } from './layout.js'
 
@@ -156,6 +157,30 @@ test('TOP_HUB_LABELS_DEFAULT is a sane positive constant', () => {
     TOP_HUB_LABELS_DEFAULT >= 4 && TOP_HUB_LABELS_DEFAULT <= 16,
     `TOP_HUB_LABELS_DEFAULT must be in [4, 16] for sensible default labelling, got ${TOP_HUB_LABELS_DEFAULT}`,
   )
+})
+
+test('selectEntryFocusNodeId returns the highest-degree node id (bold-redesign change 3)', () => {
+  // The entry-dolly target. Tie-break must match topHubsByDegree, since
+  // the user's pinned-label set and the camera dolly should agree on
+  // which node is "the hub" to land on.
+  const data = {
+    nodes: [{ id: 'leaf' }, { id: 'mid' }, { id: 'hub' }, { id: 'iso' }],
+    links: [],
+  } as never
+  const degrees = new Map<string | number, number>([
+    ['hub', 10],
+    ['mid', 3],
+    ['leaf', 1],
+    ['iso', 0],
+  ])
+  assert.equal(selectEntryFocusNodeId(data, degrees), 'hub')
+})
+
+test('selectEntryFocusNodeId returns null on an empty graph', () => {
+  // Empty-graph fallback so the caller can default to viewport-fit and
+  // not crash on an undefined node lookup.
+  const data = { nodes: [], links: [] } as never
+  assert.equal(selectEntryFocusNodeId(data, new Map()), null)
 })
 
 test('compareLabelPriority falls back to deterministic id order for equal-degree ties', () => {
