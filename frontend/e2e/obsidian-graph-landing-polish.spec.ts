@@ -23,9 +23,18 @@ test.describe('Landing illustrative graph polish', () => {
     await page.goto('/')
     // Scroll the demo section into view so the graph mounts.
     await page.locator('#demo').scrollIntoViewIfNeeded()
-    await page.waitForTimeout(8000)
 
-    const bounds = await page.evaluate(() => window.__smallObsidianLabelBounds?.() ?? [])
+    // Poll for labels rather than wait a fixed 8s — the SampleQueryPanel's
+    // typing loop + force-graph cooldown is sensitive to CI frame-rate /
+    // IntersectionObserver timing. The fixed wait was deterministic-fail in
+    // GitHub-runner chromium even when the same code rendered fine locally.
+    let bounds: LabelBound[] = []
+    const deadline = Date.now() + 25_000
+    while (Date.now() < deadline) {
+      bounds = await page.evaluate(() => window.__smallObsidianLabelBounds?.() ?? [])
+      if (bounds.length >= 3) break
+      await page.waitForTimeout(250)
+    }
     // 6 nodes — expect at least 3 visible labels after collision pass.
     expect(bounds.length).toBeGreaterThanOrEqual(3)
 

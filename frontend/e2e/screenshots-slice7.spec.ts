@@ -60,9 +60,13 @@ test.describe('Slice 7 screenshots', () => {
     await page.goto('/playground?dataset=wikidata')
     await page.waitForLoadState('networkidle')
 
-    // Click the Ontology toggle (may be disabled if no subclass edges)
-    const tree = page.getByRole('tree', { name: /Schema/i })
-    const ontologyBtn = tree.locator('button', { hasText: /Ontology/i }).first()
+    // The Ontology toggle lives in the SchemaBrowser section header, *next to*
+    // (not inside) the role="tree" subtree — scope to the section[aria-label="Schema"]
+    // so the locator actually resolves. Earlier scoping to the tree caused
+    // isDisabled() to hang on the test-timeout, surfacing as a "page crash".
+    const schemaSection = page.locator('section[aria-label="Schema"]')
+    await schemaSection.waitFor()
+    const ontologyBtn = schemaSection.getByRole('button', { name: 'Ontology' })
     const isDisabled = await ontologyBtn.isDisabled().catch(() => true)
     if (!isDisabled) await ontologyBtn.click()
 
