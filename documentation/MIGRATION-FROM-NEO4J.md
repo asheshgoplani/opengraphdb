@@ -20,7 +20,7 @@ OpenGraphDB ships under **Apache 2.0** (see [`LICENSE`](../LICENSE)) as a
 **single-file** native binary — no JVM, no separate Lucene, no
 Cypher-shell-server-driver chain. `ogdb` is one ELF/Mach-O artifact you
 embed in Rust, link from Python or Node, or run as `ogdb serve` (HTTP
-`:8080`, Bolt `:7687`, gRPC).
+`:8080`, Bolt `:7687`).
 
 Neo4j Community is **GPLv3**, Enterprise is commercial, and several Neo4j
 plugins (vector, GenAI) are **AGPL**-licensed in their open-source
