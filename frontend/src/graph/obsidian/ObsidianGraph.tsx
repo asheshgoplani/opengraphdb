@@ -17,12 +17,14 @@ import {
 } from './colors'
 import {
   type LabelBox,
+  TOP_HUB_LABELS_DEFAULT,
   compareLabelPriority,
   degreeMap,
   kHopNeighbors,
   neighborSet,
   rectsOverlap,
   seedPositions,
+  topHubsByDegree,
   tuneForces,
 } from './layout'
 import { assignParallelCurvatures } from './parallelEdges'
@@ -393,15 +395,39 @@ export function ObsidianGraph({
         placed.push(box)
       }
       // 1) Focused label first, unconditional — never hidden by collisions.
+      // 1') When no node is focused, force the top-N hubs (highest degree,
+      // tie-broken by id) onto the canvas unconditionally — cycle C: the
+      // playground graph used to render with zero default labels (visibility
+      // gated entirely on focus), leaving the user to hunt for principal
+      // vertices. With this branch the most connected nodes are always
+      // labelled at first paint.
+      const pinned = new Set<string | number>()
       if (focused != null) {
         const focusedNode = nodes.find((n) => n.id === focused)
-        if (focusedNode) drawOne(focusedNode, { skipCollision: true })
+        if (focusedNode) {
+          drawOne(focusedNode, { skipCollision: true })
+          pinned.add(focusedNode.id)
+        }
+      } else {
+        const hubIds = topHubsByDegree(
+          { nodes, links: [] } as never,
+          degrees,
+          TOP_HUB_LABELS_DEFAULT,
+        )
+        for (const id of hubIds) {
+          const node = nodes.find((n) => n.id === id)
+          if (node) {
+            drawOne(node, { skipCollision: true })
+            pinned.add(node.id)
+          }
+        }
       }
       // 2) Remaining labels in priority order. When a focus exists, only
       // draw labels of focus + its 1-hop neighbours (2-hop stays unlabelled
-      // to keep the focus neighbourhood readable).
+      // to keep the focus neighbourhood readable). Otherwise we fill in
+      // additional non-hub labels by collision.
       for (const node of priority) {
-        if (focused != null && node.id === focused) continue
+        if (pinned.has(node.id)) continue
         const isNeighborOfFocus = focusNeighbors?.has(node.id) === true
         if (focused != null && !isNeighborOfFocus) continue
         drawOne(node, { skipCollision: false })

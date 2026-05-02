@@ -162,3 +162,30 @@ export interface LabelBox {
 export function rectsOverlap(a: LabelBox, b: LabelBox): boolean {
   return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y
 }
+
+// Default count of "always-visible" hub labels (cycle C). With no node
+// focused, the top-N highest-degree nodes get labels drawn unconditionally
+// (skipCollision = true) so the user always sees the principal vertices
+// at first paint, not just on hover. 8 is the empirical sweet spot —
+// fewer than that and a 50-node ontology shows mostly anonymous dots;
+// more than that and the dense-graph case starts crowding.
+export const TOP_HUB_LABELS_DEFAULT = 8
+
+// Returns the top-N node ids by degree (descending), ties broken
+// deterministically by stringified-id ascending — same priority key as
+// `compareLabelPriority`'s no-focus branch, so the chosen hubs match the
+// label-pass priority ordering exactly.
+export function topHubsByDegree(
+  data: GraphData,
+  degrees: Map<string | number, number>,
+  n: number,
+): Array<string | number> {
+  if (n <= 0 || data.nodes.length === 0) return []
+  const sorted = [...data.nodes].sort((a, b) => {
+    const da = degrees.get(a.id) ?? 0
+    const db = degrees.get(b.id) ?? 0
+    if (da !== db) return db - da
+    return String(a.id).localeCompare(String(b.id))
+  })
+  return sorted.slice(0, Math.min(n, sorted.length)).map((node) => node.id)
+}

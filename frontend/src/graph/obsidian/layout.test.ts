@@ -1,10 +1,12 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+  TOP_HUB_LABELS_DEFAULT,
   compareLabelPriority,
   kHopNeighbors,
   neighborSet,
   seedPositions,
+  topHubsByDegree,
 } from './layout.js'
 
 test('seedPositions returns one entry per node and is deterministic', () => {
@@ -85,6 +87,54 @@ test('compareLabelPriority places focused node before higher-degree non-focused'
   assert.deepEqual(
     sorted.map((n) => n.id),
     ['focus', 'hub', 'leaf'],
+  )
+})
+
+test('topHubsByDegree returns top-N ids in degree-desc order', () => {
+  // Cycle C: pinned-default labels picks from this helper, so the order
+  // and tie-breaking must match `compareLabelPriority`'s no-focus branch.
+  const data = {
+    nodes: [{ id: 'leaf' }, { id: 'mid' }, { id: 'hub' }, { id: 'iso' }],
+    links: [],
+  } as never
+  const degrees = new Map<string | number, number>([
+    ['hub', 10],
+    ['mid', 3],
+    ['leaf', 1],
+    ['iso', 0],
+  ])
+  assert.deepEqual(topHubsByDegree(data, degrees, 3), ['hub', 'mid', 'leaf'])
+})
+
+test('topHubsByDegree breaks ties by stringified-id ascending', () => {
+  const data = {
+    nodes: [{ id: 'z' }, { id: 'a' }, { id: 'm' }],
+    links: [],
+  } as never
+  const degrees = new Map<string | number, number>([
+    ['z', 5],
+    ['a', 5],
+    ['m', 5],
+  ])
+  assert.deepEqual(topHubsByDegree(data, degrees, 3), ['a', 'm', 'z'])
+})
+
+test('topHubsByDegree caps at min(n, node-count) and treats n≤0 as empty', () => {
+  const data = { nodes: [{ id: 'a' }, { id: 'b' }], links: [] } as never
+  const degrees = new Map<string | number, number>([
+    ['a', 1],
+    ['b', 0],
+  ])
+  assert.deepEqual(topHubsByDegree(data, degrees, 10), ['a', 'b'])
+  assert.deepEqual(topHubsByDegree(data, degrees, 0), [])
+  assert.deepEqual(topHubsByDegree(data, degrees, -1), [])
+})
+
+test('TOP_HUB_LABELS_DEFAULT is a sane positive constant', () => {
+  // Pin the contract so accidental zero-or-negative drift is loud.
+  assert.ok(
+    TOP_HUB_LABELS_DEFAULT >= 4 && TOP_HUB_LABELS_DEFAULT <= 16,
+    `TOP_HUB_LABELS_DEFAULT must be in [4, 16] for sensible default labelling, got ${TOP_HUB_LABELS_DEFAULT}`,
   )
 })
 

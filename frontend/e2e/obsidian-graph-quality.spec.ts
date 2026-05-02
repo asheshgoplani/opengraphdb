@@ -159,6 +159,32 @@ test.describe('Obsidian graph quality polish (POLISH #1–5)', () => {
     expect(span).toBeGreaterThan(50)
   })
 
+  test('POLISH #6 (cycle C): top-N hub labels render with NO focus', async ({ page }) => {
+    // Visible-without-interaction: the playground graph used to render
+    // with zero default labels (visibility gated entirely on focus). With
+    // cycle-C, when nothing is focused the top-N highest-degree nodes
+    // must already be labelled at first paint.
+    await waitGraphSettled(page)
+
+    // Sanity: harness must still expose the bounds hook.
+    const bounds = await page.evaluate(
+      () => window.__obsidianLabelBounds?.() ?? [],
+    )
+    // No focus is asserted indirectly via the dimmed-count contract: with
+    // no node focused, dimmed count is 0 (no fade tier applied).
+    const dimmed = await page.evaluate(
+      () => window.__obsidianDimmedCount?.() ?? 0,
+    )
+    expect(dimmed, 'no focus should mean zero dimmed nodes').toBe(0)
+    // Default label count must be > 0 — the regression we are guarding.
+    // We don't pin the exact N (depends on dataset size) but require
+    // at least one default-pinned label survived to the placed-list.
+    expect(
+      bounds.length,
+      `expected ≥1 default labels at first paint; placed=${bounds.length}`,
+    ).toBeGreaterThan(0)
+  })
+
   test('POLISH #1: labels do not overlap when focused — focused label always renders', async ({
     page,
   }) => {
