@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Bot, Cpu, Languages } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { AppBackdrop } from '@/components/layout/AppBackdrop'
 import { Button } from '@/components/ui/button'
@@ -20,9 +20,21 @@ function GithubMark({ className }: { className?: string }) {
 }
 
 const STATS = [
-  { value: 'Rust', label: 'single-binary core' },
-  { value: 'Cypher', label: 'openCypher TCK gated' },
-  { value: 'MCP', label: 'JSON-RPC tool surface' },
+  {
+    value: 'Rust',
+    icon: Cpu,
+    label: 'Single-binary core you can embed in-process or serve.',
+  },
+  {
+    value: 'Cypher',
+    icon: Languages,
+    label: 'Standard openCypher dialect, gated by the TCK.',
+  },
+  {
+    value: 'MCP',
+    icon: Bot,
+    label: 'JSON-RPC tool surface AI agents call directly.',
+  },
 ]
 
 export function HeroSection() {
@@ -136,19 +148,26 @@ export function HeroSection() {
             isInView ? 'animate-reveal-up animate-delay-400 animate-fill-both' : 'opacity-0'
           }`}
         >
-          {STATS.map((stat) => (
-            <div
-              key={stat.value}
-              className="bg-card/80 px-4 py-5 text-left sm:px-6"
-            >
-              <dt className="font-display text-2xl font-medium text-foreground sm:text-3xl">
-                {stat.value}
-              </dt>
-              <dd className="mt-1 text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
-                {stat.label}
-              </dd>
-            </div>
-          ))}
+          {STATS.map((stat) => {
+            const Icon = stat.icon
+            return (
+              <div
+                key={stat.value}
+                className="bg-card/80 px-4 py-5 text-left sm:px-6"
+              >
+                <dt className="flex items-center gap-2 font-display text-2xl font-medium text-foreground sm:text-3xl">
+                  <Icon
+                    className="h-5 w-5 text-[hsl(var(--primary))]"
+                    aria-hidden="true"
+                  />
+                  {stat.value}
+                </dt>
+                <dd className="mt-2 text-[11px] leading-snug text-muted-foreground sm:text-xs">
+                  {stat.label}
+                </dd>
+              </div>
+            )
+          })}
         </dl>
       </div>
 
