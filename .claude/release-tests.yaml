@@ -596,3 +596,21 @@ tests:
     command: "cargo test -p ogdb-core --test ogdb_export_reexport_shim"
     purpose: "Guards the backward-compat shim in ogdb-core that pub-use-re-exports ogdb_export::{ExportEdge, ExportNode}. 16 downstream call sites in ogdb-cli/src/lib.rs rely on the shim. 4 asserts incl. Database round-trip catch silent re-collapse or symbol drift."
     added: 2026-04-26
+
+  - id: c9-playground-values-real
+    task: fix-c9-playground-values
+    crate: frontend
+    test: e2e/c9-playground-values
+    function: []
+    command: "cd frontend && npx playwright test e2e/c9-playground-values.spec.ts"
+    purpose: "Guards C9 audit findings (2026-05-02) — PerfStrip used to render synthesized parse/plan/execute cells (fixed 5/20/75% ratios of total time) under a 'Verified perf · live · profiled' header; backend exposes no profile, so all three µs/ms cells were fake. Spec asserts (a) MovieLens fixture really has 69 nodes / 60 edges / 60 movies / 9 genres and DatasetSwitcher description surfaces those exact numbers (no hand-typed '20 movies / 10 genres / ~80 edges' drift); (b) PerfStrip exposes only real counters (Rows, Nodes, Edges, Total); (c) header copy contains neither 'Verified perf' nor 'profiled' nor any µs cell — those re-introduce the lie."
+    added: 2026-05-02
+
+  - id: c9-perf-strip-cells-r6
+    task: fix-c9-playground-values
+    crate: frontend
+    test: e2e/reposition/R6-perf-strip
+    function: []
+    command: "cd frontend && npx playwright test e2e/reposition/R6-perf-strip.spec.ts"
+    purpose: "Updated R6 PerfStrip spec post-C9 audit — test ids are now `perf-rows`, `perf-nodes`, `perf-edges`, `perf-total` (the synthesized `perf-parse` / `perf-plan` / `perf-execute` cells were removed). Catches re-introduction of the parse/plan/execute breakdown helper or the 'Verified perf · profiled' subtitle."
+    added: 2026-05-02

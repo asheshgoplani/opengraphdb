@@ -8,20 +8,31 @@
 
 ## Scope and honesty policy
 
-> **Baseline-version note (updated 2026-05-01 per cycle-2 C2-A4).** The
-> raw run JSON is now regenerated against the 0.4.0 workspace (commit
-> `3ba8d96`) at [`baseline-2026-05-01.json`](evaluation-runs/baseline-2026-05-01.json),
+> **Baseline-version note (updated 2026-05-02 per cycle-9 perf surface
+> audit; supersedes the 2026-05-01 cycle-2 C2-A4 wording).** The raw run
+> JSON is regenerated against the 0.4.0 workspace (commit `3ba8d96`) at
+> [`baseline-2026-05-01.json`](evaluation-runs/baseline-2026-05-01.json),
 > so every `EvaluationRun` carries `"version": "0.4.0"` and a real
-> `git_sha`. This run is iters=1 single-shot — the 2026-04-25 multi-iter
-> medianed baseline is preserved at
-> [`baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json)
-> as the historical headline-numbers reference; a multi-iter
-> medianed re-baseline at v0.5 will be the canonical-numbers replacement
-> when measurement-quality hardware is available. The aggregated
-> headline numbers in the table below are therefore still from the
-> 2026-04-25 multi-iter run (numbers do not yet shift) — only the
-> attestation that the current code matches a published JSON has been
-> restored.
+> `git_sha`. This run is **iters=1 single-shot** — the 2026-04-25
+> multi-iter (N=5) medianed baseline is preserved at
+> [`baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json),
+> measured against version 0.3.0, and the headline numbers in § 2 below
+> are still those 0.3.0 N=5 medians **carried forward** to the 0.4.0
+> table cells (no functionally relevant code changed between 0.3.0 and
+> 0.4.0 on the perf-sensitive paths). Cycle 9's audit (see
+> `.planning/c9-perf/PLAN.md`) cross-checked the 2026-05-01 single-shot
+> numbers against the 2026-04-25 medians and found that rows 3, 4, 5,
+> 6, and 10 move beyond the methodology section's documented 40–70 %
+> N=1 cold-cache variance band — most notably row 4 (+110 % traversal
+> p95), row 5 (−49 % IS-1 p95, an improvement), and row 6 (+66 %
+> mutation p95). Whether those moves are real regressions/improvements
+> or N=1 single-shot noise cannot be settled without an N=5 medianed
+> re-baseline at 0.4.0 on the same i9-10920X bench box. **Pending that
+> re-measurement**, every "(0.4.0, N=5 median)" tag in § 2 should be
+> read as "(0.3.0 N=5 median, carried forward to 0.4.0; 0.4.0
+> single-shot in 2026-05-01 baseline JSON shows drift on rows 3, 4, 5,
+> 6, 10 that is at the boundary of N=1 noise)". The canonical-numbers
+> replacement is tracked as a v0.5 follow-up alongside the rest of § 4.
 
 This document is the public competitive-comparison sheet for OpenGraphDB 0.4.0. Per the project's transparency directive we publish *every* measurement — wins, losses, and axes where no public baseline exists — with enough methodology context that a reader can reproduce or challenge the numbers.
 
@@ -111,6 +122,7 @@ Using the stricter "clean wins / clean losses / novel" bucketing the user asked 
 8. **Factorization-ratio metric (Kuzu axis).** Wire into the resources driver; emit alongside every multi-hop query metric. (Row 14.)
 9. **Cold-start to first query (spec 3.5).** Not yet measured. Add to the resources driver.
 10. **Warm-cache variants.** Every number above is cold. Add a `warmup_queries` knob to each driver and re-publish a "warm" column for every latency row. Brings us onto Memgraph Benchgraph's full isolated×mixed×realistic grid.
+11. **N=5 re-baseline at 0.4.0 on the i9-10920X bench box** (cycle-9 perf surface audit). The headline numbers in § 2 are still the 0.3.0 N=5 medians carried forward; the 2026-05-01 0.4.0 single-shot JSON shows drift outside the N=1 noise band on rows 3, 4, 5, 6, 10 that needs N=5 medians to settle. Default `OGDB_EVAL_BASELINE_ITERS` to 5 (currently 1) at the same time so the methodology contract isn't operator-dependent. Tracked in `.planning/c9-perf/PLAN.md`.
 
 ## 5. Reproducing this run
 

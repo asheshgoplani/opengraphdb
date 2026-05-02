@@ -18,7 +18,7 @@ test.describe('Landing Page Visual Coverage', () => {
     await expect(heroTitle).toContainText('The single-file graph DB')
     await page.screenshot({ path: 'e2e/screenshots/landing-hero-light.png', fullPage: false })
 
-    const showcaseSection = page.locator('#use-cases')
+    const showcaseSection = page.locator('#showcase')
     await showcaseSection.scrollIntoViewIfNeeded()
     await expect(showcaseSection).toBeVisible()
     await expect(page.getByTestId('showcase-card')).toHaveCount(5)
@@ -47,8 +47,8 @@ test.describe('Landing Page Visual Coverage', () => {
   })
 
   test('showcase cards navigate to playground', async ({ page }) => {
-    await page.locator('#use-cases').scrollIntoViewIfNeeded()
-    await page.locator('#use-cases a[href*="/playground?dataset="]').first().click()
+    await page.locator('#showcase').scrollIntoViewIfNeeded()
+    await page.locator('#showcase a[href*="/playground?dataset="]').first().click()
     await expect(page).toHaveURL(/\/playground\?dataset=/)
   })
 })

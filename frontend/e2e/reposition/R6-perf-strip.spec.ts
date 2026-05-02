@@ -1,41 +1,46 @@
 import { expect, test } from '@playwright/test'
 
-// R6 — cover PerfStrip testids: `perf-strip`, `perf-parse`, `perf-plan`,
-// `perf-execute`, `perf-total`. The strip is one of the site's explicit
-// "Verified perf" surfaces — PLAN calls it out as a keep-and-gate feature
-// for the developer-first pitch ("traversals feel instant"). Without this
-// spec the five testids were orphaned.
+// R6 — cover PerfStrip testids: `perf-strip`, `perf-rows`, `perf-nodes`,
+// `perf-edges`, `perf-total`. The strip used to expose synthesized
+// parse/plan/execute cells computed as fixed 5/20/75% ratios of the total
+// query time — labelled "Verified perf · live · profiled" while the backend
+// did not in fact return a profile. After the C9 audit (2026-05-02) the four
+// cells are real counters; this spec is the regression guard against the
+// fakery returning.
 
-test.describe('R6 — perf strip latency cells', () => {
+test.describe('R6 — perf strip cells (post-C9 audit)', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/playground')
     await page.waitForLoadState('networkidle')
   })
 
-  test('renders the four latency cells with labels + awaiting-state caption', async ({ page }) => {
+  test('renders the four real-counter cells with labels + awaiting-state caption', async ({ page }) => {
     const strip = page.getByTestId('perf-strip')
     await expect(strip).toBeVisible()
     await expect(strip).toHaveAttribute('aria-label', /Query performance/i)
 
-    const parse = page.getByTestId('perf-parse')
-    const plan = page.getByTestId('perf-plan')
-    const execute = page.getByTestId('perf-execute')
+    const rows = page.getByTestId('perf-rows')
+    const nodes = page.getByTestId('perf-nodes')
+    const edges = page.getByTestId('perf-edges')
     const total = page.getByTestId('perf-total')
 
-    await expect(parse).toBeVisible()
-    await expect(plan).toBeVisible()
-    await expect(execute).toBeVisible()
+    await expect(rows).toBeVisible()
+    await expect(nodes).toBeVisible()
+    await expect(edges).toBeVisible()
     await expect(total).toBeVisible()
 
-    // Each cell exposes its phase label (Parse / Plan / Execute / Total).
-    await expect(parse).toContainText(/Parse/i)
-    await expect(parse).toContainText(/µs/i)
-    await expect(plan).toContainText(/Plan/i)
-    await expect(plan).toContainText(/µs/i)
-    await expect(execute).toContainText(/Execute/i)
-    await expect(execute).toContainText(/ms/i)
+    await expect(rows).toContainText(/Rows/i)
+    await expect(nodes).toContainText(/Nodes/i)
+    await expect(edges).toContainText(/Edges/i)
     await expect(total).toContainText(/Total/i)
     await expect(total).toContainText(/ms/i)
+
+    // The header copy must NOT claim verified profiling — the C9 audit found
+    // the strip was advertising a profile it did not actually have. Both the
+    // "Verified perf" superlative and the "profiled" subtitle have to stay
+    // gone until backend exposes db.query_profiled.
+    await expect(strip).not.toContainText(/verified perf/i)
+    await expect(strip).not.toContainText(/profiled/i)
   })
 
   test('running a guided query populates the Total cell with a measured value', async ({
