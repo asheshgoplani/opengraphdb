@@ -70,7 +70,7 @@ export function CodeSnippetCard({
           tabIndex={0}
           role="region"
           aria-label={`${title} ${language} snippet`}
-          className="overflow-x-auto px-4 py-4 font-mono text-[12.5px] leading-relaxed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="scrollbar-code overflow-x-auto px-4 py-4 font-mono text-[12.5px] leading-relaxed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <code>{code}</code>
         </pre>

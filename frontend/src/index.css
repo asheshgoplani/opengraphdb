@@ -50,6 +50,32 @@
     mask-image: radial-gradient(ellipse 80% 70% at 50% 45%, black 35%, transparent 80%);
   }
 
+  /* Always-visible thin scrollbar for code surfaces. WebKit auto-hide makes
+     overflow-x:auto on a dark <pre> look clipped (visual-cycle9 HIGH-1):
+     long lines silently disappear because no scrollbar handle ever paints
+     until the user scrolls. This utility forces a low-contrast amber track
+     + thumb that reads as a scroll affordance on both light and dark code
+     surfaces, matching the playground's amber-terminal palette. */
+  .scrollbar-code {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--primary) / 0.55) hsl(var(--muted) / 0.35);
+  }
+  .scrollbar-code::-webkit-scrollbar {
+    height: 8px;
+    width: 8px;
+  }
+  .scrollbar-code::-webkit-scrollbar-track {
+    background: hsl(var(--muted) / 0.35);
+    border-radius: 9999px;
+  }
+  .scrollbar-code::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.55);
+    border-radius: 9999px;
+  }
+  .scrollbar-code::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.85);
+  }
+
   .time-slider-thumb {
     height: 18px;
     cursor: pointer;

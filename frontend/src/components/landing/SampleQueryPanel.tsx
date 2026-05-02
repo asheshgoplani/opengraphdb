@@ -221,7 +221,7 @@ export function SampleQueryPanel() {
               amberOnly
             />
             <div className="pointer-events-none absolute bottom-3 right-3 rounded-md border border-border/60 bg-background/60 px-2 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground backdrop-blur">
-              {RESULT.nodes.length} nodes · {RESULT.links.length} edges · illustrative
+              illustrative
             </div>
           </div>
         </div>

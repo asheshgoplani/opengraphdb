@@ -6,7 +6,6 @@ import { cn } from '@/lib/utils'
 
 const SECTION_LINKS = [
   { href: '#showcase', label: 'Showcase' },
-  { href: '#how-it-works', label: 'How it works' },
   { href: '#features', label: 'Features' },
   { href: '#get-started', label: 'Get started' },
 ]

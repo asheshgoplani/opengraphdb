@@ -48,14 +48,13 @@ export function GettingStartedSection() {
     >
       <div className="mx-auto max-w-5xl px-6">
         <div
-          id="how-it-works"
           className={cn(
             'mb-16 max-w-2xl scroll-mt-24',
             isInView ? 'animate-reveal-up animate-fill-both' : 'opacity-0'
           )}
         >
           <p className="mb-3 text-xs uppercase tracking-[0.22em] text-muted-foreground">
-            03 — How it works
+            03 — Get started
           </p>
           <h2 className="font-display text-balance text-4xl font-light leading-[1.05] tracking-tight text-foreground sm:text-5xl">
             Three commands to a living graph.

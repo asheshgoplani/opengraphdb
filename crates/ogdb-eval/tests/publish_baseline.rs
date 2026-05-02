@@ -14,10 +14,11 @@
 //!    *before* the measured iterations so the build-cache + page-cache are
 //!    primed. The warm-up's `EvaluationRun` is discarded.
 //!
-//! 2. **N-iter median (`OGDB_EVAL_BASELINE_ITERS`, default 1).** When set
-//!    ≥ 2, runs the full suite N times and medians each metric across iters
-//!    by `(suite, subsuite, dataset)`. p99.9 is dropped — even at N=5 the
-//!    tail is too noisy to publish.
+//! 2. **N-iter median (`OGDB_EVAL_BASELINE_ITERS`, default 5 per cycle-9
+//!    methodology contract).** Runs the full suite N times and medians each
+//!    metric across iters by `(suite, subsuite, dataset)`. p99.9 is dropped
+//!    — even at N=5 the tail is too noisy to publish. Set
+//!    `OGDB_EVAL_BASELINE_ITERS=1` for the legacy single-shot smoke path.
 //!
 //! The `performance` CPU governor is the third lever; on a process without
 //! root we can only log a warning. See `ogdb_eval::drivers::governor`.
@@ -38,11 +39,14 @@ use ogdb_eval::drivers::{criterion_ingest, graphalytics};
 use ogdb_eval::EvaluationRun;
 
 fn read_iters_env() -> u32 {
+    // Default 5: matches the methodology contract in
+    // documentation/BENCHMARKS.md § 1 (median of N=5 release-build iters
+    // with 1 warm-up discarded). Cycle-9 perf surface audit follow-up #11.
     std::env::var("OGDB_EVAL_BASELINE_ITERS")
         .ok()
         .and_then(|s| s.parse::<u32>().ok())
         .filter(|n| *n >= 1)
-        .unwrap_or(1)
+        .unwrap_or(5)
 }
 
 /// Diagnostic: log per-iter spread for the read-path + IS-1 metrics that

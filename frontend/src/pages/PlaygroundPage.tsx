@@ -519,7 +519,7 @@ export default function PlaygroundPage() {
                 >
                   <div
                     data-testid="schema-browser-header"
-                    className="sticky top-0 z-20 border-b border-border bg-gradient-to-r from-primary/20 via-primary/10 to-transparent px-6 py-5 backdrop-blur-sm"
+                    className="sticky top-0 z-20 border-b border-border bg-gradient-to-r from-accent/10 via-accent/5 to-transparent px-6 py-5 backdrop-blur-sm"
                   >
                     <h1 className="font-display text-[32px] font-medium leading-tight tracking-tight text-accent">
                       SCHEMA BROWSER
