@@ -33,7 +33,7 @@ Embed in Rust:
 use ogdb_core::Database;
 
 let mut db = Database::open("mydata.ogdb")?;
-let id = db.create_node(&["Person".into()], &Default::default())?;
+db.query("CREATE (p:Person {name: 'Alice'})")?;
 let rows = db.query("MATCH (p:Person) RETURN p")?;
 ```
 

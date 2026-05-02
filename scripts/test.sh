@@ -15,6 +15,12 @@ source "$HOME/.cargo/env"
 # ARCHITECTURE.md / README.md / SPEC.md / skills/) must not drift from
 # the shipped implementation. Pinned source of truth is in `crates/`.
 ./scripts/check-design-vs-impl.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE6 H1+H2: every `use ogdb_core::`-led rust
+# block in user-facing markdown must compile against the shipped
+# ogdb-core surface. Closes the methodology hole the C5 audit walked
+# into — grep gates catch named-method drift but are blind to
+# signature drift (wrong arg count, missing `From` impl).
+./scripts/check-doc-rust-blocks.sh
 
 # C2-A7 (HIGH): npm package version must match workspace version.
 ./scripts/check-npm-version.sh
