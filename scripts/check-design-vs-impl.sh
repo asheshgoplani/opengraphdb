@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# C4 regression gate: design specification (DESIGN.md / ARCHITECTURE.md /
+# C4/C5 regression gate: design specification (DESIGN.md / ARCHITECTURE.md /
 # README.md / SPEC.md / skills/) must not drift from the shipped
-# implementation. Every cycle-4 HIGH finding was a doc claim that
-# contradicted the code; this gate pins each one to a single source of
-# truth in `crates/`.
+# implementation. Every cycle-4 + cycle-5 HIGH finding was a doc claim
+# that contradicted the code; this gate pins each one to a single source
+# of truth in `crates/`.
 #
 # Covers:
 #   - C4-H1: vector-ANN library (Cargo.toml is source of truth)
@@ -11,6 +11,14 @@
 #   - C4-H3: fictional Rust API (`use opengraphdb::`, params!, props!, etc.)
 #   - C4-H4: Bolt version (crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_1)
 #   - C4-H5: workspace member list (Cargo.toml [workspace] members)
+#   - C5-H1: DESIGN.md §1 file-tree must not name fictional `crates/<x>/`
+#     entries (the §37 [workspace] block is gated above; §1 is rendered
+#     inside a code fence and is invisible to the awk-based check).
+#   - C5-H2: every `cargo add <crate>` in user-facing docs must name a
+#     real workspace crate (Python+npm packages legitimately ship as
+#     `opengraphdb`, but no such Rust crate exists).
+#   - C5-H3: DESIGN.md §27/§28 must not call non-existent binding methods
+#     (query_df / import_ttl / db.transaction() / db.stream()).
 #
 # Allowed contexts (intentional): the eval reports under
 # `documentation/EVAL-*` document past drift and must keep the original
@@ -126,6 +134,73 @@ if grep -qE '^\[workspace\]' Cargo.toml 2>/dev/null && \
     echo "$diff_out" >&2
     fail=1
   fi
+fi
+
+# -------- C5-H1: §1 file-tree must not name fictional crates --------
+# §37 above pins the [workspace] block. §1 is rendered as an ASCII tree
+# inside a code fence, so the awk-based [workspace] check cannot see it.
+# Allowlist the Reality-check prose lines (which legitimately mention the
+# never-landed sketch crates) by stripping `>`-prefixed quote lines.
+if grep -qE '^## 1\. Project Structure' DESIGN.md 2>/dev/null; then
+  REAL_CRATES=$(ls crates/ 2>/dev/null | sort -u)
+  # Pull crate-shaped tokens (`ogdb-XXX`) appearing in §1 (between "## 1." and "## 2.")
+  # from non-prose lines (skip `> Reality check` quote-block lines).
+  SECTION1_CRATES=$(awk '/^## 1\. Project Structure/,/^## 2\. /' DESIGN.md \
+                    | grep -vE '^>' \
+                    | grep -oE '\bogdb-[a-z][a-z0-9-]*' \
+                    | sort -u)
+  for claimed in $SECTION1_CRATES; do
+    if ! grep -qx "$claimed" <<< "$REAL_CRATES"; then
+      echo "ERROR (C5-H1): DESIGN.md §1 references fictional crate '$claimed'." >&2
+      echo "  Real crates: $(echo $REAL_CRATES | tr '\n' ' ')" >&2
+      fail=1
+    fi
+  done
+fi
+
+# -------- C5-H2: cargo add must target a real workspace crate --------
+# `pip install opengraphdb` and `npm install opengraphdb` are legitimate
+# (the Python+npm packages ship as `opengraphdb`); only the Rust
+# `cargo add` form has to match a real crate name.
+REAL_CRATE_NAMES=$(find crates/ -maxdepth 2 -name Cargo.toml 2>/dev/null \
+  | xargs grep -h '^name = "' 2>/dev/null \
+  | sed -E 's/^name = "([^"]+)".*/\1/' \
+  | sort -u)
+if [[ -n "$REAL_CRATE_NAMES" ]]; then
+  BAD_CARGO_ADDS=$(grep -RnE 'cargo add [a-z][a-z0-9_-]*' \
+        "${EXISTING[@]}" 2>/dev/null \
+      | grep -vE "$SKIP_RE" \
+      | while IFS= read -r line; do
+          crate=$(echo "$line" | grep -oE 'cargo add [a-z][a-z0-9_-]*' | awk '{print $3}')
+          [[ -z "$crate" ]] && continue
+          if ! grep -qx "$crate" <<< "$REAL_CRATE_NAMES"; then
+            echo "$line"
+          fi
+        done)
+  if [[ -n "$BAD_CARGO_ADDS" ]]; then
+    echo "ERROR (C5-H2): doc(s) advertise a 'cargo add <crate>' that does not exist in the workspace:" >&2
+    echo "$BAD_CARGO_ADDS" >&2
+    echo "  Real crates: $(echo $REAL_CRATE_NAMES | tr '\n' ' ')" >&2
+    fail=1
+  fi
+fi
+
+# -------- C5-H3: fictional binding methods (Python + Node) --------
+# `query_df` / `import_ttl` / `db.transaction(...)` / `db.stream(...)` were
+# part of the original Decision-7 sketch and never landed on the shipped
+# bindings (`crates/ogdb-python/src/lib.rs::PyDatabase`,
+# `crates/ogdb-node/src/lib.rs`). Reality-check call-outs (`>` quote
+# blocks) are allowed so the historical context can be preserved.
+FICTIONAL_BINDINGS=$(grep -RnE '\.query_df\(|\.import_ttl\(|with db\.transaction\(\)|db\.transaction\(async|db\.stream\(' \
+      "${EXISTING[@]}" 2>/dev/null \
+    | grep -vE "$SKIP_RE" \
+    | grep -vE '^[^:]*:[0-9]+:>' \
+    | grep -vE '(Reality check|never landed|fictional|tracked as a v0\.5|originally anticipated|sketched|don.t exist|does not exist|do not exist)' \
+    || true)
+if [[ -n "$FICTIONAL_BINDINGS" ]]; then
+  echo "ERROR (C5-H3): doc(s) reference binding methods that don't exist on the shipped Python/Node bindings:" >&2
+  echo "$FICTIONAL_BINDINGS" >&2
+  fail=1
 fi
 
 exit $fail

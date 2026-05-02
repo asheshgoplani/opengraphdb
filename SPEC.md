@@ -325,7 +325,7 @@ ogdb export mydb.ogdb --format jsonld > output.jsonld
 
 | Mode | Use Case | How |
 |------|----------|-----|
-| **Embedded library** | In-process, zero setup | `cargo add opengraphdb` or Python/JS/Go bindings |
+| **Embedded library** | In-process, zero setup | `cargo add ogdb-core` (Rust); `pip install opengraphdb` (Python); `npm install opengraphdb` (Node). The Rust crate family ships as `ogdb-*`; Python and npm packages ship as `opengraphdb`. |
 | **CLI tool** | Ad-hoc queries, scripting, piping | `ogdb query "MATCH..."` |
 | **Standalone server** | Multi-client production | `ogdb serve --port 7687` (Bolt protocol compatible) |
 | **MCP server** | AI agent integration | `ogdb mcp` (built-in, zero config) |

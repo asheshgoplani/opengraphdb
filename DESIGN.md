@@ -57,222 +57,73 @@
 
 ## 1. Project Structure
 
+> **Reality check (0.4.0):** the original Decision-1 sketch in this section
+> envisioned a 12-crate layout split into a separate query crate (parser /
+> planner / executor) and a separate server crate (Bolt / HTTP / MCP), with
+> `crates/ogdb-core/src/` decomposed into 7 subdirectories (`storage/`,
+> `buffer/`, `wal/`, `tx/`, `index/`, `catalog/`, `types/`). 0.4.0 actually
+> ships an **18-crate workspace** with most crate sources inlined into a
+> single `lib.rs`:
+>
+> - **Query stack:** parser, planner, and executor all live inside
+>   `crates/ogdb-core/src/lib.rs`. There is no separate query crate.
+> - **Server stack:** HTTP + MCP live inside
+>   `crates/ogdb-cli/src/lib.rs::handle_serve_*`; Bolt v1 is its own crate
+>   at `crates/ogdb-bolt/` (cycle-2 C2-H7 extraction). There is no separate
+>   server crate.
+> - **Storage:** `crates/ogdb-core/` ships as `lib.rs` + `platform_io.rs`
+>   only — the per-subsystem subdirectories in the original sketch are not
+>   separate modules in 0.4.0.
+>
+> Future splits (a dedicated query crate, a dedicated server crate, an
+> internal `ogdb-core` reorganisation) are tracked under post-1.0 refactor
+> scope, not as a 0.4 commitment. The actual workspace member list is
+> canonicalised in §37 below; this section now reflects the **shipped**
+> layout.
+
 ```
-opengraphdb/
-├── Cargo.toml                    # Workspace root
-├── LICENSE                       # Apache 2.0
-├── SPEC.md                       # Product specification
-├── DESIGN.md                     # This file
+opengraphdb/                       (0.4.0 actual layout)
+├── Cargo.toml                     # Workspace root (members listed in §37)
+├── LICENSE                        # Apache-2.0
+├── README.md                      # Quickstart + status
+├── SPEC.md                        # Product specification
+├── DESIGN.md                      # This file
+├── ARCHITECTURE.md                # High-level architecture (single source of truth)
+├── COMPATIBILITY.md               # Cypher / Bolt compatibility surface
+├── CONTRIBUTING.md                # Contributor guide (read this before reading DESIGN.md)
+├── AGENTS.md                      # Workflow contract
 │
-├── crates/
-│   ├── ogdb-core/                # Storage engine, transactions, buffer pool
-│   │   ├── src/
-│   │   │   ├── lib.rs
-│   │   │   ├── storage/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── file_format.rs    # Single-file layout, page management
-│   │   │   │   ├── page.rs           # Page types (node, edge, overflow, free)
-│   │   │   │   ├── node_store.rs     # Columnar node storage + CSR
-│   │   │   │   ├── edge_store.rs     # CSR adjacency lists
-│   │   │   │   ├── property_store.rs # Variable-length property storage
-│   │   │   │   ├── string_store.rs   # String/bytes heap
-│   │   │   │   └── free_list.rs      # Free page tracking
-│   │   │   ├── buffer/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── pool.rs           # Buffer pool with clock-sweep eviction
-│   │   │   │   └── frame.rs          # Page frames with pin counting
-│   │   │   ├── wal/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── log.rs            # WAL file format & writes
-│   │   │   │   ├── record.rs         # Log record types
-│   │   │   │   └── recovery.rs       # Crash recovery (ARIES-style)
-│   │   │   ├── tx/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── transaction.rs    # Transaction lifecycle
-│   │   │   │   ├── mvcc.rs           # Multi-version concurrency control
-│   │   │   │   └── lock_manager.rs   # Lock table
-│   │   │   ├── index/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── btree.rs          # B+ tree for property indexes
-│   │   │   │   ├── hash.rs           # Hash index for exact lookups
-│   │   │   │   └── composite.rs      # Multi-property composite indexes
-│   │   │   ├── catalog/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── schema.rs         # Label, type, property definitions
-│   │   │   │   └── stats.rs          # Cardinality estimates for optimizer
-│   │   │   └── types/
-│   │   │       ├── mod.rs
-│   │   │       ├── value.rs          # Runtime value representation
-│   │   │       ├── datum.rs          # On-disk serialized format
-│   │   │       └── cast.rs           # Type coercion rules
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-query/               # Parser, planner, executor
-│   │   ├── src/
-│   │   │   ├── lib.rs
-│   │   │   ├── parser/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── lexer.rs          # Tokenizer (winnow combinators on raw input)
-│   │   │   │   ├── token.rs          # Token enum (Keyword, Ident, Literal, Punct, etc.)
-│   │   │   │   ├── parser.rs         # Parser (winnow combinators on token stream)
-│   │   │   │   └── ast.rs            # Abstract syntax tree types
-│   │   │   ├── planner/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── logical.rs        # Logical plan (pattern → algebra)
-│   │   │   │   ├── optimizer.rs      # Cost-based optimization
-│   │   │   │   ├── physical.rs       # Physical plan (operators)
-│   │   │   │   ├── cost_model.rs     # Cardinality estimation, cost functions
-│   │   │   │   └── rules/
-│   │   │   │       ├── filter_push_down.rs
-│   │   │   │       ├── join_reorder.rs
-│   │   │   │       └── index_selection.rs
-│   │   │   ├── executor/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── engine.rs         # Vectorized execution engine
-│   │   │   │   ├── operators/
-│   │   │   │   │   ├── scan.rs       # Node/edge label scans
-│   │   │   │   │   ├── expand.rs     # Relationship traversal
-│   │   │   │   │   ├── filter.rs     # Property predicates
-│   │   │   │   │   ├── project.rs    # Column projection
-│   │   │   │   │   ├── aggregate.rs  # GROUP BY, count, sum, etc.
-│   │   │   │   │   ├── sort.rs       # ORDER BY
-│   │   │   │   │   ├── limit.rs      # LIMIT, SKIP
-│   │   │   │   │   ├── create.rs     # CREATE nodes/edges
-│   │   │   │   │   ├── delete.rs     # DELETE/DETACH DELETE
-│   │   │   │   │   ├── merge.rs      # MERGE (upsert)
-│   │   │   │   │   ├── set.rs        # SET properties
-│   │   │   │   │   ├── unwind.rs     # UNWIND lists
-│   │   │   │   │   └── call.rs       # CALL procedures
-│   │   │   │   └── batch.rs          # Columnar batch (Arrow-compatible)
-│   │   │   └── functions/
-│   │   │       ├── mod.rs
-│   │   │       ├── scalar.rs         # String, math, type functions
-│   │   │       ├── aggregate.rs      # count, sum, avg, collect
-│   │   │       ├── list.rs           # List functions
-│   │   │       ├── path.rs           # shortestPath, allShortestPaths
-│   │   │       └── graph.rs          # degree, labels, type, properties
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-vector/              # HNSW vector index
-│   │   ├── src/
-│   │   │   ├── lib.rs
-│   │   │   ├── hnsw.rs              # HNSW graph construction & search
-│   │   │   ├── distance.rs          # Cosine, Euclidean, Dot Product (SIMD)
-│   │   │   ├── quantization.rs      # Product quantization for memory savings
-│   │   │   └── storage.rs           # On-disk HNSW persistence
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-text/                # Full-text search (Tantivy wrapper)
-│   │   ├── src/
-│   │   │   ├── lib.rs
-│   │   │   ├── indexer.rs           # Index creation and updates
-│   │   │   ├── searcher.rs          # BM25 search, fuzzy matching
-│   │   │   └── analyzer.rs          # Tokenizers, stemmers, filters
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-temporal/            # Temporal graph layer
-│   │   ├── src/
-│   │   │   ├── lib.rs
-│   │   │   ├── bitemporal.rs        # Valid time + transaction time
-│   │   │   ├── versioning.rs        # Append-only version chains
-│   │   │   └── compaction.rs        # Old version cleanup
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-import/              # Import pipelines (CSV, JSON, RDF)
-│   │   ├── src/
-│   │   │   ├── lib.rs
-│   │   │   ├── csv.rs               # CSV import with header mapping
-│   │   │   ├── json.rs              # JSON/JSONL import
-│   │   │   ├── rdf/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── parser.rs        # RDF parsing (oxrdfio/Oxigraph crates)
-│   │   │   │   ├── converter.rs     # Triple → property graph conversion
-│   │   │   │   ├── ontology.rs      # OWL/RDFS schema extraction
-│   │   │   │   └── uri.rs           # URI handling, prefix management
-│   │   │   └── batch_writer.rs      # Bulk write with sorted merge
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-export/              # Export pipelines
-│   │   ├── src/
-│   │   │   ├── lib.rs
-│   │   │   ├── csv.rs
-│   │   │   ├── json.rs
-│   │   │   ├── rdf.rs               # Property graph → RDF/TTL/JSON-LD
-│   │   │   └── cypher.rs            # Export as Cypher CREATE statements
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-server/              # Bolt protocol server, HTTP, MCP
-│   │   ├── src/
-│   │   │   ├── lib.rs
-│   │   │   ├── bolt/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── protocol.rs      # Bolt v1 message parsing (v4/v5 negotiation is a v0.5 follow-up)
-│   │   │   │   ├── codec.rs         # PackStream encoding/decoding
-│   │   │   │   └── session.rs       # Connection session state
-│   │   │   ├── http/
-│   │   │   │   ├── mod.rs
-│   │   │   │   ├── routes.rs        # REST API endpoints
-│   │   │   │   └── middleware.rs    # Auth, rate limiting
-│   │   │   └── mcp/
-│   │   │       ├── mod.rs
-│   │   │       ├── server.rs        # MCP stdio server
-│   │   │       ├── tools.rs         # Tool definitions
-│   │   │       └── resources.rs     # MCP resources (schema, stats)
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-cli/                 # CLI binary
-│   │   ├── src/
-│   │   │   ├── main.rs
-│   │   │   ├── commands/
-│   │   │   │   ├── init.rs
-│   │   │   │   ├── query.rs
-│   │   │   │   ├── shell.rs         # Interactive REPL (rustyline)
-│   │   │   │   ├── import.rs
-│   │   │   │   ├── export.rs
-│   │   │   │   ├── serve.rs
-│   │   │   │   ├── mcp.rs
-│   │   │   │   ├── info.rs
-│   │   │   │   └── schema.rs
-│   │   │   └── output.rs            # Table, JSON, CSV formatters
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-python/              # Python bindings (PyO3)
-│   │   ├── src/lib.rs
-│   │   ├── pyproject.toml           # maturin build config
-│   │   └── Cargo.toml
-│   │
-│   ├── ogdb-node/                # Node.js bindings (NAPI-RS)
-│   │   ├── src/lib.rs
-│   │   ├── package.json
-│   │   └── Cargo.toml
-│   │
-│   └── ogdb-algorithms/          # Graph algorithms library
-│       ├── src/
-│       │   ├── lib.rs
-│       │   ├── bfs.rs               # Breadth-first search
-│       │   ├── dijkstra.rs          # Shortest path (weighted)
-│       │   ├── pagerank.rs          # PageRank
-│       │   ├── louvain.rs           # Community detection
-│       │   ├── label_prop.rs        # Label propagation
-│       │   ├── connected.rs         # Connected components
-│       │   └── centrality.rs        # Betweenness, closeness, degree
-│       └── Cargo.toml
+├── crates/                        # 18 workspace crates
+│   ├── ogdb-core/                 # Storage engine, MVCC, WAL, parser, planner, executor (single lib.rs)
+│   │   ├── src/{lib.rs, platform_io.rs}
+│   │   └── tests/                 # Integration + WAL recovery + HNSW gates
+│   ├── ogdb-types/                # Value types extracted from core
+│   ├── ogdb-vector/               # HNSW + vector-distance helpers (instant-distance)
+│   ├── ogdb-algorithms/           # PageRank, BFS, shortest-path, communities
+│   ├── ogdb-text/                 # Tantivy full-text wrapper
+│   ├── ogdb-temporal/             # Temporal scope + datetime helpers
+│   ├── ogdb-import/               # CSV/JSON/JSONL/RDF ingest
+│   ├── ogdb-export/               # CSV/JSON/JSONL/RDF emit
+│   ├── ogdb-bolt/                 # Bolt v1 wire protocol (cycle-2 C2-H7 extraction)
+│   ├── ogdb-cli/                  # `ogdb` binary (CLI + HTTP + MCP server)
+│   ├── ogdb-eval/                 # Benchmark / driver harness
+│   ├── ogdb-bench/                # Synthetic micro-benchmarks
+│   ├── ogdb-tck/                  # openCypher TCK harness
+│   ├── ogdb-ffi/                  # C ABI for bindings (cbindgen)
+│   ├── ogdb-python/               # PyO3 bindings (PyPI: opengraphdb)
+│   ├── ogdb-node/                 # napi-rs bindings (npm: opengraphdb)
+│   ├── ogdb-fuzz/                 # cargo-fuzz harness
+│   └── ogdb-e2e/                  # End-to-end driver tests
 │
-├── tests/
-│   ├── integration/              # Cross-crate integration tests
-│   ├── tck/                      # openCypher Technology Compatibility Kit
-│   ├── ldbc/                     # LDBC benchmark harness
-│   └── fixtures/                 # Test data (TTL, CSV, JSON)
+├── bindings/                      # Hand-written language bindings (header + Go cgo wrapper)
+│   ├── c/                         # cbindgen-generated header + smoke test
+│   └── go/opengraphdb/            # Go cgo wrapper over ogdb-ffi
 │
-├── benches/                      # Criterion benchmarks
-│   ├── storage_bench.rs
-│   ├── query_bench.rs
-│   ├── import_bench.rs
-│   └── traversal_bench.rs
-│
-└── docs/
-    ├── plans/                    # Design decisions and ADRs
-    └── adr/                      # Architecture Decision Records
+├── frontend/                      # Marketing SPA + interactive demo (Vite + React)
+├── proto/                         # gRPC .proto stubs (gRPC handler is a v2 roadmap item, not implemented)
+├── scripts/                       # CI gates + workflow helpers
+├── docs/                          # ADR / plans
+└── documentation/                 # User-facing reference docs (BENCHMARKS, COOKBOOK, MIGRATION, etc.)
 ```
 
 ---
@@ -1859,29 +1710,33 @@ async fn mcp_server(db: Database) {
 
 ## 27. Python Bindings (PyO3)
 
+> **Reality check (0.4.0):** the original Decision-7 sketch in this section
+> anticipated a `query_df()` pandas helper, an `import_ttl()` shorthand, and
+> a `with db.transaction() as tx:` context manager. None of these landed
+> in 0.4.0. The shipped surface is the canonical
+> `crates/ogdb-python/src/lib.rs::PythonDatabase` `#[pymethods]` block (PyPI
+> package: `opengraphdb`). Pandas integration, a TTL shorthand, and
+> context-manager transactions are tracked as a v0.5 ergonomic pass.
+
 ```python
 import opengraphdb
 
-# Open database
-db = opengraphdb.Database("mydata.ogdb")
+db = opengraphdb.Database("mydata.ogdb")          # opens (or call .init() to create)
 
-# Query
-results = db.query("MATCH (n:Person) RETURN n.name, n.age")
-for row in results:
+# Query — returns list[dict]; rows = [{"n.name": "Alice", "n.age": 30}, ...]
+rows = db.query("MATCH (n:Person) RETURN n.name, n.age")
+for row in rows:
     print(row["n.name"], row["n.age"])
 
-# Pandas integration
-df = db.query_df("MATCH (n:Person) RETURN n.name, n.age")
-# Returns pandas DataFrame directly
+# Single-shot writes (auto-commit; no explicit transaction handle in 0.4.0)
+nid = db.create_node(["Person"], {"name": "Alice", "age": 30})
+db.add_edge(nid, other_nid, "KNOWS", {"since": 2024})
 
-# Context manager for transactions
-with db.transaction() as tx:
-    tx.query("CREATE (n:Person {name: $name})", {"name": "Alice"})
-    # Auto-commits on exit, rollbacks on exception
+# Bulk import — auto-detects RDF formats (TTL / N-Triples / JSON-LD / RDF/XML)
+db.import_csv("people.csv")          # CSV (no `label` kwarg in 0.4.0; declare label via Cypher CREATE after import)
+db.import_rdf("ontology.ttl")        # generic RDF entry point (replaces the sketched import_ttl)
 
-# Import
-db.import_csv("people.csv", label="Person")
-db.import_ttl("ontology.ttl")
+db.close()
 ```
 
 Build with `maturin`:
@@ -1900,26 +1755,33 @@ requires-python = ">=3.8"
 
 ## 28. JavaScript Bindings (NAPI-RS)
 
+> **Reality check (0.4.0):** the original Decision-7 sketch anticipated a
+> `db.transaction(async (tx) => …)` callback API and a `db.stream()`
+> async-iterator. Neither landed in 0.4.0. The shipped surface is the
+> canonical `crates/ogdb-node/src/lib.rs` `#[napi]` block (npm package:
+> `opengraphdb`). Async iteration and explicit-transaction APIs are
+> tracked as a v0.5 ergonomic pass.
+
 ```typescript
 import { Database } from 'opengraphdb';
 
-const db = new Database('mydata.ogdb');
+const db = new Database('mydata.ogdb');     // opens (or Database.init(path) to create)
 
-// Async query
-const results = await db.query('MATCH (n:Person) RETURN n');
-for (const row of results) {
-  console.log(row['n.name']);
+// Single-shot query — returns array of objects; auto-commits any writes
+const rows = db.query('MATCH (n:Person) RETURN n.name, n.age');
+for (const row of rows) {
+  console.log(row['n.name'], row['n.age']);
 }
 
-// Transaction
-await db.transaction(async (tx) => {
-  await tx.query('CREATE (n:Person {name: $name})', { name: 'Alice' });
-});
+// Single-shot writes (auto-commit; no explicit transaction handle in 0.4.0)
+const nid = db.createNode(['Person'], { name: 'Alice', age: 30 });
+db.addEdge(nid, otherNid, 'KNOWS', { since: 2024 });
 
-// Streaming results
-for await (const row of db.stream('MATCH (n) RETURN n')) {
-  process.stdout.write(JSON.stringify(row) + '\n');
-}
+// Bulk import
+db.importCsv('people.csv');            // CSV
+db.importRdf('ontology.ttl');          // generic RDF entry point (TTL / N-Triples / JSON-LD / RDF/XML)
+
+db.close();
 ```
 
 ---
