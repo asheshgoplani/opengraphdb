@@ -12,6 +12,15 @@
 #
 # Lines may opt out by appending a "// allow-token-leak" trailing comment.
 # Baseline ratchets DOWN per slice; never up.
+#
+# Cycle-6 note (C6-H-1): if a cell needs a non-`--accent` colour for WCAG
+# AA reasons (e.g. ClaimsPage's green-status span flagged by
+# `e2e/a11y-axe-sweep.spec.ts` with 3.95:1 contrast on --card light),
+# define a *named semantic token* in `frontend/src/index.css` (`--success`,
+# `--info`, `--warning`, …) and route the cell through
+# `text-[hsl(var(--<token>))]` rather than reaching for a raw palette
+# utility like `text-emerald-700`. The leak gate and the axe gate then
+# both pass without the case-by-case `// allow-token-leak` escape hatch.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
