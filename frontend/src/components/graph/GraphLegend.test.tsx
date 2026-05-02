@@ -40,10 +40,14 @@ test('GraphLegend renders label entries with NODE-matching swatch colors', () =>
   )
 })
 
-test('GraphLegend anchors top-left (cycle E)', () => {
-  // Pre-cycle the legend lived bottom-left, where the playground page's
-  // dataset switcher overlapped it on small viewports. Top-left is the
-  // explicit ask AND clear of the existing top-right reset-view button.
+test('GraphLegend anchors top-right (bold-redesign change 5)', () => {
+  // Cycle E lived top-left, which clashed with the densest hub cluster
+  // (the camera now dollies into the top-1 hub on entry — change 3).
+  // Bold-redesign moves the legend to top-right, away from the hub
+  // neighborhood the camera lands on. The reset-view button was top-
+  // right too; we keep that button and stack the legend above/beside it
+  // (the button has its own absolute right-3 top-3 with explicit
+  // pointer-events handling — they share an edge, not a layer).
   const html = renderToStaticMarkup(
     <GraphLegend
       labels={['Movie']}
@@ -51,13 +55,32 @@ test('GraphLegend anchors top-left (cycle E)', () => {
       isDark
     />,
   )
-  // Must include the new anchor classes; must NOT include the old.
-  assert.match(html, /left-3/)
+  assert.match(html, /right-3/)
   assert.match(html, /top-3/)
+  assert.ok(
+    !html.includes('left-3'),
+    `legend must not anchor left-3 anymore; html=${html}`,
+  )
   assert.ok(
     !html.includes('bottom-3'),
     `legend must not anchor bottom-3 anymore; html=${html}`,
   )
+})
+
+test('GraphLegend renders the wayfinding hint (bold-redesign change 5)', () => {
+  // Cycle-12 legend was three swatches and nothing else — looked like a
+  // debug widget. The redesign adds a one-line hint so the panel reads
+  // as navigation. Pin the literal text so a refactor that drops the
+  // hint or tweaks the wording fails loudly.
+  const html = renderToStaticMarkup(
+    <GraphLegend
+      labels={['Movie', 'Genre', 'Person']}
+      labelIndex={new Map([['Movie', 0], ['Genre', 1], ['Person', 2]])}
+      isDark
+    />,
+  )
+  assert.match(html, /drag to pan/i)
+  assert.match(html, /scroll to zoom/i)
 })
 
 test('GraphLegend dark-mode swatch differs from light-mode swatch', () => {

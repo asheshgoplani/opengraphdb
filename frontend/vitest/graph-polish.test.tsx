@@ -16,10 +16,12 @@ describe('graph polish', () => {
     expect(getLabelColor('Movie', labelIndex)).toBe(LABEL_COLORS[0])
   })
 
-  it('renders graph legend at top-left with NODE-matching swatch colors', () => {
-    // Cycle E (visible polish): legend lives top-left and swatches come
-    // from colorForLabel — same palette as the rendered nodes — so the
-    // legend describes what the user actually sees.
+  it('renders graph legend at top-right with NODE-matching swatch colors', () => {
+    // Bold-redesign change 5: legend moves top-left → top-right (was
+    // colliding with the densest hub cluster — and the camera now
+    // dollies into that cluster on entry per change 3, so a left
+    // anchor would sit permanently behind the focal point). Swatches
+    // still come from colorForLabel so legend hue ↔ node hue agree.
     const labelIndex = new Map<string, number>([
       ['Movie', 0],
       ['Person', 1],
@@ -30,8 +32,9 @@ describe('graph polish', () => {
     )
 
     expect(html).toContain('Legend')
-    expect(html).toContain('left-3')
+    expect(html).toContain('right-3')
     expect(html).toContain('top-3')
+    expect(html).not.toContain('left-3')
     expect(html).not.toContain('bottom-3')
     expect(html).toContain(
       `background-color:${colorForLabel('Movie', true, labelIndex)}`

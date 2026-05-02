@@ -33,26 +33,34 @@ export function GraphLegend({ labels, labelIndex, isDark }: GraphLegendProps) {
 
   if (labels.length === 0) return null
 
+  // Bold-redesign change 5: legend lives top-RIGHT (cycle-12 was top-left
+  // and clashed with the densest cluster), the frame is roughly twice
+  // the cycle-12 size (px-4 py-3, min-w-[200px], larger label/swatch),
+  // and we add a one-line wayfinding hint so the panel reads as
+  // navigation aid rather than a debug widget.
   return (
     <div
-      className="glass absolute left-3 top-3 rounded-lg border px-3 py-2 shadow-sm"
+      className="glass absolute right-3 top-3 min-w-[200px] rounded-lg border px-4 py-3 shadow-sm"
       data-testid="graph-legend"
     >
-      <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+      <p className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
         Legend
       </p>
-      <div className="flex flex-col gap-1.5">
+      <div className="flex flex-col gap-2">
         {labels.map((label) => (
-          <div key={label} className="flex items-center gap-2">
+          <div key={label} className="flex items-center gap-2.5">
             <span
-              className="inline-block h-3 w-3 rounded-full ring-1 ring-border/40"
+              className="inline-block h-4 w-4 rounded-full ring-1 ring-border/40"
               style={{ backgroundColor: colorForLabel(label, dark, labelIndex) }}
               aria-hidden="true"
             />
-            <span className="text-xs text-foreground">{label}</span>
+            <span className="text-sm text-foreground">{label}</span>
           </div>
         ))}
       </div>
+      <p className="mt-2.5 border-t border-border/40 pt-2 text-[11px] text-muted-foreground">
+        drag to pan · scroll to zoom
+      </p>
     </div>
   )
 }
