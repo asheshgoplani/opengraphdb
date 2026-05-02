@@ -223,85 +223,6 @@ fn parse_properties_json(raw: Option<&str>) -> Result<PropertyMap, String> {
         .collect::<Result<BTreeMap<String, PropertyValue>, String>>()
 }
 
-#[cfg(test)]
-fn property_value_to_json(value: &PropertyValue) -> Value {
-    match value {
-        PropertyValue::Bool(v) => Value::Bool(*v),
-        PropertyValue::I64(v) => Value::Number((*v).into()),
-        PropertyValue::F64(v) => serde_json::Number::from_f64(*v)
-            .map(Value::Number)
-            .unwrap_or(Value::Null),
-        PropertyValue::String(v) => Value::String(v.clone()),
-        PropertyValue::Bytes(v) => Value::Array(
-            v.iter()
-                .map(|item| Value::Number(u64::from(*item).into()))
-                .collect(),
-        ),
-        PropertyValue::Vector(v) => Value::Array(
-            v.iter()
-                .map(|item| {
-                    serde_json::Number::from_f64(f64::from(*item))
-                        .map(Value::Number)
-                        .unwrap_or(Value::Null)
-                })
-                .collect(),
-        ),
-        PropertyValue::Date(v) => Value::Number(i64::from(*v).into()),
-        PropertyValue::DateTime {
-            micros,
-            tz_offset_minutes,
-        } => Value::Object(
-            [
-                ("micros".to_string(), Value::Number((*micros).into())),
-                (
-                    "tz_offset_minutes".to_string(),
-                    Value::Number(i64::from(*tz_offset_minutes).into()),
-                ),
-            ]
-            .into_iter()
-            .collect(),
-        ),
-        PropertyValue::Duration {
-            months,
-            days,
-            nanos,
-        } => Value::Object(
-            [
-                ("months".to_string(), Value::Number((*months).into())),
-                ("days".to_string(), Value::Number((*days).into())),
-                ("nanos".to_string(), Value::Number((*nanos).into())),
-            ]
-            .into_iter()
-            .collect(),
-        ),
-        PropertyValue::List(values) => {
-            Value::Array(values.iter().map(property_value_to_json).collect())
-        }
-        PropertyValue::Map(values) => Value::Object(
-            values
-                .iter()
-                .map(|(key, value)| (key.clone(), property_value_to_json(value)))
-                .collect(),
-        ),
-        // PropertyValue is `#[non_exhaustive]` (EVAL-RUST-QUALITY-CYCLE3 B3);
-        // unknown future variants surface as JSON null until each gets a mapping.
-        _ => Value::Null,
-    }
-}
-
-#[cfg(test)]
-fn query_rows_to_json(rows: Vec<BTreeMap<String, PropertyValue>>) -> Vec<Value> {
-    rows.into_iter()
-        .map(|row| {
-            let object = row
-                .into_iter()
-                .map(|(key, value)| (key, property_value_to_json(&value)))
-                .collect();
-            Value::Object(object)
-        })
-        .collect()
-}
-
 fn run_import_export_cli(args: Vec<String>) -> Result<(), String> {
     let result = run_cli(&args);
     if result.exit_code == 0 {
@@ -367,16 +288,6 @@ where
 
 fn map_query_error(error: impl std::fmt::Display) -> DbError {
     DbError::InvalidArgument(error.to_string())
-}
-
-#[cfg(test)]
-fn parse_metric(raw: Option<&str>) -> Result<ogdb_core::VectorDistanceMetric, String> {
-    match raw.unwrap_or("cosine").trim().to_ascii_lowercase().as_str() {
-        "cosine" => Ok(ogdb_core::VectorDistanceMetric::Cosine),
-        "euclidean" | "l2" => Ok(ogdb_core::VectorDistanceMetric::Euclidean),
-        "dot" | "dotproduct" | "dot_product" => Ok(ogdb_core::VectorDistanceMetric::DotProduct),
-        other => Err(format!("unsupported vector distance metric: {other}")),
-    }
 }
 
 /// Read the last-error message buffered by this thread.
@@ -754,27 +665,6 @@ mod tests {
             properties.get("vec"),
             Some(&PropertyValue::Vector(vec![1.0, 2.0, 3.0]))
         );
-    }
-
-    #[test]
-    fn rows_to_json_maps_property_values() {
-        let rows = vec![BTreeMap::from([
-            ("flag".to_string(), PropertyValue::Bool(true)),
-            ("count".to_string(), PropertyValue::I64(2)),
-        ])];
-        let out = query_rows_to_json(rows);
-        assert_eq!(out.len(), 1);
-        assert_eq!(out[0].get("flag"), Some(&Value::Bool(true)));
-        assert_eq!(out[0].get("count"), Some(&Value::Number(2.into())));
-    }
-
-    #[test]
-    fn metric_parser_supports_aliases() {
-        assert!(parse_metric(Some("cosine")).is_ok());
-        assert!(parse_metric(Some("euclidean")).is_ok());
-        assert!(parse_metric(Some("dot")).is_ok());
-        assert!(parse_metric(Some("dot_product")).is_ok());
-        assert!(parse_metric(Some("bad")).is_err());
     }
 
     /// EVAL-RUST-QUALITY-CYCLE3 H8 regression: the three pointer-deref

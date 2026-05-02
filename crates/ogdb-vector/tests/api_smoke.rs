@@ -10,8 +10,8 @@
 //! crates/ogdb-core/src/lib.rs into crates/ogdb-vector/src/lib.rs.
 
 use ogdb_vector::{
-    compare_f32_vectors, parse_vector_literal_text, vector_distance, VectorDistanceMetric,
-    VectorIndexDefinition,
+    compare_f32_vectors, parse_distance_metric, parse_vector_literal_text, vector_distance,
+    VectorDistanceMetric, VectorIndexDefinition,
 };
 
 #[test]
@@ -113,6 +113,40 @@ fn parse_vector_literal_text_rejects_unbracketed_or_garbage() {
     assert!(parse_vector_literal_text("1.0, 2.0").is_none());
     assert!(parse_vector_literal_text("[1.0, not-a-number]").is_none());
     assert!(parse_vector_literal_text("").is_none());
+}
+
+#[test]
+fn parse_distance_metric_accepts_aliases_and_rejects_unknown() {
+    assert_eq!(
+        parse_distance_metric(Some("cosine")).unwrap(),
+        VectorDistanceMetric::Cosine
+    );
+    assert_eq!(
+        parse_distance_metric(Some("Euclidean")).unwrap(),
+        VectorDistanceMetric::Euclidean
+    );
+    assert_eq!(
+        parse_distance_metric(Some("L2")).unwrap(),
+        VectorDistanceMetric::Euclidean
+    );
+    assert_eq!(
+        parse_distance_metric(Some("dot")).unwrap(),
+        VectorDistanceMetric::DotProduct
+    );
+    assert_eq!(
+        parse_distance_metric(Some("dot_product")).unwrap(),
+        VectorDistanceMetric::DotProduct
+    );
+    assert_eq!(
+        parse_distance_metric(Some("dotproduct")).unwrap(),
+        VectorDistanceMetric::DotProduct
+    );
+    // Default for None is cosine — the binding-crate convention.
+    assert_eq!(
+        parse_distance_metric(None).unwrap(),
+        VectorDistanceMetric::Cosine
+    );
+    assert!(parse_distance_metric(Some("manhattan")).is_err());
 }
 
 #[test]

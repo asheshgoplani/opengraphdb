@@ -97,6 +97,28 @@ pub fn parse_vector_literal_text(value: &str) -> Option<Vec<f32>> {
         .collect::<Option<Vec<_>>>()
 }
 
+/// Parse a user-supplied metric name (the binding-crate input shape:
+/// `Option<&str>` from a JS/Python caller, defaulting to `"cosine"` on
+/// `None`) into a [`VectorDistanceMetric`].
+///
+/// Accepted aliases (ASCII-lowercased and trimmed before matching):
+/// - `"cosine"` → `Cosine`
+/// - `"euclidean"` / `"l2"` → `Euclidean`
+/// - `"dot"` / `"dotproduct"` / `"dot_product"` → `DotProduct`
+///
+/// EVAL-RUST-QUALITY-CYCLE9 H4: deduped from the byte-identical
+/// `parse_metric` previously copy-pasted into `ogdb-python` and
+/// `ogdb-node`.
+#[inline]
+pub fn parse_distance_metric(raw: Option<&str>) -> Result<VectorDistanceMetric, String> {
+    match raw.unwrap_or("cosine").trim().to_ascii_lowercase().as_str() {
+        "cosine" => Ok(VectorDistanceMetric::Cosine),
+        "euclidean" | "l2" => Ok(VectorDistanceMetric::Euclidean),
+        "dot" | "dotproduct" | "dot_product" => Ok(VectorDistanceMetric::DotProduct),
+        other => Err(format!("unsupported vector distance metric: {other}")),
+    }
+}
+
 /// Compute the metric-specific distance between two equal-length
 /// non-empty vectors. Returns `None` when the lengths differ or
 /// either vector is empty.

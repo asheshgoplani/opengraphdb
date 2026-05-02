@@ -40,7 +40,7 @@
 
 use ogdb_cli::run as run_cli;
 use ogdb_core::{
-    DbError, Header, PropertyMap, PropertyValue, SharedDatabase, VectorDistanceMetric,
+    parse_distance_metric, DbError, Header, PropertyMap, PropertyValue, SharedDatabase,
 };
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
@@ -57,20 +57,6 @@ use pyo3::types::{PyAny, PyBytes, PyDict, PyList};
 pub struct BindingDatabase {
     path: PathBuf,
     shared: Option<SharedDatabase>,
-}
-
-fn parse_metric(metric: Option<&str>) -> Result<VectorDistanceMetric, String> {
-    match metric
-        .unwrap_or("cosine")
-        .trim()
-        .to_ascii_lowercase()
-        .as_str()
-    {
-        "cosine" => Ok(VectorDistanceMetric::Cosine),
-        "euclidean" | "l2" => Ok(VectorDistanceMetric::Euclidean),
-        "dot" | "dotproduct" | "dot_product" => Ok(VectorDistanceMetric::DotProduct),
-        other => Err(format!("unsupported vector distance metric: {other}")),
-    }
 }
 
 fn map_query_error(error: impl std::fmt::Display) -> DbError {
@@ -435,7 +421,7 @@ impl BindingDatabase {
         dimensions: usize,
         metric: Option<&str>,
     ) -> Result<(), String> {
-        let metric = parse_metric(metric)?;
+        let metric = parse_distance_metric(metric)?;
         let label = label.and_then(|value| {
             let trimmed = value.trim();
             if trimmed.is_empty() {
@@ -943,15 +929,6 @@ fn opengraphdb(_py: Python<'_>, module: &PyModule) -> PyResult<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn metric_parser_accepts_supported_values() {
-        assert!(parse_metric(Some("cosine")).is_ok());
-        assert!(parse_metric(Some("euclidean")).is_ok());
-        assert!(parse_metric(Some("dot")).is_ok());
-        assert!(parse_metric(Some("dot_product")).is_ok());
-        assert!(parse_metric(Some("bad")).is_err());
-    }
 
     #[test]
     fn json_property_conversion_maps_vector_numbers() {

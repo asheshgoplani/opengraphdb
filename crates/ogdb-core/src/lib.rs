@@ -81,7 +81,7 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, VecDeque};
 // `use ogdb_core::VectorDistanceMetric;` caller in the workspace
 // keeps compiling byte-for-byte identically after the extraction.
 use ogdb_vector::{compare_f32_vectors, parse_vector_literal_text, vector_distance};
-pub use ogdb_vector::{VectorDistanceMetric, VectorIndexDefinition};
+pub use ogdb_vector::{parse_distance_metric, VectorDistanceMetric, VectorIndexDefinition};
 
 // Re-export the plain-data algorithm types so every existing
 // `use ogdb_core::{ShortestPathOptions, GraphPath, Subgraph, SubgraphEdge};`
@@ -1163,17 +1163,6 @@ pub struct CommunitySummary {
     pub parent_community_id: Option<u64>,
     /// LLM-generated or auto-generated text description of this community
     pub description: String,
-}
-
-/// A node within a community, with its role and connectivity information
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CommunityMember {
-    pub node_id: u64,
-    pub labels: Vec<String>,
-    /// Number of edges to other members within the same community
-    pub degree_within: u32,
-    /// Number of edges to nodes outside the community
-    pub degree_outside: u32,
 }
 
 /// Multi-level community hierarchy for PageIndex-style LLM navigation
@@ -9663,14 +9652,6 @@ impl SharedDatabase {
         F: FnMut(WriteTransaction<'_>) -> Result<T, DbError>,
     {
         self.with_write_transaction_retry_internal(None, max_retries, writer)
-    }
-
-    pub fn query_cypher_with_retry(
-        &self,
-        query: &str,
-        max_retries: usize,
-    ) -> Result<QueryResult, DbError> {
-        self.query_cypher_as_user_with_retry("anonymous", query, max_retries)
     }
 
     pub fn query_cypher_as_user_with_retry(
