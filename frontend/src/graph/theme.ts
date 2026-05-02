@@ -72,32 +72,6 @@ export const LABEL_PALETTE: Record<string, { core: string; light: string; deep: 
   Season: { core: '#FFD23B', light: '#FFE99A', deep: '#8C6B0D' }, // ~50-55°
 }
 
-// Slice-14: EDGE_PALETTE rebuilt with saturated anchors at 180° / 45° /
-// 270° / 135° (plus 0°, 90°, 225°, 315° fill) so 8 distinct types show ≥4
-// clearly different HSL hues when sampled at edge midpoints. Previous
-// palette clustered at pastels (94A3FF, A78BFA, F472B6) which blurred into
-// one purple family under the reduced bloom. New anchors are chosen to be
-// high-S, mid-L hex values that remain distinct at alpha 0.78.
-export const EDGE_PALETTE: Record<string, string> = {
-  KNOWS: '#06B6D4', // 187° cyan — primary cool anchor
-  ACTED_IN: '#F59E0B', // 38° amber — primary warm anchor
-  RATED: '#8B5CF6', // 258° purple — primary violet anchor
-  INTERACTS: '#10B981', // 152° green — primary mid anchor
-  APPEARS_IN: '#0EA5E9', // 199° sky — cool fill
-  WORKS_AT: '#22C55E', // 142° emerald — mid fill
-  LIVES_IN: '#F97316', // 21° orange — warm fill
-  LIKES: '#EF4444', // 0° red — hot fill
-  OWNS: '#D946EF', // 291° fuchsia — violet fill
-  NEAR: '#84CC16', // 84° lime — cool-warm fill
-  ROUTE: '#06B6D4',
-  IN_GENRE: '#EC4899', // 330° pink
-  CONTAINS: '#3B82F6', // 217° blue
-  WON_PRIZE_IN: '#F59E0B',
-  BORN_IN: '#22C55E',
-  AFFILIATED_WITH: '#8B5CF6',
-  SUBCLASS_OF: '#64748B', // slate — hierarchy muted
-}
-
 // Slice-15: structured palette introspection. Exposes an 8+ entry array of
 // { label, hsl: [h,s,l], hex } so the E2E gate can assert saturation and hue
 // spread directly from JS instead of sampling WebGL pixels (SwiftShader-

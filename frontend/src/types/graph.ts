@@ -29,7 +29,3 @@ export interface TraceStep {
   nodeId: string | number
   stepIndex: number
 }
-
-export interface TraceData {
-  steps: TraceStep[]
-}

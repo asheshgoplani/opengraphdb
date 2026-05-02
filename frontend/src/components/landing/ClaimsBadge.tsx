@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -23,26 +23,40 @@ type LoadState =
   | { kind: 'ready'; data: ClaimsStatus }
   | { kind: 'error' }
 
+let cachedState: LoadState = { kind: 'loading' }
+let inflight: Promise<void> | null = null
+const listeners = new Set<() => void>()
+
+function ensureClaimsStatusLoaded(): void {
+  if (cachedState.kind !== 'loading' || inflight) return
+  inflight = fetch('/claims-status.json', { cache: 'no-store' })
+    .then((res) => {
+      if (!res.ok) throw new Error(`status ${res.status}`)
+      return res.json() as Promise<ClaimsStatus>
+    })
+    .then((data) => {
+      cachedState = { kind: 'ready', data }
+      listeners.forEach((fn) => fn())
+    })
+    .catch((err) => {
+      console.warn('[ClaimsBadge] failed to load /claims-status.json', err)
+      cachedState = { kind: 'error' }
+      listeners.forEach((fn) => fn())
+    })
+}
+
+function subscribeClaimsStatus(callback: () => void): () => void {
+  listeners.add(callback)
+  ensureClaimsStatusLoaded()
+  return () => {
+    listeners.delete(callback)
+  }
+}
+
+const getClaimsStatusSnapshot = (): LoadState => cachedState
+
 function useClaimsStatus(): LoadState {
-  const [state, setState] = useState<LoadState>({ kind: 'loading' })
-
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch('/claims-status.json', { signal: controller.signal, cache: 'no-store' })
-      .then((res) => {
-        if (!res.ok) throw new Error(`status ${res.status}`)
-        return res.json() as Promise<ClaimsStatus>
-      })
-      .then((data) => setState({ kind: 'ready', data }))
-      .catch((err) => {
-        if (controller.signal.aborted) return
-        console.warn('[ClaimsBadge] failed to load /claims-status.json', err)
-        setState({ kind: 'error' })
-      })
-    return () => controller.abort()
-  }, [])
-
-  return state
+  return useSyncExternalStore(subscribeClaimsStatus, getClaimsStatusSnapshot, getClaimsStatusSnapshot)
 }
 
 export function ClaimsBadge({ className }: { className?: string }) {
