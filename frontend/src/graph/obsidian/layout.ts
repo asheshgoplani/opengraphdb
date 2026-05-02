@@ -170,13 +170,24 @@ export function rectsOverlap(a: LabelBox, b: LabelBox): boolean {
 export const ENTRY_OVERZOOM = 1.6
 export const ENTRY_DURATION_MS = 900
 
-// Default count of "always-visible" hub labels (cycle C). With no node
-// focused, the top-N highest-degree nodes get labels drawn unconditionally
-// (skipCollision = true) so the user always sees the principal vertices
-// at first paint, not just on hover. 8 is the empirical sweet spot —
-// fewer than that and a 50-node ontology shows mostly anonymous dots;
-// more than that and the dense-graph case starts crowding.
-export const TOP_HUB_LABELS_DEFAULT = 8
+// Default count of "always-visible" hub labels. Bold-redesign cycle
+// flips this from 8 → 5: 8 was creating a "fog of labels" at first
+// paint, which fought the dolly-into-top-1-hub direction set by
+// change 3. Five gives the eye a hero set without crowding the
+// neighborhood the camera lands on.
+export const TOP_HUB_LABELS_DEFAULT = 5
+
+// Hub-label visual style (bold-redesign change 4). Applied ONLY to the
+// pinned hub labels (skipCollision = true branch in drawLabels) so
+// collision-pass labels keep their lower-key cycle-E style. The pill
+// is a solid dark rgba so hub labels stay readable over busy edge
+// regions on the warm playground backdrop.
+export const HUB_LABEL_FONT_SIZE = 13
+export const HUB_LABEL_RADIUS = 4
+export const HUB_LABEL_PAD_X = 4
+export const HUB_LABEL_PAD_Y = 3
+export const HUB_LABEL_BG_RGBA = 'rgba(0,0,0,0.45)'
+export const HUB_LABEL_FG = '#ffffff'
 
 // Returns the top-N node ids by degree (descending), ties broken
 // deterministically by stringified-id ascending — same priority key as

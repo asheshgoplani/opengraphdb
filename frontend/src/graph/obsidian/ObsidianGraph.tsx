@@ -11,6 +11,12 @@ import {
   type LabelBox,
   ENTRY_DURATION_MS,
   ENTRY_OVERZOOM,
+  HUB_LABEL_BG_RGBA,
+  HUB_LABEL_FG,
+  HUB_LABEL_FONT_SIZE,
+  HUB_LABEL_PAD_X,
+  HUB_LABEL_PAD_Y,
+  HUB_LABEL_RADIUS,
   TOP_HUB_LABELS_DEFAULT,
   compareLabelPriority,
   degreeMap,
@@ -354,21 +360,32 @@ export function ObsidianGraph({
       )
       const fontFocus = LABEL_FONT_SIZE_FOCUS / globalScale
       const fontBase = LABEL_FONT_SIZE / globalScale
+      const fontHub = HUB_LABEL_FONT_SIZE / globalScale
       ctx.textAlign = 'center'
       ctx.textBaseline = 'top'
       const fillBase = isDark ? 'hsl(40 30% 96%)' : 'hsl(24 25% 11%)'
       const haloBase = isDark ? 'hsla(20 18% 6% / 0.55)' : 'hsla(40 25% 96% / 0.7)'
-      const drawOne = (node: RfgNode, opts: { skipCollision: boolean }) => {
+      // Hub style (bold-redesign change 4): white text on a dark pill,
+      // 13px font and 4px radius/4px horizontal padding. Used only for
+      // the always-on top-5 pinned-hub branch — survives over busy edge
+      // regions because the pill is solid rgba(0,0,0,0.45).
+      const drawOne = (
+        node: RfgNode,
+        opts: { skipCollision: boolean; isHub?: boolean },
+      ) => {
         const isFocus = focused === node.id
+        const isHub = opts.isHub === true
         const x = node.x ?? 0
         const y = node.y ?? 0
         const raw = (node.label ?? node.labels?.[0] ?? String(node.id)) as string
         const text = isFocus ? raw : truncate(raw)
-        const font = isFocus ? fontFocus : fontBase
+        const font = isFocus ? fontFocus : isHub ? fontHub : fontBase
         ctx.font = `${font}px Inter, system-ui, sans-serif`
         const metrics = ctx.measureText(text)
-        const w = metrics.width + LABEL_PAD_X * 2
-        const h = font + LABEL_PAD_Y * 2
+        const padX = isHub ? HUB_LABEL_PAD_X : LABEL_PAD_X
+        const padY = isHub ? HUB_LABEL_PAD_Y : LABEL_PAD_Y
+        const w = metrics.width + padX * 2
+        const h = font + padY * 2
         const lx = x - w / 2
         const ly = y + LABEL_OFFSET_Y / globalScale
         const box: LabelBox = { x: lx, y: ly, w, h, id: node.id }
@@ -376,9 +393,12 @@ export function ObsidianGraph({
           return
         }
         ctx.save()
-        ctx.fillStyle = haloBase
+        ctx.fillStyle = isHub ? HUB_LABEL_BG_RGBA : haloBase
         ctx.beginPath()
-        const radius = Math.min(4 / globalScale, h / 2)
+        const radius = Math.min(
+          (isHub ? HUB_LABEL_RADIUS : 4) / globalScale,
+          h / 2,
+        )
         const rx = lx
         const ry = ly
         ctx.moveTo(rx + radius, ry)
@@ -391,8 +411,8 @@ export function ObsidianGraph({
         ctx.lineTo(rx, ry + radius)
         ctx.quadraticCurveTo(rx, ry, rx + radius, ry)
         ctx.fill()
-        ctx.fillStyle = fillBase
-        ctx.fillText(text, x, ly + LABEL_PAD_Y)
+        ctx.fillStyle = isHub ? HUB_LABEL_FG : fillBase
+        ctx.fillText(text, x, ly + padY)
         ctx.restore()
         placed.push(box)
       }
@@ -419,7 +439,7 @@ export function ObsidianGraph({
         for (const id of hubIds) {
           const node = nodes.find((n) => n.id === id)
           if (node) {
-            drawOne(node, { skipCollision: true })
+            drawOne(node, { skipCollision: true, isHub: true })
             pinned.add(node.id)
           }
         }
