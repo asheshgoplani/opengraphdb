@@ -38,7 +38,7 @@ import { useSettingsStore } from '@/stores/settings'
 import type { BackendQueryResponse } from '@/types/api'
 import type { GraphData } from '@/types/graph'
 
-import { QUERY_CATEGORIES, groupQueriesByCategory } from './playground-utils'
+import { CATEGORY_INDICATOR, QUERY_CATEGORIES, groupQueriesByCategory } from './playground-utils'
 
 const DATASET_KEYS: DatasetKey[] = ['movielens', 'airroutes', 'got', 'wikidata', 'community']
 
@@ -257,7 +257,7 @@ export default function PlaygroundPage() {
             <p className="mb-2 font-mono text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Guided Queries
             </p>
-            <div className="space-y-3">
+            <div className="space-y-5">
               {visibleQueries.length === 0 ? (
                 <p className="rounded-md border border-dashed border-border px-3 py-2 text-[11px] leading-snug text-muted-foreground">
                   No Cypher-backed queries for this dataset in Live mode. Switch to a dataset with backend queries, or turn Live mode off to use the static sample.
@@ -270,8 +270,13 @@ export default function PlaygroundPage() {
                   }
 
                   return (
-                    <div key={category}>
-                      <p className="mb-1 mt-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground first:mt-0">
+                    <div key={category} data-testid={`query-category-${category.toLowerCase()}`}>
+                      <p className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                        <span
+                          aria-hidden="true"
+                          data-testid={`category-indicator-${category.toLowerCase()}`}
+                          className={`h-1.5 w-1.5 rounded-full ${CATEGORY_INDICATOR[category]}`}
+                        />
                         {category}
                       </p>
                       <div className="space-y-1.5">
