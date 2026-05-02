@@ -35,7 +35,7 @@ describe('landing polish redesign', () => {
     )
 
     const datasets = getDatasetList()
-    expect(html).toContain('id="use-cases"')
+    expect(html).toContain('id="showcase"')
 
     for (const dataset of datasets) {
       expect(html).toContain(dataset.name)

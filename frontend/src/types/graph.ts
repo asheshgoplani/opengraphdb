@@ -33,10 +33,3 @@ export interface TraceStep {
 export interface TraceData {
   steps: TraceStep[]
 }
-
-export interface TraceQueryResponse {
-  columns: string[]
-  rows: Record<string, unknown>[]
-  row_count: number
-  trace: TraceData
-}

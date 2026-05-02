@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { formatClaimsDate } from '@/lib/formatClaimsDate'
 
 export interface ClaimsStatusEntry {
   id: string
@@ -22,18 +23,7 @@ type LoadState =
   | { kind: 'ready'; data: ClaimsStatus }
   | { kind: 'error' }
 
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  const yyyy = d.getUTCFullYear()
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  const hh = String(d.getUTCHours()).padStart(2, '0')
-  const mi = String(d.getUTCMinutes()).padStart(2, '0')
-  return `${yyyy}-${mm}-${dd} ${hh}:${mi} UTC`
-}
-
-export function ClaimsBadge({ className }: { className?: string }) {
+function useClaimsStatus(): LoadState {
   const [state, setState] = useState<LoadState>({ kind: 'loading' })
 
   useEffect(() => {
@@ -51,6 +41,12 @@ export function ClaimsBadge({ className }: { className?: string }) {
       })
     return () => controller.abort()
   }, [])
+
+  return state
+}
+
+export function ClaimsBadge({ className }: { className?: string }) {
+  const state = useClaimsStatus()
 
   if (state.kind === 'loading') {
     return (
@@ -122,7 +118,7 @@ export function ClaimsBadge({ className }: { className?: string }) {
             {total} claim{total === 1 ? '' : 's'} verified
           </span>
           <span className="hidden text-muted-foreground normal-case tracking-normal sm:inline">
-            · build {data.sha} · {formatDate(data.date)}
+            · build {data.sha} · {formatClaimsDate(data.date)}
           </span>
         </span>
       ) : (
@@ -135,16 +131,7 @@ export function ClaimsBadge({ className }: { className?: string }) {
 }
 
 export function ClaimsRedBanner() {
-  const [state, setState] = useState<LoadState>({ kind: 'loading' })
-
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch('/claims-status.json', { signal: controller.signal, cache: 'no-store' })
-      .then((res) => (res.ok ? (res.json() as Promise<ClaimsStatus>) : Promise.reject()))
-      .then((data) => setState({ kind: 'ready', data }))
-      .catch(() => setState({ kind: 'error' }))
-    return () => controller.abort()
-  }, [])
+  const state = useClaimsStatus()
 
   if (state.kind !== 'ready') return null
   const reds = state.data.entries.filter((e) => e.status === 'red')

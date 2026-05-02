@@ -552,6 +552,7 @@ export default function PlaygroundPage() {
                   queryTimeMs={queryTimeMs}
                   nodeCount={displayedGraphData.nodes.length}
                   edgeCount={displayedGraphData.links.length}
+                  rowCount={lastQueryResult?.rowCount ?? null}
                   isLive={isLiveMode}
                 />
               </div>

@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react'
 import { ArrowUpRight, Check, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useCopyToClipboard } from '@/lib/useCopyToClipboard'
 
 export interface CodeSnippetCardProps {
   index: number
@@ -22,14 +22,7 @@ export function CodeSnippetCard({
   docHref,
   className,
 }: CodeSnippetCardProps) {
-  const [copied, setCopied] = useState(false)
-
-  const onCopy = useCallback(async () => {
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
-    await navigator.clipboard.writeText(code)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 2000)
-  }, [code])
+  const { copied, copy } = useCopyToClipboard()
 
   return (
     <article
@@ -63,7 +56,7 @@ export function CodeSnippetCard({
             aria-label={copied ? 'Copied' : `Copy ${title} snippet`}
             className="h-7 gap-1 rounded-md px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground"
             onClick={() => {
-              void onCopy()
+              void copy(code)
             }}
           >
             {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}

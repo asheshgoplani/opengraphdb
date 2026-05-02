@@ -48,8 +48,9 @@ export function GettingStartedSection() {
     >
       <div className="mx-auto max-w-5xl px-6">
         <div
+          id="how-it-works"
           className={cn(
-            'mb-16 max-w-2xl',
+            'mb-16 max-w-2xl scroll-mt-24',
             isInView ? 'animate-reveal-up animate-fill-both' : 'opacity-0'
           )}
         >

@@ -2,17 +2,12 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, CheckCircle2, XCircle } from 'lucide-react'
 import type { ClaimsStatus } from '@/components/landing/ClaimsBadge'
+import { formatClaimsDate } from '@/lib/formatClaimsDate'
 
 type LoadState =
   | { kind: 'loading' }
   | { kind: 'ready'; data: ClaimsStatus }
   | { kind: 'error'; message: string }
-
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toISOString().replace('T', ' ').replace(/\.\d+Z$/, ' UTC')
-}
 
 function evidenceHref(evidence: string | undefined): string | null {
   if (!evidence) return null
@@ -107,7 +102,7 @@ export default function ClaimsPage() {
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
                   Last verified
                 </p>
-                <p className="mt-1 text-sm">{formatDate(state.data.date)}</p>
+                <p className="mt-1 text-sm">{formatClaimsDate(state.data.date)}</p>
               </div>
               <div className="rounded-lg border border-border/70 bg-card/60 p-4">
                 <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
@@ -182,7 +177,7 @@ export default function ClaimsPage() {
                           )}
                         </td>
                         <td className="px-4 py-4 text-xs text-muted-foreground">
-                          {formatDate(entry.last_run)}
+                          {formatClaimsDate(entry.last_run)}
                         </td>
                       </tr>
                     )

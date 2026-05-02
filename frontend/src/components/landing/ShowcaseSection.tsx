@@ -17,7 +17,7 @@ export function ShowcaseSection() {
   }, [])
 
   return (
-    <section id="use-cases" ref={ref} className="scroll-mt-24 py-20 sm:py-24">
+    <section id="showcase" ref={ref} className="scroll-mt-24 py-20 sm:py-24">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div
           className={cn(

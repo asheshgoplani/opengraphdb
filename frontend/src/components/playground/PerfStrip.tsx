@@ -2,6 +2,7 @@ interface PerfStripProps {
   queryTimeMs: number
   nodeCount: number
   edgeCount: number
+  rowCount: number | null
   isLive: boolean
 }
 
@@ -36,37 +37,34 @@ function PerfCell({ testId, label, value, unit, caption, accent = 'muted' }: Per
         >
           {value}
         </span>
-        <span className="text-[10px] font-medium lowercase tracking-wider text-muted-foreground">
-          {unit}
-        </span>
+        {unit && (
+          <span className="text-[10px] font-medium lowercase tracking-wider text-muted-foreground">
+            {unit}
+          </span>
+        )}
       </div>
       <p className="mt-0.5 truncate text-[10px] text-muted-foreground/70">{caption}</p>
     </div>
   )
 }
 
-// Derive a realistic parse/plan/execute split from the total query time so the
-// strip shows something meaningful before the backend exposes `db.query_profiled`.
-// These ratios match BENCHMARKS.md (parse ~5%, plan ~20%, execute ~75%).
-function breakdown(totalMs: number): { parseUs: number; planUs: number; executeMs: number } {
-  if (totalMs <= 0) return { parseUs: 0, planUs: 0, executeMs: 0 }
-  const totalUs = totalMs * 1000
-  return {
-    parseUs: Math.max(1, Math.round(totalUs * 0.05)),
-    planUs: Math.max(1, Math.round(totalUs * 0.2)),
-    executeMs: Math.max(0.1, +(totalMs * 0.75).toFixed(1)),
-  }
-}
-
-export function PerfStrip({ queryTimeMs, nodeCount, edgeCount, isLive }: PerfStripProps) {
+// 2026-05-02 (C9 audit): the strip used to show synthesized parse/plan/execute
+// cells computed as fixed 5/20/75% ratios of the total time. The backend does
+// not expose `db.query_profiled` yet — every per-stage µs/ms reading was a lie
+// rendered as "Verified perf · live · profiled". The four cells are now real
+// counters: rows returned by the query (or — if none yet), visible nodes and
+// edges in the canvas, and the actual total wall-clock for the last query.
+export function PerfStrip({ queryTimeMs, nodeCount, edgeCount, rowCount, isLive }: PerfStripProps) {
   const hasRun = queryTimeMs > 0
-  const { parseUs, planUs, executeMs } = breakdown(queryTimeMs)
-  const qps = hasRun ? Math.max(1, Math.round(1000 / Math.max(queryTimeMs, 0.1))) : 0
   const total = hasRun
     ? queryTimeMs < 10
       ? queryTimeMs.toFixed(2)
       : queryTimeMs.toFixed(1)
     : '—'
+
+  const rowsValue = rowCount == null ? '—' : rowCount.toLocaleString()
+  const nodesValue = nodeCount.toLocaleString()
+  const edgesValue = edgeCount.toLocaleString()
 
   return (
     <section
@@ -76,38 +74,38 @@ export function PerfStrip({ queryTimeMs, nodeCount, edgeCount, isLive }: PerfStr
     >
       <div className="flex w-[170px] shrink-0 flex-col justify-center border-r border-border/60 pr-4">
         <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-accent">
-          Verified perf
-        </p>
-        <p className="mt-0.5 font-serif text-[15px] leading-tight tracking-tight text-foreground">
           Last query
         </p>
+        <p className="mt-0.5 font-serif text-[15px] leading-tight tracking-tight text-foreground">
+          measured locally
+        </p>
         <p className="mt-0.5 text-[10px] text-muted-foreground/70">
-          {isLive ? 'live · profiled' : 'sample · synthetic'}
+          {isLive ? 'live · http /query' : 'sample · in-memory filter'}
         </p>
       </div>
 
       <PerfCell
-        testId="perf-parse"
-        label="Parse"
-        value={hasRun ? parseUs.toLocaleString() : '—'}
-        unit="µs"
-        caption="winnow lexer + parser"
+        testId="perf-rows"
+        label="Rows"
+        value={rowsValue}
+        unit=""
+        caption="result set size"
         accent="primary"
       />
       <PerfCell
-        testId="perf-plan"
-        label="Plan"
-        value={hasRun ? planUs.toLocaleString() : '—'}
-        unit="µs"
-        caption="optimizer + rewrite"
+        testId="perf-nodes"
+        label="Nodes"
+        value={nodesValue}
+        unit=""
+        caption="drawn in canvas"
         accent="primary"
       />
       <PerfCell
-        testId="perf-execute"
-        label="Execute"
-        value={hasRun ? executeMs.toLocaleString() : '—'}
-        unit="ms"
-        caption="CSR traversal"
+        testId="perf-edges"
+        label="Edges"
+        value={edgesValue}
+        unit=""
+        caption="drawn in canvas"
         accent="cyan"
       />
       <PerfCell
@@ -115,7 +113,7 @@ export function PerfStrip({ queryTimeMs, nodeCount, edgeCount, isLive }: PerfStr
         label="Total"
         value={total}
         unit="ms"
-        caption={hasRun ? `${qps.toLocaleString()} QPS · ${nodeCount}n/${edgeCount}e` : 'awaiting first query'}
+        caption={hasRun ? 'wall-clock, last query' : 'awaiting first query'}
         accent="emerald"
       />
     </section>

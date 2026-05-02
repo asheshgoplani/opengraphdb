@@ -1,7 +1,7 @@
-import { useCallback, useState } from 'react'
 import { Check, Copy, RefreshCw, Server } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/stores/settings'
+import { useCopyToClipboard } from '@/lib/useCopyToClipboard'
 
 const SERVE_COMMAND = 'ogdb serve --http'
 
@@ -95,14 +95,7 @@ function SkeletonPreview() {
 
 export function DisconnectedState() {
   const serverUrl = useSettingsStore((s) => s.serverUrl)
-  const [copied, setCopied] = useState(false)
-
-  const onCopy = useCallback(async () => {
-    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return
-    await navigator.clipboard.writeText(SERVE_COMMAND)
-    setCopied(true)
-    window.setTimeout(() => setCopied(false), 2000)
-  }, [])
+  const { copied, copy } = useCopyToClipboard()
 
   return (
     <div className="relative flex flex-1 items-center justify-center overflow-hidden p-6">
@@ -131,7 +124,7 @@ export function DisconnectedState() {
             aria-label={copied ? 'Copied' : 'Copy command'}
             className="absolute right-1.5 top-1.5 h-7 gap-1 rounded-md px-2 text-[11px] text-foreground/85 hover:bg-muted/60 hover:text-foreground"
             onClick={() => {
-              void onCopy()
+              void copy(SERVE_COMMAND)
             }}
           >
             {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
