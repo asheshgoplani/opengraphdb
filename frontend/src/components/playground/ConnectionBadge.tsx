@@ -7,8 +7,8 @@ interface ConnectionBadgeProps {
 }
 
 export function ConnectionBadge({ queryTimeMs, isLive = false, liveError = null }: ConnectionBadgeProps) {
-  const dotColor = liveError ? 'bg-destructive' : isLive ? 'bg-accent' : 'bg-accent'
-  const pingColor = liveError ? 'bg-destructive' : isLive ? 'bg-accent' : 'bg-accent'
+  const dotColor = liveError ? 'bg-destructive' : isLive ? 'bg-accent' : 'bg-muted-foreground'
+  const pingColor = liveError ? 'bg-destructive' : isLive ? 'bg-accent' : 'bg-muted-foreground'
   const label = liveError ? 'Error' : isLive ? 'Live' : 'Sample Data'
 
   return (
