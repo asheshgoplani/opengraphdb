@@ -12,7 +12,13 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Page } from '@playwright/test'
 
-const ROUTES = ['/', '/playground', '/claims']
+// COVERAGE-AUDIT.md gap H16 (R4): `/docs/:slug` was missing from the
+// sweep, leaving an a11y gate-skip on a public route. The DocPage
+// renders a generated markdown article whose heading-rank, link-text,
+// and color-contrast are all axe-checkable. We pick `llm-to-cypher`
+// as the canonical slug — it's the first DOC_REGISTRY entry and is
+// linked from L20 (Read the pattern) on the landing page.
+const ROUTES = ['/', '/playground', '/claims', '/docs/llm-to-cypher']
 
 async function runAxe(page: Page, path: string) {
   await page.goto(path)
