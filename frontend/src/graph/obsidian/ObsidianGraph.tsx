@@ -7,7 +7,12 @@ import { Compass } from 'lucide-react'
 import type { GraphData, GraphNode } from '@/types/graph'
 import { Button } from '@/components/ui/button'
 import { applyEdgeStrokeStyle, colorForLabel } from './colors'
+import { DemoPathButton } from './DemoPathButton'
+import { EdgeFlow } from './edgeFlow'
 import { drawGlowHalo, GLOW_RADIUS_MULT_BASE, pickGlowTier } from './glow'
+import { TRAVERSAL_ACCENT, TRAVERSAL_ACCENT_DIM } from './palette'
+import { StepCounterBadge } from './StepCounterBadge'
+import { emptyTraversalState, playTraversal, type TraversalState } from './traversal'
 import {
   type LabelBox,
   HUB_LABEL_BG_RGBA,
@@ -199,6 +204,85 @@ export function ObsidianGraph({
   const dollyActiveRef = useRef<boolean>(false)
   const driftActiveRef = useRef<boolean>(false)
 
+  // Phase-3 STORY — traversal cinematic state. The driver mutates
+  // `traversalRef.current` in-place; canvas draw callbacks read it on
+  // every frame, while React-side surfaces (badge, replay pill) reflect
+  // it via `traversalUi`, refreshed on step / completion / cancel.
+  const traversalRef = useRef<TraversalState>(emptyTraversalState())
+  // Lazy initialiser keeps ESLint's "ref cannot be modified after init"
+  // rule happy — the bank lives for the full mount lifetime.
+  const edgeFlowRef = useRef<EdgeFlow>(new EdgeFlow())
+  const traversalAbortRef = useRef<AbortController | null>(null)
+  const lastPathRef = useRef<Array<string | number> | null>(null)
+  const [traversalUi, setTraversalUi] = useState<{
+    isPlaying: boolean
+    completed: boolean
+    step: number
+    total: number
+  }>({ isPlaying: false, completed: false, step: 0, total: 0 })
+
+  const cancelTraversal = useCallback(() => {
+    if (traversalAbortRef.current) {
+      traversalAbortRef.current.abort()
+      traversalAbortRef.current = null
+    }
+    edgeFlowRef.current?.clear()
+    traversalRef.current = emptyTraversalState()
+    setTraversalUi({ isPlaying: false, completed: false, step: 0, total: 0 })
+  }, [])
+
+  const dispatchPath = useCallback(
+    (nodeIds: Array<string | number>) => {
+      // Cancel any in-flight cinematic before kicking off a new one.
+      if (traversalAbortRef.current) traversalAbortRef.current.abort()
+      lastPathRef.current = nodeIds
+      const ac = new AbortController()
+      traversalAbortRef.current = ac
+      setTraversalUi({
+        isPlaying: true,
+        completed: false,
+        step: 1,
+        total: nodeIds.length,
+      })
+      void playTraversal({
+        fgRef: fgRef as unknown as {
+          current: import('react-force-graph-2d').ForceGraphMethods<RfgNode, unknown> | undefined
+        },
+        graphData,
+        pathNodeIds: nodeIds,
+        state: traversalRef,
+        edgeFlow: edgeFlowRef.current!,
+        signal: ac.signal,
+        onStep: (step, total) =>
+          setTraversalUi({ isPlaying: true, completed: false, step, total }),
+        onComplete: () =>
+          setTraversalUi((prev) => ({
+            isPlaying: false,
+            completed: true,
+            step: prev.total,
+            total: prev.total,
+          })),
+      })
+    },
+    [graphData],
+  )
+
+  const handleReplay = useCallback(() => {
+    const path = lastPathRef.current
+    if (!path) return
+    dispatchPath(path)
+  }, [dispatchPath])
+
+  // Cancel any in-flight cinematic + clear lit state on unmount so the
+  // RAF inside playTraversal doesn't tick against a torn-down graph.
+  useEffect(() => {
+    const ef = edgeFlowRef.current
+    return () => {
+      if (traversalAbortRef.current) traversalAbortRef.current.abort()
+      ef.clear()
+    }
+  }, [])
+
   const lastHoverIdxRef = useRef<number | null>(null)
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -217,6 +301,17 @@ export function ObsidianGraph({
       __obsidianDollyActive?: () => boolean
       __obsidianDriftActive?: () => boolean
       __obsidianGraphToScreen?: (x: number, y: number) => { x: number; y: number } | null
+      __obsidianTraversalState?: () => {
+        isPlaying: boolean
+        completed: boolean
+        step: number
+        total: number
+        litNodeIds: Array<string | number>
+        activeEdgeId: string | number | null
+        pathNodeIds: Array<string | number>
+      }
+      __obsidianDispatchDemoPath?: () => Array<string | number> | null
+      __obsidianClickNode?: (id: string | number) => void
     }
     w.__obsidianGraphReady = true
     w.__obsidianHoverNode = (idx) => {
@@ -295,6 +390,37 @@ export function ObsidianGraph({
       if (!fg) return null
       return fg.graph2ScreenCoords(x, y)
     }
+    // Phase-3 STORY harness — read the cinematic state (E2E samples
+    // litNodeIds + activeEdgeId to assert the path is actually painting
+    // in cyan-blue) and dispatch the demo button programmatically (so
+    // the path-pick logic can be tested without a click + viewport-fit
+    // dance).
+    w.__obsidianTraversalState = () => {
+      const t = traversalRef.current
+      return {
+        isPlaying: t.isPlaying,
+        completed: t.completed,
+        step: traversalUi.step,
+        total: traversalUi.total,
+        litNodeIds: Array.from(t.litNodeIds),
+        activeEdgeId: t.activeEdgeId,
+        pathNodeIds: Array.from(t.pathNodeIds),
+      }
+    }
+    w.__obsidianDispatchDemoPath = () => {
+      const path = (
+        document.querySelector('[data-testid="obsidian-demo-path-pill"]') as HTMLButtonElement | null
+      )
+      path?.click()
+      return lastPathRef.current
+    }
+    // Click a node by id without going through the canvas hit-test —
+    // E2E uses this to trigger cancellation mid-cinematic without
+    // chasing screen coordinates while the camera dollies.
+    w.__obsidianClickNode = (id) => {
+      const node = seeded.nodes.find((n) => n.id === id)
+      if (node) handleNodeClickRef.current?.(node)
+    }
     return () => {
       delete w.__obsidianGraphReady
       delete w.__obsidianHoverNode
@@ -310,6 +436,9 @@ export function ObsidianGraph({
       delete w.__obsidianDollyActive
       delete w.__obsidianDriftActive
       delete w.__obsidianGraphToScreen
+      delete w.__obsidianTraversalState
+      delete w.__obsidianDispatchDemoPath
+      delete w.__obsidianClickNode
     }
   }, [
     onNodeHover,
@@ -319,6 +448,7 @@ export function ObsidianGraph({
     degrees,
     selectedNodeId,
     stickyFocusId,
+    traversalUi,
   ])
 
   // Pass 1: nodes — radius scales with degree (log2(1+deg)); halos are
@@ -331,17 +461,26 @@ export function ObsidianGraph({
     (node: RfgNode, ctx: CanvasRenderingContext2D) => {
       const x = node.x ?? 0
       const y = node.y ?? 0
-      // 3-tier fade: 1.0 (focus + 1-hop) / 0.5 (2-hop) / 0.18 (rest).
-      // Binary fade was too abrupt; the middle tier reads as topology.
+      // Phase-3 STORY — when a cinematic is running OR has completed,
+      // the lit-path nodes ignite cyan-blue and everything else fades
+      // to 0.18 opacity. This overrides the focus-hop fade tiers so the
+      // path stands alone visually.
+      const tState = traversalRef.current
+      const inCinematic = tState.isPlaying || tState.completed
       let alpha = 1
-      if (focusHops != null) {
+      if (inCinematic) {
+        alpha = tState.pathNodeIds.has(node.id) ? 1 : 0.18
+      } else if (focusHops != null) {
         const hop = focusHops.get(node.id)
         if (hop == null) alpha = 0.18
         else if (hop === 2) alpha = 0.5
       }
       ctx.save()
       ctx.globalAlpha = alpha
-      const color = colorForLabel(node.labels?.[0], isDark, labelIndex)
+      const isLitPathNode = inCinematic && tState.litNodeIds.has(node.id)
+      const color = isLitPathNode
+        ? TRAVERSAL_ACCENT
+        : colorForLabel(node.labels?.[0], isDark, labelIndex)
       const deg = degrees.get(node.id) ?? 0
       const r = NODE_RADIUS + Math.min(7, Math.log2(1 + deg) * 1.6)
       const tier = pickGlowTier({
@@ -400,7 +539,18 @@ export function ObsidianGraph({
       // 0.06 otherwise. Bridging exactly one boundary still fades to keep
       // the focus neighbourhood visually distinct.
       let edgeAlpha = 1
-      if (focusHops != null && sId != null && tId != null) {
+      const tState = traversalRef.current
+      const inCinematic = tState.isPlaying || tState.completed
+      const linkId = (link as RfgLink & { id?: string | number }).id
+      const isPathEdge = inCinematic && linkId != null && tState.pathEdgeIds.has(linkId)
+      const isLitEdge = inCinematic && linkId != null && tState.litEdgeIds.has(linkId)
+      const isActiveEdge =
+        inCinematic && linkId != null && tState.activeEdgeId === linkId
+      if (inCinematic) {
+        // Cinematic dominates the alpha tiers — non-path edges fade hard
+        // so the lit path stands out.
+        edgeAlpha = isPathEdge ? 1 : 0.06
+      } else if (focusHops != null && sId != null && tId != null) {
         const sh = focusHops.get(sId)
         const th = focusHops.get(tId)
         if (sh == null || th == null) {
@@ -416,13 +566,25 @@ export function ObsidianGraph({
       const curvature = (link as RfgLink & { curvature?: number }).curvature ?? 0
       ctx.save()
       ctx.globalAlpha = edgeAlpha
-      const isFocusEdge = focused != null && (sId === focused || tId === focused)
-      // Stroke + halo come from the shared helper — same contract the
-      // canvas-mock unit test pins. shadowBlur is set to 0 on the
-      // non-focus branch so a stale halo from a previous focus-edge
-      // draw can't smear into baseline edges (shadowBlur is sticky on
-      // the same ctx across draw calls).
-      applyEdgeStrokeStyle(ctx, { isFocusEdge, isDark })
+      const isFocusEdge =
+        !inCinematic && focused != null && (sId === focused || tId === focused)
+      if (isPathEdge) {
+        // Path edges paint in the sacred cyan-blue. Lit + active = full
+        // saturation; unvisited path-segments paint dim so the user can
+        // anticipate the route. shadowBlur gives the active edge an
+        // extra wash that reads as ignition.
+        ctx.strokeStyle = isLitEdge || isActiveEdge ? TRAVERSAL_ACCENT : TRAVERSAL_ACCENT_DIM
+        ctx.lineWidth = isActiveEdge ? 4.4 : isLitEdge ? 3.6 : 2.8
+        ctx.shadowColor = TRAVERSAL_ACCENT
+        ctx.shadowBlur = isActiveEdge ? 6 : isLitEdge ? 3 : 0
+      } else {
+        // Stroke + halo come from the shared helper — same contract the
+        // canvas-mock unit test pins. shadowBlur is set to 0 on the
+        // non-focus branch so a stale halo from a previous focus-edge
+        // draw can't smear into baseline edges (shadowBlur is sticky on
+        // the same ctx across draw calls).
+        applyEdgeStrokeStyle(ctx, { isFocusEdge, isDark })
+      }
       ctx.lineCap = 'round'
       ctx.beginPath()
       ctx.moveTo(sx, sy)
@@ -448,11 +610,31 @@ export function ObsidianGraph({
     [focusHops, focused, isDark],
   )
 
+  // Phase-3 STORY — composite frame post-pass. We tick particle phases
+  // (cheap, ~8 floats) and paint them after the base labels so they
+  // visually float above edges. drawLabels remains responsible for the
+  // text overlay; particles ride on top.
+  const drawFramePost = useCallback(
+    (ctx: CanvasRenderingContext2D, globalScale: number) => {
+      // Reuse the existing labels pass first so labels still render.
+      drawLabelsRef.current?.(ctx, globalScale)
+      const ef = edgeFlowRef.current
+      if (ef && ef.isActive()) {
+        ef.tick()
+        ef.draw(ctx, globalScale)
+      }
+    },
+    [],
+  )
+
   // Pass 2: labels with collision detection. Priority order is
   // focused → highest-degree → deterministic-by-id (POLISH #1, via
   // `compareLabelPriority`). The focused label is always placed first AND
   // its placement skips the collision check, so a hub label that arrived
   // earlier in priority order can never hide it.
+  const drawLabelsRef = useRef<((ctx: CanvasRenderingContext2D, scale: number) => void) | null>(
+    null,
+  )
   const drawLabels = useCallback(
     (ctx: CanvasRenderingContext2D, globalScale: number) => {
       const placed: LabelBox[] = []
@@ -560,6 +742,12 @@ export function ObsidianGraph({
     },
     [degrees, focused, focusNeighbors, isDark, seeded.nodes],
   )
+  // Publish the latest drawLabels to the ref so the framePost composite
+  // (which fires every frame) always invokes the freshest closure.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
+    drawLabelsRef.current = drawLabels
+  }, [drawLabels])
 
   const onResetView = () => fgRef.current?.zoomToFit(400, 60)
 
@@ -585,13 +773,30 @@ export function ObsidianGraph({
   )
   const handleNodeClick = useCallback(
     (n: RfgNode) => {
+      // Phase-3 STORY — clicking a node OFF the active path mid-cinematic
+      // aborts the traversal cleanly: edge particles cleared, lit edges
+      // wiped, focus moves to the clicked node. Clicks on the path
+      // itself stay benign (focus moves but cinematic continues).
+      const tState = traversalRef.current
+      const inCinematic = tState.isPlaying || tState.completed
+      if (inCinematic && !tState.pathNodeIds.has(n.id)) {
+        cancelTraversal()
+      }
       // Set internal sticky-focus so touch tap-and-release persists fade
       // even when the parent doesn't wire `selectedNodeId`.
       setStickyFocusId(n.id)
       onNodeClick?.(n as GraphNode)
     },
-    [onNodeClick],
+    [cancelTraversal, onNodeClick],
   )
+  // Mirror the latest handleNodeClick into a ref so the harness window
+  // hook (set up in a one-shot effect) always invokes the freshest
+  // closure when the test calls __obsidianClickNode.
+  const handleNodeClickRef = useRef(handleNodeClick)
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/immutability
+    handleNodeClickRef.current = handleNodeClick
+  }, [handleNodeClick])
   const handleBackgroundClick = useCallback(() => {
     setStickyFocusId(null)
     setTooltip(null)
@@ -793,7 +998,7 @@ export function ObsidianGraph({
         // engine cools and skip both effects.
         autoPauseRedraw={false}
         onEngineStop={onEngineStop}
-        onRenderFramePost={drawLabels}
+        onRenderFramePost={drawFramePost}
         onNodeClick={(n) => handleNodeClick(n as RfgNode)}
         onNodeHover={(n) => handleNodeHover((n as RfgNode | null) ?? null)}
         onBackgroundClick={handleBackgroundClick}
@@ -829,6 +1034,14 @@ export function ObsidianGraph({
           <Compass className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
+      <DemoPathButton graphData={graphData} onDispatchPath={dispatchPath} />
+      <StepCounterBadge
+        isPlaying={traversalUi.isPlaying}
+        completed={traversalUi.completed}
+        step={traversalUi.step}
+        total={traversalUi.total}
+        onReplay={handleReplay}
+      />
     </div>
   )
 }
