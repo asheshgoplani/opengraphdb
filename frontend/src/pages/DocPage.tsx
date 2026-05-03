@@ -104,7 +104,7 @@ export default function DocPage() {
       </p>
       <article
         data-testid="doc-page-article"
-        className="prose prose-neutral max-w-none dark:prose-invert"
+        className="prose prose-neutral max-w-none dark:prose-invert prose-headings:font-display prose-headings:font-light prose-headings:tracking-tight"
         // The renderer escapes HTML in the source, then emits a curated
         // tagset (h1-h3, p, ul, ol, li, code, pre, a, strong, em, hr).
         // No user-controlled markdown reaches this surface today.
