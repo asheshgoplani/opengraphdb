@@ -33,3 +33,27 @@ test('DocPage article applies font-display to prose headings', () => {
     `article must apply prose-headings:font-display so doc h1/h2/h3 use Fraunces, got: ${className}`,
   )
 })
+
+// c17-ui L2 regression: the section divider above "View source on GitHub"
+// used `border-border/60`, which renders as a faint smear on dark mode
+// (--border at 24 14% 22% × 0.6 alpha against a near-black --background).
+// Drop the alpha so the divider registers as an actual section break.
+test('DocPage article hr uses full --border opacity (no /60 alpha mix)', () => {
+  const src = readSource()
+  const hrMatch = src.match(/<hr\b[^>]*className="([^"]+)"/)
+  const className = hrMatch?.[1]
+  assert.ok(
+    typeof className === 'string',
+    'expected DocPage to render an <hr className="..."> element',
+  )
+  assert.doesNotMatch(
+    className,
+    /border-border\/\d+/,
+    `hr must use full --border opacity (no /xx alpha mix), got: ${className}`,
+  )
+  assert.match(
+    className,
+    /\bborder-border\b/,
+    `hr must still route through --border, got: ${className}`,
+  )
+})

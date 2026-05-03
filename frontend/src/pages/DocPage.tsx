@@ -110,7 +110,7 @@ export default function DocPage() {
         // No user-controlled markdown reaches this surface today.
         dangerouslySetInnerHTML={{ __html: html }}
       />
-      <hr className="my-12 border-border/60" />
+      <hr className="my-12 border-border" />
       <p className="text-xs text-muted-foreground">
         View source on GitHub:{' '}
         <a
