@@ -12,11 +12,20 @@ declare global {
   interface Window {
     __obsidianGraphReady?: boolean
     __obsidianHoverNode?: (idx: number) => void
+    __obsidianFocusNode?: (idx: number | null) => void
     __obsidianDimmedCount?: () => number
     __obsidianLabelBounds?: () => LabelBound[]
     __obsidianNodePositions?: () => Array<{ id: string | number; x: number; y: number }>
     __obsidianFitCount?: () => number
     __obsidianEntryAnimated?: () => boolean
+    __obsidianCameraScale?: () => number | null
+    __obsidianFocusedHaloRadius?: () => number | null
+    __obsidianDollyActive?: () => boolean
+    __obsidianDriftActive?: () => boolean
+    __obsidianGraphToScreen?: (
+      x: number,
+      y: number,
+    ) => { x: number; y: number } | null
   }
 }
 
@@ -272,18 +281,27 @@ test.describe('phase1-glow', () => {
       if (!c) return null
       const ctx = c.getContext('2d')
       if (!ctx) return null
-      // Sample a 56×56 box at the canvas centre; the entry-dolly puts the
-      // focused (top-1 hub) node near the centre, and the focus halo
-      // (radius ≈ node-r × 3) lives within ~24px of that centre.
-      const cx = Math.round(c.width / 2)
-      const cy = Math.round(c.height / 2)
+      // Phase-2 PULSE moves the entry camera off the top hub and onto
+      // the graph centroid (auto-fit-to-viewport). The focused node may
+      // therefore land anywhere on the canvas, so we look up its screen
+      // position via the harness instead of assuming canvas centre.
+      const positions = window.__obsidianNodePositions?.() ?? []
+      const focused = positions[0]
+      const screen = focused
+        ? window.__obsidianGraphToScreen?.(focused.x, focused.y)
+        : null
+      if (!screen) return null
+      const cx = Math.round(screen.x)
+      const cy = Math.round(screen.y)
       const half = 28
-      const data = ctx.getImageData(
-        cx - half,
-        cy - half,
-        half * 2,
-        half * 2,
-      ).data
+      const left = Math.max(0, cx - half)
+      const top = Math.max(0, cy - half)
+      const right = Math.min(c.width, cx + half)
+      const bottom = Math.min(c.height, cy + half)
+      const w = Math.max(0, right - left)
+      const h = Math.max(0, bottom - top)
+      if (w === 0 || h === 0) return null
+      const data = ctx.getImageData(left, top, w, h).data
       // Count pixels that are *not* transparent — the halo's outer
       // gradient stop is alpha=0, so any non-zero alpha within 24px
       // of the focused node is the halo body.
@@ -401,11 +419,20 @@ test.describe('phase1-glow', () => {
       if (!c) return null
       const ctx = c.getContext('2d')
       if (!ctx) return null
-      const cx = Math.round(c.width / 2)
-      const cy = Math.round(c.height / 2)
+      // Phase-2 PULSE: look up the focused node's screen position
+      // (auto-fit dolly no longer guarantees a haloed node at canvas
+      // centre).
+      const positions = window.__obsidianNodePositions?.() ?? []
+      const focused = positions[0]
+      const screen = focused
+        ? window.__obsidianGraphToScreen?.(focused.x, focused.y)
+        : null
+      if (!screen) return null
+      const cx = Math.round(screen.x)
+      const cy = Math.round(screen.y)
       const inner = ctx.getImageData(cx - 4, cy - 4, 8, 8).data
-      // 24px out — should still be inside the halo gradient on a
-      // top-1 hub at default zoom, but at lower alpha than the centre.
+      // 24px out — should still be inside the halo gradient on the
+      // focused node, but at lower alpha than the centre.
       const outer = ctx.getImageData(cx - 24, cy - 24, 8, 8).data
       // Background patch: corner of the canvas where neither halos nor
       // edges should be drawn.
@@ -443,5 +470,146 @@ test.describe('phase1-glow', () => {
       innerLuma,
       `'lighter' radial-halo: inner (${innerLuma.toFixed(1)}) must exceed outer (${outerLuma.toFixed(1)})`,
     ).toBeGreaterThan(outerLuma)
+  })
+})
+
+test.describe('phase2-pulse', () => {
+  // Phase-2 PULSE adds three motion primitives:
+  //   (a) 60BPM heartbeat on the focused hub (1.0× ↔ 1.06× halo radius)
+  //   (b) idle drift — 0.05× force-tick equivalent perturbing node
+  //       positions when no node is focus/hover engaged
+  //   (c) auto-fit dolly — 1500ms cubic-bezier from 1.4× zoom-out to fit
+  // All three respect prefers-reduced-motion: reduce.
+
+  test('(a) heartbeat firing: halo radius scales by ≥0.04 over 500ms', async ({
+    page,
+  }) => {
+    await page.goto('/playground')
+    await page.waitForFunction(() => window.__obsidianGraphReady === true, {
+      timeout: 20_000,
+    })
+    // Wait through the simulation cooldown + dolly so the scene is at
+    // rest before we engage the focus heartbeat.
+    await page.waitForTimeout(8000)
+    await page.evaluate(() => window.__obsidianFocusNode?.(0))
+    // One frame for React state → harness ref to settle, then sample.
+    await page.waitForTimeout(50)
+    const r0 = await page.evaluate(
+      () => window.__obsidianFocusedHaloRadius?.() ?? null,
+    )
+    await page.waitForTimeout(500)
+    const r500 = await page.evaluate(
+      () => window.__obsidianFocusedHaloRadius?.() ?? null,
+    )
+    expect(r0, 'focused halo radius at t=0 must be readable').not.toBeNull()
+    expect(r500, 'focused halo radius at t=500ms must be readable').not.toBeNull()
+    const delta = Math.abs((r500 as number) - (r0 as number))
+    expect(
+      delta,
+      `heartbeat delta over 500ms must be ≥0.04 (got ${delta.toFixed(4)}; r0=${r0}, r500=${r500})`,
+    ).toBeGreaterThanOrEqual(0.04)
+  })
+
+  test('(b) heartbeat off under prefers-reduced-motion: delta <0.005', async ({
+    browser,
+  }) => {
+    // Reduced-motion is a context-level setting in Playwright — open a
+    // fresh context so the matchMedia gate inside ObsidianGraph reports
+    // `reduce` from first mount.
+    const ctx = await browser.newContext({ reducedMotion: 'reduce' })
+    const page = await ctx.newPage()
+    try {
+      await page.goto('/playground')
+      await page.waitForFunction(() => window.__obsidianGraphReady === true, {
+        timeout: 20_000,
+      })
+      await page.waitForTimeout(8000)
+      await page.evaluate(() => window.__obsidianFocusNode?.(0))
+      await page.waitForTimeout(50)
+      const r0 = await page.evaluate(
+        () => window.__obsidianFocusedHaloRadius?.() ?? null,
+      )
+      await page.waitForTimeout(500)
+      const r500 = await page.evaluate(
+        () => window.__obsidianFocusedHaloRadius?.() ?? null,
+      )
+      expect(r0, 'focused halo radius must be readable').not.toBeNull()
+      expect(r500).not.toBeNull()
+      const delta = Math.abs((r500 as number) - (r0 as number))
+      expect(
+        delta,
+        `heartbeat must be OFF under reduced-motion: delta=${delta.toFixed(4)} (r0=${r0}, r500=${r500})`,
+      ).toBeLessThan(0.005)
+    } finally {
+      await ctx.close()
+    }
+  })
+
+  test('(c) auto-fit dolly: camera scale progresses across the 1500ms tween', async ({
+    page,
+  }) => {
+    await page.goto('/playground')
+    await page.waitForFunction(() => window.__obsidianGraphReady === true, {
+      timeout: 20_000,
+    })
+    // Catch the dolly mid-flight: poll every frame until it activates,
+    // then sample two scale values that bracket its window.
+    await page.waitForFunction(
+      () => window.__obsidianDollyActive?.() === true,
+      { timeout: 20_000 },
+    )
+    const z0 = await page.evaluate(() => window.__obsidianCameraScale?.() ?? null)
+    await page.waitForTimeout(1500)
+    const z1500 = await page.evaluate(() => window.__obsidianCameraScale?.() ?? null)
+    expect(z0).not.toBeNull()
+    expect(z1500).not.toBeNull()
+    // Progressed = the camera moved during the dolly. A snap-to-fit
+    // would yield equal samples (scale would be the same fitZ at both
+    // poll points).
+    const diff = Math.abs((z1500 as number) - (z0 as number))
+    expect(
+      diff,
+      `camera scale must progress across the dolly window (z0=${z0}, z1500=${z1500}, diff=${diff})`,
+    ).toBeGreaterThan(0.001)
+  })
+
+  test('(d) idle drift: at least one node moves >2px over 3s of idle', async ({
+    page,
+  }) => {
+    await page.goto('/playground')
+    await page.waitForFunction(() => window.__obsidianGraphReady === true, {
+      timeout: 20_000,
+    })
+    // Wait for the simulation + dolly to settle before sampling.
+    await page.waitForTimeout(8000)
+    // Drift should be active by now (no focus, no hover, dolly ended).
+    const before = await page.evaluate(
+      () => window.__obsidianNodePositions?.() ?? [],
+    )
+    expect(before.length).toBeGreaterThan(0)
+    await page.waitForTimeout(3000)
+    const after = await page.evaluate(
+      () => window.__obsidianNodePositions?.() ?? [],
+    )
+    expect(after.length).toBe(before.length)
+    // At least one node must have moved more than 2px in either axis —
+    // the breathing perturbation oscillates ±1.5px so 3 seconds is
+    // ample time to register that magnitude on at least one node
+    // (phase-staggered, so a subset is at peak displacement at any
+    // given moment).
+    const byId = new Map(before.map((p) => [p.id, p]))
+    let maxMove = 0
+    for (const a of after) {
+      const b = byId.get(a.id)
+      if (!b) continue
+      const dx = a.x - b.x
+      const dy = a.y - b.y
+      const d = Math.sqrt(dx * dx + dy * dy)
+      if (d > maxMove) maxMove = d
+    }
+    expect(
+      maxMove,
+      `expected ≥1 node to drift >2px in 3s of idle; max movement=${maxMove.toFixed(2)}px`,
+    ).toBeGreaterThan(2)
   })
 })
