@@ -7,6 +7,19 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: 'list',
+  // Visual-regression baselines live under `e2e/__screenshots__/<spec>/<project>/<arg>.png`
+  // (separate from legacy raw `e2e/screenshots/` saves) so toHaveScreenshot diffs are tractable.
+  snapshotPathTemplate:
+    '{testDir}/__screenshots__/{testFilePath}/{projectName}/{arg}{ext}',
+  expect: {
+    toHaveScreenshot: {
+      // Conservative default; per-test overrides bump tolerance for animated surfaces (graph canvas).
+      maxDiffPixelRatio: 0.02,
+      animations: 'disabled',
+      caret: 'hide',
+      scale: 'css',
+    },
+  },
   use: {
     baseURL: process.env.PLAYWRIGHT_PORT
       ? `http://localhost:${process.env.PLAYWRIGHT_PORT}`
@@ -14,6 +27,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     trace: 'on-first-retry',
     viewport: { width: 1280, height: 800 },
+    locale: 'en-US',
+    timezoneId: 'UTC',
   },
   projects: [
     {
