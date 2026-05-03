@@ -6,7 +6,8 @@ import { forceCollide } from 'd3-force'
 import { Compass } from 'lucide-react'
 import type { GraphData, GraphNode } from '@/types/graph'
 import { Button } from '@/components/ui/button'
-import { applyEdgeStrokeStyle, colorForLabel, withAlpha } from './colors'
+import { applyEdgeStrokeStyle, colorForLabel } from './colors'
+import { drawGlowHalo, pickGlowTier } from './glow'
 import {
   type LabelBox,
   ENTRY_DURATION_MS,
@@ -54,7 +55,6 @@ type RfgLink = {
 }
 
 const NODE_RADIUS = 5
-const HALO_RADIUS = 14
 const LABEL_FONT_SIZE = 11
 const LABEL_FONT_SIZE_FOCUS = 13
 const LABEL_PAD_X = 4
@@ -172,6 +172,15 @@ export function ObsidianGraph({
     () => (focused != null ? kHopNeighbors(graphData, focused, 2) : null),
     [focused, graphData],
   )
+  // Phase-1 GLOW — top-N hub set drives the always-on accent halo. The
+  // set is precomputed once per dataset / degree change so `pickGlowTier`
+  // can do an O(1) hub-membership check per draw call. Reuses the same
+  // TOP_HUB_LABELS_DEFAULT count as the always-on hub-label pinning so
+  // "what glows by default" matches "what is labelled by default".
+  const glowHubSet = useMemo(() => {
+    const ids = topHubsByDegree(graphData, degrees, TOP_HUB_LABELS_DEFAULT)
+    return new Set<string | number>(ids)
+  }, [graphData, degrees])
 
   // Each render frame we rebuild the visible-label list via collision pass.
   // The ref is published to window for E2E.
@@ -243,13 +252,13 @@ export function ObsidianGraph({
   }, [onNodeHover, seeded.nodes, focusNeighbors, graphData])
 
   // Pass 1: nodes — radius scales with degree (log2(1+deg)); halos are
-  // drawn only on hover/selection (Obsidian draws halos on focus only — this
-  // is also a ~3× speedup vs glowing every node every frame).
+  // selective per Phase-1 GLOW: focus / hover / top-N hub light up,
+  // leaves stay matte. The 'lighter' composite inside drawGlowHalo means
+  // overlapping halos additively brighten instead of overpainting.
   const drawNode = useCallback(
     (node: RfgNode, ctx: CanvasRenderingContext2D) => {
       const x = node.x ?? 0
       const y = node.y ?? 0
-      const isFocus = focused === node.id
       // 3-tier fade: 1.0 (focus + 1-hop) / 0.5 (2-hop) / 0.18 (rest).
       // Binary fade was too abrupt; the middle tier reads as topology.
       let alpha = 1
@@ -263,27 +272,35 @@ export function ObsidianGraph({
       const color = colorForLabel(node.labels?.[0], isDark, labelIndex)
       const deg = degrees.get(node.id) ?? 0
       const r = NODE_RADIUS + Math.min(7, Math.log2(1 + deg) * 1.6)
-      if (isFocus) {
-        const grad = ctx.createRadialGradient(x, y, 0, x, y, HALO_RADIUS)
-        // `withAlpha` handles both #hex (categorical Movie/Genre/Person)
-        // and hsl(...) (warm-amber unknown labels) — cycle-12 hard-coded
-        // a `hsl(` → `hsla(` string-replace that silently no-op'd for
-        // hex palette entries, leaving the focus halo a solid disc.
-        grad.addColorStop(0, color)
-        grad.addColorStop(0.55, withAlpha(color, 0.32))
-        grad.addColorStop(1, withAlpha(color, 0))
-        ctx.fillStyle = grad
-        ctx.beginPath()
-        ctx.arc(x, y, HALO_RADIUS, 0, Math.PI * 2)
-        ctx.fill()
-      }
+      const tier = pickGlowTier({
+        id: node.id,
+        // Phase-1 splits "focus" (selected/sticky/entry-target) from
+        // "hover" so the two halo intensities (1.0 vs 0.85) are
+        // distinguishable. We treat selectedNodeId / stickyFocusId as
+        // focus and the live hover id as hover; if a node is both
+        // (e.g. user hovers their already-selected node), pickGlowTier
+        // resolves to the brighter 'focus' tier.
+        focusId: selectedNodeId ?? stickyFocusId ?? null,
+        hoverId: hoveredNodeId ?? null,
+        hubIds: glowHubSet,
+      })
+      drawGlowHalo(ctx, { x, y, nodeRadius: r, color, tier })
       ctx.fillStyle = color
       ctx.beginPath()
       ctx.arc(x, y, r, 0, Math.PI * 2)
       ctx.fill()
       ctx.restore()
     },
-    [degrees, focusHops, focused, isDark, labelIndex],
+    [
+      degrees,
+      focusHops,
+      glowHubSet,
+      hoveredNodeId,
+      isDark,
+      labelIndex,
+      selectedNodeId,
+      stickyFocusId,
+    ],
   )
 
   const drawLink = useCallback(

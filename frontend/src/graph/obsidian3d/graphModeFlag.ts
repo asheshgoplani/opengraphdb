@@ -1,14 +1,15 @@
 // c14 graph-mode flag parser. Replaces the proto/3d-graph-era boolean
-// `isProto3D` parser — semantics flip with the migration:
+// `isProto3D` parser. Phase-1 GLOW flips defaults BACK to 2D — the 3D
+// renderer is now a power-user toggle behind ?graph=3d:
 //
-//   default        → '3d'           (the productionised Obsidian3DGraph)
-//   ?graph=2d      → '2d'           (legacy ObsidianGraph fallback)
-//   ?graph=3d      → '3d'           (explicit, same as default; kept for
-//                                    backward compat with proto-era links)
+//   default        → '2d'           (ObsidianGraph + selective glow)
+//   ?graph=2d      → '2d'           (explicit, same as default)
+//   ?graph=3d      → '3d'           (productionised Obsidian3DGraph;
+//                                    opt-in)
 //   #graph=<2d|3d> → as above; hash form is kept because AppShellRouter
 //                    `/` → `/playground` <Navigate> calls history.replaceState
 //                    which strips the search string before GraphCanvas
-//                    can read it. NavigatePreservingQuery (this branch)
+//                    can read it. NavigatePreservingQuery (c14-3d P0)
 //                    fixes the search-form drop, but the hash form stays
 //                    supported as a belt-and-braces share-link path.
 //
@@ -36,12 +37,12 @@ export function parseGraphMode(
   const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
   const fromHash = asMode(hashParams.get('graph'))
   if (fromHash) return fromHash
-  return '3d'
+  return '2d'
 }
 
 const GRAPH_MODE_AT_BOOT: GraphMode =
   typeof window === 'undefined'
-    ? '3d'
+    ? '2d'
     : parseGraphMode(window.location.search, window.location.hash)
 
 export function getGraphMode(): GraphMode {

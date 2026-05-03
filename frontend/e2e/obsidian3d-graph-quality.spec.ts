@@ -28,7 +28,10 @@ declare global {
 }
 
 async function probeWebGL(page: Page): Promise<boolean> {
-  await page.goto('/playground')
+  // Probe must run inside the SPA so canvas creation honors the
+  // launch-flag-driven ANGLE/swiftshader binding. Default playground
+  // path is now 2D; WebGL availability is independent of route.
+  await page.goto('/playground?graph=3d')
   return page.evaluate(() => {
     try {
       const c = document.createElement('canvas')
@@ -40,7 +43,10 @@ async function probeWebGL(page: Page): Promise<boolean> {
 }
 
 async function waitGraph3DSettled(page: Page) {
-  await page.goto('/playground')
+  // Phase-1 GLOW reverted defaults to 2D; the 3D scene is now an opt-in
+  // power-user toggle behind `?graph=3d`. All "WebGL-mounted" tests must
+  // explicitly request the 3D mode.
+  await page.goto('/playground?graph=3d')
   await page.waitForFunction(() => window.__obsidian3dGraphReady === true, {
     timeout: 25_000,
   })
@@ -66,28 +72,44 @@ test.describe('Obsidian3DGraph routing & WebGL fallback (always-on)', () => {
     await expect(page.locator('canvas[data-graph="obsidian3d"]')).toHaveCount(0)
   })
 
-  test('default route picks 3D-or-2D-fallback based on WebGL availability', async ({
+  test('default route lands on the 2D ObsidianGraph (phase-1 GLOW default)', async ({
     page,
   }) => {
+    // Phase-1 GLOW: defaults flipped back from 3D → 2D. The default
+    // route must mount the legacy 2D canvas regardless of WebGL
+    // availability; the 3D scene is reachable only via `?graph=3d`.
     await page.goto('/playground')
-    // Either path must land within 25 s.
-    await page.waitForFunction(
-      () =>
-        window.__obsidian3dGraphReady === true ||
-        window.__obsidianGraphReady === true,
-      { timeout: 25_000 },
-    )
-    const wrapper = page.locator('[data-graph-mode]').first()
-    const mode = await wrapper.getAttribute('data-graph-mode')
-    expect(['2d', '3d']).toContain(mode)
-    if (mode === '2d') {
-      // The only legitimate reason for 2D on the default route is
-      // WebGL being unavailable.
-      await expect(wrapper).toHaveAttribute('data-graph-fallback', 'webgl')
-      await expect(page.locator('canvas[data-graph="obsidian"]')).toBeVisible()
-    } else {
-      await expect(page.locator('canvas[data-graph="obsidian3d"]')).toBeVisible()
-    }
+    await page.waitForFunction(() => window.__obsidianGraphReady === true, {
+      timeout: 25_000,
+    })
+    const wrapper = page.locator('[data-graph-mode="2d"]').first()
+    await expect(wrapper).toBeVisible()
+    await expect(page.locator('canvas[data-graph="obsidian"]')).toBeVisible()
+    await expect(page.locator('canvas[data-graph="obsidian3d"]')).toHaveCount(0)
+  })
+
+  test('?graph=3d on a WebGL-less browser falls back to 2D with reason="webgl"', async ({
+    page,
+  }) => {
+    // Synthesize a WebGL-less environment by stubbing
+    // HTMLCanvasElement.getContext for `webgl`/`webgl2` BEFORE the SPA
+    // boots, so `hasWebGL()` returns false at module-load time.
+    await page.addInitScript(() => {
+      const orig = HTMLCanvasElement.prototype.getContext
+      HTMLCanvasElement.prototype.getContext = function (type: string, ...rest: unknown[]) {
+        if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+          return null as unknown as RenderingContext
+        }
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return (orig as any).call(this, type, ...rest)
+      } as typeof HTMLCanvasElement.prototype.getContext
+    })
+    await page.goto('/playground?graph=3d')
+    await page.waitForFunction(() => window.__obsidianGraphReady === true, {
+      timeout: 25_000,
+    })
+    const wrapper = page.locator('[data-graph-mode="2d"]').first()
+    await expect(wrapper).toHaveAttribute('data-graph-fallback', 'webgl')
   })
 })
 

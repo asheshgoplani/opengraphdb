@@ -18,9 +18,10 @@ const GeoCanvas = lazy(() =>
 )
 
 // Lazy-load the c14 WebGL renderer (react-force-graph-3d + three.js,
-// ~600 KB raw / ~207 KB brotli) so the visitor who lands on the
-// `?graph=2d` legacy fallback path does not pay for the 3D bundle.
-// (LEGACY) Visitors hitting `?graph=2d` skip this chunk entirely.
+// ~600 KB raw / ~207 KB brotli) so the default 2D visitor does not
+// pay for the 3D bundle. Phase-1 GLOW restored 2D as the default;
+// the 3D scene is now a power-user opt-in behind `?graph=3d` and
+// only this branch loads the chunk.
 const Obsidian3DGraph = lazy(() =>
   import('@/graph/obsidian3d/Obsidian3DGraph').then((m) => ({
     default: m.Obsidian3DGraph,
@@ -105,14 +106,15 @@ export function GraphCanvas({ graphData, isGeographic }: GraphCanvasProps) {
     return <GraphEmptyState />
   }
 
-  // C14 renderer routing:
-  //   * `getGraphMode()` returns '3d' by default; '2d' iff the URL
-  //     carried `?graph=2d` (or `#graph=2d`) at module-load time.
-  //   * `hasWebGL()` gates the 3D path; missing WebGL (legacy / locked-
-  //     down browsers) falls back to the 2D renderer transparently.
-  //     `data-graph-fallback="webgl"` is exposed for E2E so we can
-  //     assert "user got 2D because GPU was missing, not because of
-  //     a routing bug" without parsing logs.
+  // C14 renderer routing (phase-1 GLOW reverted to 2D-as-default):
+  //   * `getGraphMode()` returns '2d' by default; '3d' iff the URL
+  //     carried `?graph=3d` (or `#graph=3d`) at module-load time.
+  //   * `hasWebGL()` still gates the 3D path; an opt-in 3D request
+  //     on a browser with missing WebGL transparently falls back
+  //     to the 2D renderer. `data-graph-fallback="webgl"` is
+  //     exposed for E2E so we can assert "user opted into 3D but
+  //     got 2D because GPU was missing, not because of a routing
+  //     bug" without parsing logs.
   const mode = getGraphMode()
   const webgl = hasWebGL()
   const shouldRender3D = mode === '3d' && webgl
