@@ -590,7 +590,10 @@ export default function PlaygroundPage() {
                   transition={PANEL_TRANSITION}
                   className="absolute left-4 top-4 z-10 max-w-md"
                 >
-                  <div className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/15 px-3 py-2 text-xs text-destructive shadow-lg backdrop-blur-sm">
+                  <div
+                    data-testid="live-error-overlay"
+                    className="flex items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/15 px-3 py-2 text-xs text-destructive shadow-lg backdrop-blur-sm"
+                  >
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                     <div>
                       <p className="font-serif text-[13px] leading-tight text-destructive-foreground">
