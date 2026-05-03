@@ -30,7 +30,7 @@ function PerfCell({ testId, label, value, unit, caption, accent = 'muted' }: Per
       data-testid={testId}
       className="flex min-w-0 flex-1 flex-col justify-center border-l border-border/60 px-4 first:border-l-0"
     >
-      <p className="text-[9px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70">{label}</p>
+      <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-muted-foreground/70">{label}</p>
       <div className="mt-0.5 flex items-baseline gap-1">
         <span
           className={`font-serif text-[22px] leading-none tracking-tight tabular-nums ${accentClass}`}
