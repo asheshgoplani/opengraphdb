@@ -122,6 +122,27 @@ export function ShowcaseCard({
     setHoveredNode(node ? pickNodeText(node) : null)
   }, [])
 
+  // E2E hook — mirrors the `__obsidian*` test-hook pattern. ForceGraph2D's
+  // canvas hover detection relies on internal d3-zoom plumbing; exposing the
+  // hover-state setter on `window` lets playwright drive the tooltip
+  // deterministically without sweeping mouse positions over a moving force
+  // simulation. Each card registers under its dataset key so a single test
+  // can address a specific card.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const w = window as Window & {
+      __showcaseHover?: Record<string, (nodeIndex: number) => void>
+    }
+    if (!w.__showcaseHover) w.__showcaseHover = {}
+    w.__showcaseHover[datasetKey] = (nodeIndex: number) => {
+      const node = graphData.nodes[nodeIndex] ?? null
+      handleNodeHover(node)
+    }
+    return () => {
+      if (w.__showcaseHover) delete w.__showcaseHover[datasetKey]
+    }
+  }, [datasetKey, graphData.nodes, handleNodeHover])
+
   return (
     <Link
       to={`/playground?dataset=${datasetKey}`}
@@ -195,14 +216,22 @@ export function ShowcaseCard({
 
           {hoveredNode ? (
             <div
+              data-testid="showcase-card-tooltip"
               className="pointer-events-none absolute z-10 max-w-[220px] rounded-md border border-border/60 bg-background/95 px-2.5 py-2 text-xs shadow-lg"
               style={{
                 left: Math.min(cursor.x + 14, Math.max(dimensions.width - 220, 8)),
                 top: Math.max(cursor.y - 14, 8),
               }}
             >
-              <p className="font-medium text-foreground">{hoveredNode.title}</p>
-              <p className="text-muted-foreground">{hoveredNode.subtitle}</p>
+              <p data-testid="showcase-card-tooltip-title" className="font-medium text-foreground">
+                {hoveredNode.title}
+              </p>
+              <p
+                data-testid="showcase-card-tooltip-subtitle"
+                className="text-muted-foreground"
+              >
+                {hoveredNode.subtitle}
+              </p>
             </div>
           ) : null}
         </div>
