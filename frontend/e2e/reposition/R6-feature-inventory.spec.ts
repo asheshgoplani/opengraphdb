@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { writeFileSync, readdirSync, readFileSync, existsSync, mkdirSync } from 'node:fs'
+import { writeFileSync, readdirSync, readFileSync, existsSync, mkdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 
 // R6 feature-inventory + orphan guard.
@@ -145,6 +145,9 @@ test('R6 — /playground interactive inventory + orphan guard', async ({ page })
   const specFiles = (readdirSync(specsDir, { recursive: true, encoding: 'utf8' }) as string[])
     .filter((f) => typeof f === 'string' && f.endsWith('.spec.ts'))
     .filter((f) => !f.endsWith('R6-feature-inventory.spec.ts'))
+    // Playwright snapshot folders are named '<file>.spec.ts/' — directories whose
+    // names slip through the .spec.ts filter. Reject anything that isn't a file.
+    .filter((f) => statSync(join(specsDir, f)).isFile())
   const allSpecText = specFiles
     .map((f) => ({ f, text: readFileSync(join(specsDir, f), 'utf8') }))
 
