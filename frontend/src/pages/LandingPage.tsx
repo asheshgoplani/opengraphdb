@@ -31,7 +31,7 @@ export default function LandingPage() {
           <p className="font-display text-sm text-muted-foreground">
             &copy; {year} OpenGraphDB
           </p>
-          <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="text-xs uppercase tracking-[0.22em] text-muted-foreground">
             Built for graph-native workloads
           </p>
         </div>
