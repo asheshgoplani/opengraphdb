@@ -25,6 +25,7 @@
 import type { ForceGraphMethods } from 'react-force-graph-2d'
 import type { GraphData, GraphNode } from '@/types/graph'
 import type { EdgeFlow } from './edgeFlow'
+import { prefersReducedMotion } from './tween'
 
 export interface TraversalState {
   isPlaying: boolean
@@ -135,6 +136,29 @@ export async function playTraversal(opts: PlayTraversalOpts): Promise<void> {
   const pathEdgeSet = new Set<string | number>(
     edgeIds.filter((e): e is string | number => e != null),
   )
+
+  // Phase-4 A11Y — under prefers-reduced-motion the cinematic snaps to
+  // its final state instead of animating: every path node lights up,
+  // every path edge becomes a "lit" edge, the camera zooms to fit the
+  // full path, and we mark the run completed in a single tick.
+  if (prefersReducedMotion()) {
+    state.current = {
+      isPlaying: false,
+      litNodeIds: new Set(pathNodeIds),
+      litEdgeIds: new Set(pathEdgeSet),
+      activeEdgeId: null,
+      pathNodeIds: pathNodeSet,
+      pathEdgeIds: pathEdgeSet,
+      currentStep: totalSteps + 1,
+      totalSteps,
+      completed: true,
+    }
+    onStep?.(totalSteps + 1, totalSteps + 1)
+    const fg = fgRef.current
+    if (fg) fg.zoomToFit(0, 80, (n: GraphNode) => pathNodeSet.has(n.id))
+    onComplete?.()
+    return
+  }
 
   // Reset state for a fresh run. We mutate `.current` so the caller's
   // ref handle stays the same (React renders watching this ref via a

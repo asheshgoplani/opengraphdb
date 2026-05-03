@@ -10,7 +10,13 @@ import { applyEdgeStrokeStyle, colorForLabel } from './colors'
 import { DemoPathButton } from './DemoPathButton'
 import { EdgeFlow } from './edgeFlow'
 import { drawGlowHalo, GLOW_RADIUS_MULT_BASE, pickGlowTier } from './glow'
+import {
+  buildNeighbourLookup,
+  createDebouncedAnnouncer,
+  formatFocusAnnouncement,
+} from './keyboardNav'
 import { TRAVERSAL_ACCENT, TRAVERSAL_ACCENT_DIM } from './palette'
+import { SchemaInset } from './SchemaInset'
 import { StepCounterBadge } from './StepCounterBadge'
 import { emptyTraversalState, playTraversal, type TraversalState } from './traversal'
 import {
@@ -103,6 +109,17 @@ export function ObsidianGraph({
   // neighbourhood fade persists on touch devices even when the parent
   // doesn't wire `selectedNodeId`. Cleared on background tap.
   const [stickyFocusId, setStickyFocusId] = useState<string | number | null>(null)
+  // Phase-4 SCHEMA INSET — visibility toggles via 'S' shortcut, labelFilter
+  // is set by clicking a type in the inset (dims non-matching nodes/edges
+  // in the main scene + flies camera to fit the matching cluster).
+  const [insetVisible, setInsetVisible] = useState(true)
+  const [labelFilter, setLabelFilter] = useState<string | null>(null)
+  // Phase-4 A11Y — '/' opens the search overlay; Enter picks the top match.
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchValue, setSearchValue] = useState('')
+  const searchInputRef = useRef<HTMLInputElement | null>(null)
+  const liveRegionRef = useRef<HTMLDivElement | null>(null)
+  const announcerRef = useRef<ReturnType<typeof createDebouncedAnnouncer> | null>(null)
   const [isDark, setIsDark] = useState(() =>
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
   )
@@ -474,6 +491,11 @@ export function ObsidianGraph({
         const hop = focusHops.get(node.id)
         if (hop == null) alpha = 0.18
         else if (hop === 2) alpha = 0.5
+      } else if (labelFilter != null) {
+        // Phase-4 SCHEMA INSET — clicking a type in the inset dims every
+        // node whose primary label doesn't match. Edges follow the same
+        // dimming rule below in drawLink.
+        alpha = node.labels?.[0] === labelFilter ? 1 : 0.18
       }
       ctx.save()
       ctx.globalAlpha = alpha
@@ -521,6 +543,7 @@ export function ObsidianGraph({
       glowHubSet,
       hoveredNodeId,
       isDark,
+      labelFilter,
       labelIndex,
       selectedNodeId,
       stickyFocusId,
@@ -558,6 +581,13 @@ export function ObsidianGraph({
         } else if (Math.max(sh, th) >= 2) {
           edgeAlpha = 0.3
         }
+      } else if (labelFilter != null) {
+        // Phase-4 SCHEMA INSET filter: any edge whose endpoints both
+        // carry the filtered label keeps full alpha; everything else
+        // fades to 0.06 so the cluster reads as a connected region.
+        const sLabel = src.labels?.[0]
+        const tLabel = tgt.labels?.[0]
+        edgeAlpha = sLabel === labelFilter && tLabel === labelFilter ? 1 : 0.06
       }
       const sx = src.x ?? 0
       const sy = src.y ?? 0
@@ -607,7 +637,7 @@ export function ObsidianGraph({
       ctx.stroke()
       ctx.restore()
     },
-    [focusHops, focused, isDark],
+    [focusHops, focused, isDark, labelFilter],
   )
 
   // Phase-3 STORY — composite frame post-pass. We tick particle phases
@@ -618,6 +648,10 @@ export function ObsidianGraph({
     (ctx: CanvasRenderingContext2D, globalScale: number) => {
       // Reuse the existing labels pass first so labels still render.
       drawLabelsRef.current?.(ctx, globalScale)
+      // Phase-4 A11Y — skip particle stream entirely under reduced-motion.
+      // The cinematic snaps to its final lit-state (see traversal.ts), so
+      // there is no in-flight segment to animate.
+      if (prefersReducedMotion()) return
       const ef = edgeFlowRef.current
       if (ef && ef.isActive()) {
         ef.tick()
@@ -957,6 +991,122 @@ export function ObsidianGraph({
     lastPointerRef.current = { x: e.clientX - rect.left, y: e.clientY - rect.top }
   }, [])
 
+  // Phase-4 A11Y — neighbour lookup (per-render memo) + ARIA announcer
+  // (mounted once, lifetime of the graph). The announcer writes into the
+  // live region, debounced to 600ms so flurries of arrow-key presses
+  // don't spam screen readers.
+  const neighbourLookup = useMemo(() => buildNeighbourLookup(graphData), [graphData])
+  useEffect(() => {
+    const region = liveRegionRef.current
+    if (!region) return
+    announcerRef.current = createDebouncedAnnouncer(region, 600)
+    return () => {
+      announcerRef.current?.clear()
+      announcerRef.current = null
+    }
+  }, [])
+  // Announce the current focused node whenever it changes.
+  useEffect(() => {
+    const focusId = selectedNodeId ?? stickyFocusId ?? hoveredNodeId ?? null
+    if (focusId == null) return
+    const node = seeded.nodes.find((n) => n.id === focusId)
+    if (!node) return
+    const deg = degrees.get(node.id) ?? 0
+    announcerRef.current?.announce(formatFocusAnnouncement(node, deg))
+  }, [selectedNodeId, stickyFocusId, hoveredNodeId, seeded.nodes, degrees])
+
+  // Phase-4 SCHEMA INSET — clicking a type filters the main scene + flies
+  // the camera to fit the matching cluster.
+  const handleSchemaTypeClick = useCallback(
+    (label: string) => {
+      const fg = fgRef.current
+      setLabelFilter((prev) => (prev === label ? null : label))
+      if (fg) {
+        const matchSet = new Set(
+          graphData.nodes
+            .filter((n) => n.labels?.[0] === label)
+            .map((n) => n.id),
+        )
+        if (matchSet.size > 0) {
+          fg.zoomToFit(prefersReducedMotion() ? 0 : 700, 80, (n: GraphNode) =>
+            matchSet.has(n.id),
+          )
+        }
+      }
+    },
+    [graphData],
+  )
+
+  const handleContainerKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      // '/' opens search overlay.
+      if (e.key === '/' && !searchOpen) {
+        e.preventDefault()
+        setSearchOpen(true)
+        setSearchValue('')
+        requestAnimationFrame(() => searchInputRef.current?.focus())
+        return
+      }
+      // Escape closes search and clears label filter.
+      if (e.key === 'Escape') {
+        if (searchOpen) {
+          setSearchOpen(false)
+          return
+        }
+        if (labelFilter != null) {
+          setLabelFilter(null)
+          return
+        }
+      }
+      // 'S' (no modifier) toggles the inset.
+      if ((e.key === 's' || e.key === 'S') && !e.metaKey && !e.ctrlKey && !searchOpen) {
+        e.preventDefault()
+        setInsetVisible((v) => !v)
+        return
+      }
+      // Arrow-key neighbour navigation while a node is focused.
+      const focusId = selectedNodeId ?? stickyFocusId ?? null
+      if (focusId == null) return
+      let direction: 'left' | 'right' | 'up' | 'down' | null = null
+      if (e.key === 'ArrowLeft') direction = 'left'
+      else if (e.key === 'ArrowRight') direction = 'right'
+      else if (e.key === 'ArrowUp') direction = 'up'
+      else if (e.key === 'ArrowDown') direction = 'down'
+      if (direction == null) return
+      e.preventDefault()
+      const nextId = neighbourLookup.next(focusId, direction)
+      if (nextId == null) return
+      setStickyFocusId(nextId)
+      const node = seeded.nodes.find((n) => n.id === nextId)
+      if (node) onNodeClick?.(node as GraphNode)
+    },
+    [
+      labelFilter,
+      neighbourLookup,
+      onNodeClick,
+      seeded.nodes,
+      searchOpen,
+      selectedNodeId,
+      stickyFocusId,
+    ],
+  )
+
+  const handleSearchSubmit = useCallback(
+    (e: React.FormEvent<HTMLFormElement>) => {
+      e.preventDefault()
+      const match = neighbourLookup.search(searchValue)
+      setSearchOpen(false)
+      if (!match) return
+      setStickyFocusId(match.id)
+      onNodeClick?.(match as GraphNode)
+      const fg = fgRef.current
+      if (fg && typeof match.x === 'number' && typeof match.y === 'number') {
+        fg.centerAt(match.x, match.y, prefersReducedMotion() ? 0 : 600)
+      }
+    },
+    [neighbourLookup, onNodeClick, searchValue],
+  )
+
   // Tooltip body. Picks 1–2 properties from a curated key list so we
   // never dump arbitrary internal keys (e.g. `__seed`, `cluster`) at the user.
   const tooltipBody = tooltip
@@ -970,10 +1120,20 @@ export function ObsidianGraph({
     : null
 
   return (
+    /* eslint-disable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions */
+    // role="application" + tabIndex are intentional: this is a custom
+    // graph control. See WAI-ARIA Authoring Practices for the
+    // application landmark + keyboard pattern.
     <div
       ref={containerRef}
-      className="relative h-full w-full"
+      className="relative h-full w-full focus:outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-2"
+      tabIndex={0}
+      role="application"
+      aria-label="Graph canvas — use arrow keys to traverse, slash to search, S to toggle schema legend"
+      data-testid="obsidian-graph-container"
+      data-label-filter={labelFilter ?? undefined}
       onPointerMove={onPointerMove}
+      onKeyDown={handleContainerKeyDown}
     >
       <ForceGraph2D<RfgNode, RfgLink>
         ref={fgRef}
@@ -1042,6 +1202,49 @@ export function ObsidianGraph({
         total={traversalUi.total}
         onReplay={handleReplay}
       />
+      {insetVisible ? (
+        <SchemaInset
+          graphData={graphData}
+          labelIndex={labelIndex}
+          onTypeClick={handleSchemaTypeClick}
+        />
+      ) : null}
+      {searchOpen ? (
+        <div
+          data-testid="obsidian-search-overlay"
+          className="absolute left-1/2 top-16 z-20 -translate-x-1/2 rounded-lg border border-border/60 bg-background/95 px-3 py-2 shadow-lg backdrop-blur"
+        >
+          <form onSubmit={handleSearchSubmit}>
+            <input
+              ref={searchInputRef}
+              type="search"
+              role="searchbox"
+              aria-label="Search nodes by label or property"
+              data-testid="obsidian-search-input"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              onBlur={() => setSearchOpen(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setSearchOpen(false)
+                }
+              }}
+              placeholder="Search nodes…"
+              className="w-72 rounded-md border border-border bg-background px-2 py-1 text-sm focus:outline focus:outline-2 focus:outline-blue-500 focus:outline-offset-1"
+            />
+          </form>
+        </div>
+      ) : null}
+      <div
+        ref={liveRegionRef}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="obsidian-live-region"
+        className="sr-only"
+      />
     </div>
+    /* eslint-enable jsx-a11y/no-noninteractive-tabindex, jsx-a11y/no-noninteractive-element-interactions */
   )
 }
