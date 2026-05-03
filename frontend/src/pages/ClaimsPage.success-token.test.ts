@@ -88,3 +88,47 @@ test('--success and --success-foreground tokens are defined for dark theme', () 
     '.dark must define --success-foreground for dark theme',
   )
 })
+
+// c17-ui L3 regression: status cells used to render as plain `green` /
+// `red` text next to a check/x icon. Against a row of code-font test
+// paths they didn't read as discrete state markers — eyes skimmed past.
+// Wrap each status in a rounded pill with a semantic-token background
+// (--success / --destructive at low alpha) so the cell carries visual
+// mass without changing the palette.
+test('ClaimsPage green-status span renders as a rounded pill', () => {
+  const src = readSource()
+  const greenBranchMatch = src.match(
+    /<span\s+className="([^"]+)"\s*>\s*<CheckCircle2\b/,
+  )
+  const className = greenBranchMatch?.[1]
+  assert.ok(typeof className === 'string', 'expected green-status span')
+  assert.match(
+    className,
+    /\brounded-full\b/,
+    `green-status span must render as a rounded pill, got: ${className}`,
+  )
+  assert.match(
+    className,
+    /bg-\[hsl\(var\(--success\)\)\]\/\d+/,
+    `green-status span must carry a --success token background, got: ${className}`,
+  )
+})
+
+test('ClaimsPage red-status span renders as a rounded pill', () => {
+  const src = readSource()
+  const redBranchMatch = src.match(
+    /<span\s+className="([^"]+)"\s*>\s*<XCircle\b/,
+  )
+  const className = redBranchMatch?.[1]
+  assert.ok(typeof className === 'string', 'expected red-status span')
+  assert.match(
+    className,
+    /\brounded-full\b/,
+    `red-status span must render as a rounded pill, got: ${className}`,
+  )
+  assert.match(
+    className,
+    /bg-destructive\/\d+/,
+    `red-status span must carry a --destructive token background, got: ${className}`,
+  )
+})

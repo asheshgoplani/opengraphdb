@@ -175,12 +175,12 @@ export default function ClaimsPage() {
                       >
                         <td className="px-4 py-4">
                           {entry.status === 'green' ? (
-                            <span className="inline-flex items-center gap-1 text-[hsl(var(--success))]">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-[hsl(var(--success))]/12 px-2 py-0.5 text-[hsl(var(--success))]">
                               <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
                               green
                             </span>
                           ) : (
-                            <span className="inline-flex items-center gap-1 text-destructive dark:text-destructive">
+                            <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-destructive dark:text-destructive">
                               <XCircle className="h-4 w-4" aria-hidden="true" />
                               red
                             </span>
