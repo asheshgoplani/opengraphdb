@@ -15,7 +15,7 @@ test.describe('Playground Page Visual Coverage', () => {
     const sidebar = page.locator('aside').first()
     await expect(page.getByRole('heading', { name: 'Playground' })).toBeVisible()
     await expect(sidebar).toBeVisible()
-    await expect(page.locator('canvas')).toBeVisible()
+    await expect(page.locator('canvas:not([data-testid="obsidian-schema-canvas"])')).toBeVisible()
     await expect(page.getByText('Sample Data')).toBeVisible()
     await expect(page.getByTestId('dataset-switcher').first()).toHaveValue('movielens')
     await expect(page.getByTestId('query-card')).toHaveCount(6)
