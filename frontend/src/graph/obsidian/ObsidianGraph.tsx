@@ -7,11 +7,9 @@ import { Compass } from 'lucide-react'
 import type { GraphData, GraphNode } from '@/types/graph'
 import { Button } from '@/components/ui/button'
 import { applyEdgeStrokeStyle, colorForLabel } from './colors'
-import { drawGlowHalo, pickGlowTier } from './glow'
+import { drawGlowHalo, GLOW_RADIUS_MULT_BASE, pickGlowTier } from './glow'
 import {
   type LabelBox,
-  ENTRY_DURATION_MS,
-  ENTRY_OVERZOOM,
   HUB_LABEL_BG_RGBA,
   HUB_LABEL_FG,
   HUB_LABEL_FONT_SIZE,
@@ -25,12 +23,18 @@ import {
   neighborSet,
   rectsOverlap,
   seedPositions,
-  selectEntryFocusNodeId,
   topHubsByDegree,
   tuneForces,
 } from './layout'
 import { assignParallelCurvatures } from './parallelEdges'
 import { pickTooltipProps } from './tooltip'
+import {
+  EASE_STANDARD,
+  ENTRY_DOLLY_MS,
+  ENTRY_DOLLY_OVERZOOM_OUT,
+  heartbeatScale,
+  prefersReducedMotion,
+} from './tween'
 
 interface Props {
   graphData: GraphData
@@ -189,18 +193,30 @@ export function ObsidianGraph({
   // so the harness hook below can also place the tooltip.
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null)
 
+  // Phase-2 PULSE — heartbeat / dolly / drift state. Refs (not state) so
+  // the RAF loops mutate without re-rendering the whole graph.
+  const heartbeatStartRef = useRef<number | null>(null)
+  const dollyActiveRef = useRef<boolean>(false)
+  const driftActiveRef = useRef<boolean>(false)
+
   const lastHoverIdxRef = useRef<number | null>(null)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const w = window as Window & {
       __obsidianGraphReady?: boolean
       __obsidianHoverNode?: (idx: number) => void
+      __obsidianFocusNode?: (idx: number | null) => void
       __obsidianDimmedCount?: () => number
       __obsidianLabelBounds?: () => LabelBox[]
       __obsidianNodePositions?: () => Array<{ id: string | number; x: number; y: number }>
       __obsidianFitCount?: () => number
       __obsidianEntryAnimated?: () => boolean
       __obsidianEntryFocusId?: () => string | number | null
+      __obsidianCameraScale?: () => number | null
+      __obsidianFocusedHaloRadius?: () => number | null
+      __obsidianDollyActive?: () => boolean
+      __obsidianDriftActive?: () => boolean
+      __obsidianGraphToScreen?: (x: number, y: number) => { x: number; y: number } | null
     }
     w.__obsidianGraphReady = true
     w.__obsidianHoverNode = (idx) => {
@@ -217,6 +233,16 @@ export function ObsidianGraph({
       } else {
         setTooltip(null)
       }
+    }
+    // Phase-2 harness: drive the focus-tier (sticky) state from tests so
+    // the heartbeat pulse fires without needing a synthesised click.
+    w.__obsidianFocusNode = (idx) => {
+      if (idx == null) {
+        setStickyFocusId(null)
+        return
+      }
+      const node = seeded.nodes[idx]
+      if (node) setStickyFocusId(node.id)
     }
     w.__obsidianDimmedCount = () => {
       const idx = lastHoverIdxRef.current
@@ -235,26 +261,72 @@ export function ObsidianGraph({
         .map((n) => ({ id: n.id, x: n.x as number, y: n.y as number }))
     w.__obsidianFitCount = () => fitCountRef.current
     w.__obsidianEntryAnimated = () => hasFittedRef.current
-    // Bold-redesign change 3: the entry dolly targets the top-1 hub by
-    // degree instead of viewport-fit. Expose the chosen id so the
-    // playground entry-frame snapshot test can read it back.
-    w.__obsidianEntryFocusId = () => entryFocusIdRef.current
+    // Phase-2 replaces the hub-focus entry dolly with auto-fit-to-viewport,
+    // so no entry hub is selected. The harness still exists for callers that
+    // sniff the previous behaviour; it now reports null.
+    w.__obsidianEntryFocusId = () => null
+    // Phase-2 PULSE harness — read the current camera zoom (so a test can
+    // sample two values across the dolly window and assert progression),
+    // and the current halo radius for the focused node (so the heartbeat
+    // can be observed without pixel-sampling the canvas).
+    w.__obsidianCameraScale = () => fgRef.current?.zoom() ?? null
+    w.__obsidianFocusedHaloRadius = () => {
+      const focusId = selectedNodeId ?? stickyFocusId ?? null
+      if (focusId == null) return null
+      const node = seeded.nodes.find((n) => n.id === focusId)
+      if (!node) return null
+      const deg = degrees.get(node.id) ?? 0
+      const r = NODE_RADIUS + Math.min(7, Math.log2(1 + deg) * 1.6)
+      const baseHalo = r * GLOW_RADIUS_MULT_BASE
+      if (prefersReducedMotion()) return baseHalo
+      const start = heartbeatStartRef.current
+      if (start == null) return baseHalo
+      return baseHalo * heartbeatScale(performance.now() - start)
+    }
+    w.__obsidianDollyActive = () => dollyActiveRef.current
+    w.__obsidianDriftActive = () => driftActiveRef.current
+    // World→screen helper (delegates to react-force-graph's internal
+    // transform). Phase-2 PULSE moves the entry camera off the top hub
+    // and onto the graph centroid, so existing pixel-sampling tests
+    // can no longer assume a haloed node at canvas centre — they look
+    // up the focused node's screen position via this hook instead.
+    w.__obsidianGraphToScreen = (x: number, y: number) => {
+      const fg = fgRef.current
+      if (!fg) return null
+      return fg.graph2ScreenCoords(x, y)
+    }
     return () => {
       delete w.__obsidianGraphReady
       delete w.__obsidianHoverNode
+      delete w.__obsidianFocusNode
       delete w.__obsidianDimmedCount
       delete w.__obsidianLabelBounds
       delete w.__obsidianNodePositions
       delete w.__obsidianFitCount
       delete w.__obsidianEntryAnimated
       delete w.__obsidianEntryFocusId
+      delete w.__obsidianCameraScale
+      delete w.__obsidianFocusedHaloRadius
+      delete w.__obsidianDollyActive
+      delete w.__obsidianDriftActive
+      delete w.__obsidianGraphToScreen
     }
-  }, [onNodeHover, seeded.nodes, focusNeighbors, graphData])
+  }, [
+    onNodeHover,
+    seeded.nodes,
+    focusNeighbors,
+    graphData,
+    degrees,
+    selectedNodeId,
+    stickyFocusId,
+  ])
 
   // Pass 1: nodes — radius scales with degree (log2(1+deg)); halos are
   // selective per Phase-1 GLOW: focus / hover / top-N hub light up,
   // leaves stay matte. The 'lighter' composite inside drawGlowHalo means
   // overlapping halos additively brighten instead of overpainting.
+  // Phase-2 PULSE: the focus-tier halo radius is scaled by a 1Hz sine
+  // (heartbeatScale) so the focused hub appears to breathe.
   const drawNode = useCallback(
     (node: RfgNode, ctx: CanvasRenderingContext2D) => {
       const x = node.x ?? 0
@@ -284,7 +356,20 @@ export function ObsidianGraph({
         hoverId: hoveredNodeId ?? null,
         hubIds: glowHubSet,
       })
-      drawGlowHalo(ctx, { x, y, nodeRadius: r, color, tier })
+      // Heartbeat scales the halo's effective node-radius for the focus
+      // tier only — hover / hub / leaf are unchanged. drawGlowHalo
+      // multiplies nodeRadius by GLOW_RADIUS_MULT_BASE internally, so
+      // passing r * heartbeatScale yields halo radius = (r × 3) × scale.
+      let haloNodeRadius = r
+      if (
+        tier === 'focus' &&
+        !prefersReducedMotion() &&
+        heartbeatStartRef.current != null
+      ) {
+        const elapsed = performance.now() - heartbeatStartRef.current
+        haloNodeRadius = r * heartbeatScale(elapsed)
+      }
+      drawGlowHalo(ctx, { x, y, nodeRadius: haloNodeRadius, color, tier })
       ctx.fillStyle = color
       ctx.beginPath()
       ctx.arc(x, y, r, 0, Math.PI * 2)
@@ -529,14 +614,13 @@ export function ObsidianGraph({
     return () => obs.disconnect()
   }, [])
 
-  // Auto-fit once the simulation cools so the user doesn't see clipped nodes.
-  // First cool runs the entry animation (cycle D): start at ENTRY_OVERZOOM
-  // and animate to the natural fit over ENTRY_DURATION_MS so the first
-  // impression is dynamic rather than a cut-to-static-frame. Subsequent
-  // cools (e.g. dataset switches) use a shorter, less ostentatious fit.
+  // Phase-2 PULSE — auto-fit-to-viewport entry dolly. First cool snaps
+  // to fit-bounds (gives us the target zoom), then a custom RAF tweens
+  // from fitZ / 1.4 (zoomed out) to fitZ over 1500ms with the standard
+  // cubic-bezier ease. Reduced-motion users get the snap directly.
   const hasFittedRef = useRef(false)
   const fitCountRef = useRef(0)
-  const entryFocusIdRef = useRef<string | number | null>(null)
+  const dollyRafRef = useRef<number | null>(null)
   const onEngineStop = useCallback(() => {
     const fg = fgRef.current
     if (!fg) return
@@ -548,35 +632,118 @@ export function ObsidianGraph({
     if (!hasFittedRef.current) {
       // eslint-disable-next-line react-hooks/immutability
       hasFittedRef.current = true
-      // Bold-redesign change 3: dolly into the top-1 hub at ENTRY_OVERZOOM
-      // × fit-zoom, so the first frame shows a labeled hub neighborhood,
-      // not a fog of dots. Cycle-12 cut-to-fit gave every node ~6px and
-      // no label survived the entry frame.
-      const targetId = selectEntryFocusNodeId(graphData, degrees)
-      // eslint-disable-next-line react-hooks/immutability
-      entryFocusIdRef.current = targetId
-      const targetNode = targetId != null
-        ? seeded.nodes.find((n) => n.id === targetId)
-        : null
-      if (targetNode && typeof targetNode.x === 'number' && typeof targetNode.y === 'number') {
-        // Snap to fit so we have a stable baseline-zoom to scale from.
-        fg.zoomToFit(0, 60)
-        const fitZ = fg.zoom()
-        // Animate camera + zoom inward over ENTRY_DURATION_MS — this is
-        // the visible delta vs cycle-12. centerAt + zoom run concurrently
-        // in react-force-graph's animation loop.
-        fg.centerAt(targetNode.x, targetNode.y, ENTRY_DURATION_MS)
-        fg.zoom(fitZ * ENTRY_OVERZOOM, ENTRY_DURATION_MS)
+      // Snap to fit first to learn the target zoom level. Then either
+      // cut (reduced-motion) or kick off the dolly tween.
+      fg.zoomToFit(0, 60)
+      const fitZ = fg.zoom()
+      if (prefersReducedMotion()) {
         return
       }
-      // Empty / position-less graph: fall back to legacy fit dolly so the
-      // first impression isn't a frozen blank canvas.
-      fg.zoom(ENTRY_OVERZOOM, 0)
-      fg.zoomToFit(ENTRY_DURATION_MS, 60)
+      const startZ = fitZ / ENTRY_DOLLY_OVERZOOM_OUT
+      fg.zoom(startZ, 0)
+      const start = performance.now()
+      dollyActiveRef.current = true
+      const step = () => {
+        const elapsed = performance.now() - start
+        const t = Math.min(1, elapsed / ENTRY_DOLLY_MS)
+        const eased = EASE_STANDARD(t)
+        const z = startZ + (fitZ - startZ) * eased
+        const fgNow = fgRef.current
+        if (fgNow) fgNow.zoom(z, 0)
+        if (t < 1) {
+          dollyRafRef.current = requestAnimationFrame(step)
+        } else {
+          dollyActiveRef.current = false
+          dollyRafRef.current = null
+        }
+      }
+      dollyRafRef.current = requestAnimationFrame(step)
       return
     }
+    // Subsequent cools (e.g. dataset switches): keep the existing short
+    // re-fit. No dolly — only the first mount earns the cinematic intro.
     fg.zoomToFit(400, 60)
-  }, [degrees, graphData, seeded.nodes])
+  }, [])
+
+  // Cancel an in-flight dolly on unmount so the RAF doesn't keep ticking
+  // against a torn-down ForceGraph2D instance.
+  useEffect(() => {
+    return () => {
+      if (dollyRafRef.current != null) {
+        cancelAnimationFrame(dollyRafRef.current)
+        dollyRafRef.current = null
+      }
+    }
+  }, [])
+
+  // Phase-2 PULSE — heartbeat trigger. Setting heartbeatStartRef stamps
+  // a baseline; drawNode reads `performance.now() - start` on every
+  // canvas frame to compute the 1Hz scale. Clearing the ref (no focus)
+  // turns the heartbeat off without an explicit RAF teardown.
+  useEffect(() => {
+    const focusId = selectedNodeId ?? stickyFocusId ?? null
+    if (focusId == null || prefersReducedMotion()) {
+      heartbeatStartRef.current = null
+      return
+    }
+    heartbeatStartRef.current = performance.now()
+  }, [selectedNodeId, stickyFocusId])
+
+  // Phase-2 PULSE — idle drift. After the engine first stops we capture
+  // each node's settled position into a base map, then run a slow
+  // phase-staggered sine perturbation around that base. The amplitude
+  // (≈1.5px) is the visual analogue of a 0.05× force tick — enough to
+  // register motion against a still scene, small enough not to disturb
+  // edge geometry. Drift suspends while ANY node is hover/focus engaged.
+  // ForceGraph2D reads node.x / node.y on every canvas frame, so direct
+  // mutation works without explicit redraw plumbing (the
+  // `autoPauseRedraw={false}` prop on the graph keeps frames flowing).
+  // Reduced-motion gate disables the entire drift loop.
+  const focusedRef = useRef<string | number | null>(null)
+  useEffect(() => {
+    focusedRef.current = focused
+  }, [focused])
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      driftActiveRef.current = false
+      return
+    }
+    let raf = 0
+    const baseMap = new Map<string | number, { x: number; y: number }>()
+    let captured = false
+    const tick = () => {
+      // Wait for the engine to first cool — until then the simulation
+      // is moving nodes faster than our drift would.
+      if (!captured && hasFittedRef.current) {
+        for (const n of seeded.nodes) {
+          if (typeof n.x === 'number' && typeof n.y === 'number') {
+            baseMap.set(n.id, { x: n.x, y: n.y })
+          }
+        }
+        captured = true
+      }
+      if (captured && focusedRef.current == null && !dollyActiveRef.current) {
+        driftActiveRef.current = true
+        const now = performance.now()
+        seeded.nodes.forEach((n, i) => {
+          const base = baseMap.get(n.id)
+          if (!base) return
+          const phase = i * 0.73
+          const t = now / 1800
+          n.x = base.x + Math.cos(t + phase) * 1.5
+          n.y = base.y + Math.sin(t * 0.7 + phase) * 1.5
+        })
+      } else {
+        driftActiveRef.current = false
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(raf)
+      driftActiveRef.current = false
+    }
+  }, [seeded.nodes])
 
   // Track pointer position for the tooltip + ensure tap-and-release on
   // touch (no preceding `mousemove`) still positions the tooltip.
@@ -619,6 +786,12 @@ export function ObsidianGraph({
         warmupTicks={60}
         minZoom={MIN_ZOOM}
         maxZoom={MAX_ZOOM}
+        // Phase-2 PULSE: keep the canvas redrawing every frame so the
+        // heartbeat halo (per-frame elapsed-time read) and idle drift
+        // (per-frame node-position mutation) actually paint. The default
+        // `autoPauseRedraw=true` would freeze the canvas after the
+        // engine cools and skip both effects.
+        autoPauseRedraw={false}
         onEngineStop={onEngineStop}
         onRenderFramePost={drawLabels}
         onNodeClick={(n) => handleNodeClick(n as RfgNode)}
