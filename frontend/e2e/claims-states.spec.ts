@@ -25,11 +25,18 @@ test.describe('B5 · /claims loading + error UI', () => {
     page,
     context,
   }) => {
-    // Hold the response open for ~200ms so the loading branch is observable.
-    // Without the delay the route resolves before Playwright can hand control
-    // back to us and we'd race past the loading state.
+    // Hold the response open until we explicitly release it via a deferred
+    // promise. A fixed setTimeout was racy: in CI / slower runners the React
+    // app bootstrap could outrun the timer, transitioning the page to ready
+    // before Playwright's polling caught the loading state. Gating on an
+    // external resolve makes the loading window deterministic.
+    let releaseResponse: () => void = () => {}
+    const responseGate = new Promise<void>((resolve) => {
+      releaseResponse = resolve
+    })
+
     await context.route('**/claims-status.json', async (route) => {
-      await new Promise((resolve) => setTimeout(resolve, 200))
+      await responseGate
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -64,8 +71,11 @@ test.describe('B5 · /claims loading + error UI', () => {
     await expect(loading).toHaveAttribute('aria-busy', 'true')
     await expect(loading).toHaveAttribute('role', 'status')
 
-    // After the delayed fulfil, the page must transition out of loading so we
-    // know the state machine isn't stuck.
+    // Release the held response now that the loading-branch assertions have
+    // landed; the page must transition out of loading so we know the state
+    // machine isn't stuck.
+    releaseResponse()
+
     await expect(loading).toBeHidden({ timeout: 5000 })
     await expect(page.getByTestId('claims-table')).toBeVisible()
   })
