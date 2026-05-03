@@ -87,6 +87,10 @@ interface Link3D {
 const NODE_RADIUS_BASE = 4
 const HALO_MULTIPLIER = 1.6
 const ENTRY_CAMERA_OFFSET = 220 // distance behind/above the focus node
+const TAP_RECENTER_OFFSET = 180
+const TAP_RECENTER_DURATION_MS = 600
+const ROTATE_HINT_STORAGE_KEY = 'obsidian3d-rotate-hint-seen'
+const ROTATE_HINT_DURATION_MS = 8_000
 
 const BG_DARK = 'rgba(20,16,11,1)'
 const BG_LIGHT = 'rgba(252,246,236,1)'
@@ -116,6 +120,26 @@ export function Obsidian3DGraph({
   const lastPointerRef = useRef<{ x: number; y: number } | null>(null)
   const [tooltip, setTooltip] = useState<{ node: Node3D; x: number; y: number } | null>(null)
   const [stickyFocusId, setStickyFocusId] = useState<string | number | null>(null)
+  // Touch-device gating — coarse pointers (phones, tablets) get the
+  // orbit-lock + tap-to-recenter UX from the eval's S3 slice. Detected
+  // once at mount via matchMedia so we don't recompute on every render.
+  const isCoarsePointer = useMemo(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return false
+    return window.matchMedia('(pointer: coarse)').matches
+  }, [])
+  // Initial value baked in at mount (no setState-in-effect): show the
+  // rotate hint to desktop visitors who haven't dismissed it this
+  // session. Touch users skip the hint entirely (they don't rotate).
+  const [showRotateHint, setShowRotateHint] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    if (window.matchMedia?.('(pointer: coarse)').matches) return false
+    try {
+      return window.sessionStorage.getItem(ROTATE_HINT_STORAGE_KEY) !== '1'
+    } catch {
+      // sessionStorage blocked (private-mode Safari, etc.) — soft-show.
+      return true
+    }
+  })
   const [isDark, setIsDark] = useState(() =>
     typeof document !== 'undefined' && document.documentElement.classList.contains('dark'),
   )
@@ -273,9 +297,28 @@ export function Obsidian3DGraph({
     (raw: unknown) => {
       const n = raw as Node3D
       setStickyFocusId(n.id)
+      // Touch-only tap-to-recenter (eval S3): on a coarse-pointer device
+      // a tap is the user's primary navigation gesture, so dolly the
+      // camera to the tapped node so they don't have to two-finger-pan
+      // through 3D space afterwards. Desktop click intentionally does NOT
+      // move the camera — the user can already orbit freely with the
+      // mouse, and a click-jump would be disorienting.
+      if (isCoarsePointer) {
+        const fg = fgRef.current
+        if (fg && typeof n.x === 'number' && typeof n.y === 'number') {
+          const tx = n.x
+          const ty = n.y
+          const tz = n.z ?? 0
+          fg.cameraPosition?.(
+            { x: tx + TAP_RECENTER_OFFSET, y: ty + TAP_RECENTER_OFFSET * 0.6, z: tz + TAP_RECENTER_OFFSET },
+            { x: tx, y: ty, z: tz },
+            TAP_RECENTER_DURATION_MS,
+          )
+        }
+      }
       onNodeClick?.(n as unknown as GraphNode)
     },
-    [onNodeClick],
+    [isCoarsePointer, onNodeClick],
   )
 
   const handleBackgroundClick = useCallback(() => {
@@ -419,6 +462,63 @@ export function Obsidian3DGraph({
     scene.add(dir)
   }, [])
 
+  // Touch-mode orbit-lock — on coarse-pointer devices, kill OrbitControls'
+  // rotate gesture so single-finger drag pans instead of spinning. This
+  // is the eval's primary mitigation for "3D disorients on touch": the
+  // user can still pinch-zoom and tap-to-recenter, but accidentally
+  // tumbling the scene with a stray finger is no longer possible. We
+  // poll-on-mount because RFG3D wires controls asynchronously inside
+  // its first effect; reading on the same tick returns undefined.
+  useEffect(() => {
+    if (!isCoarsePointer) return
+    let cancelled = false
+    const tryDisableRotate = () => {
+      if (cancelled) return
+      const fg = fgRef.current
+      const ctrls = fg?.controls?.()
+      if (!ctrls) {
+        setTimeout(tryDisableRotate, 60)
+        return
+      }
+      ctrls.enableRotate = false
+      // OrbitControls in pan-only mode wants `mouseButtons.LEFT = PAN`
+      // so a left-drag pans rather than no-ops; THREE constants live
+      // on `THREE.MOUSE` but we don't rely on it because the relevant
+      // code path is touch-only, where `touches.ONE` is the gesture.
+      if (ctrls.touches) {
+        ctrls.touches.ONE = 2 // THREE.TOUCH.PAN === 2
+      }
+    }
+    tryDisableRotate()
+    return () => {
+      cancelled = true
+    }
+  }, [isCoarsePointer])
+
+  // Auto-dismiss the desktop rotate hint after ROTATE_HINT_DURATION_MS
+  // even if the user never interacts. Initial visibility is decided by
+  // the useState initializer above, so the only side-effect this runs
+  // is a clearable timer (no setState-in-effect).
+  useEffect(() => {
+    if (!showRotateHint) return
+    const t = setTimeout(() => setShowRotateHint(false), ROTATE_HINT_DURATION_MS)
+    return () => clearTimeout(t)
+    // Only run once per visible-cycle: when the hint dismisses, the
+    // effect re-runs with showRotateHint=false and short-circuits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const dismissRotateHint = useCallback(() => {
+    setShowRotateHint(false)
+    try {
+      if (typeof window !== 'undefined') {
+        window.sessionStorage.setItem(ROTATE_HINT_STORAGE_KEY, '1')
+      }
+    } catch {
+      // sessionStorage unavailable — best-effort dismiss for this view.
+    }
+  }, [])
+
   const onResetView = useCallback(() => {
     fgRef.current?.zoomToFit?.(600, 80)
   }, [])
@@ -444,6 +544,7 @@ export function Obsidian3DGraph({
       ref={containerRef}
       className="relative h-full w-full"
       onPointerMove={onPointerMove}
+      onPointerDown={dismissRotateHint}
     >
       <FG
         ref={fgRef}
@@ -493,6 +594,14 @@ export function Obsidian3DGraph({
           <Compass className="h-4 w-4" aria-hidden="true" />
         </Button>
       </div>
+      {showRotateHint ? (
+        <div
+          data-testid="obsidian3d-rotate-hint"
+          className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full border border-border/60 bg-background/85 px-3 py-1 text-[11px] text-muted-foreground shadow-md backdrop-blur"
+        >
+          drag to rotate · scroll to zoom
+        </div>
+      ) : null}
     </div>
   )
 }
