@@ -16,6 +16,7 @@ Versioning follows Semantic Versioning.
 - `.github/ISSUE_TEMPLATE/{bug_report,feature_request,config}.{md,yml}` standardising bug + feature intake.
 
 ### Changed
+- README: applied best-practice OSS-readme structure (logo + badge cluster, playground hero screenshot, 3-step quickstart, "Why OpenGraphDB instead of Neo4j" 7-row comparison table, file-pointer feature bullets, architecture / benchmarks / roadmap / contributing / acknowledgements sections). Hero asset is `frontend/e2e/screenshots/playground-movielens-light.png` (already shipped + git-tracked); all anchors checked through `scripts/check-doc-anchors.sh` and `scripts/check-public-doc-tmp-leak.sh`; binding-roadmap bullet phrased to clear `scripts/check-design-vs-impl.sh` C5-H3 gate (no fictional method names like `db.query_df()`).
 - README: added CI / verify-claims / latest-release / license badges at the top.
 - `CHANGELOG.md` link footer ratchets through `v0.4.0` (`Unreleased` now compares against `v0.4.0`, not `v0.3.0`).
 - `CONTRIBUTING.md` coverage gate updated: command is now `./scripts/coverage.sh`, threshold is the script's ratchet (93% / 3000 uncovered lines as of v0.4.0; ratchets DOWN only).
