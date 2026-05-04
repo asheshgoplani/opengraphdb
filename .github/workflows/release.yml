@@ -179,7 +179,8 @@ jobs:
       - name: Compute SHA256SUMS.txt
         run: |
           cd dist
-          sha256sum ogdb-* > SHA256SUMS.txt
+          # only checksum the archive files, not the staging directories that download-artifact may also expand
+          find . -maxdepth 1 -type f \( -name "ogdb-*.tar.xz" -o -name "ogdb-*.zip" \) -print0 | sort -z | xargs -0 sha256sum > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Upload checksums
