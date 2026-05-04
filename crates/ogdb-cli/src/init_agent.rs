@@ -114,7 +114,12 @@ pub fn run(opts: InitAgentOpts) -> Result<String, String> {
         }
     };
 
-    Ok(render_summary(&reports, &db_path, &server_status, opts.port))
+    Ok(render_summary(
+        &reports,
+        &db_path,
+        &server_status,
+        opts.port,
+    ))
 }
 
 // ---------------------------------------------------------------------------
@@ -231,8 +236,7 @@ fn ensure_demo_db(db_path: &Path) -> Result<(), String> {
         return Ok(());
     }
     if let Some(parent) = db_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("create {}: {e}", parent.display()))?;
+        fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
     }
     // Best effort: shell out to `ogdb init <path>` so the user has a real db.
     // If we can't find ogdb on PATH (e.g. running from `cargo run`), skip
@@ -362,7 +366,9 @@ fn install_claude_skill(opts: &InitAgentOpts) -> Result<(String, Option<String>)
 // ---------------------------------------------------------------------------
 
 fn detect_cursor() -> bool {
-    home_dir().map(|h| h.join(".cursor").exists()).unwrap_or(false)
+    home_dir()
+        .map(|h| h.join(".cursor").exists())
+        .unwrap_or(false)
         || Path::new(".cursor").exists()
 }
 
@@ -397,7 +403,9 @@ fn install_cursor_skill(opts: &InitAgentOpts) -> Result<(String, Option<String>)
 // ---------------------------------------------------------------------------
 
 fn detect_continue() -> bool {
-    home_dir().map(|h| h.join(".continue").exists()).unwrap_or(false)
+    home_dir()
+        .map(|h| h.join(".continue").exists())
+        .unwrap_or(false)
 }
 
 fn register_continue_mcp(db_path: &Path, _opts: &InitAgentOpts) -> Result<String, String> {
@@ -440,22 +448,17 @@ fn register_aider_mcp(_db: &Path, _opts: &InitAgentOpts) -> Result<String, Strin
 fn install_aider_skill(opts: &InitAgentOpts) -> Result<(String, Option<String>), String> {
     let skill_path = home_dir()?.join(".opengraphdb").join("skill.md");
     if let Some(parent) = skill_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("create {}: {e}", parent.display()))?;
+        fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
     }
     let body = strip_frontmatter(skill_md_str());
-    let skill_status = write_marked_file(
-        &skill_path,
-        &body,
-        "<!-- OPENGRAPHDB-SKILL -->",
-        opts.force,
-    )?;
+    let skill_status =
+        write_marked_file(&skill_path, &body, "<!-- OPENGRAPHDB-SKILL -->", opts.force)?;
 
     // Append a `read:` entry pointing at the skill if one isn't there.
     let conf = home_dir()?.join(".aider.conf.yml");
     if conf.exists() {
-        let existing = fs::read_to_string(&conf)
-            .map_err(|e| format!("read {}: {e}", conf.display()))?;
+        let existing =
+            fs::read_to_string(&conf).map_err(|e| format!("read {}: {e}", conf.display()))?;
         let needle = skill_path.to_string_lossy().to_string();
         if !existing.contains(&needle) {
             let to_append = if existing.contains("\nread:") {
@@ -526,7 +529,9 @@ fn install_goose_skill(_opts: &InitAgentOpts) -> Result<(String, Option<String>)
 // ---------------------------------------------------------------------------
 
 fn detect_codex() -> bool {
-    home_dir().map(|h| h.join(".codex").exists()).unwrap_or(false)
+    home_dir()
+        .map(|h| h.join(".codex").exists())
+        .unwrap_or(false)
 }
 
 fn register_codex_mcp(db_path: &Path, _opts: &InitAgentOpts) -> Result<String, String> {
@@ -545,8 +550,7 @@ fn register_codex_mcp(db_path: &Path, _opts: &InitAgentOpts) -> Result<String, S
 fn install_codex_skill(opts: &InitAgentOpts) -> Result<(String, Option<String>), String> {
     let dst = home_dir()?.join(".codex").join("instructions.md");
     if let Some(parent) = dst.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("create {}: {e}", parent.display()))?;
+        fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
     }
     let body = strip_frontmatter(skill_md_str());
     write_marked_file(&dst, &body, "<!-- OPENGRAPHDB-SKILL -->", opts.force)
@@ -564,8 +568,7 @@ fn upsert_json_mcp_server(
     pointer_prefix: &str,
 ) -> Result<String, String> {
     if let Some(parent) = config_path.parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("create {}: {e}", parent.display()))?;
+        fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
     }
     let mut root: Value = if config_path.exists() {
         let raw = fs::read_to_string(config_path)
@@ -605,10 +608,7 @@ fn upsert_json_mcp_server(
     let out = serde_json::to_string_pretty(&root).map_err(|e| format!("serialize: {e}"))?;
     fs::write(config_path, out + "\n")
         .map_err(|e| format!("write {}: {e}", config_path.display()))?;
-    Ok(format!(
-        "{outcome} ({})",
-        config_path.display()
-    ))
+    Ok(format!("{outcome} ({})", config_path.display()))
 }
 
 // ---------------------------------------------------------------------------
@@ -624,8 +624,7 @@ fn skill_md_str() -> String {
 }
 
 fn write_skill_bundle(dst_root: &Path, force: bool) -> Result<String, String> {
-    fs::create_dir_all(dst_root)
-        .map_err(|e| format!("create {}: {e}", dst_root.display()))?;
+    fs::create_dir_all(dst_root).map_err(|e| format!("create {}: {e}", dst_root.display()))?;
     let mut wrote = 0usize;
     let mut unchanged = 0usize;
     let mut skipped = 0usize;
@@ -636,8 +635,7 @@ fn write_skill_bundle(dst_root: &Path, force: bool) -> Result<String, String> {
             .unwrap_or(entry.path());
         let dst = dst_root.join(rel);
         if let Some(parent) = dst.parent() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("create {}: {e}", parent.display()))?;
+            fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
         }
         let new_bytes = entry.contents();
         if dst.exists() {
@@ -651,8 +649,7 @@ fn write_skill_bundle(dst_root: &Path, force: bool) -> Result<String, String> {
                 continue;
             }
         }
-        fs::write(&dst, new_bytes)
-            .map_err(|e| format!("write {}: {e}", dst.display()))?;
+        fs::write(&dst, new_bytes).map_err(|e| format!("write {}: {e}", dst.display()))?;
         wrote += 1;
     }
     Ok(format!(
@@ -690,12 +687,7 @@ fn strip_frontmatter(md: String) -> String {
     md
 }
 
-fn write_marked_file(
-    dst: &Path,
-    body: &str,
-    marker: &str,
-    _force: bool,
-) -> Result<String, String> {
+fn write_marked_file(dst: &Path, body: &str, marker: &str, _force: bool) -> Result<String, String> {
     let begin = format!("{marker} BEGIN");
     let end = format!("{marker} END");
     let block = format!("{begin}\n{body}\n{end}\n");
@@ -705,8 +697,7 @@ fn write_marked_file(
         return Ok(format!("new ({})", dst.display()));
     }
 
-    let existing = fs::read_to_string(dst)
-        .map_err(|e| format!("read {}: {e}", dst.display()))?;
+    let existing = fs::read_to_string(dst).map_err(|e| format!("read {}: {e}", dst.display()))?;
 
     if let (Some(start), Some(stop)) = (existing.find(&begin), existing.find(&end)) {
         let mut stop_end = stop + end.len();
@@ -721,8 +712,7 @@ fn write_marked_file(
         if new_content == existing {
             return Ok(format!("unchanged ({})", dst.display()));
         }
-        fs::write(dst, new_content)
-            .map_err(|e| format!("write {}: {e}", dst.display()))?;
+        fs::write(dst, new_content).map_err(|e| format!("write {}: {e}", dst.display()))?;
         Ok(format!("replaced ({})", dst.display()))
     } else {
         let mut f = fs::OpenOptions::new()
@@ -821,8 +811,7 @@ mod tests {
         let cfg = dir.path().join("foo.json");
         let value = json!({"command": "ogdb", "args": ["mcp", "--stdio"]});
         upsert_json_mcp_server(&cfg, "opengraphdb", value.clone(), "/mcpServers").unwrap();
-        let outcome =
-            upsert_json_mcp_server(&cfg, "opengraphdb", value, "/mcpServers").unwrap();
+        let outcome = upsert_json_mcp_server(&cfg, "opengraphdb", value, "/mcpServers").unwrap();
         assert!(outcome.starts_with("unchanged"), "got {outcome}");
     }
 
