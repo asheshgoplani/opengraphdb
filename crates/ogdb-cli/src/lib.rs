@@ -54,6 +54,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
+mod init_agent;
 mod prom_metrics;
 mod static_assets;
 
@@ -213,11 +214,7 @@ enum Commands {
 
 #[derive(Debug, Clone, Args)]
 struct InitCommand {
-    #[arg(
-        value_name = "path",
-        required_unless_present = "db_path",
-        help = "Database file path"
-    )]
+    #[arg(value_name = "path", help = "Database file path")]
     path: Option<String>,
     #[arg(
         long,
@@ -227,6 +224,55 @@ struct InitCommand {
         help = "Page size in bytes (must be a power of two, >= 64)"
     )]
     page_size: u32,
+    #[arg(
+        long,
+        action = ArgAction::SetTrue,
+        help = "Configure your coding agent (Claude/Cursor/Aider/Continue/Goose/Codex) to talk to OpenGraphDB"
+    )]
+    agent: bool,
+    #[arg(
+        long,
+        action = ArgAction::SetTrue,
+        requires = "agent",
+        help = "With --agent, configure every detected agent rather than just the first match"
+    )]
+    all: bool,
+    #[arg(
+        long = "agent-id",
+        value_name = "ID",
+        requires = "agent",
+        help = "With --agent, force a specific agent id (claude, cursor, aider, continue, goose, codex)"
+    )]
+    agent_id: Option<String>,
+    #[arg(
+        long,
+        value_name = "PORT",
+        requires = "agent",
+        default_value_t = 8765,
+        help = "With --agent, port to bind the background HTTP server on"
+    )]
+    port: u16,
+    #[arg(
+        long = "no-server",
+        action = ArgAction::SetTrue,
+        requires = "agent",
+        help = "With --agent, skip starting the background HTTP server"
+    )]
+    no_server: bool,
+    #[arg(
+        long,
+        action = ArgAction::SetTrue,
+        requires = "agent",
+        help = "With --agent, overwrite an existing skill bundle even if hand-edited"
+    )]
+    force: bool,
+    #[arg(
+        long = "dry-run",
+        action = ArgAction::SetTrue,
+        requires = "agent",
+        help = "With --agent, print what would happen without writing any files"
+    )]
+    dry_run: bool,
 }
 
 #[derive(Debug, Clone, Args)]
@@ -935,8 +981,21 @@ fn run_inner(cli: Cli) -> Result<String, CliError> {
 
     match command {
         Commands::Init(cmd) => {
-            let path = resolve_db_path(cmd.path, global_db)?;
-            handle_init(&path, cmd.page_size)
+            if cmd.agent {
+                let opts = init_agent::InitAgentOpts {
+                    db: cmd.path.or_else(|| global_db.map(str::to_string)),
+                    all: cmd.all,
+                    agent_id: cmd.agent_id,
+                    port: cmd.port,
+                    no_server: cmd.no_server,
+                    force: cmd.force,
+                    dry_run: cmd.dry_run,
+                };
+                init_agent::run(opts).map_err(CliError::Runtime)
+            } else {
+                let path = resolve_db_path(cmd.path, global_db)?;
+                handle_init(&path, cmd.page_size)
+            }
         }
         Commands::Info(cmd) => {
             let path = resolve_db_path(cmd.path, global_db)?;

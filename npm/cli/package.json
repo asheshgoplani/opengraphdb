@@ -1,0 +1,54 @@
+{
+  "name": "@opengraphdb/cli",
+  "version": "0.4.0",
+  "description": "OpenGraphDB CLI — single-file embedded graph database with Cypher, vector, and MCP. Installs the native ogdb binary and wires it into your coding agent.",
+  "type": "commonjs",
+  "bin": {
+    "ogdb": "./bin/ogdb.js",
+    "opengraphdb": "./bin/ogdb.js"
+  },
+  "main": "./bin/ogdb.js",
+  "scripts": {
+    "postinstall": "node scripts/install.js",
+    "test": "node --test test/*.test.js"
+  },
+  "keywords": [
+    "opengraphdb",
+    "graph-database",
+    "cypher",
+    "knowledge-graph",
+    "mcp",
+    "vector-search",
+    "rdf",
+    "neo4j-alternative",
+    "cli",
+    "ai-agent"
+  ],
+  "author": "OpenGraphDB Contributors",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/asheshgoplani/opengraphdb",
+  "bugs": "https://github.com/asheshgoplani/opengraphdb/issues",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/asheshgoplani/opengraphdb",
+    "directory": "npm/cli"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "scripts",
+    "README.md",
+    "LICENSE"
+  ],
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ]
+}

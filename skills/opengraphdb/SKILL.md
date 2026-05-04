@@ -1,6 +1,6 @@
 ---
 name: opengraphdb
-description: Use when an AI agent needs to read or write a property graph, knowledge graph, or hybrid (vector + graph + text) store, especially when the workload runs in-process or behind MCP. Covers Cypher generation, schema design, ingest, exploration, and AI-agent recipes against the OpenGraphDB engine.
+description: Use when user wants to query, traverse, or build a graph database; embedded or HTTP-served; supports Cypher syntax, vector similarity, RAG, RDF round-trip, and MCP tool catalog. Trigger keywords - graph database, knowledge graph, Cypher query, MCP graph, GraphRAG, vector + graph, property graph, RDF, SHACL, time-travel queries, Neo4j alternative, embedded graph, single-file graph.
 when_to_use: |
   Trigger this skill whenever the task involves:
     - Building or evolving a property graph / knowledge graph that an AI agent owns end-to-end.
@@ -12,6 +12,18 @@ when_to_use: |
     - Migrating from Neo4j / Memgraph / Kuzu where AGPL licensing, JVM dependency, or sidecar overhead is the friction.
   Skip this skill when the workload is a Neo4j cluster, a time-series DB, a simple key-value store, or
   a managed vector DB (Pinecone, Weaviate) where graph traversal is not part of the access pattern.
+license: Apache-2.0
+compatibility:
+  ogdb_min: "0.4.0"
+  ogdb_max: null
+  agents: [claude-code, cursor, continue.dev, aider, goose, codex, copilot]
+allowed_tools: [mcp__opengraphdb__*, Bash, Read]
+metadata:
+  version: "1.0.0"
+  author: OpenGraphDB
+  homepage: https://github.com/asheshgoplani/opengraphdb
+  category: database
+  tags: [graph, cypher, vector, rdf, mcp, embedded, knowledge-graph, graphrag]
 ---
 
 # OpenGraphDB — master skill for AI-agent workloads

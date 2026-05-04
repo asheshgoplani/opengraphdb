@@ -6,7 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Skills live alongside dist/ in the package root
 const SKILLS_ROOT = resolve(__dirname, "..");
 
-const ALL_SKILLS = ["ogdb-cypher", "graph-explore", "schema-advisor", "data-import"];
+const ALL_SKILLS = ["opengraphdb", "ogdb-cypher", "graph-explore", "schema-advisor", "data-import"];
 
 type Platform = "claude" | "cursor" | "copilot" | "codex";
 
