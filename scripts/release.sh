@@ -98,7 +98,17 @@ cp README.md LICENSE CHANGELOG.md "$STAGE/" 2>/dev/null || true
 case "$TARGET" in
   *windows*)
     ARCHIVE="$DIST/ogdb-$VERSION-$TARGET.zip"
-    ( cd "$DIST" && zip -r "$(basename "$ARCHIVE")" "$(basename "$STAGE")" )
+    if command -v zip >/dev/null 2>&1; then
+      ( cd "$DIST" && zip -r "$(basename "$ARCHIVE")" "$(basename "$STAGE")" )
+    elif command -v powershell.exe >/dev/null 2>&1; then
+      # GitHub Actions windows runners ship PowerShell but not zip — use Compress-Archive
+      ( cd "$DIST" && powershell.exe -Command "Compress-Archive -Path '$(basename "$STAGE")' -DestinationPath '$(basename "$ARCHIVE")' -Force" )
+    elif command -v 7z >/dev/null 2>&1; then
+      ( cd "$DIST" && 7z a "$(basename "$ARCHIVE")" "$(basename "$STAGE")" )
+    else
+      echo "release.sh: no zip / PowerShell / 7z available on this Windows runner" >&2
+      exit 127
+    fi
     ;;
   *)
     ARCHIVE="$DIST/ogdb-$VERSION-$TARGET.tar.xz"
