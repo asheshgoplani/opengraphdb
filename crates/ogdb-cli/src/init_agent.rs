@@ -126,13 +126,18 @@ pub fn run(opts: InitAgentOpts) -> Result<String, String> {
 // Agent table
 // ---------------------------------------------------------------------------
 
+/// Result of installing a skill bundle: (status message, optional path string).
+type InstallSkillResult = Result<(String, Option<String>), String>;
+/// Install-skill function pointer signature for an agent backend.
+type InstallSkillFn = fn(&InitAgentOpts) -> InstallSkillResult;
+
 #[derive(Debug, Clone, Copy)]
 struct Agent {
     id: &'static str,
     name: &'static str,
     detect: fn() -> bool,
     register_mcp: fn(&Path, &InitAgentOpts) -> Result<String, String>,
-    install_skill: fn(&InitAgentOpts) -> Result<(String, Option<String>), String>,
+    install_skill: InstallSkillFn,
 }
 
 const AGENTS: &[Agent] = &[
@@ -736,7 +741,7 @@ fn render_summary(
     port: u16,
 ) -> String {
     let mut s = String::new();
-    s.push_str("\n");
+    s.push('\n');
     s.push_str("OpenGraphDB is ready for your agent.\n");
     s.push_str(&format!("  database  {}\n", db_path.display()));
     s.push_str(&format!("  http      {server_status}\n"));
