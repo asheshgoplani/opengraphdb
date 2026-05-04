@@ -1,7 +1,7 @@
 //! `ogdb init --agent` — agent-first onboarding subcommand.
 //!
 //! Detects the user's coding agent (Claude Code, Cursor, Aider, Continue.dev,
-//! Goose, Codex, VS Code Copilot), registers OpenGraphDB as an MCP server in
+//! Goose, Codex), registers OpenGraphDB as an MCP server in
 //! that agent's config, drops the embedded skill bundle into the agent's skill
 //! pool, and starts a background HTTP server on `:8765` so the agent has
 //! something to talk to on its very next turn.
@@ -37,7 +37,7 @@ pub struct InitAgentOpts {
     /// Configure every detected agent rather than just the first match.
     pub all: bool,
     /// Pin a specific agent id (claude, cursor, aider, continue, goose,
-    /// codex, copilot). Skips detection.
+    /// codex). Skips detection.
     pub agent_id: Option<String>,
     /// HTTP port for the background server. Default 8765.
     pub port: u16,

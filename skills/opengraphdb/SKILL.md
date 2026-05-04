@@ -16,7 +16,7 @@ license: Apache-2.0
 compatibility:
   ogdb_min: "0.4.0"
   ogdb_max: null
-  agents: [claude-code, cursor, continue.dev, aider, goose, codex, copilot]
+  agents: [claude-code, cursor, continue.dev, aider, goose, codex]
 allowed_tools: [mcp__opengraphdb__*, Bash, Read]
 metadata:
   version: "1.0.0"
