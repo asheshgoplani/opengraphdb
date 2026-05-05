@@ -147,7 +147,7 @@ Section 2 (i9-10920X, cold-first-run, no warmup).
 
 **Losses (apples-to-apples, clear gap):**
 
-- **Row 1** — bulk ingest **256 nodes/s** vs Memgraph ≈ 295 k nodes/s
+- **Row 1** — bulk ingest **251 nodes/s** vs Memgraph ≈ 295 k nodes/s
   (1 150× behind on the same-scale workload). Root cause: one-tx-per-node
   driver path. Tracked in BENCHMARKS Section 4.1.
 - **Row 2** — streaming ingest 300 nodes/s (33× behind Memgraph Benchgraph

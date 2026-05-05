@@ -165,9 +165,9 @@ labels, and the node's properties:
 ```
 
 **How to verify and cite.** From `documentation/BENCHMARKS.md` row 8: hybrid retrieval
-(vector kNN + 1-hop) p50 / p95 / p99 = **243 / 378 / 422 μs** on 1 000 nodes ×
+(vector kNN + 1-hop) p50 / p95 / p99 = **204 / 233 / 246 μs** on 1 000 nodes ×
 100 queries × dim=16, on the i9-10920X bench box (cold cache, no warmup). The
-0.38 ms p95 is 200× under the 80 ms best-in-class threshold from spec B.3.
+0.23 ms p95 is 343× under the 80 ms best-in-class threshold from spec B.3.
 Quality (NDCG@10) is deferred until a BEIR corpus is wired (see Section 4.5 of
 BENCHMARKS); the latency win is therefore half-claimed for now and the
 composite-SLA story waits on the BEIR harness landing.
@@ -231,12 +231,12 @@ curl -s -X POST $BASE/query \
 ```
 
 **How to verify and cite.** From `documentation/BENCHMARKS.md` row 7: enrichment
-round-trip `t_persist` p50 / p95 / p99 = **38.8 / 44.2 / 113.2 ms** on 100
+round-trip `t_persist` p50 / p95 / p99 = **38.8 / 46.7 / 112.6 ms** on 100
 documents × (10 entities + 15 edges per doc), measured on
 `crates/ogdb-eval/src/drivers/ai_agent.rs::enrichment_roundtrip`. Storage
 latency only (no live LLM in the path; the harness uses a deterministic
-extractor). p95 of 44 ms beats the 150 ms competitive threshold by 3.4× and
-misses the 40 ms best-in-class bar by 4 ms.
+extractor). p95 of 47 ms beats the 150 ms competitive threshold by 3.2× and
+misses the 40 ms best-in-class bar by 7 ms.
 
 **Related skills.** [`skills/data-import/SKILL.md`](../skills/data-import/SKILL.md)
 covers the structured-import side (CSV / JSON / RDF) when the source is already

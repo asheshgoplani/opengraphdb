@@ -68,6 +68,14 @@ source "$HOME/.cargo/env"
 # baseline. This gate is the structural lock so the next rebaseline
 # can't ship the same half-sweep silently.
 ./scripts/check-benchmarks-cell-internal-consistency.sh
+# EVAL-DOCS-CYCLE32 H1+H2+H3: cross-doc verbatim-mirror gate. COOKBOOK
+# "How to verify and cite" sentences (`From documentation/BENCHMARKS.md
+# row N:`) and MIGRATION § 5 "**Row N**" bullets must reuse canonical
+# § 2 row N tokens within 1 % tolerance. Cycle-31's
+# cell-internal-consistency gate runs at 2 % and skips COOKBOOK entirely;
+# this gate closes both gaps (the 1.99 % H3 251 → 256 nodes/s drift, and
+# the COOKBOOK-scope hole that hid H1+H2 stale Recipes 2 + 3 numbers).
+./scripts/check-cross-doc-benchmarks-mirror.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE4 H1..H5: design specification (DESIGN.md /
 # ARCHITECTURE.md / README.md / SPEC.md / skills/) must not drift from
 # the shipped implementation. Pinned source of truth is in `crates/`.
@@ -170,6 +178,10 @@ source "$HOME/.cargo/env"
 # planted Row 7 § 3 stale value AND planted Row 10 verdict 1.88 μs
 # operand both fail).
 ./scripts/test-check-benchmarks-cell-internal-consistency.sh
+# EVAL-DOCS-CYCLE32 H1+H2+H3: meta-test for the cross-doc-mirror gate
+# above (red-green: clean tree passes; planted Recipe 2 / Recipe 3 /
+# Row 1 stale carry-forwards each fail with row-attributed errors).
+./scripts/test-check-cross-doc-benchmarks-mirror.sh
 # coverage-audit-2026-05-05 deferred HIGH: red-green meta-tests for the
 # previously-unprotected check-*.sh gates. Each test runs the gate against
 # its live tree (GREEN) then plants a fixture violation (RED).
