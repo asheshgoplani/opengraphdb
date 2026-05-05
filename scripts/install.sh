@@ -175,7 +175,7 @@ install_binary() {
 bootstrap_demo() {
   mkdir -p "$OGDB_HOME"
   if [ ! -f "$OGDB_HOME/demo.ogdb" ]; then
-    c_grn "seeding demo database at $OGDB_HOME/demo.ogdb"
+    c_grn "creating empty demo database at $OGDB_HOME/demo.ogdb (run \`ogdb demo\` to load MovieLens + launch playground)"
     ogdb init "$OGDB_HOME/demo.ogdb" >/dev/null 2>&1 || c_yel "  (ogdb init failed; you can run it later)"
   fi
 }
@@ -186,7 +186,7 @@ print_banner() {
   OpenGraphDB is installed.
 
     binary      $(command -v ogdb 2>/dev/null || echo "(not on PATH yet — restart your shell)")
-    database    $OGDB_HOME/demo.ogdb
+    database    $OGDB_HOME/demo.ogdb (empty — run \`ogdb demo\` to load MovieLens + launch playground)
     playground  http://127.0.0.1:${OGDB_PORT}/
 
   Try this in your coding agent next:

@@ -8,7 +8,7 @@ That's the whole mental model. Let's go.
 
 ## 1. Install
 
-One line installs the binary, drops it on your `PATH`, and seeds a demo database:
+One line installs the binary, drops it on your `PATH`, and creates a fresh empty demo database (run `ogdb demo` afterward to load the MovieLens dataset and launch the playground):
 
 ```bash
 curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/latest/download/install.sh | sh

@@ -36,7 +36,7 @@ For the longer step-by-step walkthrough, see [`documentation/QUICKSTART.md`](doc
 curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/latest/download/install.sh | sh
 ```
 
-This drops the `ogdb` binary at `~/.local/bin/ogdb` and seeds a demo database at `~/.opengraphdb/demo.ogdb`.
+This drops the `ogdb` binary at `~/.local/bin/ogdb` and creates a fresh empty database at `~/.opengraphdb/demo.ogdb`. Run `ogdb demo` afterward to load the MovieLens dataset and open the playground in your browser.
 
 ### 2. Wire your AI agent
 
