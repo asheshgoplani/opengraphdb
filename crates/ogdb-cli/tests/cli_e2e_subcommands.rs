@@ -76,9 +76,18 @@ fn info_subcommand_reports_node_and_edge_counts() {
     let out = run_ogdb(&["info", &db.display().to_string()]);
     must_succeed(&out, "ogdb info");
     let s = stdout_of(&out);
-    assert!(s.contains("node_count="), "info output missing node_count: {s}");
-    assert!(s.contains("edge_count="), "info output missing edge_count: {s}");
-    assert!(s.contains("page_count="), "info output missing page_count: {s}");
+    assert!(
+        s.contains("node_count="),
+        "info output missing node_count: {s}"
+    );
+    assert!(
+        s.contains("edge_count="),
+        "info output missing edge_count: {s}"
+    );
+    assert!(
+        s.contains("page_count="),
+        "info output missing page_count: {s}"
+    );
 }
 
 #[test]
@@ -89,8 +98,14 @@ fn stats_subcommand_reports_degree_metrics_on_empty_db() {
     let out = run_ogdb(&["stats", &db.display().to_string()]);
     must_succeed(&out, "ogdb stats");
     let s = stdout_of(&out);
-    assert!(s.contains("node_count=0"), "stats missing node_count=0: {s}");
-    assert!(s.contains("edge_count=0"), "stats missing edge_count=0: {s}");
+    assert!(
+        s.contains("node_count=0"),
+        "stats missing node_count=0: {s}"
+    );
+    assert!(
+        s.contains("edge_count=0"),
+        "stats missing edge_count=0: {s}"
+    );
     assert!(
         s.contains("max_out_degree=") || s.contains("avg_out_degree="),
         "stats missing degree fields: {s}"
@@ -119,7 +134,10 @@ fn checkpoint_subcommand_succeeds_on_fresh_db() {
     let out = run_ogdb(&["checkpoint", &db.display().to_string()]);
     must_succeed(&out, "ogdb checkpoint");
     let s = stdout_of(&out);
-    assert!(s.contains("checkpointed"), "checkpoint output missing 'checkpointed': {s}");
+    assert!(
+        s.contains("checkpointed"),
+        "checkpoint output missing 'checkpointed': {s}"
+    );
 }
 
 #[test]
@@ -161,8 +179,14 @@ fn migrate_subcommand_applies_migration_script() {
     ]);
     must_succeed(&out, "ogdb migrate");
     let s = stdout_of(&out);
-    assert!(s.contains("[APPLIED] ADD LABEL Person"), "migrate stdout missing apply line: {s}");
-    assert!(s.contains("2 action(s) applied successfully"), "migrate stdout missing summary: {s}");
+    assert!(
+        s.contains("[APPLIED] ADD LABEL Person"),
+        "migrate stdout missing apply line: {s}"
+    );
+    assert!(
+        s.contains("2 action(s) applied successfully"),
+        "migrate stdout missing summary: {s}"
+    );
 }
 
 #[test]
@@ -173,7 +197,10 @@ fn create_node_subcommand_emits_node_id() {
     let out = run_ogdb(&["create-node", &db.display().to_string()]);
     must_succeed(&out, "ogdb create-node");
     let s = stdout_of(&out);
-    assert!(s.contains("node_id=0"), "first create-node should emit node_id=0: {s}");
+    assert!(
+        s.contains("node_id=0"),
+        "first create-node should emit node_id=0: {s}"
+    );
 }
 
 #[test]
@@ -190,7 +217,10 @@ fn add_edge_subcommand_emits_edge_id_after_node_creation() {
     let out = run_ogdb(&["add-edge", &path, "0", "1"]);
     must_succeed(&out, "ogdb add-edge");
     let s = stdout_of(&out);
-    assert!(s.contains("edge_id=0"), "first add-edge should emit edge_id=0: {s}");
+    assert!(
+        s.contains("edge_id=0"),
+        "first add-edge should emit edge_id=0: {s}"
+    );
 }
 
 #[test]
@@ -202,7 +232,10 @@ fn neighbors_subcommand_lists_outgoing_targets() {
     must_succeed(&out, "ogdb neighbors");
     let s = stdout_of(&out);
     assert!(s.contains("src=0"), "neighbors stdout missing src=0: {s}");
-    assert!(s.contains("count=2"), "neighbors stdout missing count=2: {s}");
+    assert!(
+        s.contains("count=2"),
+        "neighbors stdout missing count=2: {s}"
+    );
     assert!(
         s.contains("neighbors=1,2") || s.contains("neighbors=2,1"),
         "neighbors stdout missing neighbor ids 1,2: {s}"
@@ -218,8 +251,14 @@ fn incoming_subcommand_lists_incoming_sources() {
     must_succeed(&out, "ogdb incoming");
     let s = stdout_of(&out);
     assert!(s.contains("dst=1"), "incoming stdout missing dst=1: {s}");
-    assert!(s.contains("count=1"), "incoming stdout missing count=1: {s}");
-    assert!(s.contains("incoming=0"), "incoming stdout missing incoming=0: {s}");
+    assert!(
+        s.contains("count=1"),
+        "incoming stdout missing count=1: {s}"
+    );
+    assert!(
+        s.contains("incoming=0"),
+        "incoming stdout missing incoming=0: {s}"
+    );
 }
 
 #[test]
@@ -232,7 +271,10 @@ fn hop_subcommand_traverses_outgoing_edges() {
     let s = stdout_of(&out);
     assert!(s.contains("src=0"), "hop stdout missing src=0: {s}");
     assert!(s.contains("hops=1"), "hop stdout missing hops=1: {s}");
-    assert!(s.contains("reachable_count=2"), "hop stdout missing reachable_count=2: {s}");
+    assert!(
+        s.contains("reachable_count=2"),
+        "hop stdout missing reachable_count=2: {s}"
+    );
 }
 
 #[test]
@@ -245,7 +287,10 @@ fn hop_in_subcommand_traverses_incoming_edges() {
     let s = stdout_of(&out);
     assert!(s.contains("dst=1"), "hop-in stdout missing dst=1: {s}");
     assert!(s.contains("hops=1"), "hop-in stdout missing hops=1: {s}");
-    assert!(s.contains("reachable_count=1"), "hop-in stdout missing reachable_count=1: {s}");
+    assert!(
+        s.contains("reachable_count=1"),
+        "hop-in stdout missing reachable_count=1: {s}"
+    );
 }
 
 #[test]

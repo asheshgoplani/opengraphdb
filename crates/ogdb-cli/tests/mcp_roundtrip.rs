@@ -56,7 +56,9 @@ fn send(stdin: &mut ChildStdin, line: &str) {
 
 fn read_json_line(reader: &mut impl BufRead) -> Value {
     let mut line = String::new();
-    let n = reader.read_line(&mut line).expect("read mcp stdio response");
+    let n = reader
+        .read_line(&mut line)
+        .expect("read mcp stdio response");
     assert!(n > 0, "mcp stdio EOF before response");
     serde_json::from_str(line.trim()).unwrap_or_else(|e| {
         panic!(
@@ -96,7 +98,10 @@ fn mcp_stdio_initialize_handshake_and_tools_list_full_catalog() {
         .get("result")
         .unwrap_or_else(|| panic!("init missing result: {init}"));
     assert!(
-        result.get("protocolVersion").and_then(Value::as_str).is_some(),
+        result
+            .get("protocolVersion")
+            .and_then(Value::as_str)
+            .is_some(),
         "init result missing protocolVersion: {result}"
     );
     let server_info = result

@@ -52,8 +52,8 @@ fn must_succeed(out: &Output, label: &str) {
 }
 
 fn read_json(path: &Path) -> Value {
-    let raw = fs::read_to_string(path)
-        .unwrap_or_else(|e| panic!("read {} failed: {e}", path.display()));
+    let raw =
+        fs::read_to_string(path).unwrap_or_else(|e| panic!("read {} failed: {e}", path.display()));
     serde_json::from_str(&raw)
         .unwrap_or_else(|e| panic!("parse {} as json failed: {e}\nraw:\n{raw}", path.display()))
 }
@@ -249,7 +249,10 @@ fn init_agent_does_not_corrupt_pre_existing_demo_db() {
 
     // Now run init --agent. The demo db should be preserved verbatim.
     let out = run_init_agent(home, &["--agent-id", "claude", "--no-server"]);
-    must_succeed(&out, "ogdb init --agent --agent-id claude (with pre-existing db)");
+    must_succeed(
+        &out,
+        "ogdb init --agent --agent-id claude (with pre-existing db)",
+    );
 
     let after_bytes = fs::read(&db).expect("re-read demo db");
     assert_eq!(
@@ -301,10 +304,7 @@ fn init_agent_dry_run_writes_no_files() {
     let tmp = TempDir::new().expect("tempdir");
     let home = tmp.path();
 
-    let out = run_init_agent(
-        home,
-        &["--agent-id", "claude", "--no-server", "--dry-run"],
-    );
+    let out = run_init_agent(home, &["--agent-id", "claude", "--no-server", "--dry-run"]);
     must_succeed(&out, "ogdb init --agent --dry-run");
 
     assert!(

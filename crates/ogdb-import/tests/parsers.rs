@@ -39,7 +39,11 @@ fn parse_markdown_sections_handles_code_blocks() {
     // not mistaken for headings).
     let md = "# Setup\n\nRun this:\n\n```sh\ncargo build --release\necho done\n```\n\nThat compiles the binary.\n";
     let sections = parse_markdown_sections(md).expect("markdown parse must succeed");
-    assert_eq!(sections.len(), 1, "single H1 ⇒ single section; got: {sections:?}");
+    assert_eq!(
+        sections.len(),
+        1,
+        "single H1 ⇒ single section; got: {sections:?}"
+    );
     let s = &sections[0];
     assert_eq!(s.title, "Setup");
     assert_eq!(s.level, 1);
@@ -71,8 +75,10 @@ fn parse_markdown_sections_preserves_mixed_heading_levels() {
         4,
         "expected 4 sections (Top, Sub A, Sub A.1, Sub B); got: {sections:?}"
     );
-    let by_title: std::collections::HashMap<&str, u32> =
-        sections.iter().map(|s| (s.title.as_str(), s.level)).collect();
+    let by_title: std::collections::HashMap<&str, u32> = sections
+        .iter()
+        .map(|s| (s.title.as_str(), s.level))
+        .collect();
     assert_eq!(by_title.get("Top"), Some(&1));
     assert_eq!(by_title.get("Sub A"), Some(&2));
     assert_eq!(by_title.get("Sub A.1"), Some(&3));
@@ -99,7 +105,11 @@ fn parse_pdf_sections_extracts_text_from_valid_pdf() {
         !sections.is_empty(),
         "valid PDF with text must produce at least one section"
     );
-    let combined: String = sections.iter().map(|s| s.content.as_str()).collect::<Vec<_>>().join("\n");
+    let combined: String = sections
+        .iter()
+        .map(|s| s.content.as_str())
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(
         combined.contains("parsing of small PDF fixtures")
             || combined.contains("parse_pdf_sections has bytes")
