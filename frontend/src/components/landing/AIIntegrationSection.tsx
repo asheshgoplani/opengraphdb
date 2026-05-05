@@ -4,10 +4,18 @@ import { useSectionInView } from './useSectionInView'
 
 const LLM_TO_CYPHER = `from openai import OpenAI
 import opengraphdb as ogdb
+import requests
 
 client = OpenAI()
 db = ogdb.Database.open("movies.ogdb")
-schema = db.schema_catalog()  # labels, edge types, property keys
+
+# Schema for the LLM context. Database::schema_catalog() lives on the Rust
+# core; the Python binding does not bridge it. Use the \`schema\` MCP tool
+# over HTTP instead — start \`ogdb serve --http\` in another shell first.
+schema = requests.post(
+    "http://localhost:8080/mcp/invoke",
+    json={"name": "schema"},
+).json()
 
 question = "find all actors who starred with Tom Hanks in drama movies"
 resp = client.responses.create(
@@ -28,25 +36,28 @@ import opengraphdb as ogdb
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
 db = ogdb.Database.open("docs.ogdb")
+db.create_vector_index("doc_embed", "Doc", "embedding", 384, "cosine")
+db.create_fulltext_index("doc_body", ["body"], "Doc")
 
 corpus = [
     {"title": "MVCC in Rust", "body": "Snapshot isolation without lock tables..."},
     {"title": "Cypher planner", "body": "Cost-based plans over canonical storage..."},
 ]
 for doc in corpus:
-    db.insert_node(
+    db.create_node(
         labels=["Doc"],
-        props={**doc, "embedding": model.encode(doc["body"]).tolist()},
+        properties={**doc, "embedding": model.encode(doc["body"]).tolist()},
     )
 
+# Vector + full-text retrieval from the same store. The Python binding exposes
+# them as separate calls; for one-round-trip RRF fusion use \`POST /rag/search\`
+# over HTTP (start \`ogdb serve --http\` in another shell).
 query = "how does transaction isolation work?"
-hits = db.rag_hybrid_search(
-    text=query,
-    vector=model.encode(query).tolist(),
-    k=10,
-)
-for hit in hits:
-    print(hit.score, hit.props["title"])
+qvec = model.encode(query).tolist()
+vector_hits = db.vector_search("doc_embed", qvec, 10)
+text_hits = db.text_search("doc_body", query, 10)
+for hit in vector_hits + text_hits:
+    print(hit["score"], hit["node"])
 `
 
 const COSMOS_MCP = `import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"

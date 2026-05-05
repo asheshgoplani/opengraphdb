@@ -93,6 +93,14 @@ source "$HOME/.cargo/env"
 # 1-vs-2 positional shape — same F01 bug class as cycle-27, mirrored into
 # the playground UI.
 ./scripts/check-frontend-bash-blocks.sh
+# EVAL-FRONTEND-CYCLE30 HIGH-1 + HIGH-2: Python-binding-surface mirror of
+# the above. Every `db.<method>(` call inside frontend TSX string / template
+# literals must name a `fn` exposed by the `#[pymethods] impl PythonDatabase`
+# block in crates/ogdb-python/src/lib.rs. Caught the AIIntegrationSection
+# marketing snippets that called `db.schema_catalog()` (Rust-only),
+# `db.insert_node(…)` (binding name is `create_node`), and
+# `db.rag_hybrid_search(…)` (HTTP-only) — each shipped to the Copy button.
+./scripts/check-frontend-python-api-surface.sh
 
 # C2-A7 (HIGH): npm package version must match workspace version.
 ./scripts/check-npm-version.sh
@@ -176,6 +184,8 @@ source "$HOME/.cargo/env"
 ./scripts/test-check-readme-bash-blocks.sh
 # EVAL-FRONTEND-CYCLE28 HIGH-1 + HIGH-2: meta-test for check-frontend-bash-blocks.sh.
 ./scripts/test-check-frontend-bash-blocks.sh
+# EVAL-FRONTEND-CYCLE30 HIGH-1 + HIGH-2: meta-test for check-frontend-python-api-surface.sh.
+./scripts/test-check-frontend-python-api-surface.sh
 ./scripts/test-check-binary-name.sh
 ./scripts/test-check-npm-version.sh
 ./scripts/test-check-pypi-version.sh
