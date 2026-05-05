@@ -69,6 +69,13 @@ source "$HOME/.cargo/env"
 # into — grep gates catch named-method drift but are blind to
 # signature drift (wrong arg count, missing `From` impl).
 ./scripts/check-doc-rust-blocks.sh
+# EVAL-DOCS-CYCLE27 F01: every `ogdb <subcommand>` invocation in a fenced
+# ```bash block in README.md must (a) name a subcommand that exists in the
+# CLI and (b) supply at least the required positional arg count from the
+# corresponding clap struct. Caught the `ogdb import data.ttl` shape that
+# silently survived 11+ polish cycles (1 positional vs 2 required, AND
+# wrong subcommand for RDF — RDF is `import-rdf`).
+./scripts/check-readme-bash-blocks.sh
 
 # C2-A7 (HIGH): npm package version must match workspace version.
 ./scripts/check-npm-version.sh
@@ -143,6 +150,8 @@ source "$HOME/.cargo/env"
 ./scripts/test-check-crate-metadata.sh
 ./scripts/test-check-doc-rust-blocks.sh
 ./scripts/test-check-shipped-doc-coverage.sh
+# EVAL-DOCS-CYCLE27 F01: meta-test for check-readme-bash-blocks.sh.
+./scripts/test-check-readme-bash-blocks.sh
 ./scripts/test-check-binary-name.sh
 ./scripts/test-check-npm-version.sh
 ./scripts/test-check-pypi-version.sh

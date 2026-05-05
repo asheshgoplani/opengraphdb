@@ -60,7 +60,8 @@ You should see five people and the movies they acted in. That's it — you have 
 Yes. OpenGraphDB imports Turtle (`.ttl`), N-Triples, RDF/XML, JSON-LD, and N-Quads.
 
 ```bash
-ogdb import data.ttl
+ogdb init mydb.ogdb
+ogdb import-rdf mydb.ogdb data.ttl
 ```
 
 The triples are loaded as nodes and edges and become queryable with Cypher right away. No separate triplestore, no extra setup.
