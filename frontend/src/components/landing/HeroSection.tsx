@@ -106,7 +106,7 @@ export function HeroSection() {
           OpenGraphDB embeds in your Rust, Python, or Node app — or runs as a
           single{' '}
           <code className="rounded bg-muted/60 px-1.5 py-px font-mono text-[0.85em] text-foreground/85">
-            ogdb serve
+            ogdb serve data.ogdb
           </code>{' '}
           process. Cypher queries, MVCC, WAL, and an MCP surface for AI tools.
           No JVM. No separate search index to keep in sync.

@@ -9,10 +9,16 @@
 #          ImportCommand).
 #   RED:   planted TSX with an unknown subcommand trips.
 #   GREEN: planted TSX with the canonical fix shape passes.
-#   GREEN: planted TSX where `ogdb serve --http` lives only inside JSX text
-#          / inline `<code>` prose / a `// …` comment must NOT trip — those
-#          are out of the gate's scope (the README gate scopes to fenced
-#          ```bash blocks; this gate scopes to string literals only).
+#   RED:   planted TSX where `<code>ogdb serve --http</code>` lives in JSX
+#          text MUST trip — cycle-29 expanded the gate scope to include
+#          JSX `<code>…</code>` / `<pre>…</pre>` children and plain JSX
+#          text. The cycle-28 carve-out for those was wrong: imperative
+#          wording around the `<code>` element ("start <code>…</code> to
+#          ingest for real") makes the rendered text directive copy-paste
+#          content, not narrative shorthand.
+#   GREEN: planted TSX where the same broken-shape literal lives ONLY inside
+#          a `// …` comment or a non-`ogdb`-leading prose string must NOT
+#          trip — those carve-outs are still load-bearing.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -109,23 +115,57 @@ EOF
 run_planted "GREEN on canonical HIGH-2 fix (2 positionals)" "0"
 rm "$TMP/frontend/src/Ok3.tsx"
 
-# --- GREEN: out-of-scope shapes — JSX text / inline <code> prose / line comment ---
-# These mirror the production sites we DELIBERATELY do not flag (HeroSection
-# inline <code>, FeaturesSection markdown-in-prose, code-comment narrative).
+# --- RED: cycle-29 HIGH-1/-2 shape — broken-ogdb in JSX <code>…</code> child ---
+# Mirrors RDFDropzone.tsx:279 / PlaygroundPage.tsx:368 pre-fix: imperative
+# wording wraps a <code> with no positional / no --db. Must now trip.
+cat > "$TMP/frontend/src/JsxBad.tsx" <<'EOF'
+export function Prose() {
+  return (
+    <p>
+      not persisted — start <code>ogdb serve --http</code> to ingest for real
+    </p>
+  )
+}
+EOF
+run_planted "RED on JSX-text broken-ogdb in <code> child" "nonzero"
+rm "$TMP/frontend/src/JsxBad.tsx"
+
+# --- RED: same shape inside <pre>…</pre> ---
+cat > "$TMP/frontend/src/JsxBadPre.tsx" <<'EOF'
+export function Pre() {
+  return (
+    <pre>ogdb mcp --stdio</pre>
+  )
+}
+EOF
+run_planted "RED on JSX-text broken-ogdb in <pre> child" "nonzero"
+rm "$TMP/frontend/src/JsxBadPre.tsx"
+
+# --- GREEN: JSX <code> with canonical fix shape ---
+cat > "$TMP/frontend/src/JsxOk.tsx" <<'EOF'
+export function Prose() {
+  return (
+    <p>
+      not persisted — start <code>ogdb serve --http ~/.ogdb/demo.ogdb</code>
+    </p>
+  )
+}
+EOF
+run_planted "GREEN on JSX-text canonical fix (positional path)" "0"
+rm "$TMP/frontend/src/JsxOk.tsx"
+
+# --- GREEN: code-comment narrative + non-ogdb-leading prose-string still skipped ---
+# The cycle-28 carve-outs for `// …` line comments and for string literals
+# whose trimmed content does NOT start with `ogdb` remain load-bearing.
 cat > "$TMP/frontend/src/Prose.tsx" <<'EOF'
 // Note: a fresh `ogdb serve --http` mid-import is fine here.
 export function Prose() {
   // Marketing prose: the broken-shape literal is INSIDE a comment, must be skipped.
   const description = 'Embed it as a Rust crate, or run `ogdb serve --http` for a server.'
-  return (
-    <p>
-      Run <code>ogdb serve --http</code> in your terminal.
-      <pre>ogdb mcp --stdio</pre>
-    </p>
-  )
+  return <p>{description}</p>
 }
 EOF
-run_planted "GREEN on out-of-scope (JSX text / comment / prose-string)" "0"
+run_planted "GREEN on comment-only + non-ogdb-leading prose-string carve-outs" "0"
 rm "$TMP/frontend/src/Prose.tsx"
 
 # --- GREEN: bare `ogdb --version` literal (global flag, not a subcommand) ---

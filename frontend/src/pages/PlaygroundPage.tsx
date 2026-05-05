@@ -365,7 +365,7 @@ export default function PlaygroundPage() {
               )}
               {importedGraph.source === 'preview' && (
                 <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-primary">
-                  not persisted — start <code>ogdb serve --http</code>
+                  not persisted — start <code>ogdb serve --http ~/.ogdb/demo.ogdb</code>
                 </p>
               )}
               <button

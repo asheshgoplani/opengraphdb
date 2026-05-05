@@ -1,9 +1,14 @@
 #!/usr/bin/env bash
-# EVAL-FRONTEND-CYCLE28 HIGH-1 + HIGH-2 regression gate.
+# EVAL-FRONTEND-CYCLE28/-29 HIGH-1 + HIGH-2 regression gate.
 #
-# Sibling of scripts/check-readme-bash-blocks.sh: walks every string literal
-# (single-, double-, or backtick-quoted) in frontend/src/**/*.{ts,tsx}, and
-# for each whose trimmed content starts with `ogdb …`, validates that:
+# Sibling of scripts/check-readme-bash-blocks.sh: walks every `ogdb …`
+# command-shaped fragment in frontend/src/**/*.{ts,tsx} and validates it
+# against the live clap surface. Sources scanned:
+#   - string literals (single-, double-, or backtick-quoted);
+#   - JSX text inside `<code>…</code>` and `<pre>…</pre>` children;
+#   - generic JSX text content (text between `>` and `<` in TSX).
+# For each fragment whose trimmed content starts with `ogdb …`, validates
+# that:
 #   1. the second token is a real subcommand from CLI_SUBCOMMANDS
 #      (crates/ogdb-cli/tests/readme_cli_listing.rs);
 #   2. the invocation supplies enough positional args for the corresponding
@@ -14,21 +19,13 @@
 #      `--db <path>` flag — same shape the binary enforces at runtime.
 #
 # Cycle-27 F01 (`ogdb import data.ttl` in README.md) was caught by the README
-# gate. The same bug class survived in two playground UI surfaces with Copy
-# buttons:
-#   - DisconnectedState.tsx: `const SERVE_COMMAND = 'ogdb serve --http'`
-#     (clap rejects: "database path required: provide <path> or --db");
-#   - LiveEmptyDbCTA.tsx:    inline mention `ogdb import datasets/...`
-#     (clap rejects: 1 positional vs 2 required by ImportCommand).
-# This gate stops a new broken-shape string literal from re-landing.
-#
-# Why string literals only (not JSX text content): mirrors the README gate's
-# "only fenced ```bash blocks" scope — narrative `<code>ogdb …</code>` prose
-# mentions are routinely shorthand references to a subcommand, not literal
-# copy-paste targets. The corresponding regression check for the JSX-text
-# shape of HIGH-2 is the pinned `rg 'ogdb import datasets'` line in
-# scripts/test-check-frontend-bash-blocks.sh and in the cycle's verify
-# checklist.
+# gate. Cycle-28 closed two TSX string-literal leaks (DisconnectedState
+# SERVE_COMMAND const + LiveEmptyDbCTA inline mention). Cycle-29 found the
+# same bug class had leaked into JSX text content under imperative wording
+# (`<code>ogdb serve --http</code>` rendered after "start" / "to ingest for
+# real") in RDFDropzone.tsx and PlaygroundPage.tsx — the cycle-28 carve-out
+# that skipped JSX text turned out to be wrong: that text IS directive
+# copy-paste content, not narrative shorthand. JSX text is now in scope.
 #
 # Comments (`//` line, `/* */` block) are stripped before scan so that
 # code-comment prose like `// fresh \`ogdb serve --http\`` doesn't fire.
@@ -233,16 +230,32 @@ def extract_string_literals(text):
         i += 1
 
 
+def extract_jsx_text(text):
+    """Yield (lineno, content) for JSX text between `>` and `<` (excluding
+    `{` / `}` so JSX expression interpolations don't leak in). Captures the
+    children of `<code>…</code>` and `<pre>…</pre>` (cycle-29 HIGH-1/-2
+    shape) as well as plain JSX text under imperative wording. Heuristic
+    rather than a full TSX parse — sufficient because `is_command_shaped`
+    requires the trimmed content to literally start with `ogdb `, so noise
+    from non-JSX `>` tokens (TS comparisons, generics) is filtered downstream.
+    """
+    pattern = re.compile(r'>([^<>{}]+)<')
+    for m in pattern.finditer(text):
+        content = m.group(1)
+        if not content.strip():
+            continue
+        lineno = text.count('\n', 0, m.start(1)) + 1
+        yield lineno, content
+
+
 def is_command_shaped(content):
-    """A string literal is treated as a command shape iff its trimmed
-    content STARTS with the bare token `ogdb` (followed by whitespace).
-    This intentionally skips:
-      - prose strings like 'Open a .ogdb file from your Rust app — or run
-        `ogdb serve --http` ...' (starts with 'Open');
-      - prose strings like 'HTTP for apps; run `ogdb mcp` ...' (starts with
-        'HTTP');
-      - markdown-fenced backtick spans inside a larger sentence.
-    Mirrors the README gate's narrowing to fenced ```bash blocks only.
+    """A fragment is treated as a command shape iff its trimmed content
+    STARTS with the bare token `ogdb` (followed by whitespace). Skips
+    narrative prose like 'Open a .ogdb file …' (starts with 'Open') or
+    'HTTP for apps; run `ogdb mcp` …' (starts with 'HTTP'). Cycle-29 broadens
+    the scan beyond string literals to also include JSX text inside
+    `<code>…</code>` / `<pre>…</pre>` and plain JSX text — but the same
+    `^ogdb\\s` filter still drops narrative-shaped surrounding text.
     """
     stripped = content.strip()
     return bool(re.match(r'^ogdb(\s|$)', stripped))
@@ -280,13 +293,20 @@ constraints = load_command_constraints(lib_rs_path)
 
 errors = []
 
+def iter_candidates(text, path):
+    """String literals (all .ts/.tsx) plus JSX text (.tsx only)."""
+    yield from extract_string_literals(text)
+    if path.endswith('.tsx'):
+        yield from extract_jsx_text(text)
+
+
 for path in sorted(iter_source_files(frontend_src)):
     try:
         text = open(path).read()
     except OSError:
         continue
     rel = os.path.relpath(path)
-    for lineno, content in extract_string_literals(text):
+    for lineno, content in iter_candidates(text, path):
         if not is_command_shaped(content):
             continue
         # Tokenize the literal's trimmed content. Pipes/&&-chained

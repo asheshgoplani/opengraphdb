@@ -276,7 +276,7 @@ export function RDFDropzone({ onImport }: RDFDropzoneProps) {
         </div>
         <p className="mt-1 font-mono text-[9px] uppercase tracking-[0.16em] text-primary">
           not persisted — start{' '}
-          <code className="rounded bg-muted/60 px-1 py-[1px] text-primary">ogdb serve --http</code>{' '}
+          <code className="rounded bg-muted/60 px-1 py-[1px] text-primary">ogdb serve --http ~/.ogdb/demo.ogdb</code>{' '}
           to ingest for real
         </p>
         <button
