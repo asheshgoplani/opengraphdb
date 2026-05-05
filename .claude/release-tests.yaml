@@ -625,3 +625,12 @@ tests:
     command: "bash scripts/test-install-detect-target.sh"
     purpose: "Guards install-pipeline BLOCKER fixed in 1a56bb2 — install.sh detect_target() must emit asset URLs matching the rust-target triples in release.yml::build.matrix and the .tar.xz/.zip extensions release.sh produces. Catches re-introduction of the v0.5.0 curl-404 regression that escaped CI to a real user."
     added: 2026-05-05
+
+  - id: ogdb-import-parsers-coverage
+    task: fix-coverage-B2-ogdb-import-parsers-tests
+    crate: ogdb-import
+    test: parsers
+    function: []
+    command: "cargo test -p ogdb-import --test parsers"
+    purpose: "Closes coverage-audit-2026-05-05 BLOCKER 2 — pins behaviour of `parse_pdf_sections`, `parse_markdown_sections`, `detect_cross_references` (publicly exported, previously untested). 7 asserts cover heading-only docs, code blocks, mixed heading levels, valid PDF round-trip via tests/fixtures/sample.pdf, malformed-PDF Err path, and cross-reference detection over real markdown. Lifts ogdb-import line coverage 36.32% → 86.32% (function 38.89% → 61.11%)."
+    added: 2026-05-05
