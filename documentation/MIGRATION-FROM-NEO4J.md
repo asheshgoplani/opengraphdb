@@ -172,6 +172,57 @@ Section 2 (i9-10920X, cold-first-run, no warmup).
 Re-run on r7i.4xlarge at SF1 / SF10 / Datagen-9.0 before claiming any
 record on either class.
 
+### 5.1 Verified vs Neo4j Community 5.x
+
+This subsection is the **apples-to-apples** counterpart to the directional
+table above: every cell is from a run we executed ourselves on the
+i9-10920X bench box, against a Neo4j Community 5.x Docker image pinned to
+a specific digest, on the same machine, same workload, same iteration
+count, same percentile methodology as
+[`BENCHMARKS.md`](BENCHMARKS.md) § 1.
+
+**Cells stay `(pending)` until verified by a real run.** We will not
+pre-fill them with imported Neo4j blog numbers (those are already cited as
+"directional context" in BENCHMARKS § 2 and § 6). The plan that drives
+each tier's row-fill lives at
+[`documentation/.planning/neo4j-comparison/PLAN.md`](.planning/neo4j-comparison/PLAN.md).
+
+| # | Metric / Workload | OpenGraphDB 0.4.0 | Neo4j 5.x Community | Verdict | Tier | Last verified |
+|---|---|---|---|---|---|---|
+| 5.1.1 | Bulk ingest 10 k nodes + 10 k edges (nodes/s, single write-tx) | 254 | (pending Tier 1) | (pending) | 1 | — |
+| 5.1.2 | Point-read p50 / p95 / p99 (μs), 10 k nodes, cold | 5.8 / 6.8 / 11.8 | (pending Tier 1) | (pending) | 1 | — |
+| 5.1.3 | 2-hop p50 / p95 / p99 (μs), 10 k nodes, cold | 22.9 / 25.8 / 36.0 | (pending Tier 1) | (pending) | 1 | — |
+| 5.1.4 | LDBC SNB IS-1 p50 / p95 / p99 (μs), SF1, 1 000 queries | (pending Tier 2 — SF1 loader) | (pending Tier 2) | (pending) | 2 | — |
+| 5.1.5 | LDBC SNB IS-2..IS-7 p95 (μs), SF1 | (pending Tier 2) | (pending Tier 2) | (pending) | 2 | — |
+| 5.1.6 | LDBC SNB IC-1, IC-2, IC-3 p95 (ms), SF1 | (pending Tier 2) | (pending Tier 2) | (pending) | 2 | — |
+| 5.1.7 | Pokec point-read p99 (ms), 1.6 M users | (pending Tier 2) | (pending Tier 2) | (pending) | 2 | — |
+| 5.1.8 | Pokec 2-hop p95 (ms), 1.6 M users | (pending Tier 2) | (pending Tier 2) | (pending) | 2 | — |
+| 5.1.9 | Bulk-load wall-clock @ SF1 (s) | (pending Tier 2) | (pending Tier 2) | (pending) | 2 | — |
+| 5.1.10 | Streaming ingest sustained (nodes/s, Bolt) | 301 | (pending Tier 2) | (pending) | 2 | — |
+
+**Methodology rules for every row in this table.**
+
+- N=5 release-build iters, 1 warm-up discarded, lower-median across 5.
+- p99.9 dropped from the medianed core (manifest gate).
+- Cold cache: drop OS page cache between iters.
+- CPU governor `performance` if writeable; warning logged otherwise.
+- Neo4j JVM: `-Xmx8G -Xms8G`, `dbms.memory.pagecache.size=4G` for 10 k +
+  SF1; raise to `-Xmx16G` / `8G` page-cache for Pokec. Rationale: equal
+  total memory budget vs OpenGraphDB's working-set RSS, capped at 16 G.
+- Neo4j edition: **Community only** (Enterprise is license-gated and
+  cannot be redistributed in CI).
+- Verdict legend: ✅ **WIN** (OpenGraphDB faster by ≥ 1.5×) / ❌ **LOSS**
+  (Neo4j faster by ≥ 1.5×) / 🤝 **TIE** (within 1.5×). Ratios outside
+  these bands are noise on N=5.
+
+**How to read this table while it's still mostly `(pending)`.** The
+two-column structure is itself a commitment: the moment a Tier 1 / Tier 2
+run lands, the verified verdict drops in *and* the matching directional
+row in BENCHMARKS § 2 (rows 3 / 4 / 5) flips from ⚠️ DIRECTIONAL to the
+literal verdict. Until then, the conservative read is: take the
+directional row above as a *signal*, not a *claim* — and watch this table
+for the actual claim.
+
 ## 6. What to know before migrating
 
 - **Schema model: LABEL → labels.** OpenGraphDB nodes carry a `Vec<String>`
