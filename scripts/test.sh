@@ -40,6 +40,11 @@ source "$HOME/.cargo/env"
 # happened. Caught the cycle-15 + cycle-16 miss on Bolt v4/v5 negotiation
 # in COMPATIBILITY.md/SPEC.md/DESIGN.md.
 ./scripts/check-followup-target-not-current.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE17 F02: every (docs|documentation)/<File>.md
+# reference in CHANGELOG.md must resolve on disk (or be in the explicit
+# historical-removal whitelist). Catches the cycle-15 8496878 typo class
+# where docs/→documentation/ rename misses adjacent bullets.
+./scripts/check-changelog-paths.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE4 H1..H5: design specification (DESIGN.md /
 # ARCHITECTURE.md / README.md / SPEC.md / skills/) must not drift from
 # the shipped implementation. Pinned source of truth is in `crates/`.
@@ -87,6 +92,7 @@ source "$HOME/.cargo/env"
 # the cycle-15+16 class of gap (gate created, not wired) at the structural level.
 ./scripts/test-all-check-scripts-wired.sh
 ./scripts/test-check-followup-target-not-current.sh
+./scripts/test-check-changelog-paths.sh
 # C4-H2 (HIGH): the cycle-3 C3-H3 Criterion harness file landed but no
 # CI job ran it. Without the bench-regression job in ci.yml, a perf fix
 # being silently reverted by a bad merge stays invisible until the next
