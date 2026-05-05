@@ -1,0 +1,10 @@
+{
+  "hot_warm": {
+    "algorithm": "Lz4",
+    "level": 1
+  },
+  "cold": {
+    "algorithm": "Zstd",
+    "level": 3
+  }
+}

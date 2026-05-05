@@ -51,8 +51,8 @@ Five constants govern on-disk format compatibility, declared together in `crates
 
 The `ogdb` binary's CLI is part of the public contract:
 
-- **Subcommand contracts stable within a minor.** `ogdb serve --http :8080` will keep meaning the same thing in any `0.4.*` patch release.
-- **`--help`-reachable flags stable across `0.4.*`.** Flags may be added in patches; existing flags do not change name, short form, or behavior.
+- **Subcommand contracts stable within a minor.** `ogdb serve --http :8080` will keep meaning the same thing in any `0.5.*` patch release.
+- **`--help`-reachable flags stable across `0.5.*`.** Flags may be added in patches; existing flags do not change name, short form, or behavior.
 - **New subcommands additive.** `ogdb migrate` (when shipped) does not affect existing `serve`, `bolt`, `query`, etc.
 - **Removal requires a minor bump** with the prior minor's release notes pre-announcing the removal.
 
