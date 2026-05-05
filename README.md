@@ -41,7 +41,7 @@ This drops the `ogdb` binary at `~/.local/bin/ogdb` and creates a fresh empty da
 ### 2. Wire your AI agent
 
 ```bash
-ogdb init --agent claude   # or: cursor, aider, goose
+ogdb init --agent --agent-id claude   # or: --agent-id cursor / aider / goose / continue / codex; omit --agent-id to auto-detect
 ```
 
 Now Claude (or your coding agent of choice) can query the graph directly from your conversations.

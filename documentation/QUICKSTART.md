@@ -37,15 +37,15 @@ cargo build --release -p ogdb-cli
 
 ## 2. First connection
 
-Open the demo database and ask it what's inside:
+Once you've run `ogdb demo` (per Step 1) to load MovieLens, you can ask the demo database what's inside:
 
 ```bash
 ogdb info ~/.opengraphdb/demo.ogdb
 ```
 
-You'll see node counts, edge counts, and labels. The demo ships with a small movies dataset.
+You'll see node counts, edge counts, and labels — the MovieLens dataset that `ogdb demo` just loaded. (If you skipped `ogdb demo`, this command will show 0 nodes / 0 edges; run `ogdb demo` first.)
 
-For a more interactive experience, start the server:
+`ogdb demo` already started a server for you on `http://localhost:8080/`. If you want to re-launch the playground later (without re-seeding):
 
 ```bash
 ogdb serve --http ~/.opengraphdb/demo.ogdb
@@ -121,10 +121,10 @@ ogdb query friends.ogdb "MATCH (p:Person) RETURN count(p)"
 OpenGraphDB ships with a built-in integration so coding agents (Claude, Cursor, Aider, Goose) can query your graph for you. One command does the wiring:
 
 ```bash
-ogdb init --agent claude
+ogdb init --agent --agent-id claude   # or omit --agent-id to auto-detect the first installed agent
 ```
 
-Replace `claude` with `cursor`, `aider`, or `goose` as needed.
+Replace `claude` with `cursor`, `aider`, `continue`, `goose`, or `codex` as needed; or drop `--agent-id` entirely to wire the first detected agent.
 
 What this writes:
 

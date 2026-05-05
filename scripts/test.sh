@@ -93,6 +93,12 @@ source "$HOME/.cargo/env"
 ./scripts/test-all-check-scripts-wired.sh
 ./scripts/test-check-followup-target-not-current.sh
 ./scripts/test-check-changelog-paths.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE18 F03: shipped *.md must not teach
+# `ogdb init --agent <bareword>` — `--agent` is a SetTrue boolean, the agent id
+# is selected by `--agent-id <ID>` (crates/ogdb-cli/src/lib.rs:227-246). A
+# bareword after `--agent` silently slots into the positional db-path arg.
+./scripts/check-init-agent-syntax.sh
+./scripts/test-check-init-agent-syntax.sh
 # C4-H2 (HIGH): the cycle-3 C3-H3 Criterion harness file landed but no
 # CI job ran it. Without the bench-regression job in ci.yml, a perf fix
 # being silently reverted by a bad merge stays invisible until the next
