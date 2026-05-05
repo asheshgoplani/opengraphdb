@@ -70,6 +70,7 @@ The triples are loaded as nodes and edges and become queryable with Cypher right
 Once the basics make sense, here's where the rest lives:
 
 - [`documentation/QUICKSTART.md`](documentation/QUICKSTART.md) — the longer five-minute walkthrough with sample data.
+- [`documentation/CLI.md`](documentation/CLI.md) — full CLI reference: every `ogdb` subcommand with a one-line description.
 - [`documentation/COOKBOOK.md`](documentation/COOKBOOK.md) — runnable recipes for AI agents, hybrid retrieval, doc-to-graph ingestion, and time-travel queries.
 - [`documentation/BENCHMARKS.md`](documentation/BENCHMARKS.md) — head-to-head numbers against Neo4j, Memgraph, and KuzuDB. We publish wins and losses both.
 - [`documentation/MIGRATION-FROM-NEO4J.md`](documentation/MIGRATION-FROM-NEO4J.md) — coming from Neo4j? Cypher-by-Cypher mapping and driver compatibility notes.
