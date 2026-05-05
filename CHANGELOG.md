@@ -7,6 +7,8 @@ Versioning follows Semantic Versioning.
 
 ## [Unreleased]
 
+- _(No entries yet — track ongoing work in PR drafts; see [0.5.1] below for the latest shipped surface.)_
+
 ## [0.5.1] - 2026-05-05
 
 ### Fixed
