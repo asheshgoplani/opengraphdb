@@ -7,6 +7,9 @@
 # (3) RED-B:  plant the cycle-28 F03 stale Row 10 verdict operand (1.88 μs +
 #             91 000× / 27 000× multipliers) and confirm the gate flags both
 #             axes (operand-not-in-headline AND multiplier-divides-cleanly).
+# (4) RED-C:  plant the cycle-29 F01 stale Row 10 back-reference ("the headline
+#             91 000× ratio" — the ratio left behind when cycle-28 corrected
+#             the headline to 128 000×) and confirm CHECK C fires on it.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -98,5 +101,37 @@ if ! grep -q 'multiplier operand "1.88μs"' <<<"$OUT_B"; then
   exit 1
 fi
 echo "test: RED-B on planted Row 10 verdict drift (expected, exit=$RC_B)"
+
+# --- (4) RED-C: plant F01 stale back-reference multiplier (cycle-29) ---
+cp "$LIVE" "$TMP/BENCHMARKS-redC.md"
+python3 - "$TMP/BENCHMARKS-redC.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(encoding='utf-8')
+needle = 'so the headline 128 000× ratio is best read as'
+if needle not in text:
+    raise SystemExit(f'fixture: needle not found, file may have drifted: {needle!r}')
+text = text.replace(
+    needle,
+    'so the headline 91 000× ratio is best read as'
+)
+p.write_text(text, encoding='utf-8')
+PY
+
+set +e
+OUT_C=$("$GATE" "$TMP/BENCHMARKS-redC.md" 2>&1)
+RC_C=$?
+set -e
+if [[ $RC_C -eq 0 ]]; then
+  echo "test FAILED (RED-C): gate did not flag a planted stale Row 10 back-reference multiplier" >&2
+  echo "$OUT_C" >&2
+  exit 1
+fi
+if ! grep -q 'back-reference multiplier "91 000×"' <<<"$OUT_C"; then
+  echo "test FAILED (RED-C): gate output missing back-reference error:" >&2
+  echo "$OUT_C" >&2
+  exit 1
+fi
+echo "test: RED-C on planted Row 10 back-reference multiplier (expected, exit=$RC_C)"
 
 echo "test: PASS"

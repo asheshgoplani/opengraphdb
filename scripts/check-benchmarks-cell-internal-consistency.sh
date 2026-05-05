@@ -28,6 +28,16 @@
 #      ref ÷ operand ≈ N within 10 %. Operand-not-in-headline catches
 #      F03 directly (1.88 μs not in [1.28, 1.34, 1.62]); the divide-cleanly
 #      check catches the converse (right operand, wrong multiplier).
+#   C. Within a single § 2 verdict cell, any back-reference of the form
+#         "<N>× ratio|multiplier|speedup|advantage|figure" or
+#         "headline <N>× …"
+#      must equal one of the cell's primary multipliers (those captured by
+#      "<N>× faster|under|behind|over|above|below"). Catches the cycle-29
+#      partial-sweep where cycle-28 corrected the headline ratio
+#      (91 000× → 128 000×) but missed the back-reference "the headline
+#      91 000× ratio" inside the same cell — the kind of partial-sweep this
+#      gate is built to close, but invisible to CHECK B because the back-ref
+#      lacks a matching ref-unit operand within the regex's window.
 set -euo pipefail
 
 if ! command -v python3 >/dev/null 2>&1; then
@@ -207,6 +217,59 @@ for num, row in rows.items():
                 f'is not present in § 2 row {num} OGDB cell '
                 f'(headline values: {cell_summary}). '
                 f'Verdict math is grounded on a stale or out-of-row value.'
+            )
+
+# ---------- CHECK C: verdict back-reference multiplier consistency ----------
+# Pattern: a back-reference of the form "<N>× ratio|multiplier|speedup|advantage|figure"
+# (or the prefix variant "headline <N>×") inside a verdict cell must equal
+# one of the cell's primary "<N>× faster|under|behind|over|above|below"
+# multipliers. Closes the cycle-29 partial-sweep gap (stale "headline 91 000×
+# ratio" left behind after cycle-28 corrected the headline to 128 000×).
+PRIMARY_MULT_PATTERN = re.compile(
+    r'(\d{1,3}(?:[ ,]\d{3})*(?:\.\d+)?)\s*[×x]'
+    r'\s+(?:faster|under|behind|over|above|below|slower)\b'
+)
+BACKREF_MULT_PATTERN = re.compile(
+    r'(\d{1,3}(?:[ ,]\d{3})*(?:\.\d+)?)\s*[×x]'
+    r'\s+(?:ratio|multiplier|speedup|advantage|figure|headline)\b'
+    r'|'
+    r'\bheadline\s+(\d{1,3}(?:[ ,]\d{3})*(?:\.\d+)?)\s*[×x]'
+)
+
+def _parse_mult(s):
+    return float(s.replace(' ', '').replace(',', ''))
+
+for num, row in rows.items():
+    verdict = row['verdict']
+    primary_mults = []
+    for m in PRIMARY_MULT_PATTERN.finditer(verdict):
+        try:
+            primary_mults.append(_parse_mult(m.group(1)))
+        except ValueError:
+            continue
+    if not primary_mults:
+        continue
+    seen_backrefs = set()
+    for m in BACKREF_MULT_PATTERN.finditer(verdict):
+        mstr = m.group(1) or m.group(2)
+        if not mstr:
+            continue
+        key = mstr.replace(' ', '').replace(',', '')
+        if key in seen_backrefs:
+            continue
+        seen_backrefs.add(key)
+        try:
+            mult = _parse_mult(mstr)
+        except ValueError:
+            continue
+        if not any(abs(pm - mult) <= max(abs(pm) * 0.02, 1.0) for pm in primary_mults):
+            primaries_fmt = sorted({int(pm) if pm.is_integer() else pm for pm in primary_mults})
+            errors.append(
+                f'Row {num} verdict: back-reference multiplier "{mstr}×" '
+                f'does not match any primary multiplier in the same cell '
+                f'(primaries: {primaries_fmt}). '
+                f'Looks like a stale partial-sweep — the headline was updated '
+                f'but the back-reference was not.'
             )
 
 if errors:
