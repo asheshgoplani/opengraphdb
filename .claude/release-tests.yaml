@@ -661,3 +661,12 @@ tests:
     command: "bash scripts/test-install-end-to-end.sh"
     purpose: "Closes coverage-audit-2026-05-05 §3 + §7 HIGH (no e2e test for `curl install.sh | sh` on a clean machine). Runs install.sh against a sandboxed $HOME with curl mocked to serve a tarball wrapping the locally-built ogdb binary, then asserts (a) ogdb installs at $HOME/.local/bin/ogdb and is executable, (b) demo.ogdb is created at $HOME/.ogdb/demo.ogdb (cycle-18 path), and (c) `ogdb --version` matches workspace.package.version. Sibling of install-sh-asset-url-template above (which only covers detect_target's URL table; this one covers the actual install + demo bootstrap pipeline)."
     added: 2026-05-05
+
+  - id: cli-e2e-subcommands
+    task: feat-extra-polish-cli-e2e-backfill
+    crate: ogdb-cli
+    test: cli_e2e_subcommands
+    function: [info_subcommand_reports_node_and_edge_counts, stats_subcommand_reports_degree_metrics_on_empty_db, metrics_subcommand_reports_storage_counters, checkpoint_subcommand_succeeds_on_fresh_db, backup_subcommand_writes_destination_file, migrate_subcommand_applies_migration_script, create_node_subcommand_emits_node_id, add_edge_subcommand_emits_edge_id_after_node_creation, neighbors_subcommand_lists_outgoing_targets, incoming_subcommand_lists_incoming_sources, hop_subcommand_traverses_outgoing_edges, hop_in_subcommand_traverses_incoming_edges, shell_subcommand_executes_commands_flag_non_interactively]
+    command: "cargo test -p ogdb-cli --test cli_e2e_subcommands -- --test-threads=1"
+    purpose: "Closes coverage-audit-2026-05-05 §2 deferred HIGH — 13 of 24 CLI subcommands (info, stats, metrics, checkpoint, backup, migrate, create-node, add-edge, neighbors, incoming, hop, hop-in, shell) had no subprocess-level integration test, only in-process `lib.rs::tests` and a presence check in readme_cli_listing. Each test now spawns the real `ogdb` binary via CARGO_BIN_EXE_ogdb against a tempdir database, seeds a 3-node graph for traversal cases (0->1, 0->2), and asserts exit-0 + a meaningful stdout substring (node_count=, edge_id=0, reachable_count=2, etc) proving the command reached the storage layer end-to-end."
+    added: 2026-05-05
