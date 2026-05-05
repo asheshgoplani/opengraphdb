@@ -110,6 +110,12 @@ source "$HOME/.cargo/env"
 # EVAL-DOCS-COMPLETENESS-CYCLE18 F01: meta-test for the install-demo-path
 # gate above (red-green: matching paths pass, ~/.opengraphdb-vs-~/.ogdb drift fails).
 ./scripts/test-check-install-demo-path-matches.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE19 F01/F02/F03: meta-test for the widened
+# `.opengraphdb` scan added to the install-demo-path gate. Asserts stale
+# tokens in init_agent.rs / skill bundle scripts / skill bundle references
+# trip the gate, while the legit `mcp.opengraphdb.<tool>` API namespace +
+# `mcpServers.opengraphdb` jq config-key path remain exempt.
+./scripts/test-check-opengraphdb-path-coherence.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE18 F03: shipped *.md must not teach
 # `ogdb init --agent <bareword>` — `--agent` is a SetTrue boolean, the agent id
 # is selected by `--agent-id <ID>` (crates/ogdb-cli/src/lib.rs:227-246). A

@@ -13,19 +13,19 @@ curl -s http://127.0.0.1:8765/health
 If `/health` returns nothing, the server is not up. Start it:
 
 ```bash
-ogdb serve --http --port 8765 ~/.opengraphdb/demo.ogdb &
+ogdb serve --http --port 8765 ~/.ogdb/demo.ogdb &
 ```
 
 ## 2. Sanity: is the MCP plumbing alive?
 
 ```bash
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | \
-  ogdb mcp --stdio ~/.opengraphdb/demo.ogdb
+  ogdb mcp --stdio ~/.ogdb/demo.ogdb
 ```
 
 You should see a JSON-RPC response listing 20 tools. If you see a parse
 error, the database file is corrupt or the wrong version — try
-`ogdb info ~/.opengraphdb/demo.ogdb` to see the format version.
+`ogdb info ~/.ogdb/demo.ogdb` to see the format version.
 
 ## 3. "Cypher parse error: unexpected token X"
 
@@ -51,13 +51,13 @@ if (!s.labels.includes("Person")) {
 OGDB is single-writer. If you see this:
 
 1. Stop other writers (other `ogdb serve` / `ogdb shell` processes).
-2. `ogdb checkpoint ~/.opengraphdb/demo.ogdb` to flush the WAL.
+2. `ogdb checkpoint ~/.ogdb/demo.ogdb` to flush the WAL.
 3. Re-try the write.
 
 ## 6. Slow query on a "small" graph
 
 ```bash
-ogdb stats ~/.opengraphdb/demo.ogdb
+ogdb stats ~/.ogdb/demo.ogdb
 # if a label has > 100k nodes and no index on the filter property:
 ogdb query <db> "CREATE INDEX FOR (n:Label) ON (n.prop)"
 ```

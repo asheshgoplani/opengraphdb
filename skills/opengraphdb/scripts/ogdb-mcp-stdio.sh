@@ -6,7 +6,7 @@
 # stdin/stdout owns the JSON-RPC stream.
 set -eu
 
-OGDB_DB="${OGDB_DB:-$HOME/.opengraphdb/demo.ogdb}"
+OGDB_DB="${OGDB_DB:-$HOME/.ogdb/demo.ogdb}"
 
 if [ ! -f "$OGDB_DB" ]; then
   if command -v ogdb >/dev/null 2>&1; then

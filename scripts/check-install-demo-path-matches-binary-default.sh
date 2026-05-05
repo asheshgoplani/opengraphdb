@@ -68,5 +68,36 @@ if [[ "$INSTALL_DIR" != "$BINARY_DIR" ]]; then
   exit 1
 fi
 
-echo "check-install-demo-path-matches-binary-default: ok (install.sh OGDB_HOME=\$HOME/$INSTALL_DIR == binary default \$HOME/$BINARY_DIR/demo.ogdb)"
+# EVAL-DOCS-COMPLETENESS-CYCLE19 F01/F02/F03: cycle-18's path bump
+# (~/.opengraphdb → ~/.ogdb in install.sh + lib.rs::default_demo_db_path)
+# missed three parallel surfaces — `init_agent.rs::resolve_db_path` /
+# `start_http_server` log dir / `install_aider_skill` (F01); the skill
+# bundle wrapper scripts deposited verbatim onto user systems via
+# include_dir! (F02); and the agent-facing skill bundle reference docs
+# (F03). The narrow install.sh ↔ lib.rs check above passes for those
+# surfaces because it never inspects them. Widen the gate to scan the
+# F01/F02/F03 surfaces for any stale `.opengraphdb` token, exempting
+# the legit `mcp.opengraphdb.*` API namespace + `mcpServers.opengraphdb`
+# jq config path — both of which are NOT filesystem paths.
+TARGETS=(
+  "$ROOT/crates/ogdb-cli/src/init_agent.rs"
+  "$ROOT/skills/opengraphdb/scripts"
+  "$ROOT/skills/opengraphdb/references"
+)
+STALE_HITS=$(grep -RnE '\.opengraphdb' "${TARGETS[@]}" 2>/dev/null \
+  | grep -vE 'mcp\.opengraphdb\.[a-zA-Z_]' \
+  | grep -vE 'mcpServers\.opengraphdb' \
+  || true)
+
+if [[ -n "$STALE_HITS" ]]; then
+  echo "ERROR: stale '.opengraphdb' references in init_agent.rs / skill bundle scripts / skill bundle references (cycle-19 F01/F02/F03 surfaces):" >&2
+  echo "$STALE_HITS" >&2
+  echo "" >&2
+  echo "These surfaces back the standalone 'ogdb init --agent' workflow + the deposited skill bundle." >&2
+  echo "After cycle-18's ~/.opengraphdb → ~/.ogdb bump, every filesystem-path reference in these files must use ~/.ogdb." >&2
+  echo "Exemptions: 'mcp.opengraphdb.<tool>' (API namespace) and 'mcpServers.opengraphdb' (jq config key)." >&2
+  exit 1
+fi
+
+echo "check-install-demo-path-matches-binary-default: ok (install.sh OGDB_HOME=\$HOME/$INSTALL_DIR == binary default \$HOME/$BINARY_DIR/demo.ogdb; init_agent.rs + skill bundle clean)"
 exit 0

@@ -3,12 +3,12 @@
 #
 # If the configured port is already serving an OGDB endpoint we just print
 # the URL and exit. Otherwise we spawn a background server and write its
-# stdout/stderr to ~/.opengraphdb/server.log.
+# stdout/stderr to ~/.ogdb/server.log.
 set -eu
 
-OGDB_DB="${OGDB_DB:-$HOME/.opengraphdb/demo.ogdb}"
+OGDB_DB="${OGDB_DB:-$HOME/.ogdb/demo.ogdb}"
 OGDB_PORT="${OGDB_PORT:-8765}"
-OGDB_LOG_DIR="${OGDB_LOG_DIR:-$HOME/.opengraphdb}"
+OGDB_LOG_DIR="${OGDB_LOG_DIR:-$HOME/.ogdb}"
 
 mkdir -p "$OGDB_LOG_DIR"
 

@@ -32,7 +32,7 @@ static SKILL_BUNDLE: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../skills/op
 #[derive(Debug, Clone, Default)]
 pub struct InitAgentOpts {
     /// Database path to expose to the agent. Defaults to
-    /// `$HOME/.opengraphdb/demo.ogdb`.
+    /// `$HOME/.ogdb/demo.ogdb`.
     pub db: Option<String>,
     /// Configure every detected agent rather than just the first match.
     pub all: bool,
@@ -231,7 +231,7 @@ fn resolve_db_path(db: Option<String>) -> Result<PathBuf, String> {
         return Ok(PathBuf::from(d));
     }
     let mut p = home_dir()?;
-    p.push(".opengraphdb");
+    p.push(".ogdb");
     p.push("demo.ogdb");
     Ok(p)
 }
@@ -271,7 +271,7 @@ fn start_http_server(db_path: &Path, port: u16) -> Result<(), String> {
     if port_in_use(port) {
         return Ok(()); // assume an OGDB instance is already running
     }
-    let log_dir = home_dir()?.join(".opengraphdb");
+    let log_dir = home_dir()?.join(".ogdb");
     fs::create_dir_all(&log_dir).map_err(|e| format!("create {}: {e}", log_dir.display()))?;
     let log_path = log_dir.join("server.log");
     let log = fs::OpenOptions::new()
@@ -451,7 +451,7 @@ fn register_aider_mcp(_db: &Path, _opts: &InitAgentOpts) -> Result<String, Strin
 }
 
 fn install_aider_skill(opts: &InitAgentOpts) -> Result<(String, Option<String>), String> {
-    let skill_path = home_dir()?.join(".opengraphdb").join("skill.md");
+    let skill_path = home_dir()?.join(".ogdb").join("skill.md");
     if let Some(parent) = skill_path.parent() {
         fs::create_dir_all(parent).map_err(|e| format!("create {}: {e}", parent.display()))?;
     }

@@ -28,7 +28,7 @@ const result = await mcp.opengraphdb.execute_cypher({
 
 ```bash
 # step 1: import a folder of markdown into Doc nodes
-ogdb import ~/.opengraphdb/demo.ogdb ./docs/ --format markdown-folder \
+ogdb import ~/.ogdb/demo.ogdb ./docs/ --format markdown-folder \
   --label Doc --prop-id path
 
 # step 2: extract entities (via your LLM) and link them
@@ -71,7 +71,7 @@ RETURN node_id, prop, before, after LIMIT 100;
 ## 6. Bulk import CSV
 
 ```bash
-ogdb import ~/.opengraphdb/demo.ogdb people.csv \
+ogdb import ~/.ogdb/demo.ogdb people.csv \
   --batch-size 10000 \
   --continue-on-error
 ```
@@ -83,7 +83,7 @@ CSV format: first row = column headers, special columns `:LABEL`, `:ID`,
 ## 7. SHACL validation
 
 ```bash
-ogdb validate-shacl ~/.opengraphdb/demo.ogdb shapes.ttl
+ogdb validate-shacl ~/.ogdb/demo.ogdb shapes.ttl
 # exits 0 if valid; otherwise prints a violation report
 ```
 
@@ -106,7 +106,7 @@ console.log(`Δ nodes: ${after.node_count - before.node_count}`);
 # the HTTP server bundled with `ogdb init --agent` already serves the SPA
 open http://127.0.0.1:8765/
 # OR start it manually
-ogdb serve --http --port 8080 ~/.opengraphdb/demo.ogdb
+ogdb serve --http --port 8080 ~/.ogdb/demo.ogdb
 ```
 
 ## 10. Embed in a Rust app (no MCP, no HTTP)
