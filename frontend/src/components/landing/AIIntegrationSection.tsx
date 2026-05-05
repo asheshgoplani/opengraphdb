@@ -61,11 +61,11 @@ for hit in vector_hits + text_hits:
 `
 
 const COSMOS_MCP = `import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { OgdbClient } from "opengraphdb"
-import { renderGraphPng } from "./cosmos-renderer.js"
+import { OpenGraphDBClient } from "@opengraphdb/mcp"
+import { renderGraphPng, rowsToGraph } from "./cosmos-renderer.js"
 
 const server = new McpServer({ name: "cosmos-graph-viz", version: "0.1.0" })
-const db = new OgdbClient({ url: "http://localhost:7878" })
+const db = new OpenGraphDBClient("http://localhost:8080")
 
 server.tool(
   "render_graph",
@@ -75,7 +75,8 @@ server.tool(
     width: { type: "number", default: 1280 },
   },
   async ({ cypher, width }) => {
-    const { nodes, edges } = await db.query(cypher)
+    const { columns, rows } = await db.query(cypher)
+    const { nodes, edges } = rowsToGraph(columns, rows)
     const png = await renderGraphPng({ nodes, edges, width })
     return {
       content: [

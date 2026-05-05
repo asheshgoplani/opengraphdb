@@ -101,6 +101,16 @@ source "$HOME/.cargo/env"
 # `db.insert_node(…)` (binding name is `create_node`), and
 # `db.rag_hybrid_search(…)` (HTTP-only) — each shipped to the Copy button.
 ./scripts/check-frontend-python-api-surface.sh
+# EVAL-FRONTEND-CYCLE31 HIGH-1 + HIGH-2 + HIGH-3: Node / TypeScript-surface
+# mirror of the above. Closes the three sibling axes the cycle-30 regex cannot
+# see — `import { Sym } from "opengraphdb" | "@opengraphdb/mcp"` (must be a real
+# export), `new <Class>(arg)` (ctor arg shape: positional string, not object),
+# and `const { ... } = await? id.query(...)` (must destructure the real
+# {columns, rows} return shape, not a fabricated {nodes, edges}). Caught the
+# AIIntegrationSection COSMOS_MCP marketing snippet that fabricated
+# `OgdbClient` + `{ url }` + `{ nodes, edges }` — three axes shipped to
+# the Copy button.
+./scripts/check-frontend-node-api-surface.sh
 
 # C2-A7 (HIGH): npm package version must match workspace version.
 ./scripts/check-npm-version.sh
@@ -186,6 +196,8 @@ source "$HOME/.cargo/env"
 ./scripts/test-check-frontend-bash-blocks.sh
 # EVAL-FRONTEND-CYCLE30 HIGH-1 + HIGH-2: meta-test for check-frontend-python-api-surface.sh.
 ./scripts/test-check-frontend-python-api-surface.sh
+# EVAL-FRONTEND-CYCLE31 HIGH-1 + HIGH-2 + HIGH-3: meta-test for check-frontend-node-api-surface.sh.
+./scripts/test-check-frontend-node-api-surface.sh
 ./scripts/test-check-binary-name.sh
 ./scripts/test-check-npm-version.sh
 ./scripts/test-check-pypi-version.sh
