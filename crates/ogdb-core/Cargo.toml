@@ -31,13 +31,13 @@ workspace = true
 # C2-A1: every intra-workspace path-dep on a publishable crate must declare a
 # `version` so `cargo publish` can resolve the dep after the local checkout is
 # gone. Path stays for local dev; version is what crates.io uses.
-ogdb-vector = { path = "../ogdb-vector", version = "0.4.0" }
-ogdb-algorithms = { path = "../ogdb-algorithms", version = "0.4.0" }
-ogdb-text = { path = "../ogdb-text", version = "0.4.0" }
-ogdb-temporal = { path = "../ogdb-temporal", version = "0.4.0" }
-ogdb-types = { path = "../ogdb-types", version = "0.4.0" }
-ogdb-import = { path = "../ogdb-import", version = "0.4.0", default-features = false }
-ogdb-export = { path = "../ogdb-export", version = "0.4.0" }
+ogdb-vector = { path = "../ogdb-vector", version = "0.5.1" }
+ogdb-algorithms = { path = "../ogdb-algorithms", version = "0.5.1" }
+ogdb-text = { path = "../ogdb-text", version = "0.5.1" }
+ogdb-temporal = { path = "../ogdb-temporal", version = "0.5.1" }
+ogdb-types = { path = "../ogdb-types", version = "0.5.1" }
+ogdb-import = { path = "../ogdb-import", version = "0.5.1", default-features = false }
+ogdb-export = { path = "../ogdb-export", version = "0.5.1" }
 lz4_flex = "0.11.6"
 instant-distance = { version = "0.6.1", optional = true }
 roaring = "0.10"

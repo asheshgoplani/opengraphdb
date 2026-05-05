@@ -14,7 +14,7 @@ keywords = ["graph", "database", "opengraphdb", "property", "types"]
 categories = ["data-structures", "database"]
 
 [dependencies]
-ogdb-vector = { path = "../ogdb-vector", version = "0.4.0" }
+ogdb-vector = { path = "../ogdb-vector", version = "0.5.1" }
 serde.workspace = true
 serde_json.workspace = true
 

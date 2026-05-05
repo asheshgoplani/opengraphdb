@@ -24,6 +24,20 @@ OpenGraphDB is what should exist in the embeddable graph-database slot. Neo4j is
 
 ## Quickstart
 
+### Install (one line)
+
+```bash
+# Latest release (linux x86_64/aarch64, macOS x86_64/aarch64, windows x86_64)
+curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/latest/download/install.sh | sh
+
+# Or pin a specific version
+OGDB_VERSION=v0.5.1 curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/download/v0.5.1/install.sh | sh
+```
+
+The installer downloads the right prebuilt binary for your OS + arch from the GitHub release assets, drops it at `~/.local/bin/ogdb` (or `/usr/local/bin/ogdb` if writeable), seeds a demo database at `~/.opengraphdb/demo.ogdb`, and wires `ogdb` into your coding agent (MCP + skill bundle) in one shot.
+
+### Or build from source
+
 ```bash
 # 1. Build (one-time)
 cargo build --release -p ogdb-cli

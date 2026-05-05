@@ -23,8 +23,8 @@ node = ["dep:napi", "dep:napi-derive", "dep:napi-build"]
 
 [dependencies]
 # C2-A1: version pins required for `cargo publish`.
-ogdb-core = { path = "../ogdb-core", version = "0.4.0" }
-ogdb-cli = { path = "../ogdb-cli", version = "0.4.0" }
+ogdb-core = { path = "../ogdb-core", version = "0.5.1" }
+ogdb-cli = { path = "../ogdb-cli", version = "0.5.1" }
 napi = { version = "2", optional = true, default-features = false, features = ["napi6", "serde-json"] }
 napi-derive = { version = "2", optional = true }
 serde_json.workspace = true

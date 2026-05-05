@@ -204,14 +204,24 @@ jobs:
           path: dist
           merge-multiple: true
 
+      # v0.5.1 fix: stage `scripts/install.sh` into `dist/` so the release
+      # asset bundle includes it. The README + docs publish a `curl ...
+      # releases/download/<tag>/install.sh` URL; without this step the
+      # release page only hosts the binary tarballs and that URL 404s
+      # (real-user E2E test against v0.5.0, Phase C).
+      - name: Stage install.sh as a release asset
+        run: cp scripts/install.sh dist/install.sh
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           # C2-B2: SHA256SUMS.txt is downloaded with the artifacts above
-          # via merge-multiple, so the glob picks it up.
+          # via merge-multiple, so the glob picks it up. install.sh is
+          # staged from the checked-out tree by the step above.
           files: |
             dist/ogdb-*
             dist/SHA256SUMS.txt
+            dist/install.sh
           generate_release_notes: true
           # C2-B1 (HIGH): always publish as draft so a bad RC doesn't
           # auto-promote and hide the previous "Latest" release. Detect

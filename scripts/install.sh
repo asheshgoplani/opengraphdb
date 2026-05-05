@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 # OpenGraphDB one-line installer.
-#   curl -fsSL https://opengraphdb.com/install.sh | sh
+#   curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/latest/download/install.sh | sh
 #
-# Detects OS + arch (Linux/macOS/Windows-WSL/cygwin/msys, x86_64/aarch64/arm64),
+# Detects OS + arch (Linux/macOS/Windows-msys/cygwin, x86_64/aarch64/arm64),
 # downloads the matching prebuilt binary from GitHub Releases, installs it to
 # ~/.local/bin/ogdb (or /usr/local/bin/ogdb if writeable), and runs
 # `ogdb init --agent` so the user's coding agent is wired up in one shot.
@@ -27,21 +27,39 @@ need()  { command -v "$1" >/dev/null 2>&1 || { c_red "missing required tool: $1"
 need uname
 
 detect_target() {
+  # Release artefact names are produced by `scripts/release.sh` and follow
+  # `ogdb-<version>-<rust-target-triple>.{tar.xz,zip}` (matching the rustc
+  # target triples in `.github/workflows/release.yml::build.matrix`). Keep
+  # this table in sync with that matrix; otherwise the curl below 404s.
   os=$(uname -s | tr '[:upper:]' '[:lower:]')
   arch=$(uname -m)
-  ext="tar.gz"
   case "$os" in
-    linux*)                     os_id="linux";   ext="tar.gz" ;;
-    darwin*)                    os_id="macos";   ext="tar.gz" ;;
-    msys*|mingw*|cygwin*)       os_id="windows"; ext="zip" ;;
+    linux*)
+      case "$arch" in
+        x86_64|amd64)         target="x86_64-unknown-linux-gnu"  ;;
+        aarch64|arm64)        target="aarch64-unknown-linux-gnu" ;;
+        *) c_red "unsupported linux arch: $arch"; exit 1 ;;
+      esac
+      ext="tar.xz"
+      ;;
+    darwin*)
+      case "$arch" in
+        x86_64|amd64)         target="x86_64-apple-darwin"  ;;
+        aarch64|arm64)        target="aarch64-apple-darwin" ;;
+        *) c_red "unsupported darwin arch: $arch"; exit 1 ;;
+      esac
+      ext="tar.xz"
+      ;;
+    msys*|mingw*|cygwin*)
+      case "$arch" in
+        x86_64|amd64)         target="x86_64-pc-windows-msvc" ;;
+        *) c_red "unsupported windows arch: $arch"; exit 1 ;;
+      esac
+      ext="zip"
+      ;;
     *) c_red "unsupported os: $os"; exit 1 ;;
   esac
-  case "$arch" in
-    x86_64|amd64)               arch_id="x86_64" ;;
-    aarch64|arm64)              arch_id="arm64" ;;
-    *) c_red "unsupported arch: $arch"; exit 1 ;;
-  esac
-  printf '%s-%s.%s' "$os_id" "$arch_id" "$ext"
+  printf '%s|%s' "$target" "$ext"
 }
 
 pick_bin_dir() {
@@ -54,10 +72,53 @@ pick_bin_dir() {
   printf '%s' "$HOME/.local/bin"
 }
 
+# Resolve the literal version string from "latest" → "0.5.1" so downstream
+# asset URLs interpolate to `ogdb-0.5.1-<target>.<ext>`. Without this the
+# `releases/latest/download/...` redirect form ships the asset under its
+# real name at the redirect target — but the local `mktemp` path uses the
+# templated name, and the extract step needs the resolved version too. We
+# resolve once, up front, and use the same string everywhere.
+resolve_version() {
+  if [ "$OGDB_VERSION" != "latest" ]; then
+    # strip optional leading 'v' so callers can pass either v0.5.1 or 0.5.1
+    case "$OGDB_VERSION" in
+      v*) printf '%s' "${OGDB_VERSION#v}" ;;
+      *)  printf '%s' "$OGDB_VERSION"      ;;
+    esac
+    return
+  fi
+  if command -v gh >/dev/null 2>&1; then
+    tag=$(gh api "repos/${OGDB_REPO}/releases/latest" -q .tag_name 2>/dev/null || true)
+  else
+    tag=""
+  fi
+  if [ -z "$tag" ]; then
+    # Fallback to the public GitHub API when `gh` is unavailable. The
+    # API returns JSON; grep + sed extracts `"tag_name": "v0.5.1"` →
+    # `v0.5.1` without needing jq.
+    api_url="https://api.github.com/repos/${OGDB_REPO}/releases/latest"
+    if command -v curl >/dev/null 2>&1; then
+      tag=$(curl --fail -sSL "$api_url" 2>/dev/null \
+        | grep -E '"tag_name"' | head -n1 | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || true)
+    elif command -v wget >/dev/null 2>&1; then
+      tag=$(wget -qO- "$api_url" 2>/dev/null \
+        | grep -E '"tag_name"' | head -n1 | sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/' || true)
+    fi
+  fi
+  if [ -z "$tag" ]; then
+    c_red "could not resolve latest release tag for ${OGDB_REPO}; set OGDB_VERSION=v0.5.1 (or similar) to bypass"
+    exit 1
+  fi
+  printf '%s' "${tag#v}"
+}
+
 download() {
   url="$1"; dest="$2"
+  # --fail makes curl exit non-zero on HTTP >= 400 (otherwise a 404 body
+  # gets written to disk and the script proceeds as if the download
+  # succeeded — exactly the silent-success bug the v0.5.0 install hit).
   if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o "$dest"
+    curl --fail -sSL "$url" -o "$dest"
   elif command -v wget >/dev/null 2>&1; then
     wget -qO "$dest" "$url"
   else
@@ -70,13 +131,12 @@ install_binary() {
     c_yel "ogdb already on PATH ($(command -v ogdb)) — skipping download. (set OGDB_VERSION=x.y.z or OGDB_FORCE_REINSTALL=1 to override.)"
     return
   fi
-  asset_suffix=$(detect_target)
-  asset_name="ogdb-${asset_suffix}"
-  if [ "$OGDB_VERSION" = "latest" ]; then
-    url="https://github.com/${OGDB_REPO}/releases/latest/download/${asset_name}"
-  else
-    url="https://github.com/${OGDB_REPO}/releases/download/${OGDB_VERSION}/${asset_name}"
-  fi
+  resolved_version=$(resolve_version)
+  triple_ext=$(detect_target)
+  target=${triple_ext%|*}
+  ext=${triple_ext#*|}
+  asset_name="ogdb-${resolved_version}-${target}.${ext}"
+  url="https://github.com/${OGDB_REPO}/releases/download/v${resolved_version}/${asset_name}"
 
   bin_dir=$(pick_bin_dir)
   mkdir -p "$bin_dir"
@@ -84,11 +144,16 @@ install_binary() {
   trap 'rm -rf "$tmp"' EXIT
 
   c_grn "downloading $url"
-  download "$url" "$tmp/$asset_name"
+  if ! download "$url" "$tmp/$asset_name"; then
+    c_red "download failed: $url"
+    exit 1
+  fi
 
   case "$asset_name" in
+    *.tar.xz) need tar; tar -xJf "$tmp/$asset_name" -C "$tmp" ;;
     *.tar.gz) need tar; tar -xzf "$tmp/$asset_name" -C "$tmp" ;;
     *.zip)    need unzip; unzip -q "$tmp/$asset_name" -d "$tmp" ;;
+    *) c_red "unrecognised archive extension: $asset_name"; exit 1 ;;
   esac
 
   bin_src=$(find "$tmp" -maxdepth 3 -type f \( -name 'ogdb' -o -name 'ogdb.exe' \) | head -n1)
@@ -104,7 +169,7 @@ install_binary() {
     *":$bin_dir:"*) ;;
     *) c_yel "  add \"$bin_dir\" to your PATH (or restart your shell)"; export PATH="$bin_dir:$PATH" ;;
   esac
-  c_grn "installed $bin_dir/$bin_name"
+  c_grn "installed $bin_dir/$bin_name (v${resolved_version})"
 }
 
 bootstrap_demo() {

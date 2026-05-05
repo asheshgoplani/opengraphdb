@@ -7,6 +7,14 @@ Versioning follows Semantic Versioning.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-05-05
+
+### Fixed
+- `scripts/install.sh` asset-name template was wrong: produced `ogdb-linux-x86_64.tar.gz` instead of the actual release artifact `ogdb-<version>-<rust-target-triple>.tar.xz` (or `.zip` on Windows). Real-user E2E test against published `v0.5.0` (`/tmp/real-user-test-report.md` Phase C) failed with curl 404. Fix: `detect_target()` now emits the correct rust-target triples (`x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`) and extensions (`tar.xz` for linux+macos, `zip` for windows). `OGDB_VERSION=latest` now resolves to the actual tag via `gh api repos/.../releases/latest -q .tag_name` (or the GitHub HTTP API as a fallback) BEFORE interpolating the asset URL. Extract path now uses `tar -xJf` for `.tar.xz` and `unzip` for `.zip`.
+- `scripts/install.sh` no longer swallows curl 404 errors. Switched download function to `curl --fail -L` and explicit exit-code check so a missing release asset surfaces as `exit 1` instead of silent success.
+- `.github/workflows/release.yml` now uploads `scripts/install.sh` as a release asset, so the documented `curl https://github.com/.../releases/download/<tag>/install.sh` URL resolves (was returning 404 — README pointed at a path that did not exist on the releases page).
+- `README.md` install command updated to use the working release-asset URL pattern (or pinning to a specific tag via `OGDB_VERSION=v0.5.1`).
+
 ### Added
 - `ogdb demo <path>` subcommand seeds a fresh database with the canonical movies / social / fraud demo datasets (commits `0ae8463` / `375198b`); paired with an `EmptyDbOverlay` React dialog in the SPA so a fresh `ogdb serve --http` instance offers one-click sample data instead of an empty graph. Closes the cycle-3 docs eval §C3-H2 workflow gap (`AGENTS.md:13` requires every merged change land an `[Unreleased]` bullet).
 - AMBER-TERMINAL palette + motion + a11y foundations promoted across the SPA (S1 + S1-V2 of `.planning/frontend-overhaul/PLAN.md`, commits `60e657a` / `a31bbbf`): warm-amber light + dark tokens in `frontend/src/index.css`, sweeps the AppShell / HeroSection / SampleQueryPanel / RDFDropzone / Header / DisconnectedState / AppBackdrop / PlaygroundPage chrome off the old `hsl(240, ...)` cosmos-navy literals onto `bg-background` / `bg-card` tokens, and adds an `e2e/palette-amber.spec.ts` gate (5 asserts including a hero-bg warm-channel check) so the palette can't regress to indigo-on-navy. Data-viz `LABEL_PALETTE` / `EDGE_PALETTE` hues left untouched.
