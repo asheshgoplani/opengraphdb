@@ -1,5 +1,23 @@
 #!/usr/bin/env node
 
+// Public library re-exports — keeps `import { OpenGraphDBClient } from "@opengraphdb/mcp"`
+// (and its companion type interfaces) working for downstream consumers,
+// matching the shape the marketing snippet in
+// frontend/src/components/landing/AIIntegrationSection.tsx promises.
+// EVAL-FRONTEND-CYCLE32 BLOCKER-1.
+export { OpenGraphDBClient } from "./client.js";
+export type {
+  CommunitySummaryResponse,
+  DrillResultResponse,
+  EnrichedRagResultResponse,
+  IngestResultResponse,
+  SchemaResponse,
+  MetricsResponse,
+  QueryResponse,
+} from "./client.js";
+
+import { fileURLToPath } from "node:url";
+import { realpathSync } from "node:fs";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { OpenGraphDBClient } from "./client.js";
@@ -42,7 +60,29 @@ async function main(): Promise<void> {
   await server.connect(transport);
 }
 
-main().catch((error) => {
-  process.stderr.write(`Fatal: ${error}\n`);
-  process.exit(1);
-});
+// Run the stdio server only when this module is executed directly (e.g.
+// via the `opengraphdb-mcp` bin shim). A library import like
+// `import { OpenGraphDBClient } from "@opengraphdb/mcp"` must NOT hijack
+// the consumer's stdin/stdout. The realpath dance survives npm's bin
+// symlink (node_modules/.bin/opengraphdb-mcp → ../@opengraphdb/mcp/dist/index.js)
+// where Node resolves import.meta.url through realpath but leaves
+// process.argv[1] pointing at the symlink. EVAL-FRONTEND-CYCLE32 BLOCKER-1.
+function isDirectExecution(): boolean {
+  if (typeof process === "undefined" || !process.argv || !process.argv[1]) {
+    return false;
+  }
+  try {
+    return (
+      realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))
+    );
+  } catch {
+    return false;
+  }
+}
+
+if (isDirectExecution()) {
+  main().catch((error) => {
+    process.stderr.write(`Fatal: ${error}\n`);
+    process.exit(1);
+  });
+}

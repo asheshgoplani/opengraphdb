@@ -61,7 +61,9 @@ for hit in vector_hits + text_hits:
 `
 
 const COSMOS_MCP = `import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { OpenGraphDBClient } from "@opengraphdb/mcp"
+import { z } from "zod"
 import { renderGraphPng, rowsToGraph } from "./cosmos-renderer.js"
 
 const server = new McpServer({ name: "cosmos-graph-viz", version: "0.1.0" })
@@ -71,8 +73,8 @@ server.tool(
   "render_graph",
   "Execute a Cypher query and return the result as a PNG rendered via cosmos.gl",
   {
-    cypher: { type: "string" },
-    width: { type: "number", default: 1280 },
+    cypher: z.string(),
+    width: z.number().default(1280),
   },
   async ({ cypher, width }) => {
     const { columns, rows } = await db.query(cypher)
@@ -86,7 +88,8 @@ server.tool(
   },
 )
 
-await server.connect(process.stdin, process.stdout)
+const transport = new StdioServerTransport()
+await server.connect(transport)
 `
 
 // Cycle-2 docs eval C2-B2: the "multi-agent shared KG" pattern was removed.

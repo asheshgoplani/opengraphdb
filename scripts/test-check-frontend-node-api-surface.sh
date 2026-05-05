@@ -18,6 +18,12 @@
 #          (comment-strip carve-out is load-bearing — same as the
 #          python-api-surface gate).
 #   GREEN: broken import in `/* ... */` block comment must NOT trip.
+#   RED:   cycle-32 BLOCKER-1 — published-vs-source axis. With a fixture
+#          `mcp/src/index.ts` that does NOT re-export `OpenGraphDBClient`,
+#          a planted TSX importing it from `@opengraphdb/mcp` must fail.
+#          This is the cycle-32 case where a real source-tree class slips
+#          past the gate because it isn't actually on the published
+#          surface.
 #   RED:   dead-gate sentinel — TSX with no imports / no `new` / no
 #          query-destructures of the gated surfaces must fail with
 #          `scanned 0` to prevent silent green-by-default regressions.
@@ -53,6 +59,10 @@ mkdir -p \
   "$TMP/scripts"
 cp "$REPO_ROOT/crates/ogdb-node/index.d.ts" "$TMP/crates/ogdb-node/index.d.ts"
 cp "$REPO_ROOT/mcp/src/client.ts" "$TMP/mcp/src/client.ts"
+# Cycle-32 BLOCKER-1: gate now walks the published entry point
+# (mcp/src/index.ts) and follows its `export {…} from "./X.js"` re-exports
+# to find class definitions. Fixture must ship index.ts as well.
+cp "$REPO_ROOT/mcp/src/index.ts" "$TMP/mcp/src/index.ts"
 cp "$GATE" "$TMP/scripts/check-frontend-node-api-surface.sh"
 chmod +x "$TMP/scripts/check-frontend-node-api-surface.sh"
 
@@ -168,6 +178,47 @@ const { columns, rows } = await db.query("MATCH (n) RETURN n")
 export const Planted = () => SNIPPET
 TSX
 run_planted "GREEN block-comment carve-out" 0
+
+# --- RED: cycle-32 BLOCKER-1 — published-vs-source axis ---
+# Mutate the fixture entry to a *binary-only* version (the cycle-31
+# shape: zero `export` statements, just calls main() at top level) and
+# plant a frontend import of OpenGraphDBClient. The class still lives in
+# mcp/src/client.ts (and the cycle-31 gate would happily wave it through
+# on that basis), but it is no longer on the published surface — the
+# fixed gate must fail this.
+cat > "$TMP/mcp/src/index.ts" <<'TS'
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { OpenGraphDBClient } from "./client.js";
+async function main(): Promise<void> {
+  const _server = new McpServer({ name: "ogdb", version: "0.1.0" });
+  const _client = new OpenGraphDBClient("http://localhost:8080");
+}
+main().catch((error) => { process.stderr.write(`Fatal: ${error}\n`); process.exit(1); });
+TS
+cat > "$TMP/frontend/src/Planted.tsx" <<'TSX'
+const SNIPPET = `import { OpenGraphDBClient } from "@opengraphdb/mcp"
+const db = new OpenGraphDBClient("http://localhost:8080")
+const { columns, rows } = await db.query("MATCH (n) RETURN n")
+`
+export const Planted = () => SNIPPET
+TSX
+run_planted "RED CYCLE-32 BLOCKER-1 published-vs-source" 1
+# Restore the fixture's published entry for any downstream tests.
+cp "$REPO_ROOT/mcp/src/index.ts" "$TMP/mcp/src/index.ts"
+
+# --- GREEN: cycle-32 — once the entry re-exports OpenGraphDBClient (the
+# live fix), the same planted TSX must pass. This pins the published-vs-
+# source check as red-green: it fails when the class is missing, passes
+# when present. Without this leg, the previous RED case alone could pass
+# trivially because the entry file exists but is empty.
+cat > "$TMP/frontend/src/Planted.tsx" <<'TSX'
+const SNIPPET = `import { OpenGraphDBClient } from "@opengraphdb/mcp"
+const db = new OpenGraphDBClient("http://localhost:8080")
+const { columns, rows } = await db.query("MATCH (n) RETURN n")
+`
+export const Planted = () => SNIPPET
+TSX
+run_planted "GREEN CYCLE-32 published-vs-source after re-export" 0
 
 # --- RED: dead-gate sentinel — fixture without imports/new/destructs of
 # either gated package must fail with `scanned 0`. Mirror of the cycle-30

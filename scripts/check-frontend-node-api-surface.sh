@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # EVAL-FRONTEND-CYCLE31 HIGH-1 + HIGH-2 + HIGH-3 regression gate.
+# EVAL-FRONTEND-CYCLE32 HIGH-1 extension: published-vs-source surface check.
 #
 # Sibling of scripts/check-frontend-python-api-surface.sh. Where that gate
 # closes one axis of the marketing-leak class (`db.<method>(` against
@@ -10,7 +11,14 @@
 #
 #   1. IMPORT axis: every `import { <Sym>, ... } from "opengraphdb"` names
 #      a class/value exported by `crates/ogdb-node/index.d.ts`. Same for
-#      `from "@opengraphdb/mcp"` against `mcp/src/client.ts`.
+#      `from "@opengraphdb/mcp"` — but validated against the package's
+#      *published entry point* (`mcp/src/index.ts`), not against any
+#      internal source file. Cycle-32's BLOCKER-1 was a class that lived
+#      in `mcp/src/client.ts` but was never re-exported by the entry —
+#      cycle-31's gate happily rubber-stamped it because it parsed
+#      `client.ts` directly. The fix walks the entry's `export {…} from
+#      "./X.js"` re-exports (one hop is enough for this codebase) and
+#      treats only those names as importable.
 #   2. CONSTRUCTOR axis: every `new <Class>(<arg0>)` call where `<Class>`
 #      is one of those imported names is checked against the typed
 #      constructor. The two real classes both take a positional **string**
@@ -30,8 +38,12 @@
 # gate caught the `db.<method>(` axis only; cycle-31 found a snippet
 # fabricating an `OgdbClient` import + `{ url }` constructor +
 # `{ nodes, edges }` query return — three axes the cycle-30 regex cannot
-# see. This gate closes the remaining surface so the same class of bug
-# cannot reach the clipboard via a fourth snippet.
+# see. Cycle-32 found a fifth axis: a real symbol (`OpenGraphDBClient`)
+# imported from a real package (`@opengraphdb/mcp`) where the package's
+# entry point silently failed to re-export it — i.e., the symbol is real
+# in the source tree but fake on the published surface. This gate closes
+# the remaining surface so the same class of bug cannot reach the
+# clipboard via a sixth snippet.
 #
 # Dead-gate sentinel: if the scan visits zero imports / zero `new` calls /
 # zero destructures, fail loudly — same defensive shape as cycle-30.
@@ -45,7 +57,11 @@ fi
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 FRONTEND_SRC="$REPO_ROOT/frontend/src"
 NODE_DTS="$REPO_ROOT/crates/ogdb-node/index.d.ts"
-MCP_CLIENT_TS="$REPO_ROOT/mcp/src/client.ts"
+# Cycle-32 BLOCKER-1: the @opengraphdb/mcp package surface is rooted at
+# its published entry point (mcp/src/index.ts), NOT at any internal
+# source file. The gate walks index.ts re-exports to find the actual
+# class definitions; the legacy MCP_CLIENT_TS pointer is gone.
+MCP_INDEX_TS="$REPO_ROOT/mcp/src/index.ts"
 
 if [[ ! -d "$FRONTEND_SRC" ]]; then
   echo "[check-frontend-node-api-surface] no frontend/src at $FRONTEND_SRC; nothing to check." >&2
@@ -57,17 +73,17 @@ if [[ ! -f "$NODE_DTS" ]]; then
   exit 1
 fi
 
-if [[ ! -f "$MCP_CLIENT_TS" ]]; then
-  echo "[check-frontend-node-api-surface] no $MCP_CLIENT_TS; cannot validate." >&2
+if [[ ! -f "$MCP_INDEX_TS" ]]; then
+  echo "[check-frontend-node-api-surface] no $MCP_INDEX_TS; cannot validate." >&2
   exit 1
 fi
 
-python3 - "$FRONTEND_SRC" "$NODE_DTS" "$MCP_CLIENT_TS" <<'PY'
+python3 - "$FRONTEND_SRC" "$NODE_DTS" "$MCP_INDEX_TS" <<'PY'
 import os
 import re
 import sys
 
-frontend_src, node_dts, mcp_client_ts = sys.argv[1], sys.argv[2], sys.argv[3]
+frontend_src, node_dts, mcp_index_ts = sys.argv[1], sys.argv[2], sys.argv[3]
 
 
 # ---- Comment-stripping carve-out (mirror of the python-api-surface gate)
@@ -195,16 +211,127 @@ def load_node_surface(path):
     return classes
 
 
+def load_published_surface(entry_path):
+    """Walk the package's published entry point and collect:
+      - classes: {name: class_info} for every class actually re-exported
+        (or directly defined) by the entry file. Class info comes from
+        the file that defines the class (entry itself, or one hop away
+        via `export {…} from "./X.js"`).
+      - names: set of every name re-exported or directly exported by the
+        entry — class, interface, type, const, function alike. This is
+        the IMPORT-axis allowlist.
+
+    Cycle-32 BLOCKER-1: a class living in `mcp/src/client.ts` but never
+    re-exported by `mcp/src/index.ts` is NOT importable from the bare
+    `@opengraphdb/mcp` specifier. The cycle-31 gate parsed `client.ts`
+    directly and waved it through; this walker fails it.
+    """
+    text = open(entry_path).read()
+    src_dir = os.path.dirname(entry_path)
+    classes = {}
+    names = set()
+
+    # Pass 1: re-exports of the form `export {A, B as C, type D} from "./X.js"`
+    # and `export type {A, B} from "./X.js"`.
+    re_export_re = re.compile(
+        r'export\s+(?P<typeonly>type\s+)?\{(?P<names>[^}]+)\}\s*'
+        r'from\s*["\'](?P<src>\.[^"\']+)["\']'
+    )
+    for m in re_export_re.finditer(text):
+        names_blob = m.group('names')
+        rel_src = m.group('src')
+        # `./client.js` → `./client.ts` (we're reading TS source).
+        rel_src_ts = re.sub(r'\.js$', '.ts', rel_src)
+        target_full = os.path.normpath(os.path.join(src_dir, rel_src_ts))
+        target_classes = (
+            load_node_surface(target_full) if os.path.exists(target_full) else {}
+        )
+        for raw in names_blob.split(','):
+            raw = raw.strip()
+            if not raw:
+                continue
+            # `type Foo` inline modifier — strip.
+            inline_type_only = bool(re.match(r'^type\s+', raw))
+            raw = re.sub(r'^type\s+', '', raw).strip()
+            # `Foo as Bar` — local binding is Bar; external surface IS Bar
+            # (that's the name a consumer must `import { Bar }`).
+            if ' as ' in raw:
+                raw = raw.split(' as ', 1)[1].strip()
+            if not raw:
+                continue
+            names.add(raw)
+            # Only classify as a class if the source file actually defines
+            # it as one AND the export is not a `type ...` re-export.
+            if (
+                not inline_type_only
+                and not m.group('typeonly')
+                and raw in target_classes
+            ):
+                classes[raw] = target_classes[raw]
+
+    # Pass 2: re-exports of bare module surface — `export * from "./X.js"`.
+    # We pull every class name from the target file (mirrors what the
+    # bundler/runtime would expose).
+    for m in re.finditer(
+        r'export\s+\*\s*from\s*["\'](\.[^"\']+)["\']', text
+    ):
+        rel_src = m.group(1)
+        rel_src_ts = re.sub(r'\.js$', '.ts', rel_src)
+        target_full = os.path.normpath(os.path.join(src_dir, rel_src_ts))
+        if os.path.exists(target_full):
+            for k, v in load_node_surface(target_full).items():
+                classes.setdefault(k, v)
+                names.add(k)
+            # Also pull interface/type/const/function names so the import
+            # axis can find them.
+            t = open(target_full).read()
+            for nm in re.findall(
+                r'export\s+(?:interface|type|const|function)\s+'
+                r'([A-Za-z_][A-Za-z0-9_]*)',
+                t,
+            ):
+                names.add(nm)
+
+    # Pass 3: directly-declared exports in the entry file itself.
+    direct_classes = load_node_surface(entry_path)
+    for k, v in direct_classes.items():
+        classes.setdefault(k, v)
+        names.add(k)
+    for nm in re.findall(
+        r'export\s+(?:interface|type|const|function)\s+'
+        r'([A-Za-z_][A-Za-z0-9_]*)',
+        text,
+    ):
+        names.add(nm)
+
+    return classes, names
+
+
 # Map: import-specifier → class set this gate knows about.
 NODE_BINDING_PKG = "opengraphdb"
 MCP_CLIENT_PKG = "@opengraphdb/mcp"
 
 node_classes = load_node_surface(node_dts)
-mcp_classes = load_node_surface(mcp_client_ts)
+mcp_classes, mcp_published_names = load_published_surface(mcp_index_ts)
+
+# Node binding: the .d.ts IS the published surface, so every exported name
+# in it counts. Pull interface/type/const/function names too.
+node_published_names = set(node_classes.keys())
+_node_text = open(node_dts).read()
+for nm in re.findall(
+    r'export\s+(?:interface|type|const|function)\s+'
+    r'([A-Za-z_][A-Za-z0-9_]*)',
+    _node_text,
+):
+    node_published_names.add(nm)
 
 surface = {
     NODE_BINDING_PKG: node_classes,
     MCP_CLIENT_PKG: mcp_classes,
+}
+published_names = {
+    NODE_BINDING_PKG: node_published_names,
+    MCP_CLIENT_PKG: mcp_published_names,
 }
 
 # Sanity: each surface must have at least one class. If the parser
@@ -311,26 +438,19 @@ for path in iter_files(frontend_src):
     for line, pkg, names in parse_imports(src):
         total_imports += 1
         imports.append((line, pkg, names))
-        cls_map = surface[pkg]
+        # Cycle-32 BLOCKER-1: validate against the *published* surface,
+        # i.e. names actually re-exported by the package's entry point —
+        # NOT against any export-class found anywhere in the source tree.
+        # `published_names[pkg]` already includes class + interface/type/
+        # const/function names traceable to the entry, so the secondary
+        # source-file scan from cycle-31 is now redundant (and was the
+        # bug that let BLOCKER-1 through).
         for name in names:
-            if name not in cls_map:
-                # Allow type-only re-exports of interfaces from
-                # mcp/src/client.ts (QueryResponse, SchemaResponse, etc.)
-                # — they're real exports, just `export interface` not
-                # `export class`. Re-parse the surface file as a quick
-                # secondary pass.
-                surface_text = open(
-                    node_dts if pkg == NODE_BINDING_PKG else mcp_client_ts
-                ).read()
-                if re.search(
-                    r'export\s+(interface|type|const|function)\s+'
-                    + re.escape(name) + r'\b',
-                    surface_text,
-                ):
-                    continue
+            if name not in published_names[pkg]:
                 violations.append(
                     (path, line,
-                     "import {{ {} }} from \"{}\" — not exported".format(
+                     "import {{ {} }} from \"{}\" — not exported by "
+                     "the package's published entry point".format(
                          name, pkg))
                 )
 
@@ -344,12 +464,13 @@ for path in iter_files(frontend_src):
         cls_name = m.group(1)
         if cls_name not in imported_names:
             continue
-        total_news += 1
         pkg = imported_names[cls_name]
         cls_info = surface[pkg].get(cls_name)
         if cls_info is None:
-            # Already flagged in the import axis.
+            # Already flagged in the import axis (or it's a type/interface,
+            # in which case `new …` would already be a TS error elsewhere).
             continue
+        total_news += 1
         kind = first_arg_kind(src, m.end())
         expected = cls_info['ctor_arg_kind']
         if expected == 'string' and kind == 'object':
@@ -411,9 +532,9 @@ if violations:
         rel = os.path.relpath(path)
         sys.stderr.write("  - {}:{}: {}\n".format(rel, line, msg))
     sys.stderr.write(
-        "Real surfaces: opengraphdb={} ; @opengraphdb/mcp={}\n".format(
-            ", ".join(sorted(surface[NODE_BINDING_PKG].keys())),
-            ", ".join(sorted(surface[MCP_CLIENT_PKG].keys())),
+        "Real published surfaces: opengraphdb={} ; @opengraphdb/mcp={}\n".format(
+            ", ".join(sorted(published_names[NODE_BINDING_PKG])),
+            ", ".join(sorted(published_names[MCP_CLIENT_PKG])),
         )
     )
     sys.exit(1)
