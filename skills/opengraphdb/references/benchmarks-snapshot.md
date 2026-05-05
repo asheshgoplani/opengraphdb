@@ -1,8 +1,10 @@
-# OpenGraphDB 0.3.0 — benchmarks snapshot (frozen)
+# OpenGraphDB 0.5.1 — benchmarks snapshot (frozen)
 
 This is a frozen copy of the most relevant numbers from `documentation/BENCHMARKS.md`
 so the master skill stays self-contained even if the live benchmark file is
-updated. **For the live, authoritative baseline, always go to
+updated. The table below carries forward the 0.4.0 N=5 medianed numbers — zero
+perf-relevant code in the 0.4.0 → 0.5.1 window. Re-baseline tracked as a
+v0.6.0 follow-up. **For the live, authoritative baseline, always go to
 [`documentation/BENCHMARKS.md`](../../../documentation/BENCHMARKS.md).**
 
 ## Methodology in one paragraph
@@ -16,7 +18,7 @@ manifest gate requires N≥5 median for tail comparisons). Source:
 
 ## 14-row competitive scorecard
 
-| # | Metric | OpenGraphDB 0.3.0 | Spec target | Verdict |
+| # | Metric | OpenGraphDB 0.5.1 | Spec target | Verdict |
 |---|---|---|---|---|
 | 1 | Bulk ingest @ 10k+10k single write-tx (nodes/s) | **254 nodes/s** | ≥ 139k rels/s | ❌ LOSS — 670× behind Kuzu, 1 150× behind Memgraph at the same scale. Driver does one `begin_write`/`commit` per node — a real batched bulk loader is tracked in BENCHMARKS §4.1. |
 | 2 | Streaming ingest, 30s window, batch=64 (nodes/s) | **301 nodes/s** | ≥ 100k tx/s | ❌ LOSS — same root cause as row 1. |

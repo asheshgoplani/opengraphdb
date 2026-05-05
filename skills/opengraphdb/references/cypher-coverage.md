@@ -1,7 +1,7 @@
-# OpenGraphDB Cypher coverage (0.4.0)
+# OpenGraphDB Cypher coverage (0.5.1)
 
-Authoritative feature × status grid for Cypher in OpenGraphDB 0.4.0. Sources of
-truth:
+Authoritative feature × status grid for Cypher in OpenGraphDB 0.5.1 (no
+Cypher-language changes since 0.4.0). Sources of truth:
 
 - `crates/ogdb-tck/src/lib.rs::should_skip_scenario` — TCK harness (Tier-1
   categories, skipped scenarios).
@@ -15,6 +15,8 @@ truth:
 in 0.3.0); shipped HNSW ANN behind `CALL db.index.vector.queryNodes`; promoted
 the LLM provider adapters (Anthropic / OpenAI / Local) used by
 `semantic_distance(...)` and the `db.rag.*` calls behind feature flags.
+0.4.0 → 0.5.1: no Cypher-language changes (install-script repair, demo
+subcommand, AMBER-TERMINAL palette, bundled-SPA, changelog-policy fixes only).
 
 Status legend:
 

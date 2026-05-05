@@ -264,17 +264,19 @@ ogdb export-rdf mydb.ogdb out.ttl --format turtle
 ```bash
 ogdb serve --http --port 8080 shared.ogdb &
 # Each agent calls /mcp/invoke against the same endpoint.
-# NOTE: kernel is single-writer in 0.3.0 — concurrent writers serialize at
+# NOTE: kernel is single-writer in 0.5.1 — concurrent writers serialize at
 # the storage layer. Plan for write-batching, or shard per-agent today and
 # revisit when the multi-writer kernel ships (see "When you hit limits").
 ```
 
 ## Performance you can expect
 
-Frozen snapshot of OpenGraphDB 0.3.0 baseline (i9-10920X, Linux, N=5 release-build
+Frozen snapshot of OpenGraphDB 0.5.1 baseline (i9-10920X, Linux, N=5 release-build
 median, cold cache, 1 warmup pass discarded). Source of truth: [`documentation/BENCHMARKS.md`](../../documentation/BENCHMARKS.md).
+The table below carries forward the 0.4.0 N=5 medianed numbers — zero perf-relevant
+code in the 0.4.0 → 0.5.1 window. Re-baseline tracked as a v0.6.0 follow-up.
 
-| Metric | OpenGraphDB 0.3.0 | Spec target | Verdict |
+| Metric | OpenGraphDB 0.5.1 | Spec target | Verdict |
 |---|---|---|---|
 | Point read `neighbors()` p50 / p95 / p99 @ 10k nodes | **7.1 / 11.2 / 13.4 μs** (119k qps) | p95 < 5 ms | ⚠️ directional WIN (80× under Memgraph Pokec p99) |
 | LDBC SNB IS-1 p50 / p95 (1k queries, mini fixture) | **22.2 / 232 μs** (18.9k qps) | p95 < 5 ms @ SF10 | 🟡 novel — scale mismatch |
@@ -287,7 +289,7 @@ see [`references/benchmarks-snapshot.md`](references/benchmarks-snapshot.md).
 
 ## When you hit limits
 
-Honest list of what 0.3.0 does **not** do well, and how to escalate:
+Honest list of what 0.5.1 does **not** do well, and how to escalate:
 
 - **Bulk ingest path is naïve.** 254 nodes/s @ 10k+10k single write-tx — 670× behind
   Kuzu, 1 150× behind Memgraph at the same scale. Workaround: batch via UNWIND inside
@@ -353,5 +355,5 @@ only when the task is dominated by one of the four narrow concerns.
 - [`documentation/ai-integration/cosmos-mcp-tool.md`](../../documentation/ai-integration/cosmos-mcp-tool.md) — MCP tool wiring.
 - [`scripts/quickstart.sh`](scripts/quickstart.sh) — runnable end-to-end demo.
 - [`references/cypher-coverage.md`](references/cypher-coverage.md) — authoritative feature × status grid.
-- [`references/benchmarks-snapshot.md`](references/benchmarks-snapshot.md) — frozen 0.3.0 numbers.
+- [`references/benchmarks-snapshot.md`](references/benchmarks-snapshot.md) — frozen 0.5.1 numbers.
 - [`eval/cases.yaml`](eval/cases.yaml) — eval suite for this skill.
