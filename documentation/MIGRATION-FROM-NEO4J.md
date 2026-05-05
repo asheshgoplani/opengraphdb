@@ -123,17 +123,27 @@ Recipe 1.
 Numbers below are verbatim from [`documentation/BENCHMARKS.md`](BENCHMARKS.md)
 Section 2 (i9-10920X, cold-first-run, no warmup).
 
-**Wins (apples-to-apples or clears spec threshold):**
+**Wins (1 verified, 2 caveated)** — verdict structure mirrors
+[`BENCHMARKS.md`](BENCHMARKS.md) § 2.1 post cycle-17 `e585f66` tone-down.
+
+*Verified WIN (apples-to-apples against a published spec threshold):*
+
+- **Row 13** — scaling tier 10 k nodes: read p95 = **0.41 μs**, load =
+  **0.30 s**, RSS = **26.3 MB**, file = **39.4 MB** (all three internal
+  gates clear with 2–3 orders of margin). Note: this is a 10 k-tier
+  internal threshold, not a competitor-published competitive bar.
+
+*Caveated WIN (competitive bar cleared; best-in-class missed or only synthetic):*
 
 - **Row 7** — enrichment round-trip p50 / p95 / p99 =
   **38.8 / 44.2 / 113.2 ms** (3.4× under the 150 ms competitive threshold;
   misses the 40 ms best-in-class bar by 4 ms).
-- **Row 10** — graph-feature rerank batch p95 = **1.88 μs** (91 000× faster
-  than Cohere Rerank 3.5 baseline; structurally different but legitimate
-  as graph-native vs neural-forward-pass).
-- **Row 13** — scaling tier 10 k nodes: read p95 = **0.41 μs**, load =
-  **0.30 s**, RSS = **26.3 MB**, file = **39.4 MB** (all three gates clear
-  with 2–3 orders of margin).
+- **Row 10** — graph-feature rerank batch p95 = **1.88 μs** clears the
+  50 ms competitive bar by orders of magnitude, but the boost is a
+  synthetic `Σ neighbour_id`, not a learned dot-product — so the headline
+  91 000× ratio against Cohere Rerank 3.5 is best read as "graph-traversal
+  vs. neural forward pass," not an apples-to-apples production-rerank
+  comparison.
 
 **Losses (apples-to-apples, clear gap):**
 
@@ -146,10 +156,21 @@ Section 2 (i9-10920X, cold-first-run, no warmup).
   N=4 measurement is mechanical, not real contention. Tracked in
   BENCHMARKS Section 4.6.
 
-**Honesty footer.** BENCHMARKS rows 3, 4, 5, 11, and 12 are
-**scale-mismatched** (10 k nodes / mini fixtures, not Pokec / SF10 /
-Datagen-9.0). Directional only — re-run on r7i.4xlarge at SF1/SF10 before
-claiming any record.
+**Honesty footer.** Two distinct caveat classes in
+[`BENCHMARKS.md`](BENCHMARKS.md) § 2 — do not collapse them:
+
+- **Directional indicator (pending apples-to-apples at SF10).** Rows 3
+  (point read at 10 k) and 4 (2-hop at 10 k) — we ran at 10 k nodes;
+  competitors publish at 1.6 M-node Pokec / SF10. Lower-bound feasibility
+  signal, not a verified WIN. Tracked in BENCHMARKS § 4.2.
+- **Scale-mismatched (mini fixtures).** Rows 5 (LDBC SNB IS-1 on 100-person
+  mini), 11 (Graphalytics BFS on 100-node mini), and 12 (Graphalytics
+  PageRank on 100-node mini) — we ran a tier 0 fixture; the spec grades at
+  tier XL on Datagen-9.0. Cannot claim the bar until the SF10 / Datagen-9.0
+  re-run lands. Tracked in BENCHMARKS §§ 4.3, 4.7.
+
+Re-run on r7i.4xlarge at SF1 / SF10 / Datagen-9.0 before claiming any
+record on either class.
 
 ## 6. What to know before migrating
 

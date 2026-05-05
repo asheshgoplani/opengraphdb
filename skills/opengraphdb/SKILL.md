@@ -282,7 +282,7 @@ code in the 0.4.0 → 0.5.1 window. Re-baseline tracked as a v0.6.0 follow-up.
 | LDBC SNB IS-1 p50 / p95 (1k queries, mini fixture) | **22.2 / 232 μs** (18.9k qps) | p95 < 5 ms @ SF10 | 🟡 novel — scale mismatch |
 | Enrichment round-trip `t_persist` p95 (100 docs × 10ent + 15edge) | **45.4 ms** | p95 < 40 ms best-in-class | ✅ WIN on competitive |
 | Hybrid retrieval (vector kNN + 1-hop) p95 (100q × 1k × dim=16) | **223 μs** | p95 < 80 ms best-in-class | 🟡 200× under threshold; NDCG deferred |
-| Graph-feature rerank batch p95 (100 candidates × 1-hop) | **1.35 μs** (153 μs/batch) | p95 < 50 ms | ✅ crushing — 27 000× under bar |
+| Graph-feature rerank batch p95 (100 candidates × 1-hop) | **1.35 μs** (153 μs/batch) | p95 < 50 ms | ✅ caveated WIN — clears competitive bar by orders of magnitude; boost is synthetic Σ neighbour_id, not learned dot-product |
 
 For the full 14-row scorecard (including known losses on bulk ingest and concurrent writes)
 see [`references/benchmarks-snapshot.md`](references/benchmarks-snapshot.md).

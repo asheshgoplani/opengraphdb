@@ -45,6 +45,14 @@ source "$HOME/.cargo/env"
 # historical-removal whitelist). Catches the cycle-15 8496878 typo class
 # where docs/→documentation/ rename misses adjacent bullets.
 ./scripts/check-changelog-paths.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE18 F02: BENCHMARKS verdict vocabulary mirror
+# gate. Cycle-17 e585f66 toned down the verdict legend in BENCHMARKS.md
+# but left three downstream surfaces (SKILL.md, benchmarks-snapshot.md,
+# MIGRATION-FROM-NEO4J.md) speaking in the retracted vocabulary. This
+# gate asserts that any of {DIRECTIONAL WIN, crushing, "3 wins / 2
+# losses / 6 novel"} appearing in a BENCHMARKS mirror file is annotated
+# with a trailing <!-- HISTORICAL --> marker.
+./scripts/check-benchmarks-vocabulary-mirror.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE4 H1..H5: design specification (DESIGN.md /
 # ARCHITECTURE.md / README.md / SPEC.md / skills/) must not drift from
 # the shipped implementation. Pinned source of truth is in `crates/`.
@@ -99,6 +107,7 @@ source "$HOME/.cargo/env"
 # bareword after `--agent` silently slots into the positional db-path arg.
 ./scripts/check-init-agent-syntax.sh
 ./scripts/test-check-init-agent-syntax.sh
+./scripts/test-check-benchmarks-vocabulary-mirror.sh
 # C4-H2 (HIGH): the cycle-3 C3-H3 Criterion harness file landed but no
 # CI job ran it. Without the bench-regression job in ci.yml, a perf fix
 # being silently reverted by a bad merge stays invisible until the next
