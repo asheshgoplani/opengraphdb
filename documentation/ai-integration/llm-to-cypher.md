@@ -14,7 +14,7 @@ execution. Neither pretends to do the other's job.
 - **Schema for the LLM context:** `Database::schema_catalog() -> SchemaCatalog`
   in Rust (`crates/ogdb-core/src/lib.rs::schema_catalog`), or the `schema` MCP
   tool over stdio / HTTP (`POST /mcp/invoke` with `{"name": "schema"}`). There
-  is no `db.schema_summary()` method in 0.4.0 — earlier drafts of this page
+  is no `db.schema_summary()` method in 0.5.1 (and was never shipped in any earlier release) — earlier drafts of this page
   cited a name that was never shipped.
 - **Cypher execution:** the same `Database::query()` /
   `POST /query` / `execute_cypher` MCP tool. There is no separate "AI" query

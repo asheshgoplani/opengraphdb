@@ -203,4 +203,20 @@ if [[ -n "$FICTIONAL_BINDINGS" ]]; then
   fail=1
 fi
 
+# -------- C15-F02: SPEC.md headline version stamp --------
+# SPEC.md L5 declares the canonical product-spec version. C15 cycle caught
+# it pinned at 0.3.0 while the workspace was at 0.5.1 (two minors stale).
+# Pin SPEC.md's `**Version:** X.Y.Z` line to the workspace.package version
+# in Cargo.toml so a future bump forces a doc sweep.
+if [[ -e SPEC.md && -e Cargo.toml ]]; then
+  WS_VERSION=$(awk '/^\[workspace\.package\]/{f=1; next} f && /^version = /{print; exit}' Cargo.toml \
+                | grep -oE '"[0-9]+\.[0-9]+\.[0-9]+"' | tr -d '"' || true)
+  SPEC_VERSION=$(grep -oE '^\*\*Version:\*\* [0-9]+\.[0-9]+\.[0-9]+' SPEC.md \
+                  | head -1 | awk '{print $2}' || true)
+  if [[ -n "$WS_VERSION" && -n "$SPEC_VERSION" && "$WS_VERSION" != "$SPEC_VERSION" ]]; then
+    echo "ERROR (C15-F02): SPEC.md headline version ($SPEC_VERSION) does not match Cargo.toml workspace.package.version ($WS_VERSION)." >&2
+    fail=1
+  fi
+fi
+
 exit $fail

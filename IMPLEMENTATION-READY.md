@@ -77,7 +77,7 @@ All gates are mandatory.
   - Mixed profile (80/20 read/write)
   - Write-stress profile (70/30 read/write)
 
-Reference benchmark command (synthetic pre-implementation harness — superseded by `ogdb-eval` in 0.4.0; see `documentation/BENCHMARKS.md` for the current N=5 median methodology):
+Reference benchmark command (synthetic pre-implementation harness — superseded by `ogdb-eval` in 0.4.0 (0.4.0 N=5 median + warm-up driver methodology, carried forward unchanged through 0.5.1); see `documentation/BENCHMARKS.md` for the current N=5 median methodology):
 
 ```bash
 source "$HOME/.cargo/env"
@@ -125,7 +125,7 @@ The architecture can evolve, but only through measured triggers.
 - [x] `DESIGN.md` aligned for known contradictions (I/O, RDF parser path, sidecar authority)
 - [x] Workspace scaffolding created
 - [x] Core test and benchmark harness scaffolding created (`crates/ogdb-bench`)
-- [x] Initial storage decision benchmark run captured (root `BENCHMARKS.md`, since superseded by `documentation/BENCHMARKS.md` per CHANGELOG 0.4.0).
+- [x] Initial storage decision benchmark run captured (root `BENCHMARKS.md`, since superseded by `documentation/BENCHMARKS.md` per CHANGELOG 0.4.0 — 0.4.0 N=5 median + warm-up driver methodology, carried forward unchanged through 0.5.1).
 - [x] TDD methodology established (`docs/TDD-METHODOLOGY.md`)
 - [x] Versioning policy established (`docs/VERSIONING.md`, workspace package version source)
 - [x] Canonical changelog established and wired into test workflow (`CHANGELOG.md`, `scripts/changelog-check.sh`)

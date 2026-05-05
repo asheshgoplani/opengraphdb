@@ -16,8 +16,9 @@ same commit.
   `cargo install` or `cargo build`.
 - **Action item:** bump pyo3 0.21 → ≥ 0.24.1 and remove the
   `RUSTSEC-2025-0020` ignore from `deny.toml` in the same commit. Owner:
-  python-bindings maintainer. Target: post-v0.5 minor.
-- **Release-notes wording for v0.5:**
+  python-bindings maintainer. Target: v0.6 minor (slipped from original v0.5 target — pyo3 binding migration was not in scope for the 0.4.0 → 0.5.x line).
+- **Status as of 2026-05-05:** ignore still in `deny.toml`, pyo3 still at 0.21.
+- **Release-notes wording when shipped:**
 
   > The `ogdb-python` crate continues to depend on pyo3 0.21, which has a
   > known advisory (RUSTSEC-2025-0020) for `PyString::from_object`. The
