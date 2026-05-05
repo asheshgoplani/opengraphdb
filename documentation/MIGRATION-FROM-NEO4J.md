@@ -128,20 +128,20 @@ Section 2 (i9-10920X, cold-first-run, no warmup).
 
 *Verified WIN (apples-to-apples against a published spec threshold):*
 
-- **Row 13** — scaling tier 10 k nodes: read p95 = **0.41 μs**, load =
-  **0.30 s**, RSS = **26.3 MB**, file = **39.4 MB** (all three internal
+- **Row 13** — scaling tier 10 k nodes: read p95 = **0.38 μs**, load =
+  **0.32 s**, RSS = **28.0 MB**, file = **39.4 MB** (all three internal
   gates clear with 2–3 orders of margin). Note: this is a 10 k-tier
   internal threshold, not a competitor-published competitive bar.
 
 *Caveated WIN (competitive bar cleared; best-in-class missed or only synthetic):*
 
 - **Row 7** — enrichment round-trip p50 / p95 / p99 =
-  **38.8 / 44.2 / 113.2 ms** (3.4× under the 150 ms competitive threshold;
-  misses the 40 ms best-in-class bar by 4 ms).
-- **Row 10** — graph-feature rerank batch p95 = **1.88 μs** clears the
+  **38.8 / 46.7 / 112.6 ms** (3.2× under the 150 ms competitive threshold;
+  misses the 40 ms best-in-class bar by 7 ms).
+- **Row 10** — graph-feature rerank batch p95 = **1.34 μs** clears the
   50 ms competitive bar by orders of magnitude, but the boost is a
   synthetic `Σ neighbour_id`, not a learned dot-product — so the headline
-  91 000× ratio against Cohere Rerank 3.5 is best read as "graph-traversal
+  128 000× ratio against Cohere Rerank 3.5 is best read as "graph-traversal
   vs. neural forward pass," not an apples-to-apples production-rerank
   comparison.
 
