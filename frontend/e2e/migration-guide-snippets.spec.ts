@@ -249,11 +249,14 @@ test.describe('migration-from-neo4j guide — runnable + honesty-asserted', () =
     expect(body).toContain('256 nodes/s')
     // Cross-link to the source of truth.
     expect(body).toContain('BENCHMARKS.md')
-    // Honesty marker — either spelling acceptable.
+    // Honesty marker — either spelling acceptable, case-insensitive (post
+    // cycle-18 F02 the honesty footer promotes "Scale-mismatched" to a bold
+    // sub-heading, capitalising the S; the prior prose form was lowercase).
+    const lowerBody = body.toLowerCase()
     const hasScaleMismatch =
-      body.includes('scale-mismatch') ||
-      body.includes('scale mismatch') ||
-      body.includes('scale-mismatched')
+      lowerBody.includes('scale-mismatch') ||
+      lowerBody.includes('scale mismatch') ||
+      lowerBody.includes('scale-mismatched')
     expect(hasScaleMismatch, 'performance section must label scale-mismatched rows').toBe(true)
   })
 
