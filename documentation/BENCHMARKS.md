@@ -1,4 +1,6 @@
-# OpenGraphDB 0.4.0 — Competitive Benchmark Baseline
+# OpenGraphDB 0.5.1 — Competitive Benchmark Baseline
+
+> **0.5.1 patch-release note (2026-05-05):** the workspace bumped 0.4.0 → 0.5.0 → 0.5.1 carrying only install-script repair, binding-version bumps, and changelog-policy commits. Zero perf-relevant code changed in this window, so the 0.4.0 N=5 medianed numbers below remain authoritative for 0.5.1. Re-baseline tracked as a v0.6.0 follow-up alongside the next perf-relevant change.
 
 **Measurement date:** 2026-05-02 (cycle-9 N=5 re-baseline at 0.4.0; rows 3, 4, 5, 6, 10 in § 2 are this run. The 2026-05-01 single-shot and 2026-04-25 0.3.0 N=5 medianed baselines are preserved as historical.).
 **Branch:** `main` @ `1afcee3`
