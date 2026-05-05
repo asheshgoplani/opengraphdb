@@ -242,9 +242,10 @@ test.describe('migration-from-neo4j guide — runnable + honesty-asserted', () =
   // -------------------------------------------------------------------------
   test('section 5 (performance) cites BENCHMARKS rows verbatim and labels scale-mismatched rows', () => {
     const body = readGuide()
-    // Win row 7 — enrichment p50/p95 (38.8 / 44.2 ms).
+    // Win row 7 — enrichment p50/p95 (38.8 / 46.7 ms; cycle-30 mirror sweep
+    // re-baseline carried 0.4.0 N=5 medians forward to 0.5.1).
     expect(body).toContain('38.8')
-    expect(body).toContain('44.2')
+    expect(body).toContain('46.7')
     // Loss row 1 — bulk ingest 256 nodes/s.
     expect(body).toContain('256 nodes/s')
     // Cross-link to the source of truth.
