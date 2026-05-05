@@ -55,7 +55,11 @@ for token in "${FORBIDDEN[@]}"; do
         echo "  $line" >&2
         FAIL=1
       fi
-    done < <(grep -nF "$token" "$p" || true)
+    # EVAL-PERF-RELEASE-CYCLE20 F01: case-insensitive match — c17 e585f66
+    # retracted both `DIRECTIONAL WIN` and `directional WIN` (any casing).
+    # Token list lives uppercase for readability; matching must be -i so
+    # lowercase variants like `directional WIN` cannot slip through.
+    done < <(grep -niF "$token" "$p" || true)
   done
 done
 
