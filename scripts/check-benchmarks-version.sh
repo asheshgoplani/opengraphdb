@@ -96,4 +96,31 @@ if [[ "$TABLE_VERSION" != "$WS_VERSION" ]]; then
   exit 1
 fi
 
+# EVAL-DOCS-COMPLETENESS-CYCLE17 F03: if every data row in § 2 carries the
+# '2026-05-02 re-baseline' tag, the L5 "Measurement date:" headline must
+# scope the run to "all N rows" rather than enumerate a stale subset.
+# cycle-9 baselined rows 3-6+10, cycle-15 cf97159 extended to rows 7-14,
+# cycle-16 f72f7cd extended to rows 1-2 — three consecutive cycles where
+# the headline drifted behind the table. This gate locks that loop closed.
+TABLE_ROWS=$(grep -cE '^\| +[0-9]+ +\|' "$BENCHMARKS_MD" || true)
+TAGGED_ROWS=$(grep -cE '^\| +[0-9]+ +\|.*2026-05-02 re-baseline' "$BENCHMARKS_MD" || true)
+
+if [[ "$TABLE_ROWS" -gt 0 && "$TABLE_ROWS" == "$TAGGED_ROWS" ]]; then
+  HEADLINE_LINE=$(grep -m1 -E '^\*\*Measurement date:\*\*' "$BENCHMARKS_MD" || true)
+  if [[ -z "$HEADLINE_LINE" ]]; then
+    echo "check-benchmarks-version: could not find '**Measurement date:**' headline in $BENCHMARKS_MD" >&2
+    exit 1
+  fi
+  if ! echo "$HEADLINE_LINE" | grep -qE "all $TABLE_ROWS rows"; then
+    echo "check-benchmarks-version: HEADLINE-vs-TABLE SCOPE DRIFT" >&2
+    echo "  every § 2 row ($TAGGED_ROWS / $TABLE_ROWS) carries the '2026-05-02 re-baseline' tag" >&2
+    echo "  but the L5 headline does not say 'all $TABLE_ROWS rows':" >&2
+    echo "  $HEADLINE_LINE" >&2
+    echo "" >&2
+    echo "Fix: replace any 'rows X, Y, Z, …' enumeration in the headline with" >&2
+    echo "     'all $TABLE_ROWS rows in § 2' so the prose matches the table." >&2
+    exit 1
+  fi
+fi
+
 echo "check-benchmarks-version: ok ($WS_VERSION; headline + § 2 column header agree)"
