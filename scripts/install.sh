@@ -14,7 +14,7 @@
 set -eu
 
 OGDB_VERSION="${OGDB_VERSION:-latest}"
-OGDB_HOME="${OGDB_HOME:-$HOME/.opengraphdb}"
+OGDB_HOME="${OGDB_HOME:-$HOME/.ogdb}"
 OGDB_REPO="${OGDB_REPO:-asheshgoplani/opengraphdb}"
 OGDB_PORT="${OGDB_PORT:-8765}"
 OGDB_SKIP_AGENT="${OGDB_SKIP_AGENT:-}"

@@ -45,6 +45,12 @@ source "$HOME/.cargo/env"
 # historical-removal whitelist). Catches the cycle-15 8496878 typo class
 # where docs/→documentation/ rename misses adjacent bullets.
 ./scripts/check-changelog-paths.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE18 F01: scripts/install.sh OGDB_HOME default
+# must normalize to the same dir as crates/ogdb-cli/src/lib.rs::default_demo_db_path.
+# When these diverge, the install.sh banner promise ("run `ogdb demo` to load
+# MovieLens") silently sends the user to a different file from the one
+# install.sh just created — the user-visible bug cycle-17's 91ee552 left in place.
+./scripts/check-install-demo-path-matches-binary-default.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE18 F02: BENCHMARKS verdict vocabulary mirror
 # gate. Cycle-17 e585f66 toned down the verdict legend in BENCHMARKS.md
 # but left three downstream surfaces (SKILL.md, benchmarks-snapshot.md,
@@ -101,6 +107,9 @@ source "$HOME/.cargo/env"
 ./scripts/test-all-check-scripts-wired.sh
 ./scripts/test-check-followup-target-not-current.sh
 ./scripts/test-check-changelog-paths.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE18 F01: meta-test for the install-demo-path
+# gate above (red-green: matching paths pass, ~/.opengraphdb-vs-~/.ogdb drift fails).
+./scripts/test-check-install-demo-path-matches.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE18 F03: shipped *.md must not teach
 # `ogdb init --agent <bareword>` — `--agent` is a SetTrue boolean, the agent id
 # is selected by `--agent-id <ID>` (crates/ogdb-cli/src/lib.rs:227-246). A

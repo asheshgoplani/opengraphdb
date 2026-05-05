@@ -3762,7 +3762,8 @@ fn handle_demo(
     max_requests: Option<u64>,
 ) -> Result<String, CliError> {
     let db_path = db.unwrap_or_else(default_demo_db_path);
-    if !Path::new(&db_path).exists() {
+    let path_exists = Path::new(&db_path).exists();
+    if !path_exists {
         if let Some(parent) = Path::new(&db_path).parent() {
             if !parent.as_os_str().is_empty() && !parent.exists() {
                 fs::create_dir_all(parent).map_err(|e| {
@@ -3784,6 +3785,18 @@ fn handle_demo(
             },
         )?;
         seed_demo_movielens(&db_path)?;
+    } else {
+        // The install.sh post-install state is "file exists but is empty"
+        // (init created it; nothing has populated it yet). Seed in that case
+        // too — otherwise the banner promise ("run `ogdb demo` to load
+        // MovieLens") is unfulfillable for users who follow the install path.
+        let is_empty = {
+            let db = Database::open(&db_path)?;
+            db.node_count() == 0 && db.edge_count() == 0
+        };
+        if is_empty {
+            seed_demo_movielens(&db_path)?;
+        }
     }
 
     let bind_addr = format!("{bind}:{port}");

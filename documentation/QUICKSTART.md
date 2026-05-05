@@ -26,7 +26,7 @@ You should see something like:
 ogdb 0.5.1
 ```
 
-The installer puts the binary at `~/.local/bin/ogdb` (or `/usr/local/bin/ogdb` if writable) and creates a demo database at `~/.opengraphdb/demo.ogdb`.
+The installer puts the binary at `~/.local/bin/ogdb` (or `/usr/local/bin/ogdb` if writable) and creates a demo database at `~/.ogdb/demo.ogdb`.
 
 If you'd rather build from source:
 
@@ -40,7 +40,7 @@ cargo build --release -p ogdb-cli
 Once you've run `ogdb demo` (per Step 1) to load MovieLens, you can ask the demo database what's inside:
 
 ```bash
-ogdb info ~/.opengraphdb/demo.ogdb
+ogdb info ~/.ogdb/demo.ogdb
 ```
 
 You'll see node counts, edge counts, and labels — the MovieLens dataset that `ogdb demo` just loaded. (If you skipped `ogdb demo`, this command will show 0 nodes / 0 edges; run `ogdb demo` first.)
@@ -48,7 +48,7 @@ You'll see node counts, edge counts, and labels — the MovieLens dataset that `
 `ogdb demo` already started a server for you on `http://localhost:8080/`. If you want to re-launch the playground later (without re-seeding):
 
 ```bash
-ogdb serve --http ~/.opengraphdb/demo.ogdb
+ogdb serve --http ~/.ogdb/demo.ogdb
 ```
 
 Then open `http://localhost:8080/` in your browser. You'll get a playground UI where you can type Cypher queries and see graph results visually.

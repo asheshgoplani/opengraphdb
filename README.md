@@ -36,7 +36,7 @@ For the longer step-by-step walkthrough, see [`documentation/QUICKSTART.md`](doc
 curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/latest/download/install.sh | sh
 ```
 
-This drops the `ogdb` binary at `~/.local/bin/ogdb` and creates a fresh empty database at `~/.opengraphdb/demo.ogdb`. Run `ogdb demo` afterward to load the MovieLens dataset and open the playground in your browser.
+This drops the `ogdb` binary at `~/.local/bin/ogdb` and creates a fresh empty database at `~/.ogdb/demo.ogdb`. Run `ogdb demo` afterward to load the MovieLens dataset and open the playground in your browser.
 
 ### 2. Wire your AI agent
 
@@ -49,7 +49,7 @@ Now Claude (or your coding agent of choice) can query the graph directly from yo
 ### 3. Try a query
 
 ```bash
-ogdb query ~/.opengraphdb/demo.ogdb \
+ogdb query ~/.ogdb/demo.ogdb \
   "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN p.name, m.title LIMIT 5"
 ```
 

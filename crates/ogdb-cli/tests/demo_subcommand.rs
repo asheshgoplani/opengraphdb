@@ -134,3 +134,82 @@ fn demo_subcommand_starts_http_server_and_seeds_movielens() {
         "ogdb demo exited with non-zero status: {status:?}"
     );
 }
+
+/// EVAL-DOCS-COMPLETENESS-CYCLE18.md F01 (HIGH): the install.sh post-install
+/// state is "file exists but is empty" — `ogdb init` already created the
+/// file before the user runs `ogdb demo`. Pre-cycle-18, `handle_demo`
+/// short-circuited on `Path::exists()` and refused to seed; the banner
+/// promise ("run `ogdb demo` to load MovieLens + launch playground") was
+/// unfulfillable. This test pins the post-fix invariant: an empty file
+/// gets seeded too.
+#[test]
+fn demo_seeds_into_existing_empty_init_file() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db_path: PathBuf = dir.path().join("demo.ogdb");
+
+    // Pre-create an empty database via `ogdb init` — exactly what
+    // scripts/install.sh's bootstrap_demo does before the user types
+    // `ogdb demo`.
+    let init_status = Command::new(env!("CARGO_BIN_EXE_ogdb"))
+        .args(["init", &db_path.display().to_string()])
+        .status()
+        .expect("spawn ogdb init");
+    assert!(init_status.success(), "ogdb init failed: {init_status:?}");
+    assert!(
+        db_path.exists(),
+        "ogdb init must create the db file before demo seeds it"
+    );
+
+    // Now `ogdb demo <path>` against the existing empty file must populate it.
+    let mut child = Command::new(env!("CARGO_BIN_EXE_ogdb"))
+        .args([
+            "demo",
+            "--db",
+            &db_path.display().to_string(),
+            "--port",
+            "0",
+            "--no-browser",
+            "--max-requests",
+            "1",
+        ])
+        .stderr(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("spawn ogdb demo");
+
+    let stderr = child.stderr.take().expect("child stderr piped");
+    let mut reader = BufReader::new(stderr);
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let addr = read_listening_addr(&mut reader, deadline);
+
+    let (status, body) = http_get(&addr, "/schema");
+    assert_eq!(
+        status, 200,
+        "GET /schema must succeed against demo server seeded over an existing empty file; got {status} body={body}"
+    );
+
+    let json: serde_json::Value =
+        serde_json::from_str(&body).expect("schema response must be JSON");
+    let labels = json
+        .get("labels")
+        .and_then(|v| v.as_array())
+        .expect("schema.labels must be an array");
+    let label_names: Vec<&str> = labels.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        label_names.contains(&"Movie"),
+        "demo must seed movielens into an existing empty init file — expected `Movie` label in {label_names:?}"
+    );
+    assert!(
+        label_names.contains(&"Genre"),
+        "demo must seed movielens into an existing empty init file — expected `Genre` label in {label_names:?}"
+    );
+
+    let mut tail = String::new();
+    let _ = reader.read_to_string(&mut tail);
+
+    let status = child.wait().expect("wait for ogdb demo");
+    assert!(
+        status.success(),
+        "ogdb demo exited with non-zero status: {status:?}"
+    );
+}
