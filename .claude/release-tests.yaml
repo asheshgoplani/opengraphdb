@@ -314,6 +314,15 @@ tests:
     purpose: "Guards the remote AI-agent surface — POST /mcp/tools must expose the full 20-tool catalog (canonical + extended) with name/description/inputSchema, POST /mcp/invoke must execute Cypher against the live DB (returning real i64 results, not mocks), bearer auth must mirror the /query policy (401 when users registered + no/bad bearer, 200 on valid), unknown tool names must 4xx. Locks in the HTTP transport parity with the existing stdio MCP so agents can reach OpenGraphDB remotely."
     added: 2026-04-23
 
+  - id: mcp-stdio-roundtrip
+    task: fix-coverage-H2-mcp-roundtrip
+    crate: ogdb-cli
+    test: mcp_roundtrip
+    function: [mcp_stdio_initialize_handshake_and_tools_list_full_catalog, mcp_stdio_tools_call_execute_cypher_returns_real_query_result]
+    command: "cargo test -p ogdb-cli --test mcp_roundtrip"
+    purpose: "Guards the stdio MCP transport that all six init_agent branches (claude/cursor/aider/continue/goose/codex) wire up. Spawns the real `ogdb mcp <db> --stdio` subprocess and asserts (1) the JSON-RPC `initialize` handshake returns a valid envelope with protocolVersion + serverInfo, (2) `tools/list` returns the canonical 20-tool catalog including the five AI-first names (browse_schema/execute_cypher/get_node_neighborhood/search_nodes/list_datasets), (3) `tools/call execute_cypher` against the live query engine returns a real result row (not a mock). Closes coverage-audit-2026-05-05 HIGH §3/§6 (no e2e MCP roundtrip from a coding-agent client)."
+    added: 2026-05-05
+
   - id: http-prometheus-metrics
     task: feat-prometheus
     crate: ogdb-cli
