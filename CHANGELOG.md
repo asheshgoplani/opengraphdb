@@ -610,11 +610,15 @@ Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo
   render as `<unreleased>`. The CI gate `scripts/check-changelog-tags.sh`
   verifies every URL footer resolves to a real local tag.
 
-  Push status as of 2026-05-01: no `v*` tag is pushed to origin
-  (`git ls-remote origin --tags 'refs/tags/v*'` is empty). Update this
-  block as part of the release-tag-push step in the public release runbook.
+  Push status as of 2026-05-05: no `v*` tags pushed to origin (verify via
+  `git ls-remote origin --tags`). v0.5.0 and v0.5.1 tags were cut locally
+  between 2026-05-02 and 2026-05-05; v0.3.0 and v0.4.0 are also still
+  local-only. Update this block as part of the release-tag-push step in
+  the public release runbook.
 -->
-[Unreleased]: <not-yet-pushed: compare against v0.4.0 once pushed>
+[Unreleased]: <not-yet-pushed: compare against v0.5.1 once pushed>
+[0.5.1]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
+[0.5.0]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
 [0.4.0]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
 [0.3.0]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
 [0.2.0]: <unreleased: no tag was cut for 0.2.0>

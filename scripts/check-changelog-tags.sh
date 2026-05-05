@@ -53,4 +53,20 @@ while IFS= read -r line; do
   fi
 done < <(grep -E '^\[[^]]+\]:' "$CHANGELOG")
 
+# C15-F01 reconciliation: every `## [X.Y.Z]` release heading must have a
+# matching footer `[X.Y.Z]: …` entry. Without this, the footer can silently
+# drift (as it did pre-v0.5.x where 0.5.0 + 0.5.1 headings shipped with no
+# corresponding footer slot, leaving heading-link references unresolved).
+HEADINGS=$(grep -oE '^## \[[0-9]+\.[0-9]+\.[0-9]+\]' "$CHANGELOG" | sed -E 's/^## \[([^]]+)\].*/\1/' | sort -u)
+FOOTERS=$(grep -oE '^\[[0-9]+\.[0-9]+\.[0-9]+\]:' "$CHANGELOG" | sed -E 's/^\[([^]]+)\]:.*/\1/' | sort -u)
+
+while IFS= read -r heading; do
+  [[ -z "$heading" ]] && continue
+  if ! printf '%s\n' "$FOOTERS" | grep -qFx "$heading"; then
+    echo "ERROR: $CHANGELOG has heading '## [$heading]' but no matching footer entry '[$heading]: …'." >&2
+    echo "       Add a footer line, even if it's a <not-yet-pushed: …> placeholder." >&2
+    EXIT=1
+  fi
+done <<<"$HEADINGS"
+
 exit $EXIT
