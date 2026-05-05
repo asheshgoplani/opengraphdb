@@ -11,6 +11,15 @@ source "$HOME/.cargo/env"
 ./scripts/check-changelog-tags.sh
 ./scripts/check-doc-anchors.sh
 ./scripts/check-binary-name.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE15 F01: SECURITY.md "Supported Versions"
+# row minor must match the workspace minor.
+./scripts/check-security-supported-version.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE15 F06: skills/README.md + skills/src/install.ts
+# must not mention copilot (SKILL.md compatibility metadata is the truth).
+./scripts/check-skills-copilot-removed.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE15 F07: CONTRIBUTING.md coverage-gate claim
+# must match scripts/coverage.sh's --fail-under-lines / --fail-uncovered-lines.
+./scripts/check-contributing-coverage-claim.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE4 H1..H5: design specification (DESIGN.md /
 # ARCHITECTURE.md / README.md / SPEC.md / skills/) must not drift from
 # the shipped implementation. Pinned source of truth is in `crates/`.
@@ -37,6 +46,19 @@ source "$HOME/.cargo/env"
 ./scripts/test-release-workflow.sh
 ./scripts/test-dockerfile.sh
 ./scripts/test-check-benchmarks-version.sh
+# EVAL-PERF-RELEASE-CYCLE15 F04: bash -n every `run: |` body in
+# .github/workflows/*.yml so a stray `done`/`fi` can't slip past review.
+./scripts/test-workflow-bash-syntax.sh
+# EVAL-PERF-RELEASE-CYCLE15 F06: install.sh detect_target() must emit
+# asset URLs matching release.yml::build.matrix triples + .tar.xz/.zip exts.
+# Also closes EVAL-PERF-RELEASE-CYCLE16 F03: the release-tests.yaml
+# install-sh-asset-url-template entry was documentation-only until wired here.
+./scripts/test-install-detect-target.sh
+# Meta-tests for the cycle-15 gates above (run after the gates so a
+# breakage in the gate itself is visible separately from the surface it gates).
+./scripts/test-check-security-supported-version.sh
+./scripts/test-check-skills-copilot-removed.sh
+./scripts/test-check-contributing-coverage-claim.sh
 # C4-H2 (HIGH): the cycle-3 C3-H3 Criterion harness file landed but no
 # CI job ran it. Without the bench-regression job in ci.yml, a perf fix
 # being silently reverted by a bad merge stays invisible until the next

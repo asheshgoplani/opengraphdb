@@ -51,9 +51,16 @@ done
 SHA="$(git -C "${ROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
-# Extract frontend e2e entries from the YAML manifest. Each entry becomes one
-# claim on the landing page. Non-frontend crates (rust tests) are skipped —
-# they run under the workspace test suite, not the landing-claim surface.
+# Extract executable manifest entries. Each entry becomes one claim on the
+# landing page. Rust crate entries (ogdb-*) are skipped — they run under the
+# workspace cargo test suite, not the landing-claim surface.
+#
+# EVAL-PERF-RELEASE-CYCLE16 F03: include `crate: scripts` entries in addition
+# to `crate: frontend`. The cycle-15 install-sh-asset-url-template manifest
+# entry pointed at scripts/test-install-detect-target.sh but the prior
+# `t.get("crate") != "frontend"` filter skipped it — the manifest entry was
+# documentation, not gate. Including `scripts` here mechanically runs every
+# shell-script regression test the manifest references.
 ENTRIES_JSON="$(
   ONLY_IDS="${ONLY_IDS}" python3 - "${MANIFEST}" <<'PY'
 import json, os, sys
@@ -65,9 +72,12 @@ tests = doc.get("tests") or []
 
 only = {s.strip() for s in os.environ.get("ONLY_IDS", "").split(",") if s.strip()}
 
+# F03: frontend e2e claims + scripts/* shell regression gates.
+RUNNABLE_CRATES = {"frontend", "scripts"}
+
 out = []
 for t in tests:
-    if t.get("crate") != "frontend":
+    if t.get("crate") not in RUNNABLE_CRATES:
         continue
     tid = t.get("id")
     if only and tid not in only:
@@ -83,7 +93,7 @@ PY
 )"
 
 if [[ -z "${ENTRIES_JSON}" || "${ENTRIES_JSON}" == "[]" ]]; then
-  echo "verify-claims: no frontend e2e entries found in manifest" >&2
+  echo "verify-claims: no runnable (frontend|scripts) entries found in manifest" >&2
   exit 2
 fi
 
