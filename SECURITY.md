@@ -32,8 +32,8 @@ We patch security issues in the latest minor release only. Users on older versio
 
 | Version | Supported |
 | ------- | --------- |
-| 0.4.x   | ✅        |
-| < 0.4.0 | ❌        |
+| 0.5.x   | ✅        |
+| < 0.5.0 | ❌        |
 
 ## Out of Scope
 
