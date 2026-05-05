@@ -72,8 +72,8 @@ Once the basics make sense, here's where the rest lives:
 - [`documentation/QUICKSTART.md`](documentation/QUICKSTART.md) — the longer five-minute walkthrough with sample data.
 - [`documentation/CLI.md`](documentation/CLI.md) — full CLI reference: every `ogdb` subcommand with a one-line description.
 - [`documentation/COOKBOOK.md`](documentation/COOKBOOK.md) — runnable recipes for AI agents, hybrid retrieval, doc-to-graph ingestion, and time-travel queries.
-- [`documentation/BENCHMARKS.md`](documentation/BENCHMARKS.md) — head-to-head numbers against Neo4j, Memgraph, and KuzuDB. We publish wins and losses both.
-- [`documentation/MIGRATION-FROM-NEO4J.md`](documentation/MIGRATION-FROM-NEO4J.md) — coming from Neo4j? Cypher-by-Cypher mapping and driver compatibility notes.
+- [`documentation/BENCHMARKS.md`](documentation/BENCHMARKS.md) — head-to-head numbers against Neo4j, Memgraph, and KuzuDB. We publish wins and losses both — including the verified-at-10 k apples-to-apples vs **Neo4j Community 5.x** (BENCHMARKS § 2.2): point-read p50 ✅ WIN at 0.71 ms vs 2.54 ms (3.6×); ❌ LOSS on bulk ingest, point-read tail, and 2-hop chained traversal. Reproduce in ≤ 30 min with [`scripts/competitor-bench/`](scripts/competitor-bench/).
+- [`documentation/MIGRATION-FROM-NEO4J.md`](documentation/MIGRATION-FROM-NEO4J.md) — coming from Neo4j? Cypher-by-Cypher mapping and driver compatibility notes; § 5.1 has the verified-vs-Neo4j table.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — storage layout, transactions, recovery.
 - [`SPEC.md`](SPEC.md) — the product and interface specification.
 - [`DESIGN.md`](DESIGN.md) — the 18-crate workspace map.

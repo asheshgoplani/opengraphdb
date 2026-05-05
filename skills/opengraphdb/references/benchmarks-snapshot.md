@@ -24,8 +24,8 @@ manifest gate requires N≥5 median for tail comparisons). Source:
 |---|---|---|---|---|
 | 1 | Bulk ingest @ 10k+10k single write-tx (nodes/s) | **251 nodes/s** | ≥ 139k rels/s | ❌ LOSS — 670× behind Kuzu, 1 150× behind Memgraph at the same scale. Driver does one `begin_write`/`commit` per node — a real batched bulk loader is tracked in BENCHMARKS §4.1. |
 | 2 | Streaming ingest, 30s window, batch=64 (nodes/s) | **300 nodes/s** | ≥ 100k tx/s | ❌ LOSS — same root cause as row 1. |
-| 3 | Point read `neighbors()` p50/p95/p99 @ 10k nodes, cold | **5.8 / 6.8 / 11.8 μs** (166k qps) | p95 < 5 ms (SF10 warm) | 🟡 DIRECTIONAL INDICATOR (pending apples-to-apples) — at our 10k-node tier we measure a p99 of 12 μs; competitors publish at 1.6M-node Pokec/SF10. Until that re-run lands, this is a lower-bound feasibility signal, not a verified WIN. |
-| 4 | 2-hop traversal p50/p95/p99 @ 10k nodes, cold | **22.9 / 25.8 / 36.0 μs** (48k qps) | p95 < 100 ms | 🟡 DIRECTIONAL INDICATOR (pending apples-to-apples) — clears the SF10 IC-1..7 spec threshold at 10k nodes; SF1/SF10 numbers wait on a profile pass after the cycle-15 17→26 μs regression. |
+| 3 | Point read `neighbors()` p50/p95/p99 @ 10k nodes, cold | **5.8 / 6.8 / 11.8 μs** (166k qps) | p95 < 5 ms (SF10 warm) | ❌ LOSS verified at 10k vs Neo4j 5.x Cypher-over-HTTP (Tier-1 2026-05-05): p50 0.71 ms vs 2.54 ms = ✅ WIN, p95 20.5 ms vs 5.7 ms = ❌ LOSS, p99 31.2 ms vs 7.6 ms = ❌ LOSS. The embedded `neighbors()` numbers above remain authoritative for the embedded API path. SF10 / Pokec apples-to-apples is Tier 2. See BENCHMARKS §2.2. |
+| 4 | 2-hop traversal p50/p95/p99 @ 10k nodes, cold | **22.9 / 25.8 / 36.0 μs** (48k qps) | p95 < 100 ms | ❌ LOSS verified at 10k vs Neo4j 5.x Cypher-over-HTTP (Tier-1 2026-05-05): p50 15.7 ms vs 3.83 ms; p95 25.3 ms vs 6.75 ms; p99 28.2 ms vs 8.77 ms. Chained `(n)-[]->(x)-[]->(m)` planner runs ~10× behind Neo4j's; embedded-API numbers remain authoritative for that path. See BENCHMARKS §2.2. |
 | 5 | LDBC SNB IS-1 p50/p95/p99 (1k queries, mini fixture) | **18.3 / 163 / 222 μs** (25.9k qps) | p95 < 5 ms @ SF10 | 🟡 NOVEL — scale mismatch, mini fixture not directly comparable. |
 | 6 | Single-tx mutation p95/p99 (1k samples) | **12 981 / 15 939 μs** (72 ops/s) | ≥ 100k ops/s, p99.9 < 1 s | ❌ LOSS on throughput. p99.9 = 720 ms scrapes inside the 1s bound; the 56× p99→p99.9 ratio points at a flush/GC pause. |
 | 7 | Enrichment round-trip `t_persist` p50/p95/p99 (100 docs × 10ent + 15edge) | **38.8 / 46.7 / 112.6 ms** | p50 < 15 ms, p95 < 40 ms best-in-class | ✅ WIN on competitive (3.2× under 150 ms threshold), MISS on best-in-class by 7 ms. |
@@ -41,11 +41,11 @@ manifest gate requires N≥5 median for tail comparisons). Source:
 
 | Verdict | Count | Rows |
 |---|---|---|
-| ✅ Win (clears spec, apples-to-apples) | **3** | 7, 10, 13 |
-| ❌ Loss (apples-to-apples) | **3** | 1, 2 (collapsed to one ingest root cause), 6, 9 |
-| 🟡 Novel / ⚠️ scale-mismatched | **8** | 3, 4, 5, 8, 11, 12, 14 + the kernel-limited side of 9 |
+| ✅ Win (clears spec, apples-to-apples) | **3** | 7, 10, 13 (plus §2.2 point-read p50: ✅ WIN verified vs Neo4j 5.x at the 10 k tier) |
+| ❌ Loss (apples-to-apples) | **5** | 1, 2 (collapsed to one ingest root cause), 3 (verified at 10 k vs Neo4j Cypher-over-HTTP), 4 (verified at 10 k vs Neo4j Cypher-over-HTTP), 6, 9 |
+| 🟡 Novel / ⚠️ scale-mismatched | **5** | 5, 8, 11, 12, 14 + the kernel-limited side of 9 |
 
-Strict bucketing (post cycle-17 `e585f66` verdict tone-down): **1 verified WIN / 2 caveated WIN / 2 losses / 6 novel-or-directional.**
+Strict bucketing (post Tier-1 2026-05-05 verdict graduation): **2 verified WINs (row 13 + §2.2 point-read p50) / 2 caveated WINs / 4 losses (rows 1, 2, §2.2 row 3 tail + row 4, row 6, row 9) / 5 novel-or-directional.**
 
 ## What this means for an AI-agent workload
 
