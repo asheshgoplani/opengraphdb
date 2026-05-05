@@ -1257,15 +1257,15 @@ unrelated property edits).
   `PersistedVectorIndexStore` shape (entries + metadata; the HNSW graph
   itself is rebuilt on open from those entries).
 
-### v0.5.1 backend-swap candidates
+### v0.6.0 backend-swap candidates
 
-True incremental insert is the v0.5.1 forcing function. Candidate
+True incremental insert is the v0.6.0 forcing function. Candidate
 replacement libraries (each with a different trade-off):
 - `usearch` (C++ FFI) — mmap, incremental delete, SIMD via SimSIMD
 - `hnsw_rs` (pure-Rust) — would need a custom persistence layer
 
 `documentation/BENCHMARKS.md` § Row 6 (mutation p99 = 15.6 ms) is the
-latency benchmark that pins this swap to the v0.5.1 milestone.
+latency benchmark that pins this swap to the v0.6.0 milestone.
 
 ---
 
@@ -2150,7 +2150,7 @@ The config-file / env-var hierarchy is on the v0.5 ergonomics roadmap
 | Cypher parsing | `winnow` | nom's successor: faster, better errors, `cut_err()` for parse commitment |
 | REPL | `rustyline` | Readline-compatible, cross-platform |
 | RDF parsing | `oxrdfio` (`oxttl`, `oxrdfxml`, `oxjsonld`) | Streaming, lightweight, rio's successor by same author |
-| Vector search | `instant-distance` (pure Rust) | Current (0.4.0): zero FFI, zero C++ toolchain, batch-rebuild only — see § 17. v0.5.1 backend-swap candidates: `usearch` (C++ FFI, mmap, incremental delete) and `hnsw_rs` (pure-Rust, would need custom persistence). |
+| Vector search | `instant-distance` (pure Rust) | Current (0.4.0): zero FFI, zero C++ toolchain, batch-rebuild only — see § 17. v0.6.0 backend-swap candidates: `usearch` (C++ FFI, mmap, incremental delete) and `hnsw_rs` (pure-Rust, would need custom persistence). |
 | Full-text | `tantivy` | Rust-native Lucene equivalent |
 | Python bindings | `pyo3` + `maturin` | Standard PyO3 workflow |
 | Node.js bindings | `napi-rs` | Standard NAPI workflow |
