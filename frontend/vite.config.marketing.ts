@@ -29,6 +29,24 @@ function renameHtmlOutput(from: string, to: string): Plugin {
 // build, so this dist stays small and independent of the embedded SPA.
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// F03 (EVAL-DOCS-COMPLETENESS-CYCLE15): hero badge version is sourced from
+// `[workspace.package].version` in Cargo.toml at config-load time and
+// injected via `define` so the marketing bundle never drifts against the
+// shipped binary's version.
+function readWorkspaceVersion(): string {
+  const cargoPath = path.resolve(__dirname, '..', 'Cargo.toml')
+  const cargo = fs.readFileSync(cargoPath, 'utf8')
+  const m = cargo.match(/\[workspace\.package\][^[]*?\nversion\s*=\s*"([^"]+)"/m)
+  if (!m) {
+    throw new Error(
+      `vite.config.marketing.ts: could not parse [workspace.package].version from ${cargoPath}`,
+    )
+  }
+  return m[1]
+}
+
+const OGDB_VERSION = readWorkspaceVersion()
+
 export default defineConfig({
   plugins: [
     react(),
@@ -40,6 +58,9 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  define: {
+    'import.meta.env.VITE_OGDB_VERSION': JSON.stringify(OGDB_VERSION),
   },
   build: {
     outDir: 'dist-marketing',

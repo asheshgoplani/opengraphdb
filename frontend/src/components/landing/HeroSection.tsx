@@ -2,6 +2,7 @@ import { ArrowRight, Bot, Cpu, Languages } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { AppBackdrop } from '@/components/layout/AppBackdrop'
 import { Button } from '@/components/ui/button'
+import { OGDB_VERSION } from '@/lib/version'
 import { ClaimsBadge } from './ClaimsBadge'
 import { HeroGraphBackground } from './HeroGraphBackground'
 import { useSectionInView } from './useSectionInView'
@@ -77,7 +78,7 @@ export function HeroSection() {
         >
           <p className="inline-flex items-center gap-2 rounded-full border border-border/60 bg-muted/40 px-3.5 py-1 text-xs uppercase tracking-[0.18em] text-foreground/85 backdrop-blur">
             <span className="h-1.5 w-1.5 rounded-full bg-[hsl(var(--accent))] shadow-[0_0_8px] shadow-[hsl(var(--accent))]" />
-            v0.3.0&nbsp;·&nbsp;open source&nbsp;·&nbsp;Apache-2.0&nbsp;·&nbsp;single-file
+            v{OGDB_VERSION}&nbsp;·&nbsp;open source&nbsp;·&nbsp;Apache-2.0&nbsp;·&nbsp;single-file
           </p>
           <ClaimsBadge />
         </div>

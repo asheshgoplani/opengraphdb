@@ -13,6 +13,24 @@ import { fileURLToPath } from 'node:url'
 // produces an interactive console identical to today's all-routes dev.
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
+// F03 (EVAL-DOCS-COMPLETENESS-CYCLE15): the hero version badge used to be
+// hard-coded and drifted against `[workspace.package].version` for two
+// minor releases. Read the workspace version from Cargo.toml at config-load
+// time and inject it via `define` as `import.meta.env.VITE_OGDB_VERSION`.
+function readWorkspaceVersion(): string {
+  const cargoPath = path.resolve(__dirname, '..', 'Cargo.toml')
+  const cargo = fs.readFileSync(cargoPath, 'utf8')
+  const m = cargo.match(/\[workspace\.package\][^[]*?\nversion\s*=\s*"([^"]+)"/m)
+  if (!m) {
+    throw new Error(
+      `vite.config.app.ts: could not parse [workspace.package].version from ${cargoPath}`,
+    )
+  }
+  return m[1]
+}
+
+const OGDB_VERSION = readWorkspaceVersion()
+
 // Rollup names emitted HTML after the source filename, so a build with
 // `index-app.html` as input produces `dist-app/index-app.html`. The
 // acceptance gate (and S7 embed) expects `dist-app/index.html` — rename
@@ -73,6 +91,9 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  define: {
+    'import.meta.env.VITE_OGDB_VERSION': JSON.stringify(OGDB_VERSION),
   },
   server: {
     proxy: {

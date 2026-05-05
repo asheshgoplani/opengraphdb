@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { readVersionFromCargoToml } from './_helpers/cargo-version'
 
 test('Loading fallback uses ellipsis char', async ({ page }) => {
   await page.route('**/src/pages/PlaygroundPage.tsx', (route) => route.continue())
@@ -19,7 +20,11 @@ test('section anchors land below fixed nav', async ({ page }) => {
 
 test('NBSP between version eyebrow tokens', async ({ page }) => {
   await page.goto('/')
-  const eyebrow = await page.locator('text=v0.3.0').first().textContent()
+  // EVAL-DOCS-COMPLETENESS-CYCLE15 F03: source the version from Cargo.toml
+  // at test time so the assertion tracks the workspace version, not a
+  // literal that drifts on every release.
+  const version = readVersionFromCargoToml()
+  const eyebrow = await page.locator(`text=v${version}`).first().textContent()
   expect(eyebrow).toContain(' · ')
 })
 

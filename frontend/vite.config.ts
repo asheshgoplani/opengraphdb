@@ -2,6 +2,27 @@ import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import fs from 'fs'
 import path from 'path'
+import { fileURLToPath } from 'node:url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
+// F03 (EVAL-DOCS-COMPLETENESS-CYCLE15): hero badge version is sourced from
+// `[workspace.package].version` in Cargo.toml at config-load time and
+// injected via `define` so dev mode (`npm run dev`) renders the same
+// version label that production builds do.
+function readWorkspaceVersion(): string {
+  const cargoPath = path.resolve(__dirname, '..', 'Cargo.toml')
+  const cargo = fs.readFileSync(cargoPath, 'utf8')
+  const m = cargo.match(/\[workspace\.package\][^[]*?\nversion\s*=\s*"([^"]+)"/m)
+  if (!m) {
+    throw new Error(
+      `vite.config.ts: could not parse [workspace.package].version from ${cargoPath}`,
+    )
+  }
+  return m[1]
+}
+
+const OGDB_VERSION = readWorkspaceVersion()
 
 // H1 (audit 2026-04-23b): `@neo4j-cypher/react-codemirror` loads its Cypher
 // lint worker at runtime via
@@ -54,6 +75,9 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
     },
+  },
+  define: {
+    'import.meta.env.VITE_OGDB_VERSION': JSON.stringify(OGDB_VERSION),
   },
   server: {
     proxy: {

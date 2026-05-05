@@ -7,20 +7,28 @@
  * playground polish sweeps.
  */
 import { expect, test, type ConsoleMessage } from '@playwright/test'
+import { readVersionFromCargoToml, workspaceVersionRegex } from './_helpers/cargo-version'
 
 // -- H3 -------------------------------------------------------------------
 // Hero badge on `/` must reflect the workspace version. Pre-fix it was
 // hard-coded "v0.1" while Cargo.toml had been at 0.3.0 for two minor
-// releases.
-test('H3: hero version badge matches workspace Cargo.toml (0.3.0)', async ({ page }) => {
+// releases. EVAL-DOCS-COMPLETENESS-CYCLE15 F03 caught the same drift again
+// when a v0.3.0 literal survived 0.4.0 → 0.5.1 — the assertion now reads
+// from the same Cargo.toml the Vite build injects from.
+test('H3: hero version badge matches workspace Cargo.toml', async ({ page }) => {
   await page.goto('/')
   const hero = page.getByTestId('hero-content')
   await expect(hero).toBeVisible()
-  await expect(hero).toContainText(/v0\.3\.0/)
-  // Regression guard: the old v0.1 string must NOT appear anywhere in the
+  await expect(hero).toContainText(workspaceVersionRegex())
+  // Regression guard: a stale v0.1 string must NOT appear anywhere in the
   // hero content. (The hero badge used to read "v0.1 · open source · ...".)
+  // We only run this guard when the workspace version is not itself in the
+  // 0.1.x line — otherwise the positive assertion above and this guard
+  // would conflict.
   const heroText = (await hero.innerText()).toLowerCase()
-  expect(heroText).not.toMatch(/\bv0\.1\b/)
+  if (!readVersionFromCargoToml().startsWith('0.1.')) {
+    expect(heroText).not.toMatch(/\bv0\.1\b/)
+  }
 })
 
 // -- H2 -------------------------------------------------------------------
