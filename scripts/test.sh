@@ -123,6 +123,25 @@ source "$HOME/.cargo/env"
 ./scripts/check-init-agent-syntax.sh
 ./scripts/test-check-init-agent-syntax.sh
 ./scripts/test-check-benchmarks-vocabulary-mirror.sh
+# coverage-audit-2026-05-05 deferred HIGH: red-green meta-tests for the
+# previously-unprotected check-*.sh gates. Each test runs the gate against
+# its live tree (GREEN) then plants a fixture violation in mktemp -d (RED).
+# The remaining 10 meta-tests (doc-anchors, doc-rust-blocks, design-vs-impl,
+# doc-ratchet, doc-tests-wired, shipped-doc-coverage, token-sacred-blue,
+# install-demo-path-matches-binary-default, crate-metadata, workspace-lint-pins)
+# are tracked as a follow-up — most either invoke `cargo` / `git grep` against
+# the real tree or anchor on $SCRIPT_DIR, which raises the fixture cost above
+# what fits in a single batch.
+./scripts/test-check-binary-name.sh
+./scripts/test-check-npm-version.sh
+./scripts/test-check-pypi-version.sh
+./scripts/test-check-deny-expirations.sh
+./scripts/test-check-rust-toolchain-pin.sh
+./scripts/test-check-no-advisory-swallow.sh
+./scripts/test-check-binding-readmes.sh
+./scripts/test-check-bindings-no-handwritten-unsafe.sh
+./scripts/test-check-crate-root-docs.sh
+./scripts/test-check-public-doc-tmp-leak.sh
 # C4-H2 (HIGH): the cycle-3 C3-H3 Criterion harness file landed but no
 # CI job ran it. Without the bench-regression job in ci.yml, a perf fix
 # being silently reverted by a bad merge stays invisible until the next
