@@ -8,7 +8,7 @@ const SKILLS_ROOT = resolve(__dirname, "..");
 
 const ALL_SKILLS = ["opengraphdb", "ogdb-cypher", "graph-explore", "schema-advisor", "data-import"];
 
-type Platform = "claude" | "cursor" | "copilot" | "codex";
+type Platform = "claude" | "cursor" | "codex";
 
 interface InstallOptions {
   platform?: string;
@@ -19,7 +19,6 @@ function detectPlatform(): Platform {
   // Check for platform indicators in the current project
   if (existsSync(".claude") || existsSync("CLAUDE.md")) return "claude";
   if (existsSync(".cursor") || existsSync(".cursorrules")) return "cursor";
-  if (existsSync(".github/copilot-instructions.md")) return "copilot";
   if (existsSync(".codex")) return "codex";
   // Default to Claude Code format (most structured)
   return "claude";
@@ -120,13 +119,6 @@ export async function install(options: InstallOptions): Promise<void> {
         "# OpenGraphDB Skills\n\nThese rules teach you how to work with OpenGraphDB, a graph database with Cypher query support.\n"
       );
       break;
-    case "copilot":
-      installSingleFile(
-        skills,
-        ".github/copilot-instructions.md",
-        "# OpenGraphDB Skills\n\nThese instructions teach you how to work with OpenGraphDB, a graph database with Cypher query support.\n"
-      );
-      break;
     case "codex":
       installSingleFile(
         skills,
@@ -135,7 +127,7 @@ export async function install(options: InstallOptions): Promise<void> {
       );
       break;
     default:
-      throw new Error(`Unknown platform: ${platform}. Use: claude, cursor, copilot, or codex`);
+      throw new Error(`Unknown platform: ${platform}. Use: claude, cursor, or codex`);
   }
 
   const ruleCount = skills.reduce((sum, s) => sum + countRuleFiles(s), 0);

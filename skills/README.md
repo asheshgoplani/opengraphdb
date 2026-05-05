@@ -1,6 +1,6 @@
 # @opengraphdb/skills
 
-AI coding skills for OpenGraphDB. Install expert graph database knowledge into Claude Code, Cursor, VS Code Copilot, and Codex.
+AI coding skills for OpenGraphDB. Install expert graph database knowledge into Claude Code, Cursor, and Codex.
 
 ## What Are Skills?
 
@@ -15,7 +15,6 @@ npx @opengraphdb/skills install
 # Or specify your platform
 npx @opengraphdb/skills install claude
 npx @opengraphdb/skills install cursor
-npx @opengraphdb/skills install copilot
 npx @opengraphdb/skills install codex
 ```
 
@@ -80,14 +79,6 @@ npx @opengraphdb/skills install cursor
 
 Creates or appends to `.cursorrules` in your project root. All skill content is concatenated into a single file that Cursor reads on project open.
 
-### VS Code Copilot
-
-```bash
-npx @opengraphdb/skills install copilot
-```
-
-Creates `.github/copilot-instructions.md` with all skill content. Copilot reads project-level instructions from this file automatically.
-
 ### Codex
 
 ```bash
@@ -146,7 +137,7 @@ npx @opengraphdb/skills install claude ogdb-cypher
 npx @opengraphdb/skills install cursor ogdb-cypher data-import
 
 # Install schema and exploration skills
-npx @opengraphdb/skills install copilot schema-advisor graph-explore
+npx @opengraphdb/skills install codex schema-advisor graph-explore
 ```
 
 ## Skill Contents
