@@ -125,11 +125,14 @@ source "$HOME/.cargo/env"
 ./scripts/test-check-benchmarks-vocabulary-mirror.sh
 # coverage-audit-2026-05-05 deferred HIGH: red-green meta-tests for the
 # previously-unprotected check-*.sh gates. Each test runs the gate against
-# its live tree (GREEN) then plants a fixture violation in mktemp -d (RED).
+# its live tree (GREEN) then plants a fixture violation (RED).
 # Backfilled in the cycle-23 follow-up: doc-anchors, design-vs-impl,
 # doc-ratchet, doc-tests-wired, token-sacred-blue,
 # install-demo-path-matches-binary-default, crate-metadata, workspace-lint-pins.
-# Still deferred (heavy cargo-workspace fixtures): doc-rust-blocks, shipped-doc-coverage.
+# Cycle-25 follow-up closes the last two (heavy cargo-workspace fixtures):
+# doc-rust-blocks (planted documentation/*.md with E0308) and
+# shipped-doc-coverage (planted crates/_test_planted_b1/src/lib.rs with a
+# rogue `#![allow(missing_docs)]` outside the ratchet crates).
 ./scripts/test-check-doc-ratchet.sh
 ./scripts/test-check-doc-tests-wired.sh
 ./scripts/test-check-install-demo-path-matches-binary-default.sh
@@ -138,6 +141,8 @@ source "$HOME/.cargo/env"
 ./scripts/test-check-doc-anchors.sh
 ./scripts/test-check-token-sacred-blue.sh
 ./scripts/test-check-crate-metadata.sh
+./scripts/test-check-doc-rust-blocks.sh
+./scripts/test-check-shipped-doc-coverage.sh
 ./scripts/test-check-binary-name.sh
 ./scripts/test-check-npm-version.sh
 ./scripts/test-check-pypi-version.sh
