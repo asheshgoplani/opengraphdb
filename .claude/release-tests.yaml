@@ -643,3 +643,12 @@ tests:
     command: "cargo test -p ogdb-import --test parsers"
     purpose: "Closes coverage-audit-2026-05-05 BLOCKER 2 — pins behaviour of `parse_pdf_sections`, `parse_markdown_sections`, `detect_cross_references` (publicly exported, previously untested). 7 asserts cover heading-only docs, code blocks, mixed heading levels, valid PDF round-trip via tests/fixtures/sample.pdf, malformed-PDF Err path, and cross-reference detection over real markdown. Lifts ogdb-import line coverage 36.32% → 86.32% (function 38.89% → 61.11%)."
     added: 2026-05-05
+
+  - id: init-agent-end-to-end
+    task: fix-coverage-B1-init-agent-integration-test
+    crate: ogdb-cli
+    test: init_agent_integration
+    function: [init_agent_claude_writes_mcp_config_to_dot_claude_json, init_agent_cursor_writes_mcp_config_to_dot_cursor_dir, init_agent_autodetect_no_agents_emits_help_listing_supported_agents, init_agent_does_not_corrupt_pre_existing_demo_db, init_agent_dry_run_writes_no_files]
+    command: "cargo test -p ogdb-cli --test init_agent_integration -- --test-threads=1"
+    purpose: "Closes coverage-audit-2026-05-05 BLOCKER 1 — `init_agent::run` (the orchestrator behind `ogdb init --agent`, the curl-install last-mile) was uncalled by any test. Five end-to-end cases now exercise the public CLI surface in a hermetic HOME=tempdir env: claude writes ~/.claude.json with `ogdb mcp --stdio <db>`; cursor writes ~/.cursor/mcp.json + rules drop; autodetect-with-no-agents emits help listing all supported backends instead of crashing; pre-existing demo.ogdb is preserved byte-for-byte; --dry-run writes zero files."
+    added: 2026-05-05
