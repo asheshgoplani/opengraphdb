@@ -245,7 +245,6 @@ jobs:
                        ogdb-core ogdb-bolt ogdb-cli; do
             cargo semver-checks check-release -p "$crate"
           done
-          done
 
   cross-platform-build:
     # EVAL-PERF-RELEASE.md Finding 6 (BLOCKER): catch macOS / Windows
