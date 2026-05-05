@@ -6,7 +6,7 @@
 # gate locks the two surfaces together.
 set -euo pipefail
 
-PATHS=(skills/README.md skills/src/install.ts)
+PATHS=(skills/README.md skills/src/install.ts skills/package.json skills/src/index.ts)
 
 MISSING=()
 for p in "${PATHS[@]}"; do

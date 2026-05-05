@@ -1,7 +1,7 @@
 {
   "name": "@opengraphdb/skills",
   "version": "0.1.0",
-  "description": "AI coding skills for OpenGraphDB — install expert graph database knowledge into Claude Code, Cursor, Copilot, and Codex",
+  "description": "AI coding skills for OpenGraphDB — install expert graph database knowledge into Claude Code, Cursor, Continue.dev, Aider, Goose, and Codex",
   "type": "module",
   "bin": {
     "opengraphdb-skills": "./dist/index.js"
@@ -14,11 +14,11 @@
     "test": "node --test dist/**/*.test.js",
     "prepublishOnly": "npm run build"
   },
-  "keywords": ["opengraphdb", "skills", "ai", "cypher", "graph-database", "claude", "copilot", "cursor", "codex", "mcp"],
+  "keywords": ["opengraphdb", "skills", "ai", "cypher", "graph-database", "claude", "cursor", "codex", "aider", "goose", "continue", "mcp"],
   "author": "OpenGraphDB Contributors",
   "license": "MIT",
-  "homepage": "https://github.com/openGraphDB/openGraphDB/tree/main/skills",
-  "bugs": "https://github.com/openGraphDB/openGraphDB/issues",
+  "homepage": "https://github.com/asheshgoplani/opengraphdb/tree/main/skills",
+  "bugs": "https://github.com/asheshgoplani/opengraphdb/issues",
   "engines": { "node": ">=18" },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -27,7 +27,7 @@
   "files": ["dist", "evals", "opengraphdb", "ogdb-cypher", "graph-explore", "schema-advisor", "data-import", "README.md", "LICENSE"],
   "repository": {
     "type": "git",
-    "url": "https://github.com/openGraphDB/openGraphDB",
+    "url": "https://github.com/asheshgoplani/opengraphdb",
     "directory": "skills"
   }
 }
