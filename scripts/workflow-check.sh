@@ -41,6 +41,17 @@ if [[ "$unreleased_added_count" -lt 1 ]]; then
   exit 1
 fi
 
+# C15-F16 strengthening: reject the literal "(No entries yet" placeholder so
+# the AGENTS rule ("Every completed change must have an entry in `Unreleased`")
+# is enforced for non-`feat(` commits too. Layer-2 below only fires for
+# `feat(` commits; without this layer-1 tightening, a `docs(` or `fix(`
+# landing can satisfy the gate by leaving the placeholder bullet untouched.
+if printf '%s\n' "$unreleased_block" | grep -qF '(No entries yet'; then
+  echo "ERROR: CHANGELOG.md [Unreleased] still contains the '(No entries yet' placeholder bullet." >&2
+  echo "       Replace it with a real entry describing the change you just landed." >&2
+  exit 1
+fi
+
 # Layer 2: feat( coverage since the most recent released version.
 #
 # Find the most recent released tag heading (e.g., `## [0.4.0]`); resolve the
