@@ -652,3 +652,12 @@ tests:
     command: "cargo test -p ogdb-cli --test init_agent_integration -- --test-threads=1"
     purpose: "Closes coverage-audit-2026-05-05 BLOCKER 1 — `init_agent::run` (the orchestrator behind `ogdb init --agent`, the curl-install last-mile) was uncalled by any test. Five end-to-end cases now exercise the public CLI surface in a hermetic HOME=tempdir env: claude writes ~/.claude.json with `ogdb mcp --stdio <db>`; cursor writes ~/.cursor/mcp.json + rules drop; autodetect-with-no-agents emits help listing all supported backends instead of crashing; pre-existing demo.ogdb is preserved byte-for-byte; --dry-run writes zero files."
     added: 2026-05-05
+
+  - id: install-end-to-end
+    task: fix-coverage-H1-curl-install-e2e
+    crate: scripts
+    test: "install_end_to_end"
+    function: []
+    command: "bash scripts/test-install-end-to-end.sh"
+    purpose: "Closes coverage-audit-2026-05-05 §3 + §7 HIGH (no e2e test for `curl install.sh | sh` on a clean machine). Runs install.sh against a sandboxed $HOME with curl mocked to serve a tarball wrapping the locally-built ogdb binary, then asserts (a) ogdb installs at $HOME/.local/bin/ogdb and is executable, (b) demo.ogdb is created at $HOME/.ogdb/demo.ogdb (cycle-18 path), and (c) `ogdb --version` matches workspace.package.version. Sibling of install-sh-asset-url-template above (which only covers detect_target's URL table; this one covers the actual install + demo bootstrap pipeline)."
+    added: 2026-05-05

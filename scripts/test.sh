@@ -194,3 +194,11 @@ cargo test --workspace --all-targets
 # needs --doc to actually run, otherwise an API rename silently breaks
 # the docs.rs landing page without CI feedback.
 cargo test --workspace --doc
+# coverage-audit-2026-05-05 §3/§7 HIGH: end-to-end exercise of the
+# `curl install.sh | sh` path. The cargo test --workspace --all-targets
+# above guarantees target/debug/ogdb is freshly built, which the e2e
+# script wraps into a fake release tarball + runs install.sh against
+# in a sandboxed $HOME. test-install-detect-target.sh above only covers
+# the rust-target triple table; this closes the gap on the install
+# pipeline itself (binary install + demo bootstrap + version match).
+./scripts/test-install-end-to-end.sh
