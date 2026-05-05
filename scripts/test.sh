@@ -17,6 +17,19 @@ source "$HOME/.cargo/env"
 # EVAL-DOCS-COMPLETENESS-CYCLE15 F06: skills/README.md + skills/src/install.ts
 # must not mention copilot (SKILL.md compatibility metadata is the truth).
 ./scripts/check-skills-copilot-removed.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE16 F02 (wired by EVAL-DOCS-COMPLETENESS-CYCLE17 F04):
+# every */package.json must declare repository.url / homepage / bugs URLs that
+# match `git remote get-url origin`. Sibling commit b994aa7 wired only the
+# cycle-15 cluster; this gate (added by 09f9161) was the dead-code gap F04 closed.
+./scripts/check-npm-package-github-url.sh
+# EVAL-PERF-RELEASE Finding 1: documentation/BENCHMARKS.md headline + § 2 table
+# column header must match workspace.package.version (the meta-test below runs
+# the gate against a fixture; this invocation runs it against the real repo).
+./scripts/check-benchmarks-version.sh
+# Phase-3 STORY: sacred-blue (#5B9DFF) is reserved for the active traversal
+# cinematic surface. Fail CI if the hex leaks outside the allowlisted files
+# in frontend/src/graph/obsidian/.
+./scripts/check-token-sacred-blue.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE15 F07: CONTRIBUTING.md coverage-gate claim
 # must match scripts/coverage.sh's --fail-under-lines / --fail-uncovered-lines.
 ./scripts/check-contributing-coverage-claim.sh
@@ -59,6 +72,13 @@ source "$HOME/.cargo/env"
 ./scripts/test-check-security-supported-version.sh
 ./scripts/test-check-skills-copilot-removed.sh
 ./scripts/test-check-contributing-coverage-claim.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE17 F04: meta-test for check-npm-package-github-url.sh
+# (added in cycle-16 09f9161, wired here alongside the gate it covers).
+./scripts/test-check-npm-package-github-url.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE17 F04: structural meta-meta-test — every
+# scripts/check-*.sh gate must be invoked directly from scripts/test.sh. Closes
+# the cycle-15+16 class of gap (gate created, not wired) at the structural level.
+./scripts/test-all-check-scripts-wired.sh
 # C4-H2 (HIGH): the cycle-3 C3-H3 Criterion harness file landed but no
 # CI job ran it. Without the bench-regression job in ci.yml, a perf fix
 # being silently reverted by a bad merge stays invisible until the next
