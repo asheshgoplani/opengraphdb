@@ -85,6 +85,14 @@ source "$HOME/.cargo/env"
 # silently survived 11+ polish cycles (1 positional vs 2 required, AND
 # wrong subcommand for RDF — RDF is `import-rdf`).
 ./scripts/check-readme-bash-blocks.sh
+# EVAL-FRONTEND-CYCLE28 HIGH-1 + HIGH-2: TSX-mirror of the above. Every
+# string literal in frontend/src/**/*.{ts,tsx} whose trimmed content starts
+# with `ogdb …` must validate against the same CLI_SUBCOMMANDS + positional
+# count sources of truth. Caught the `'ogdb serve --http'` SERVE_COMMAND
+# const (DisconnectedState Copy-button) and the `'ogdb import datasets/...'`
+# 1-vs-2 positional shape — same F01 bug class as cycle-27, mirrored into
+# the playground UI.
+./scripts/check-frontend-bash-blocks.sh
 
 # C2-A7 (HIGH): npm package version must match workspace version.
 ./scripts/check-npm-version.sh
@@ -166,6 +174,8 @@ source "$HOME/.cargo/env"
 ./scripts/test-check-shipped-doc-coverage.sh
 # EVAL-DOCS-CYCLE27 F01: meta-test for check-readme-bash-blocks.sh.
 ./scripts/test-check-readme-bash-blocks.sh
+# EVAL-FRONTEND-CYCLE28 HIGH-1 + HIGH-2: meta-test for check-frontend-bash-blocks.sh.
+./scripts/test-check-frontend-bash-blocks.sh
 ./scripts/test-check-binary-name.sh
 ./scripts/test-check-npm-version.sh
 ./scripts/test-check-pypi-version.sh

@@ -183,7 +183,7 @@ export function LiveEmptyDbCTA({ serverUrl, onSeeded }: LiveEmptyDbCTAProps) {
           <p className="mt-2 text-[10px] leading-snug text-primary/70">
             Or drop a .ttl / .nt file on the RDF zone below, or run{' '}
             <code className="rounded bg-background/60 px-1 py-px font-mono text-[10px] text-foreground/85">
-              ogdb import datasets/movielens.json
+              ogdb import ~/.ogdb/demo.ogdb datasets/movielens.json
             </code>{' '}
             from the repo root.
           </p>

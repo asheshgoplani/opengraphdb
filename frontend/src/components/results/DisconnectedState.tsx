@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button'
 import { useSettingsStore } from '@/stores/settings'
 import { useCopyToClipboard } from '@/lib/useCopyToClipboard'
 
-const SERVE_COMMAND = 'ogdb serve --http'
+const SERVE_COMMAND = 'ogdb serve --http ~/.ogdb/demo.ogdb'
 
 function SkeletonBlock({ className }: { className?: string }) {
   return (
