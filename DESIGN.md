@@ -1625,7 +1625,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
 anything else; Neo4j 4.x / 5.x drivers that negotiate v4/v5 by default
 will reject the handshake on connect — see
 `documentation/MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage" for
-the user-facing impact. v4/v5 negotiation is a v0.5 follow-up tracked
+the user-facing impact. v4/v5 negotiation is a v0.6.0 follow-up (slipped from v0.5) tracked
 in `documentation/COMPATIBILITY.md` § 4.
 
 The HELLO/RUN/PULL/GOODBYE message flow below is broadly the same in

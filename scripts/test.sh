@@ -33,6 +33,13 @@ source "$HOME/.cargo/env"
 # EVAL-DOCS-COMPLETENESS-CYCLE15 F07: CONTRIBUTING.md coverage-gate claim
 # must match scripts/coverage.sh's --fail-under-lines / --fail-uncovered-lines.
 ./scripts/check-contributing-coverage-claim.sh
+# EVAL-DOCS-COMPLETENESS-CYCLE17 F01: every `vX.Y follow-up` /
+# `vX.Y.Z follow-up` token in user-facing docs must name a minor strictly
+# greater than the workspace.package.version minor — otherwise the prose
+# is shipping a follow-up promise about a release that has already
+# happened. Caught the cycle-15 + cycle-16 miss on Bolt v4/v5 negotiation
+# in COMPATIBILITY.md/SPEC.md/DESIGN.md.
+./scripts/check-followup-target-not-current.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE4 H1..H5: design specification (DESIGN.md /
 # ARCHITECTURE.md / README.md / SPEC.md / skills/) must not drift from
 # the shipped implementation. Pinned source of truth is in `crates/`.
@@ -79,6 +86,7 @@ source "$HOME/.cargo/env"
 # scripts/check-*.sh gate must be invoked directly from scripts/test.sh. Closes
 # the cycle-15+16 class of gap (gate created, not wired) at the structural level.
 ./scripts/test-all-check-scripts-wired.sh
+./scripts/test-check-followup-target-not-current.sh
 # C4-H2 (HIGH): the cycle-3 C3-H3 Criterion harness file landed but no
 # CI job ran it. Without the bench-regression job in ci.yml, a perf fix
 # being silently reverted by a bad merge stays invisible until the next

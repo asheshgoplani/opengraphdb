@@ -631,7 +631,7 @@ OpenGraphDB uses capability commitments instead of date-based planning.
 - Bitmap pre-filter propagation and ID intersection operators
 - MCP server
 - JavaScript/TypeScript bindings
-- Bolt v1 protocol compatibility (v4/v5 negotiation is a v0.5 follow-up)
+- Bolt v1 protocol compatibility (v4/v5 negotiation is a v0.6.0 follow-up, slipped from v0.5)
 - GQL keyword aliases and incremental compatibility improvements
 - File-level import tracking
 - Compact backup mode
