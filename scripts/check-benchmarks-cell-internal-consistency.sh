@@ -163,6 +163,11 @@ def parse_rows(text):
         rows[int(cells[0])] = {
             'ogdb': cells[2],
             'verdict': verdict,
+            # Joined text of every cell in the row, used by CHECK A as a
+            # permissive fallback so a bullet's continuation lines may cite
+            # spec-target / competitive-threshold values (e.g. "the 150 ms
+            # competitive threshold") without false-positiving.
+            'all_cells_text': ' '.join(cells),
         }
     return rows
 
@@ -172,12 +177,72 @@ def parse_rows(text):
 BULLET_RE = re.compile(r'^- \*\*Row (\d+)\b')
 
 def parse_bullets(text):
+    """Parse `- **Row N** …` bullets, accumulating wrapped continuation lines.
+
+    Cycle-31 F01: MIGRATION-FROM-NEO4J.md uses multi-line bullets where the
+    headline numbers (e.g. Row 7's `**38.8 / 46.7 / 112.6 ms**`) and the
+    cycle-29-class back-reference (Row 10's `headline 128 000× ratio …`)
+    live on *continuation* lines. Without accumulation, CHECK A only sees
+    the bullet header line and silently misses partial-sweep drift on the
+    wrapped lines. A continuation line is any indented (space- or
+    tab-prefixed) non-empty line; a blank line or a non-indented line ends
+    the current bullet.
+    """
     bullets = []
+    cur = None
     for line in text.splitlines():
         m = BULLET_RE.match(line)
         if m:
-            bullets.append({'num': int(m.group(1)), 'text': line})
+            if cur is not None:
+                bullets.append(cur)
+            cur = {'num': int(m.group(1)), 'text': line}
+        elif cur is not None:
+            if line.strip() == '' or not line.startswith((' ', '\t')):
+                bullets.append(cur)
+                cur = None
+            else:
+                cur['text'] += '\n' + line
+    if cur is not None:
+        bullets.append(cur)
     return bullets
+
+# Cycle-31 F02: SKILL.md ships zero numbered row tables and zero `Row N`
+# bullets, so parse_rows + parse_bullets both return empty for it. The
+# substantive perf surface lives in a labeled "Performance you can expect"
+# pipe-table (lines 281-285) whose first cell is a human label, not a row
+# number. Map known label keywords to canonical BENCHMARKS row numbers so
+# CHECK D can run the same OGDB-cell token comparison as CHECK A.
+SKILL_LABEL_TO_ROW = [
+    ('neighbors()', 3),
+    ('LDBC SNB IS-1', 5),
+    ('Enrichment round-trip', 7),
+    ('Hybrid retrieval (vector kNN', 8),
+    ('Graph-feature rerank batch', 10),
+]
+
+def parse_perf_table(text):
+    """Parse SKILL.md-style labeled perf-table rows.
+
+    Format: `| <label> | **<OGDB value>** | <spec target> | <verdict> |`
+    where cells[0] is a human label (skipped by parse_rows because it isn't
+    an integer) and cells[1] is the OGDB column. Returns rows whose label
+    contains a known keyword anchor mapping to a canonical BENCHMARKS row.
+    """
+    rows = []
+    for line in text.splitlines():
+        if not line.startswith('| '):
+            continue
+        cells = [c.strip() for c in line.split('|')[1:-1]]
+        if len(cells) < 2:
+            continue
+        if re.match(r'^\d+$', cells[0]):
+            # Already covered by parse_rows.
+            continue
+        for keyword, num in SKILL_LABEL_TO_ROW:
+            if keyword in cells[0]:
+                rows.append({'num': num, 'ogdb': cells[1], 'label': cells[0]})
+                break
+    return rows
 
 # Pattern: <op_value op_unit> <gap> [≈|~]? <N×> <faster|under|behind> <gap> <ref_value ref_unit>
 MULT_PATTERN = re.compile(
@@ -217,6 +282,14 @@ for path in scan_paths:
     bullets = parse_bullets(text)
 
     # ---------- CHECK A: bullet tokens vs canonical row OGDB cell ----------
+    # Multi-line bullet support (cycle-31 F01): bullets now accumulate
+    # continuation lines, which legitimately cite spec-target /
+    # competitive-threshold values (e.g. Row 7 wraps "150 ms competitive
+    # threshold; misses the 40 ms best-in-class bar by 7 ms" — none of
+    # which are OGDB self-claims, but all live in the canonical row's
+    # other cells). Permissive fallback: if a token doesn't match the
+    # OGDB cell but does match *some* cell in the same canonical row,
+    # treat it as a legitimate citation rather than stale carry-forward.
     for b in bullets:
         row = canonical_rows.get(b['num'])
         if not row:
@@ -224,19 +297,25 @@ for path in scan_paths:
         cell_by_unit = {}
         for v, u, _ in find_tokens(row['ogdb']):
             cell_by_unit.setdefault(u, []).append(v)
+        row_by_unit = {}
+        for v, u, _ in find_tokens(row['all_cells_text']):
+            row_by_unit.setdefault(u, []).append(v)
         for v, u, raw in find_tokens(b['text']):
             if u not in cell_by_unit:
                 # Different unit ⇒ likely competitor citation (e.g. Cohere
                 # 171.5 ms in a μs row). Skip; not an OGDB self-claim.
                 continue
             candidates = cell_by_unit[u]
-            if not any(abs(cv - v) <= max(abs(cv) * 0.02, 0.01) for cv in candidates):
-                errors.append(
-                    f'{path}: § 3 row {b["num"]}: token "{raw.strip()}" — '
-                    f'canonical § 2 row {b["num"]} OGDB cell {u} values '
-                    f'are {candidates} (no match within 2 % tolerance). '
-                    f'Looks like a stale 0.3.0 carry-forward.'
-                )
+            if any(abs(cv - v) <= max(abs(cv) * 0.02, 0.01) for cv in candidates):
+                continue
+            if any(abs(cv - v) <= max(abs(cv) * 0.02, 0.01) for cv in row_by_unit.get(u, [])):
+                continue
+            errors.append(
+                f'{path}: § 3 row {b["num"]}: token "{raw.strip()}" — '
+                f'canonical § 2 row {b["num"]} OGDB cell {u} values '
+                f'are {candidates} (no match within 2 % tolerance). '
+                f'Looks like a stale 0.3.0 carry-forward.'
+            )
 
     # ---------- CHECK B: verdict-cell multiplier consistency ----------
     for num, row in file_rows.items():
@@ -321,6 +400,83 @@ for path in scan_paths:
                     f'Looks like a stale partial-sweep — the headline was '
                     f'updated but the back-reference was not.'
                 )
+
+    # ---------- CHECK C-bullets: bullet back-reference vs canonical row verdict ----------
+    # Cycle-31 F01: MIGRATION-FROM-NEO4J.md Row 10 wraps "the headline
+    # 128 000× ratio against Cohere Rerank 3.5" onto a continuation line.
+    # CHECK C only operates on `file_rows` (numbered tables), and MIGRATION
+    # ships none — so a stale back-reference (e.g. cycle-29 91 000× replay)
+    # in a bullet escapes. Now that parse_bullets accumulates continuations,
+    # scan each bullet for back-reference multipliers and require them to
+    # match the canonical row's verdict-cell primary multipliers.
+    for b in bullets:
+        row = canonical_rows.get(b['num'])
+        if not row:
+            continue
+        primaries = []
+        for m in PRIMARY_MULT_PATTERN.finditer(row['verdict']):
+            try:
+                primaries.append(_parse_mult(m.group(1)))
+            except ValueError:
+                continue
+        if not primaries:
+            continue
+        seen = set()
+        for m in BACKREF_MULT_PATTERN.finditer(b['text']):
+            mstr = m.group(1) or m.group(2)
+            if not mstr:
+                continue
+            key = mstr.replace(' ', '').replace(',', '')
+            if key in seen:
+                continue
+            seen.add(key)
+            try:
+                mult = _parse_mult(mstr)
+            except ValueError:
+                continue
+            if not any(abs(pm - mult) <= max(abs(pm) * 0.02, 1.0) for pm in primaries):
+                primaries_fmt = sorted({int(pm) if pm.is_integer() else pm for pm in primaries})
+                errors.append(
+                    f'{path}: § 3 row {b["num"]} bullet: back-reference '
+                    f'multiplier "{mstr}×" does not match any canonical § 2 '
+                    f'row {b["num"]} verdict primary multiplier '
+                    f'(primaries: {primaries_fmt}). Looks like a stale '
+                    f'partial-sweep — the headline was updated but the '
+                    f'back-reference was not.'
+                )
+
+    # ---------- CHECK D: SKILL.md-style labeled perf-table tokens vs canonical row ----------
+    # Cycle-31 F02: SKILL.md's "Performance you can expect" pipe-table
+    # uses human labels (no row numbers, no `- **Row N**` bullets), so
+    # CHECKS A/B/C return empty for it. Map known label keywords to
+    # canonical BENCHMARKS row numbers (SKILL_LABEL_TO_ROW) and run a
+    # CHECK-A-style ±2 % token comparison on the OGDB column. Same
+    # permissive row-wide fallback as CHECK A.
+    perf_table_rows = parse_perf_table(text)
+    for pr in perf_table_rows:
+        crow = canonical_rows.get(pr['num'])
+        if not crow:
+            continue
+        cell_by_unit = {}
+        for v, u, _ in find_tokens(crow['ogdb']):
+            cell_by_unit.setdefault(u, []).append(v)
+        row_by_unit = {}
+        for v, u, _ in find_tokens(crow['all_cells_text']):
+            row_by_unit.setdefault(u, []).append(v)
+        for v, u, raw in find_tokens(pr['ogdb']):
+            if u not in cell_by_unit:
+                continue
+            candidates = cell_by_unit[u]
+            if any(abs(cv - v) <= max(abs(cv) * 0.02, 0.01) for cv in candidates):
+                continue
+            if any(abs(cv - v) <= max(abs(cv) * 0.02, 0.01) for cv in row_by_unit.get(u, [])):
+                continue
+            errors.append(
+                f'{path}: perf-table label "{pr["label"]}" → canonical '
+                f'§ 2 row {pr["num"]}: token "{raw.strip()}" — canonical '
+                f'OGDB cell {u} values are {candidates} (no match within '
+                f'2 % tolerance). Looks like a stale 0.3.0 carry-forward.'
+            )
 
 if errors:
     print('check-benchmarks-cell-internal-consistency: FAIL', file=sys.stderr)

@@ -17,6 +17,16 @@
 # (7)  RED-F:    cycle-30 F02 partial-sweep replay — Row 13 bullet drift planted inside
 #                `documentation/MIGRATION-FROM-NEO4J.md` (0.38/0.32/28.0 → 0.41/0.30/26.3),
 #                cross-checked against canonical BENCHMARKS.md row 13 via CHECK A.
+# (8)  RED-G:    cycle-31 F01 — Row 7 multi-line bullet *continuation* drift planted inside
+#                `documentation/MIGRATION-FROM-NEO4J.md` (46.7 → 45.4 ms on the wrapped line).
+#                Locks the new parse_bullets continuation accumulator: pre-fix this drift
+#                was invisible to CHECK A because b['text'] was just the bullet header line.
+# (9)  RED-H:    cycle-31 F01 — Row 10 multi-line bullet continuation back-reference drift
+#                in MIGRATION (`headline\n  128 000× ratio` → `91 000× ratio`). Locks the
+#                new bullet back-reference scan against canonical row 10 verdict primaries.
+# (10) RED-I:    cycle-31 F02 — SKILL.md "Performance you can expect" perf-table cell drift
+#                (Enrichment row 46.7 ms → 45.4 ms). Locks the new CHECK D parse_perf_table
+#                + label-to-row map: pre-fix SKILL.md had zero substantive coverage.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -279,5 +289,150 @@ if ! grep -q 'MIGRATION-redF' <<<"$OUT_F"; then
   exit 1
 fi
 echo "test: RED-F on planted Row 13 bullet drift in MIGRATION-FROM-NEO4J.md (expected, exit=$RC_F)"
+
+# --- (8) RED-G: plant cycle-31 F01 Row 7 continuation-line drift in MIGRATION ---
+# Pre-cycle-31 parse_bullets only captured the bullet header line, so the
+# headline numbers `38.8 / 46.7 / 112.6 ms` on the wrapped continuation line
+# were invisible to CHECK A. After the fix, the continuation accumulator
+# folds the wrapped line into b['text'] and CHECK A flags the planted 45.4 ms.
+cp "$MIGRATION" "$TMP/MIGRATION-redG.md"
+python3 - "$TMP/MIGRATION-redG.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(encoding='utf-8')
+needle = (
+    '- **Row 7** — enrichment round-trip p50 / p95 / p99 =\n'
+    '  **38.8 / 46.7 / 112.6 ms**'
+)
+if needle not in text:
+    raise SystemExit('fixture: needle not found, file may have drifted')
+text = text.replace(
+    needle,
+    '- **Row 7** — enrichment round-trip p50 / p95 / p99 =\n'
+    '  **38.8 / 45.4 / 112.6 ms**'
+)
+p.write_text(text, encoding='utf-8')
+PY
+
+set +e
+OUT_G=$("$GATE" "$LIVE" "$TMP/MIGRATION-redG.md" 2>&1)
+RC_G=$?
+set -e
+if [[ $RC_G -eq 0 ]]; then
+  echo "test FAILED (RED-G): gate did not flag a planted Row 7 continuation-line drift in MIGRATION-FROM-NEO4J.md" >&2
+  echo "$OUT_G" >&2
+  exit 1
+fi
+if ! grep -q '§ 3 row 7' <<<"$OUT_G"; then
+  echo "test FAILED (RED-G): gate output missing CHECK A row 7 attribution:" >&2
+  echo "$OUT_G" >&2
+  exit 1
+fi
+if ! grep -q '45.4 ms' <<<"$OUT_G"; then
+  echo "test FAILED (RED-G): gate output missing planted 45.4 ms token:" >&2
+  echo "$OUT_G" >&2
+  exit 1
+fi
+if ! grep -q 'MIGRATION-redG' <<<"$OUT_G"; then
+  echo "test FAILED (RED-G): gate output missing MIGRATION path attribution:" >&2
+  echo "$OUT_G" >&2
+  exit 1
+fi
+echo "test: RED-G on planted Row 7 continuation-line drift in MIGRATION-FROM-NEO4J.md (expected, exit=$RC_G)"
+
+# --- (9) RED-H: plant cycle-31 F01 Row 10 continuation back-reference drift in MIGRATION ---
+# Replays cycle-29 F01 (the 91 000× back-reference) inside MIGRATION's wrapped
+# Row 10 bullet. Pre-cycle-31, CHECK C only operated on numbered-row tables
+# (which MIGRATION lacks), and CHECK A doesn't see "× ratio" tokens. The new
+# bullet back-reference scan compares against canonical row 10 verdict
+# primaries [128000, 37000].
+cp "$MIGRATION" "$TMP/MIGRATION-redH.md"
+python3 - "$TMP/MIGRATION-redH.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(encoding='utf-8')
+needle = 'so the headline\n  128 000× ratio against Cohere Rerank 3.5'
+if needle not in text:
+    raise SystemExit('fixture: needle not found, file may have drifted')
+text = text.replace(
+    needle,
+    'so the headline\n  91 000× ratio against Cohere Rerank 3.5'
+)
+p.write_text(text, encoding='utf-8')
+PY
+
+set +e
+OUT_H=$("$GATE" "$LIVE" "$TMP/MIGRATION-redH.md" 2>&1)
+RC_H=$?
+set -e
+if [[ $RC_H -eq 0 ]]; then
+  echo "test FAILED (RED-H): gate did not flag a planted Row 10 continuation back-reference in MIGRATION-FROM-NEO4J.md" >&2
+  echo "$OUT_H" >&2
+  exit 1
+fi
+if ! grep -q 'back-reference multiplier "91 000×"' <<<"$OUT_H"; then
+  echo "test FAILED (RED-H): gate output missing back-reference 91 000× error:" >&2
+  echo "$OUT_H" >&2
+  exit 1
+fi
+if ! grep -q 'row 10 bullet' <<<"$OUT_H"; then
+  echo "test FAILED (RED-H): gate output missing bullet-scope row 10 attribution:" >&2
+  echo "$OUT_H" >&2
+  exit 1
+fi
+if ! grep -q 'MIGRATION-redH' <<<"$OUT_H"; then
+  echo "test FAILED (RED-H): gate output missing MIGRATION path attribution:" >&2
+  echo "$OUT_H" >&2
+  exit 1
+fi
+echo "test: RED-H on planted Row 10 continuation back-reference in MIGRATION-FROM-NEO4J.md (expected, exit=$RC_H)"
+
+# --- (10) RED-I: plant cycle-31 F02 SKILL.md perf-table cell drift ---
+# SKILL.md's "Performance you can expect" perf-table at lines 281-285 had zero
+# substantive coverage pre-cycle-31 because parse_rows requires cells[0] to
+# be an integer and parse_bullets requires `- **Row N**` — the perf table
+# uses neither. After the fix, parse_perf_table maps the human label
+# "Enrichment round-trip `t_persist`" to canonical row 7 and CHECK D flags
+# the planted 45.4 ms (the canonical cycle-15 stale value).
+cp "$SKILL" "$TMP/SKILL-redI.md"
+python3 - "$TMP/SKILL-redI.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(encoding='utf-8')
+needle = '`t_persist` p95 (100 docs × 10ent + 15edge) | **46.7 ms**'
+if needle not in text:
+    raise SystemExit('fixture: needle not found, file may have drifted')
+text = text.replace(
+    needle,
+    '`t_persist` p95 (100 docs × 10ent + 15edge) | **45.4 ms**'
+)
+p.write_text(text, encoding='utf-8')
+PY
+
+set +e
+OUT_I=$("$GATE" "$LIVE" "$TMP/SKILL-redI.md" 2>&1)
+RC_I=$?
+set -e
+if [[ $RC_I -eq 0 ]]; then
+  echo "test FAILED (RED-I): gate did not flag a planted SKILL.md perf-table cell drift" >&2
+  echo "$OUT_I" >&2
+  exit 1
+fi
+if ! grep -q 'perf-table label' <<<"$OUT_I"; then
+  echo "test FAILED (RED-I): gate output missing CHECK D perf-table attribution:" >&2
+  echo "$OUT_I" >&2
+  exit 1
+fi
+if ! grep -q '45.4 ms' <<<"$OUT_I"; then
+  echo "test FAILED (RED-I): gate output missing planted 45.4 ms token:" >&2
+  echo "$OUT_I" >&2
+  exit 1
+fi
+if ! grep -q 'SKILL-redI' <<<"$OUT_I"; then
+  echo "test FAILED (RED-I): gate output missing SKILL.md path attribution:" >&2
+  echo "$OUT_I" >&2
+  exit 1
+fi
+echo "test: RED-I on planted SKILL.md perf-table cell drift (expected, exit=$RC_I)"
 
 echo "test: PASS"
