@@ -625,3 +625,12 @@ tests:
     command: "bash scripts/test-install-detect-target.sh"
     purpose: "Guards install-pipeline BLOCKER fixed in 1a56bb2 — install.sh detect_target() must emit asset URLs matching the rust-target triples in release.yml::build.matrix and the .tar.xz/.zip extensions release.sh produces. Catches re-introduction of the v0.5.0 curl-404 regression that escaped CI to a real user."
     added: 2026-05-05
+
+  - id: install-end-to-end
+    task: fix-coverage-H1-curl-install-e2e
+    crate: scripts
+    test: "install_end_to_end"
+    function: []
+    command: "bash scripts/test-install-end-to-end.sh"
+    purpose: "Closes coverage-audit-2026-05-05 §3 + §7 HIGH (no e2e test for `curl install.sh | sh` on a clean machine). Runs install.sh against a sandboxed $HOME with curl mocked to serve a tarball wrapping the locally-built ogdb binary, then asserts (a) ogdb installs at $HOME/.local/bin/ogdb and is executable, (b) demo.ogdb is created at $HOME/.ogdb/demo.ogdb (cycle-18 path), and (c) `ogdb --version` matches workspace.package.version. Sibling of install-sh-asset-url-template above (which only covers detect_target's URL table; this one covers the actual install + demo bootstrap pipeline)."
+    added: 2026-05-05
