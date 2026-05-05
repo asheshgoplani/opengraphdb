@@ -251,6 +251,14 @@ test.describe('cookbook snippets — runnable against ogdb serve --http', () => 
     expect(stringified).toContain('snapshot_b')
   })
 
+  test('recipe 4: POST /query with AT TIME returns 200', async () => {
+    readCookbook()
+    const { status } = await postJson('/query', {
+      query: 'MATCH (a)-[:KNOWS]->(b) AT TIME 1750000000000 RETURN b',
+    })
+    expect(status).toBe(200)
+  })
+
   test('recipe 6: migrate-from-Neo4j section names the three differences', () => {
     const body = readCookbook()
     expect(body).toContain('Single-file')
