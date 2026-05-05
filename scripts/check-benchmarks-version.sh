@@ -5,6 +5,12 @@
 # workspace `version` (`crates/ogdb-core/Cargo.toml` → workspace.package.version)
 # diverges from the BENCHMARKS.md headline.
 #
+# EVAL-PERF-RELEASE-CYCLE15.md F05/F09: the gate also covers the § 2 table
+# column header (the load-bearing claim a reader sees when scanning the
+# competitive comparison). A `(carry-fwd …)` marker on that header is the
+# escape-hatch for perf-no-op patch releases that intentionally carry an
+# older N=5 baseline forward.
+#
 # Usage: bash scripts/check-benchmarks-version.sh [--root <repo-root>]
 set -euo pipefail
 
@@ -55,4 +61,39 @@ if [[ "$WS_VERSION" != "$HEADLINE_VERSION" ]]; then
   exit 1
 fi
 
-echo "check-benchmarks-version: ok ($WS_VERSION)"
+# § 2 table column header check. The competitive-comparison table column
+# names the OpenGraphDB version the numbers came from; a stale value here
+# masquerades as the binary's released version even when the headline is
+# correct. Find the markdown row that begins '| # | Metric |' and parse
+# its OpenGraphDB X.Y.Z token.
+TABLE_HEADER_LINE=$(grep -m1 -E '^\| # \| Metric \|' "$BENCHMARKS_MD" || true)
+if [[ -z "$TABLE_HEADER_LINE" ]]; then
+  echo "check-benchmarks-version: could not find § 2 table column header in $BENCHMARKS_MD" >&2
+  echo "  expected: a row beginning with '| # | Metric |' that names the OpenGraphDB column" >&2
+  exit 1
+fi
+
+TABLE_VERSION=$(echo "$TABLE_HEADER_LINE" | grep -oE 'OpenGraphDB [0-9]+\.[0-9]+\.[0-9]+' | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
+if [[ -z "$TABLE_VERSION" ]]; then
+  echo "check-benchmarks-version: could not read OpenGraphDB X.Y.Z from § 2 table column header" >&2
+  echo "  got: $TABLE_HEADER_LINE" >&2
+  exit 1
+fi
+
+if [[ "$TABLE_VERSION" != "$WS_VERSION" ]]; then
+  if echo "$TABLE_HEADER_LINE" | grep -q '(carry-fwd'; then
+    echo "check-benchmarks-version: ok ($WS_VERSION; § 2 column header carries $TABLE_VERSION forward via (carry-fwd …) marker)"
+    exit 0
+  fi
+  echo "check-benchmarks-version: TABLE COLUMN HEADER VERSION DRIFT" >&2
+  echo "  workspace.package.version           = $WS_VERSION  (Cargo.toml)" >&2
+  echo "  BENCHMARKS.md § 2 column header     = $TABLE_VERSION" >&2
+  echo "" >&2
+  echo "Fix: update the § 2 column header to '$WS_VERSION', OR — if the column" >&2
+  echo "     intentionally carries an older N=5 baseline forward (e.g. perf-no-op" >&2
+  echo "     patch release) — annotate it with a (carry-fwd …) marker, e.g." >&2
+  echo "     'OpenGraphDB $WS_VERSION (carry-fwd $TABLE_VERSION N=5)'." >&2
+  exit 1
+fi
+
+echo "check-benchmarks-version: ok ($WS_VERSION; headline + § 2 column header agree)"

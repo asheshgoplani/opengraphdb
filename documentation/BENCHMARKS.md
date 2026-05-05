@@ -10,30 +10,58 @@
 
 ## Scope and honesty policy
 
-> **Baseline-version note (updated 2026-05-02 per cycle-9 N=5
-> re-baseline; supersedes the cycle-9 carry-forward wording).** Rows
-> 3, 4, 5, 6, and 10 are now real 0.4.0 N=5 medians from a fresh
-> re-baseline run on the i9-10920X bench box (kernel 6.17.0-19-generic,
-> commit `1afcee3`, governor `powersave` with warm-up driver pass —
-> `performance` not writeable from this conductor). Raw run JSON:
+> **Baseline-version note (updated 2026-05-05 per cycle-15 audit;
+> supersedes the cycle-9 carry-forward wording).** All 14 rows in
+> § 2 below now carry 0.4.0 N=5 medians sourced from
 > [`baseline-2026-05-02.json`](evaluation-runs/baseline-2026-05-02.json)
-> (15 `EvaluationRun`s, schema v1.0, version=0.4.0). The earlier
-> [`baseline-2026-05-01.json`](evaluation-runs/baseline-2026-05-01.json)
-> single-shot, the 2026-04-25 0.3.0 N=5 medianed baseline at
+> (15 `EvaluationRun`s, schema v1.0, version=0.4.0, i9-10920X bench
+> box at commit `1afcee3`, governor `powersave` with warm-up driver
+> pass — `performance` not writeable from this conductor). The 0.5.1
+> patch-release introduced no perf-relevant code (install-script
+> repair, binding bumps, changelog policy only), so 0.5.1 carries
+> the 0.4.0 N=5 numbers forward verbatim, marked `(carry-fwd 0.4.0 N=5)`
+> in the column header. `scripts/check-benchmarks-version.sh` gates
+> on this marker so the headline-vs-column-header drift caught in
+> cycle-15 cannot recur silently. The 2026-04-25 0.3.0 N=5 medianed
+> baseline at
 > [`baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json),
+> the 2026-05-01 single-shot at
+> [`baseline-2026-05-01.json`](evaluation-runs/baseline-2026-05-01.json),
 > and the 2026-04-23 historical baseline are preserved in-tree for
-> longitudinal diff. The 0.3.0 → 0.4.0 N=5-vs-N=5 deltas worth
-> noting: row 3 read p95 11.2 → 6.8 μs (improvement), row 4 traversal
-> p95 17.2 → 25.8 μs (+50 % regression — file a profile follow-up
-> under § 4.2), row 5 IS-1 p95 232 → 163 μs (improvement), row 6
-> mutation p95 13.7 → 13.0 ms (flat), row 10 rerank p95 1.35 → 1.34 μs
-> (flat). Other rows still show their last-published N=5 values
-> (2026-04-25 0.3.0 medians, carried forward; methodology contract
-> says these are stable across the 0.3.0 → 0.4.0 perf-sensitive code
-> paths and only rows 3-6, 10 needed re-measurement per the 2026-05-01
-> single-shot drift signal in `.planning/c9-perf/PLAN.md`).
+> longitudinal diff.
+>
+> **0.3.0 → 0.4.0 N=5-vs-N=5 deltas (full audit, cycle-15).** The
+> earlier wording that claimed carry-forward rows were "stable
+> across the 0.3.0 → 0.4.0 perf-sensitive code paths" was
+> empirically false against the JSON below and has been removed;
+> the table is the actual measured drift, published transparently:
+>
+> | Row | Metric | 0.3.0 N=5 | 0.4.0 N=5 | Δ |
+> |---|---|---|---|---|
+> | 3 | read p95 (μs) | 11.2 | 6.8 | −39 % (improvement) |
+> | 4 | 2-hop p95 (μs) | 17.2 | 25.8 | **+50 % regression — § 4.2** |
+> | 5 | IS-1 p95 (μs) | 232 | 163 | −30 % (improvement) |
+> | 6 | mutation p95 (ms) | 13.7 | 13.0 | −5 % (flat) |
+> | 7 | enrichment p95 (ms) | 45.4 | 46.7 | +2.9 % |
+> | 7 | enrichment p99 (ms) | 114.0 | 112.6 | −1.2 % |
+> | 8 | hybrid p50 (μs) | 184 | 204 | **+10.9 % — exceeds 10 % latency gate** |
+> | 8 | hybrid p95 (μs) | 223 | 233 | +4.4 % |
+> | 9 | concurrent commits/s | 300.5 | 294.6 | −1.8 % |
+> | 10 | rerank p95 (μs) | 1.35 | 1.34 | flat |
+> | 11 | BFS levels (μs) | 42.7 | 48.5 | **+13.5 % regression — § 4.7** |
+> | 12 | PageRank iter (μs) | 604 | 652 | **+8.0 % regression — § 4.7** |
+> | 13 | scaling 10k read p95 (μs) | 0.26 | 0.38 | **+44 % — § 4.2** |
+> | 13 | scaling 10k load (s) | 0.29 | 0.32 | +10 % |
+> | 13 | scaling 10k RSS (MB) | 27.2 | 28.0 | +3 % |
+> | 14 | resources cpu_user (s) | 1.45 | 1.51 | +4 % |
+> | 14 | resources rss_peak (MB) | 30.3 | 28.0 | −7.6 % (improvement) |
+>
+> Rows 8 (p50), 11, 12, and 13 (read p95) breach the published
+> `evaluator-diff-engine` 5 %-throughput / 10 %-latency thresholds
+> (`.claude/release-tests.yaml`). Profile follow-ups are folded into
+> § 4.2 (scaling) and § 4.7 (Graphalytics at Datagen-9.0).
 
-This document is the public competitive-comparison sheet for OpenGraphDB 0.4.0. Per the project's transparency directive we publish *every* measurement — wins, losses, and axes where no public baseline exists — with enough methodology context that a reader can reproduce or challenge the numbers.
+This document is the public competitive-comparison sheet for OpenGraphDB 0.5.1 (carry-fwd 0.4.0 N=5; see Baseline-version note above). Per the project's transparency directive we publish *every* measurement — wins, losses, and axes where no public baseline exists — with enough methodology context that a reader can reproduce or challenge the numbers.
 
 Where OpenGraphDB loses to a competitor, we flag the gap as a follow-up in **Section 4**. Where OpenGraphDB wins, we cite the measurement protocol (dataset, iterations, hardware, warmup) so the reader can decide whether the comparison is apples-to-apples.
 
@@ -76,7 +104,7 @@ All OpenGraphDB numbers below are the **median of N=5 release-build iterations**
 
 Columns as specified. `Target (fastest-in-market)` is the best-in-class threshold from each competitor's published numbers (Neo4j Cypher Tuning Guide, Memgraph Benchmarks 2024, KuzuDB v0.7 release notes — see Section 5 for source links). Verdict legend: ✅ win / ❌ loss / 🟡 novel (no public baseline) / ⚠️ scale-mismatched (we ran at a smaller tier than competitors publish at — directional only).
 
-| # | Metric | OpenGraphDB 0.4.0 | Neo4j published | Memgraph published | KuzuDB (historical) | Target (fastest-in-market) | Verdict |
+| # | Metric | OpenGraphDB 0.5.1 (carry-fwd 0.4.0 N=5) | Neo4j published | Memgraph published | KuzuDB (historical) | Target (fastest-in-market) | Verdict |
 |---|---|---|---|---|---|---|---|
 | 1 | Bulk ingest, 10 k nodes + 10 k edges (nodes/s, single write-tx) | **254 nodes/s** (0.4.0, `throughput::ingest_bulk`, N=5 median) | ≈ 3.3 k nodes/s @ 100 k+2.4 M (derived: 30.64 s, [prrao87 study](https://github.com/prrao87/kuzudb-study)) | ≈ 295 k nodes/s @ 100 k ([blog](https://memgraph.com/blog/memgraph-or-neo4j-analyzing-write-speed-performance), 339 ms) | **≈ 172 k nodes/s** @ 100 k+2.4 M (0.58 s, prrao87) | ≥ 500 M rels/hr ≈ 139 k rels/s (spec 1.1 best-in-class) | ❌ **LOSS** — 670× behind Kuzu, 1 150× behind Memgraph on the same-scale workload. Root cause: driver's naïve "one `begin_write`/`commit` per node" path. Fix tracked in Section 4.1. |
 | 2 | Streaming ingest (nodes/s sustained, 30 s window, batch=64) | **301 nodes/s** (0.4.0, `throughput::ingest_streaming`, N=5 median) | not published | ≥ 10 k tx/s on mixed 30 %-write ([Benchgraph](https://memgraph.com/benchgraph)) | not published | ≥ 100 k tx/s (spec 1.2 best-in-class) | ❌ **LOSS** — 33× behind Memgraph's weakest Benchgraph number. Same root cause as row 1. |
@@ -84,14 +112,14 @@ Columns as specified. `Target (fastest-in-market)` is the best-in-class threshol
 | 4 | 2-hop traversal p50 / p95 / p99 (μs) @ 10 k nodes, cold, p99.9 dropped (N=5 noise) | **22.9 / 25.8 / 36.0 μs**, 48 k qps (0.4.0, N=5 median, 2026-05-02 re-baseline) | 2-hop at SF1 typically 5–20 ms p95 (maxdemarzi, various) | not published at equivalent shape | Kuzu Q8 (2-degree path): 8.6 ms vs Neo4j 3.22 s at LDBC-scale ([Data Quarry](https://thedataquarry.com/blog/embedded-db-2/)) | p95 < 100 ms (spec 2.2 IC-1..7 SF10 warm) | ⚠️ **DIRECTIONAL WIN** — our p95 (26 μs) clears the SF10 IC-1..7 threshold by ≈ 3 800×. The 0.3.0 → 0.4.0 N=5 medianed traversal p95 moved from 17 → 26 μs (+50 %) — still a directional win, but the regression deserves a profile pass before we claim record numbers at SF1/SF10. |
 | 5 | LDBC SNB IS-1 p50 / p95 / p99 (μs), 1 000 queries, p99.9 dropped (N=5 noise) | **18.3 / 163 / 222 μs**, 25.9 k qps @ LDBC mini (100 persons, 0.4.0, N=5 median, 2026-05-02 re-baseline) | none (Neo4j has no LDBC audit) | SF0.1/1/3 internal runs, not published as percentile tables | no LDBC audit; CIDR'23 covers complex reads | p95 < 5 ms @ SF10 (spec 4.1.x + 2.1) | 🟡 **NOVEL — scale mismatch** — LDBC SNB mini fixture has no published SF equivalent. IS-1 at SF10 is Phase-1 Must Ship (Section 4.3). |
 | 6 | Single-tx mutation p95 / p99 (μs), 1 000 samples, p99.9 dropped (N=5 noise) | **12 981 / 15 939 μs**, 72 ops/s (0.4.0, N=5 median, 2026-05-02 re-baseline) | not published as percentile tables | 132× Neo4j mixed 30 %-write (ratio only; absolute tx/s not disclosed) | not published | ≥ 100 k ops/s with p99.9 < 1 s (spec 1.5 + 2.5) | ❌ **LOSS on throughput** — 72 ops/s vs ≥ 10 k ops/s competitive threshold. p95 ≈ 13 ms / p99 ≈ 16 ms. p99.9 is dropped from the medianed core (still noisy at N=5); the 720 ms p99.9 outlier seen in the 2026-05-01 single-shot is filed as a profile-the-tail follow-up under Section 4.4. |
-| 7 | Enrichment round-trip `t_persist` p50 / p95 / p99 (ms), 100 docs × 10 ent + 15 edges | **38.5 / 45.4 / 114.0 ms** (N=5 median) | nothing published on this axis | nothing published on this axis | nothing published on this axis | p50 < 15 ms, p95 < 40 ms (spec B.1 best-in-class) | ✅ **WIN on competitive, MISS on best-in-class** — p95 of 44 ms clears the 150 ms competitive threshold by 3.4×, but misses the 40 ms best-in-class bar by 4 ms. First public number for this metric. |
-| 8 | Hybrid retrieval (vector kNN + 1-hop) p50 / p95 / p99 (μs), 100 queries × 1 000 nodes × dim=16 | **184 / 223 / 245 μs** (latency only, N=5 median; NDCG deferred) | Neo4j Vector Lucene-HNSW: no published latency-quality pair | mgvector: no published latency-quality pair | NaviX VLDB'25: paper only, no pair at BEIR scale | p95 < 80 ms + NDCG@10 ≥ dense-SOTA + 3 pp (spec B.3 best-in-class) | 🟡 **NOVEL — latency beats threshold, quality deferred** — 0.38 ms p95 is 200× under the 80 ms best-in-class bar, but quality (NDCG@10) is deferred: no BEIR corpus in-tree yet. Composite-SLA claim waits on Section 4.5. |
-| 9 | Concurrent multi-agent writes (commits/s), N=4 threads × 500 ops | **300 commits/s** (N=5 median), conflict_rate = 0.0 (single-writer kernel → separate DB per thread) | Aura: ~5 k w/s under contention (marketing) | not published as a curve | not published | ≥ 10 k commits/s @ N=64, conflict < 3 % (spec B.5 best-in-class) | ❌ **LOSS — under-scaled and kernel-limited** — we ran N=4, spec requires N=64. More importantly, `ogdb-core` is single-writer today, so each thread owns its own DB and the conflict_rate = 0 is mechanical, not a real measurement. Multi-writer is Section 4.6. |
+| 7 | Enrichment round-trip `t_persist` p50 / p95 / p99 (ms), 100 docs × 10 ent + 15 edges | **38.8 / 46.7 / 112.6 ms** (0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline) | nothing published on this axis | nothing published on this axis | nothing published on this axis | p50 < 15 ms, p95 < 40 ms (spec B.1 best-in-class) | ✅ **WIN on competitive, MISS on best-in-class** — p95 of 47 ms clears the 150 ms competitive threshold by 3.2×, but misses the 40 ms best-in-class bar by 7 ms. First public number for this metric. |
+| 8 | Hybrid retrieval (vector kNN + 1-hop) p50 / p95 / p99 (μs), 100 queries × 1 000 nodes × dim=16 | **204 / 233 / 246 μs** (latency only, 0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline; NDCG deferred) | Neo4j Vector Lucene-HNSW: no published latency-quality pair | mgvector: no published latency-quality pair | NaviX VLDB'25: paper only, no pair at BEIR scale | p95 < 80 ms + NDCG@10 ≥ dense-SOTA + 3 pp (spec B.3 best-in-class) | 🟡 **NOVEL — latency beats threshold, quality deferred** — 0.23 ms p95 is 343× under the 80 ms best-in-class bar, but quality (NDCG@10) is deferred: no BEIR corpus in-tree yet. Composite-SLA claim waits on Section 4.5. |
+| 9 | Concurrent multi-agent writes (commits/s), N=4 threads × 500 ops | **295 commits/s** (0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline), conflict_rate = 0.0 (single-writer kernel → separate DB per thread) | Aura: ~5 k w/s under contention (marketing) | not published as a curve | not published | ≥ 10 k commits/s @ N=64, conflict < 3 % (spec B.5 best-in-class) | ❌ **LOSS — under-scaled and kernel-limited** — we ran N=4, spec requires N=64. More importantly, `ogdb-core` is single-writer today, so each thread owns its own DB and the conflict_rate = 0 is mechanical, not a real measurement. Multi-writer is Section 4.6. |
 | 10 | Graph-feature re-ranking batch p50 / p95 / p99 (μs), 100 candidates × 1-hop | **1.28 / 1.34 / 1.62 μs** (batch 153 μs total, 0.4.0, N=5 median, 2026-05-02 re-baseline) | not published | not published | not published | p95 < 50 ms, beats ZeroEntropy zerank-1 class (spec B.6 best-in-class) | ✅ **WIN — crushing** — batch p95 of 1.88 μs is 91 000× faster than Cohere Rerank 3.5 (171.5 ms, [ZeroEntropy article](https://www.zeroentropy.dev/articles/lightning-fast-reranking-with-zerank-1)) and 27 000× under the best-in-class bar. Caveat: boost is a synthetic sum-of-ids, not a learned neighbour-similarity dot product — real boost will add ~1–5 μs per candidate, still orders of magnitude ahead. |
-| 11 | Graphalytics BFS (μs + nodes visited), seed=0, max_hops=3 | **42.7 μs**, 70 nodes visited, 3 levels @ LDBC mini (100 nodes, single-shot post-pass) | not published | not published | not published | T_p ≤ 12 s on Datagen-9.0 (≈ SF1000), EVPS ≥ 500 M (spec 4.3.1 best-in-class) | 🟡 **NOVEL — scale mismatch** — Graphalytics grades at scale-tier XL (log₁₀(n+m) ≥ 9.0); we ran tier 0. Cannot claim the bar until we run on Datagen-9.0. Section 4.7. |
-| 12 | Graphalytics PageRank (iter μs / n), 20 iterations, damping=0.85 | **604 μs/iter × 20 = 12.1 ms** total @ 100 nodes (single-shot post-pass) | TigerGraph: 6.7× speedup on 8 nodes (ratio only) | not published | not published | T_p ≤ 30 s on Datagen-9.0, EVPS ≥ 200 M (spec 4.3.2 best-in-class) | 🟡 **NOVEL — scale mismatch** — same caveat as row 11. |
-| 13 | Scaling Tier 7.1 (10 k nodes): read p95 / bulk-load wall-clock / RSS | **read p95 = 0.26 μs, load = 0.29 s, RSS = 27.2 MB, file = 39.4 MB** (N=5 median) | not published at this tier | not published at this tier | embedded; sub-second load expected, not published | p95 < 1 ms, load < 1 s, RSS < 100 MB (spec 7.1) | ✅ **WIN on all three gates** — read p95 is 2 400× under the threshold, load 3.3× under, RSS 3.8× under. |
-| 14 | Resources — 10 k-node bulk ingest CPU / RSS / disk | **CPU user 1.45 s, RSS peak 30.3 MB, disk 49 MB, wall 39 s** (N=5 median) | not published | not published | Kuzu advertises "embedded, low-memory"; no percentile data | RSS ≤ 4× raw data; factorization ratio ≥ 5× (spec 3.1, 3.6) | 🟡 **NOVEL — factorization ratio not yet wired** — RSS 26 MB on 49 MB data ≈ 0.54× raw; passes the 4× budget by a wide margin, but we don't yet emit a factorization-ratio metric so the deep Kuzu-class comparison can't be made. Section 4.8. |
+| 11 | Graphalytics BFS (μs + nodes visited), seed=0, max_hops=3 | **48.5 μs**, 70 nodes visited, 3 levels @ LDBC mini (100 nodes, 0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline) | not published | not published | not published | T_p ≤ 12 s on Datagen-9.0 (≈ SF1000), EVPS ≥ 500 M (spec 4.3.1 best-in-class) | 🟡 **NOVEL — scale mismatch** — Graphalytics grades at scale-tier XL (log₁₀(n+m) ≥ 9.0); we ran tier 0. Cannot claim the bar until we run on Datagen-9.0. Section 4.7. |
+| 12 | Graphalytics PageRank (iter μs / n), 20 iterations, damping=0.85 | **652 μs/iter × 20 = 13.0 ms** total @ 100 nodes (0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline) | TigerGraph: 6.7× speedup on 8 nodes (ratio only) | not published | not published | T_p ≤ 30 s on Datagen-9.0, EVPS ≥ 200 M (spec 4.3.2 best-in-class) | 🟡 **NOVEL — scale mismatch** — same caveat as row 11. |
+| 13 | Scaling Tier 7.1 (10 k nodes): read p95 / bulk-load wall-clock / RSS | **read p95 = 0.38 μs, load = 0.32 s, RSS = 28.0 MB, file = 39.4 MB** (0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline) | not published at this tier | not published at this tier | embedded; sub-second load expected, not published | p95 < 1 ms, load < 1 s, RSS < 100 MB (spec 7.1) | ✅ **WIN on all three gates** — read p95 is 2 600× under the threshold, load 3.1× under, RSS 3.6× under. |
+| 14 | Resources — 10 k-node bulk ingest CPU / RSS / disk | **CPU user 1.51 s, RSS peak 28.0 MB, disk 49 MB, wall 40 s** (0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline) | not published | not published | Kuzu advertises "embedded, low-memory"; no percentile data | RSS ≤ 4× raw data; factorization ratio ≥ 5× (spec 3.1, 3.6) | 🟡 **NOVEL — factorization ratio not yet wired** — RSS 28 MB on 49 MB data ≈ 0.57× raw; passes the 4× budget by a wide margin, but we don't yet emit a factorization-ratio metric so the deep Kuzu-class comparison can't be made. Section 4.8. |
 
 ### 2.1 Scorecard summary
 
