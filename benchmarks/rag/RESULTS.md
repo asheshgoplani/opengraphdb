@@ -1,3 +1,7 @@
+**Status:** historical (frozen v0.2.0 RAG-bench baseline; numbers do not reflect 0.3.0 / 0.4.0 / 0.5.x perf or accuracy).
+**Current state:** see documentation/BENCHMARKS.md § Row 7 (hybrid retrieval) and § Row 8 (rerank) for live numbers; the BEIR / NDCG@10 RAG-accuracy baseline is tracked as a deferred item there.
+**Why kept:** documents the original RAG-bench harness shape and the BM25-vs-vector-vs-RRF accuracy ranking; not a current source of truth for any number.
+
 # RAG Benchmark Results
 
 ## Environment
