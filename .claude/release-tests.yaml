@@ -510,7 +510,9 @@ tests:
   - id: is1-perf-recovery-after-monolith-split
     task: fix-is1-cross-crate-inlining
     crate: ogdb-eval
-    test: ldbc_snb_is1_driver
+    # test field intentionally maps to the master harness publish_baseline;
+    # ldbc_snb_is1_driver is the underlying gate.
+    test: publish_baseline
     function: []
     command: "OGDB_EVAL_BASELINE_JSON=/tmp/is1-gate.json cargo test --release -p ogdb-eval --test publish_baseline -- --nocapture"
     purpose: "Acceptance gate: median IS-1 qps over 5 release-mode iterations >= 18,000. Guards against re-introduction of the cross-crate-inlining regression that the monolith-split refactors caused. Combined with workspace-wide thin-LTO + codegen-units=1 and #[inline] hints on 7 pure helpers in ogdb-vector/-temporal/-text. NOTE: this gate runs the FULL publish_baseline harness (~155s); it is env-gated by OGDB_EVAL_BASELINE_JSON so plain cargo test does not trigger it. Verification protocol requires N=5 median, NOT a single shot, due to ~40-70% cold-cache variance on read paths."
@@ -614,3 +616,12 @@ tests:
     command: "cd frontend && npx playwright test e2e/reposition/R6-perf-strip.spec.ts"
     purpose: "Updated R6 PerfStrip spec post-C9 audit — test ids are now `perf-rows`, `perf-nodes`, `perf-edges`, `perf-total` (the synthesized `perf-parse` / `perf-plan` / `perf-execute` cells were removed). Catches re-introduction of the parse/plan/execute breakdown helper or the 'Verified perf · profiled' subtitle."
     added: 2026-05-02
+
+  - id: install-sh-asset-url-template
+    task: fix-install-asset-name
+    crate: scripts
+    test: "install_sh_detect_target"
+    function: []
+    command: "bash scripts/test-install-detect-target.sh"
+    purpose: "Guards install-pipeline BLOCKER fixed in 1a56bb2 — install.sh detect_target() must emit asset URLs matching the rust-target triples in release.yml::build.matrix and the .tar.xz/.zip extensions release.sh produces. Catches re-introduction of the v0.5.0 curl-404 regression that escaped CI to a real user."
+    added: 2026-05-05
