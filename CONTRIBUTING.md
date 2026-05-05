@@ -44,7 +44,7 @@ The repo ships convenience scripts:
 
 ## Coverage Gate
 
-`ogdb-core` and `ogdb-cli` must stay at or above the current ratchet (declared in `scripts/coverage.sh` — 93% line coverage, ≤ 3000 uncovered lines as of v0.4.0). The gate ratchets DOWN as test coverage grows; never up. The gate command:
+Coverage gate (declared in `scripts/coverage.sh`): **80% line coverage, ≤ 5000 uncovered lines** workspace-wide, excluding the harness crates `ogdb-bench`, `ogdb-e2e`, `ogdb-eval`, `ogdb-fuzz`, and `ogdb-tck`. The threshold was lowered from the prior 93%/3000 ogdb-core/cli value when the monolith split landed and the new split crates shipped with minimal tests; raising it back up is tracked as M14. The gate ratchets in only one direction — **DOWN never up** — so coverage growth is locked in and never given back. The gate command:
 
 ```bash
 source "$HOME/.cargo/env"

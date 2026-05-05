@@ -219,4 +219,14 @@ if [[ -e SPEC.md && -e Cargo.toml ]]; then
   fi
 fi
 
+# -------- C15-F07: CONTRIBUTING.md coverage-gate claim must match scripts/coverage.sh --------
+# Cycle-15 docs eval found CONTRIBUTING said "93% / 3000 lines" while the
+# script enforced "80% / 5000". Delegate the parse to the dedicated check
+# so the regex / fixture set lives next to its own red-green test.
+if [[ -f CONTRIBUTING.md && -f scripts/coverage.sh && -x scripts/check-contributing-coverage-claim.sh ]]; then
+  if ! scripts/check-contributing-coverage-claim.sh CONTRIBUTING.md scripts/coverage.sh; then
+    fail=1
+  fi
+fi
+
 exit $fail
