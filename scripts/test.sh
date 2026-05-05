@@ -59,6 +59,15 @@ source "$HOME/.cargo/env"
 # losses / 6 novel"} appearing in a BENCHMARKS mirror file is annotated
 # with a trailing <!-- HISTORICAL --> marker.
 ./scripts/check-benchmarks-vocabulary-mirror.sh
+# EVAL-PERF-RELEASE-CYCLE28 F01+F02+F03: § 3 methodology disclosure
+# numbers must match § 2 row OGDB-cell values, and § 2 verdict-cell
+# multipliers (Nk×) must divide cleanly into the row's headline. Cycle-15
+# / cycle-16 partial-swept the 0.3.0 → 0.4.0 N=5 rebaseline and left
+# Row 7 § 3 (45.4 ms), Row 13 § 3 (27 MB / 0.29 s / 0.26 μs), and
+# Row 10 verdict (1.88 μs / 91 000× / 27 000×) pinned to the retired
+# baseline. This gate is the structural lock so the next rebaseline
+# can't ship the same half-sweep silently.
+./scripts/check-benchmarks-cell-internal-consistency.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE4 H1..H5: design specification (DESIGN.md /
 # ARCHITECTURE.md / README.md / SPEC.md / skills/) must not drift from
 # the shipped implementation. Pinned source of truth is in `crates/`.
@@ -130,6 +139,11 @@ source "$HOME/.cargo/env"
 ./scripts/check-init-agent-syntax.sh
 ./scripts/test-check-init-agent-syntax.sh
 ./scripts/test-check-benchmarks-vocabulary-mirror.sh
+# EVAL-PERF-RELEASE-CYCLE28 F01+F02+F03: meta-test for the
+# cell-internal-consistency gate above (red-green: clean tree passes;
+# planted Row 7 § 3 stale value AND planted Row 10 verdict 1.88 μs
+# operand both fail).
+./scripts/test-check-benchmarks-cell-internal-consistency.sh
 # coverage-audit-2026-05-05 deferred HIGH: red-green meta-tests for the
 # previously-unprotected check-*.sh gates. Each test runs the gate against
 # its live tree (GREEN) then plants a fixture violation (RED).
