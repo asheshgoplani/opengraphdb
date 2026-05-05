@@ -176,6 +176,14 @@ def parse_rows(text):
 # digit covers both.
 BULLET_RE = re.compile(r'^- \*\*Row (\d+)\b')
 
+# Cycle-32 F02: feature bullets without a `Row N` header but that cite
+# `(BENCHMARKS row N)` inline (e.g. MIGRATION § 1 "Three deployment
+# modes" — `- **Edge / on-device** — single binary, ~28 MB RSS at the
+# 10 k-node tier (BENCHMARKS row 13).`). Pre-cycle-32 these escaped
+# parse_bullets entirely, so a stale `~26 MB` mirror of canonical row 13
+# slipped through the gate.
+FEATURE_REF_RE = re.compile(r'\(BENCHMARKS\s+row\s+(\d+)\)', re.IGNORECASE)
+
 def parse_bullets(text):
     """Parse `- **Row N** …` bullets, accumulating wrapped continuation lines.
 
@@ -204,6 +212,44 @@ def parse_bullets(text):
                 cur['text'] += '\n' + line
     if cur is not None:
         bullets.append(cur)
+    return bullets
+
+def parse_feature_bullets(text):
+    """Parse generic `- ...` bullets that explicitly cite `(BENCHMARKS row N)`.
+
+    Cycle-32 F02: prose bullets like
+        `- **Edge / on-device** — single binary, ~26 MB RSS at the
+          10 k-node tier (BENCHMARKS row 13).`
+    don't open with `- **Row N**`, so `parse_bullets` skips them — but
+    they cite a canonical row in the body and must be held to the same
+    OGDB-cell numeric truth as a `Row N` bullet would. Yields the same
+    `{num, text}` shape as `parse_bullets` so CHECK A can fold both
+    streams through one loop. Skips bullets that DO open with
+    `- **Row N**` (those are handled by parse_bullets) to avoid
+    double-flagging.
+    """
+    bullets = []
+    cur_lines = None
+    def flush():
+        if not cur_lines:
+            return
+        if BULLET_RE.match(cur_lines[0]):
+            return
+        body = '\n'.join(cur_lines)
+        m = FEATURE_REF_RE.search(body)
+        if m:
+            bullets.append({'num': int(m.group(1)), 'text': body})
+    for line in text.splitlines():
+        if line.startswith('- '):
+            flush()
+            cur_lines = [line]
+        elif cur_lines is not None:
+            if line.strip() == '' or not line.startswith((' ', '\t')):
+                flush()
+                cur_lines = None
+            else:
+                cur_lines.append(line)
+    flush()
     return bullets
 
 # Cycle-31 F02: SKILL.md ships zero numbered row tables and zero `Row N`
@@ -240,7 +286,16 @@ def parse_perf_table(text):
             continue
         for keyword, num in SKILL_LABEL_TO_ROW:
             if keyword in cells[0]:
-                rows.append({'num': num, 'ogdb': cells[1], 'label': cells[0]})
+                rows.append({
+                    'num': num,
+                    'ogdb': cells[1],
+                    # Cycle-32 F03: the verdict cell (cells[3]) mirrors
+                    # canonical § 2 row verdict multipliers (e.g. row 8's
+                    # 343× under-threshold figure). Captured here so
+                    # CHECK D can also scan it.
+                    'verdict': cells[3] if len(cells) >= 4 else '',
+                    'label': cells[0],
+                })
                 break
     return rows
 
@@ -280,6 +335,10 @@ for path in scan_paths:
         text = normalize(f.read())
     file_rows = parse_rows(text)
     bullets = parse_bullets(text)
+    # Cycle-32 F02: also scan feature bullets (those without a `Row N`
+    # header but that cite `(BENCHMARKS row N)` in the body) through the
+    # same CHECK A logic.
+    feature_bullets = parse_feature_bullets(text)
 
     # ---------- CHECK A: bullet tokens vs canonical row OGDB cell ----------
     # Multi-line bullet support (cycle-31 F01): bullets now accumulate
@@ -290,7 +349,7 @@ for path in scan_paths:
     # other cells). Permissive fallback: if a token doesn't match the
     # OGDB cell but does match *some* cell in the same canonical row,
     # treat it as a legitimate citation rather than stale carry-forward.
-    for b in bullets:
+    for b in bullets + feature_bullets:
         row = canonical_rows.get(b['num'])
         if not row:
             continue
@@ -477,6 +536,67 @@ for path in scan_paths:
                 f'OGDB cell {u} values are {candidates} (no match within '
                 f'2 % tolerance). Looks like a stale 0.3.0 carry-forward.'
             )
+        # Cycle-32 F03: ALSO iterate verdict-cell unit-bearing tokens
+        # against the same row-anchored canonical lookup. Covers
+        # defensive ms / μs / MB drift in the verdict column.
+        for v, u, raw in find_tokens(pr['verdict']):
+            if u not in cell_by_unit:
+                continue
+            candidates = cell_by_unit[u]
+            if any(abs(cv - v) <= max(abs(cv) * 0.02, 0.01) for cv in candidates):
+                continue
+            if any(abs(cv - v) <= max(abs(cv) * 0.02, 0.01) for cv in row_by_unit.get(u, [])):
+                continue
+            errors.append(
+                f'{path}: perf-table verdict for label "{pr["label"]}" → '
+                f'canonical § 2 row {pr["num"]}: token "{raw.strip()}" — '
+                f'canonical OGDB cell {u} values are {candidates} (no '
+                f'match within 2 % tolerance). Looks like a stale '
+                f'0.3.0 carry-forward.'
+            )
+        # Cycle-32 F03: scan verdict-cell primary multipliers (e.g.
+        # "343× under threshold") against canonical § 2 row verdict
+        # primary multipliers. Catches partial-sweep drift on multipliers
+        # that mirror a canonical headline figure (find_tokens above
+        # ignores `×`-suffixed tokens because `×` is not in the unit
+        # alphabet, so this scan is the only way to lock e.g.
+        # 343× → 200× drift in the SKILL.md verdict column).
+        canonical_primaries = []
+        for m in PRIMARY_MULT_PATTERN.finditer(crow['verdict']):
+            try:
+                canonical_primaries.append(_parse_mult(m.group(1)))
+            except ValueError:
+                continue
+        if canonical_primaries:
+            seen = set()
+            for m in PRIMARY_MULT_PATTERN.finditer(pr['verdict']):
+                mstr = m.group(1)
+                key = mstr.replace(' ', '').replace(',', '')
+                if key in seen:
+                    continue
+                seen.add(key)
+                try:
+                    mult = _parse_mult(mstr)
+                except ValueError:
+                    continue
+                if not any(
+                    abs(pm - mult) <= max(abs(pm) * 0.02, 1.0)
+                    for pm in canonical_primaries
+                ):
+                    primaries_fmt = sorted({
+                        int(pm) if pm.is_integer() else pm
+                        for pm in canonical_primaries
+                    })
+                    errors.append(
+                        f'{path}: perf-table verdict for label '
+                        f'"{pr["label"]}" → canonical § 2 row '
+                        f'{pr["num"]}: multiplier "{mstr}×" does not '
+                        f'match any canonical verdict primary multiplier '
+                        f'(primaries: {primaries_fmt}). Looks like a '
+                        f'stale partial-sweep — the canonical headline '
+                        f'was updated but the SKILL.md verdict mirror '
+                        f'was not.'
+                    )
 
 if errors:
     print('check-benchmarks-cell-internal-consistency: FAIL', file=sys.stderr)

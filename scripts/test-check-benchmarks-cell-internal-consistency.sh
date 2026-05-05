@@ -27,6 +27,17 @@
 # (10) RED-I:    cycle-31 F02 — SKILL.md "Performance you can expect" perf-table cell drift
 #                (Enrichment row 46.7 ms → 45.4 ms). Locks the new CHECK D parse_perf_table
 #                + label-to-row map: pre-fix SKILL.md had zero substantive coverage.
+# (11) RED-K:    cycle-32 F02 — MIGRATION § 1 feature-bullet drift planted into a generic
+#                bullet that cites `(BENCHMARKS row 13)` but doesn't open with `- **Row N**`
+#                (`~28 MB` → `~26.3 MB`). Pre-cycle-32 parse_bullets only matched
+#                `- **Row N**` headers, so feature bullets escaped. Locks the new
+#                parse_feature_bullets sibling parser.
+# (12) RED-L:    cycle-32 F03 — SKILL.md perf-table verdict-column drift (`343× under
+#                threshold` → `200× under threshold` on the row mapped to canonical
+#                BENCHMARKS row 8). Pre-cycle-32 CHECK D scanned only cells[1] (OGDB),
+#                so verdict-column multipliers mirroring canonical headlines escaped.
+#                Locks the new CHECK D verdict-multiplier scan against canonical
+#                row's verdict primary multipliers.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -434,5 +445,105 @@ if ! grep -q 'SKILL-redI' <<<"$OUT_I"; then
   exit 1
 fi
 echo "test: RED-I on planted SKILL.md perf-table cell drift (expected, exit=$RC_I)"
+
+# --- (11) RED-K: plant cycle-32 F02 MIGRATION feature-bullet drift ---
+# § 1 "Three deployment modes" bullet `- **Edge / on-device** — single binary,
+# ~28 MB RSS at the 10 k-node tier (BENCHMARKS row 13).` doesn't open with
+# `- **Row N**`, so pre-cycle-32 parse_bullets returned empty for it and the
+# `~26 MB` mirror of canonical row 13's 28.0 MB headline escaped silently.
+# After the fix, parse_feature_bullets captures any bullet whose body cites
+# `(BENCHMARKS row N)` and feeds it through CHECK A.
+cp "$MIGRATION" "$TMP/MIGRATION-redK.md"
+python3 - "$TMP/MIGRATION-redK.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(encoding='utf-8')
+needle = (
+    '- **Edge / on-device** — single binary, ~28 MB RSS at the 10 k-node tier\n'
+    '  (BENCHMARKS row 13).'
+)
+if needle not in text:
+    raise SystemExit('fixture: needle not found, file may have drifted')
+text = text.replace(
+    needle,
+    '- **Edge / on-device** — single binary, ~26.3 MB RSS at the 10 k-node tier\n'
+    '  (BENCHMARKS row 13).'
+)
+p.write_text(text, encoding='utf-8')
+PY
+
+set +e
+OUT_K=$("$GATE" "$LIVE" "$TMP/MIGRATION-redK.md" 2>&1)
+RC_K=$?
+set -e
+if [[ $RC_K -eq 0 ]]; then
+  echo "test FAILED (RED-K): gate did not flag a planted feature-bullet drift in MIGRATION-FROM-NEO4J.md" >&2
+  echo "$OUT_K" >&2
+  exit 1
+fi
+if ! grep -q '§ 3 row 13' <<<"$OUT_K"; then
+  echo "test FAILED (RED-K): gate output missing CHECK A row 13 attribution:" >&2
+  echo "$OUT_K" >&2
+  exit 1
+fi
+if ! grep -q '26.3 MB' <<<"$OUT_K"; then
+  echo "test FAILED (RED-K): gate output missing planted 26.3 MB token:" >&2
+  echo "$OUT_K" >&2
+  exit 1
+fi
+if ! grep -q 'MIGRATION-redK' <<<"$OUT_K"; then
+  echo "test FAILED (RED-K): gate output missing MIGRATION path attribution:" >&2
+  echo "$OUT_K" >&2
+  exit 1
+fi
+echo "test: RED-K on planted feature-bullet drift in MIGRATION-FROM-NEO4J.md (expected, exit=$RC_K)"
+
+# --- (12) RED-L: plant cycle-32 F03 SKILL.md verdict-column multiplier drift ---
+# SKILL.md perf-table verdict cell `🟡 343× under threshold; NDCG deferred`
+# mirrors canonical row 8's `343× under the 80 ms best-in-class bar` primary
+# multiplier. Pre-cycle-32 CHECK D only scanned cells[1] (OGDB column), so a
+# stale `200×` mirror in the verdict column escaped silently. After the fix,
+# CHECK D scans cells[3] verdict primary multipliers against canonical row's
+# verdict primaries.
+cp "$SKILL" "$TMP/SKILL-redL.md"
+python3 - "$TMP/SKILL-redL.md" <<'PY'
+import sys, pathlib
+p = pathlib.Path(sys.argv[1])
+text = p.read_text(encoding='utf-8')
+needle = '🟡 343× under threshold; NDCG deferred'
+if needle not in text:
+    raise SystemExit('fixture: needle not found, file may have drifted')
+text = text.replace(
+    needle,
+    '🟡 200× under threshold; NDCG deferred'
+)
+p.write_text(text, encoding='utf-8')
+PY
+
+set +e
+OUT_L=$("$GATE" "$LIVE" "$TMP/SKILL-redL.md" 2>&1)
+RC_L=$?
+set -e
+if [[ $RC_L -eq 0 ]]; then
+  echo "test FAILED (RED-L): gate did not flag a planted verdict-column multiplier drift in SKILL.md" >&2
+  echo "$OUT_L" >&2
+  exit 1
+fi
+if ! grep -q 'perf-table verdict for label' <<<"$OUT_L"; then
+  echo "test FAILED (RED-L): gate output missing CHECK D verdict-cell attribution:" >&2
+  echo "$OUT_L" >&2
+  exit 1
+fi
+if ! grep -q 'multiplier "200×"' <<<"$OUT_L"; then
+  echo "test FAILED (RED-L): gate output missing planted 200× multiplier:" >&2
+  echo "$OUT_L" >&2
+  exit 1
+fi
+if ! grep -q 'SKILL-redL' <<<"$OUT_L"; then
+  echo "test FAILED (RED-L): gate output missing SKILL.md path attribution:" >&2
+  echo "$OUT_L" >&2
+  exit 1
+fi
+echo "test: RED-L on planted SKILL.md verdict-column multiplier drift (expected, exit=$RC_L)"
 
 echo "test: PASS"

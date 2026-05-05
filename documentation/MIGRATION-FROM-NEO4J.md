@@ -32,7 +32,7 @@ Three deployment modes that benefit:
 
 - **Embed in a commercial product** — link `ogdb-core` directly; no
   copyleft viral exposure for your binary.
-- **Edge / on-device** — single binary, ~26 MB RSS at the 10 k-node tier
+- **Edge / on-device** — single binary, ~28 MB RSS at the 10 k-node tier
   (BENCHMARKS row 13).
 - **AI agent** — `ogdb mcp --stdio` exposes 20 tools to Claude / Cursor /
   Goose with no Python sidecar.
