@@ -1,0 +1,38 @@
+PackageIdentifier: asheshgoplani.opengraphdb
+PackageVersion: 0.5.1
+PackageLocale: en-US
+Publisher: Ashesh Goplani
+PublisherUrl: https://github.com/asheshgoplani
+PublisherSupportUrl: https://github.com/asheshgoplani/opengraphdb/issues
+PackageName: OpenGraphDB
+PackageUrl: https://github.com/asheshgoplani/opengraphdb
+License: Apache-2.0
+LicenseUrl: https://github.com/asheshgoplani/opengraphdb/blob/main/LICENSE
+ShortDescription: Embedded property + RDF graph database with Cypher, vector kNN, and MCP
+Description: |
+  OpenGraphDB is a single-file embedded graph database supporting Cypher,
+  vector kNN, RDF round-trip, time-travel queries, and an MCP tool catalog.
+  Designed for AI agents that need a property graph without a JVM, sidecar,
+  or AGPL licensing.
+Moniker: ogdb
+Tags:
+  - graph-database
+  - knowledge-graph
+  - cypher
+  - vector-search
+  - rdf
+  - mcp
+  - embedded
+  - graphrag
+ReleaseDate: 2026-05-06
+Installers:
+  - Architecture: x64
+    InstallerType: zip
+    InstallerUrl: https://github.com/asheshgoplani/opengraphdb/releases/download/v0.5.1/ogdb-0.5.1-x86_64-pc-windows-msvc.zip
+    InstallerSha256: 51BFFBA08B0407101DACF5C379C1D5641296BB0B50C049447AFBE4B8DBC1DCA4
+    NestedInstallerType: portable
+    NestedInstallerFiles:
+      - RelativeFilePath: ogdb.exe
+        PortableCommandAlias: ogdb
+ManifestType: singleton
+ManifestVersion: 1.6.0
