@@ -30,8 +30,12 @@ if [[ ! -d "$DIST_DIR" ]]; then
   exit 0  # green-skip: CI builds dist in a separate job; this gate only fires when assets present
 fi
 
-# Find the entry chunk. Vite emits index-<hash>.js; we expect exactly one.
-mapfile -t MATCHES < <(find "$DIST_DIR" -maxdepth 1 -type f -name 'index-*.js' | sort)
+# Find the entry chunk. Vite emits `index-<hash>.js` (8-char alnum hash) for
+# the SPA entry. After the multi-entry build (slice S7), the same dir also
+# contains `index-app-<hash>.js` and `index-marketing-<hash>.js` as named
+# entries. Only the bare `index-<hash>.js` is the cold-load entry we budget;
+# the named ones are sub-budgets we don't gate yet.
+mapfile -t MATCHES < <(find "$DIST_DIR" -maxdepth 1 -type f -regex '.*/index-[A-Za-z0-9_]\{8,12\}\.js' | sort)
 if [[ ${#MATCHES[@]} -eq 0 ]]; then
   echo "check-bundle-budget: no $DIST_DIR/index-*.js found" >&2
   exit 1
