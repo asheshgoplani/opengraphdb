@@ -125,6 +125,13 @@ source "$HOME/.cargo/env"
 # `OgdbClient` + `{ url }` + `{ nodes, edges }` — three axes shipped to
 # the Copy button.
 ./scripts/check-frontend-node-api-surface.sh
+# EVAL-FRONTEND-CYCLE34 F1 (HIGH): the shipped vector ANN backend is
+# instant-distance (pure-Rust HNSW), not usearch. Cycle-2 scrubbed the
+# `usearch` literal from AIIntegrationSection.tsx + embeddings-hybrid-rrf.md
+# but missed FeaturesSection.tsx; this gate forbids the literal across the
+# landing component tree so the family stays closed.
+./scripts/check-frontend-no-usearch.sh
+./scripts/test-check-frontend-no-usearch.sh
 
 # C2-A7 (HIGH): npm package version must match workspace version.
 ./scripts/check-npm-version.sh

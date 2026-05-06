@@ -18,7 +18,7 @@ const FEATURES = [
   {
     title: 'Graph + Vector + Full-text, one process',
     description:
-      'Hybrid queries mix MATCH traversals with vector similarity (usearch) and full-text (tantivy) — no separate search store to sync.',
+      'Hybrid queries mix MATCH traversals with vector similarity (instant-distance HNSW) and full-text (tantivy) — no separate search store to sync.',
     icon: Zap,
   },
   {
