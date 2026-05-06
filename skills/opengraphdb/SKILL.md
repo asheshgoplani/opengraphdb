@@ -352,7 +352,6 @@ only when the task is dominated by one of the four narrow concerns.
 - [`documentation/ai-integration/llm-to-cypher.md`](../../documentation/ai-integration/llm-to-cypher.md) — LLM → Cypher patterns.
 - [`documentation/ai-integration/embeddings-hybrid-rrf.md`](../../documentation/ai-integration/embeddings-hybrid-rrf.md) — RRF math for hybrid retrieval.
 - Multi-agent shared-KG patterns: today's engine is single-writer-kernel-limited (see [`documentation/BENCHMARKS.md`](../../documentation/BENCHMARKS.md) row 9 / § 4.6). Real multi-writer support is a v0.5 roadmap item; an earlier draft of this entry pointed at `documentation/ai-integration/multi-agent-shared-kg.md`, which was removed because it claimed `Database::open("shared.ogdb")` "Just Works across processes" — it does not.
-- [`documentation/ai-integration/cosmos-mcp-tool.md`](../../documentation/ai-integration/cosmos-mcp-tool.md) — MCP tool wiring.
 - [`scripts/quickstart.sh`](scripts/quickstart.sh) — runnable end-to-end demo.
 - [`references/cypher-coverage.md`](references/cypher-coverage.md) — authoritative feature × status grid.
 - [`references/benchmarks-snapshot.md`](references/benchmarks-snapshot.md) — frozen 0.5.1 numbers.

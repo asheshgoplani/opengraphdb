@@ -10,6 +10,12 @@ source "$HOME/.cargo/env"
 ./scripts/check-public-doc-tmp-leak.sh
 ./scripts/check-changelog-tags.sh
 ./scripts/check-doc-anchors.sh
+# EVAL-DOCS-CYCLE34 H1: every relative `.md` link target in
+# skills/opengraphdb/**/*.md must resolve on disk. Same C3-H1 bug class
+# as multi-agent-shared-kg.md (cycle 3) and cosmos-mcp-tool.md (cycle
+# 34) — generalized from the hard-coded denylist arm in
+# check-doc-anchors.sh so the class closes for any future deletion.
+./scripts/check-skill-bundle-links.sh
 ./scripts/check-binary-name.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE15 F01: SECURITY.md "Supported Versions"
 # row minor must match the workspace minor.
@@ -198,6 +204,10 @@ source "$HOME/.cargo/env"
 ./scripts/test-check-workspace-lint-pins.sh
 ./scripts/test-check-design-vs-impl.sh
 ./scripts/test-check-doc-anchors.sh
+# EVAL-DOCS-CYCLE34 H1: meta-test for the skill-bundle-links gate
+# (red-green: clean tree passes; planted SKILL.md with a See-also link
+# to a deleted documentation/ai-integration/cosmos-mcp-tool.md fails).
+./scripts/test-check-skill-bundle-links.sh
 ./scripts/test-check-token-sacred-blue.sh
 ./scripts/test-check-crate-metadata.sh
 ./scripts/test-check-doc-rust-blocks.sh
