@@ -3784,7 +3784,12 @@ fn handle_demo(
                 max_retries: SERVER_MULTI_WRITER_RETRIES,
             },
         )?;
+        // Cold path — print progress so a user staring at a blank terminal
+        // for the 1-2s seed knows the binary hasn't hung.
+        println!("Loading MovieLens demo (8019 nodes, 1981 edges)...");
+        let started = Instant::now();
         seed_demo_movielens(&db_path)?;
+        println!("Demo loaded in {:.1}s", started.elapsed().as_secs_f64());
     } else {
         // The install.sh post-install state is "file exists but is empty"
         // (init created it; nothing has populated it yet). Seed in that case
@@ -3795,7 +3800,10 @@ fn handle_demo(
             db.node_count() == 0 && db.edge_count() == 0
         };
         if is_empty {
+            println!("Loading MovieLens demo (8019 nodes, 1981 edges)...");
+            let started = Instant::now();
             seed_demo_movielens(&db_path)?;
+            println!("Demo loaded in {:.1}s", started.elapsed().as_secs_f64());
         }
     }
 

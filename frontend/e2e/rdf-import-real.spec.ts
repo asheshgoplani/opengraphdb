@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 import { spawn, spawnSync, execFile } from 'child_process'
-import type { ChildProcessWithoutNullStreams } from 'child_process'
+import type { ChildProcess } from 'child_process'
 import { mkdtempSync, rmSync, existsSync, statSync, chmodSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -27,7 +27,11 @@ const OGDB_BIN = join(REPO_ROOT, 'target', 'release', 'ogdb')
 const SERVE_PORT = 8080
 const HEALTH_URL = `http://127.0.0.1:${SERVE_PORT}/health`
 
-let serveProc: ChildProcessWithoutNullStreams | null = null
+// `stdio: ['ignore', 'pipe', 'pipe']` makes spawn return ChildProcessByStdio
+// with stdin=null, which doesn't satisfy ChildProcessWithoutNullStreams.
+// The fixture only ever reads stdout/stderr, so the looser ChildProcess
+// shape is the right type and matches what spawn actually returns.
+let serveProc: ChildProcess | null = null
 let serveDir: string | null = null
 let serveDbPath: string | null = null
 
@@ -85,9 +89,33 @@ test.describe('fix/rdf-import-fake — dropzone must actually persist', () => {
       { cwd: REPO_ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
     )
 
+    // Buffer ogdb's stderr so an early-exit failure can surface what the
+    // process actually said. Without this the rejection only carries the
+    // exit code and we waste a debugging cycle re-running the server by
+    // hand to find out why it died (port already bound, missing release
+    // binary permission, panic on a bad CLI flag, etc.).
+    let stderrBuf = ''
+    let stdoutBuf = ''
+    serveProc.stderr?.setEncoding('utf8')
+    serveProc.stdout?.setEncoding('utf8')
+    serveProc.stderr?.on('data', (chunk: string) => {
+      stderrBuf += chunk
+    })
+    serveProc.stdout?.on('data', (chunk: string) => {
+      stdoutBuf += chunk
+    })
+
     const earlyExit = new Promise<never>((_, reject) => {
       serveProc!.once('exit', (code: number | null, signal: NodeJS.Signals | null) => {
-        reject(new Error(`ogdb serve exited before healthy (code=${code}, signal=${signal})`))
+        const stderrTail = stderrBuf.trim() ? `\n--- stderr ---\n${stderrBuf.trim()}` : ''
+        const stdoutTail = stdoutBuf.trim() ? `\n--- stdout ---\n${stdoutBuf.trim()}` : ''
+        reject(
+          new Error(
+            `ogdb serve exited before healthy (code=${code}, signal=${signal})` +
+              stderrTail +
+              stdoutTail,
+          ),
+        )
       })
     })
 

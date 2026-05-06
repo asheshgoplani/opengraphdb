@@ -45,16 +45,41 @@ async function assertPortFree(port: number): Promise<void> {
   })
 }
 
+// Bind a transient TCP server to port 0 on 127.0.0.1, capture the OS-chosen
+// port, then close. Used when the caller didn't pin a port — every spec gets
+// a fresh OS-allocated port instead of all racing for the same hard-coded
+// 8080. The brief window between `close()` and `ogdb serve` re-binding is
+// the only TOCTOU here, and is fine for our serial-workers test config.
+async function allocateEphemeralPort(): Promise<number> {
+  return new Promise<number>((resolve, reject) => {
+    const probe = createServer()
+    probe.unref()
+    probe.once('error', reject)
+    probe.listen(0, '127.0.0.1', () => {
+      const addr = probe.address()
+      if (addr === null || typeof addr === 'string') {
+        probe.close()
+        reject(new Error('serve fixture: failed to read ephemeral port from probe.address()'))
+        return
+      }
+      const port = addr.port
+      probe.close(() => resolve(port))
+    })
+  })
+}
+
 // Playwright's cwd during the run is the `frontend/` directory (playwright.config.ts
 // lives there). The repo root sits one directory above.
 export const REPO_ROOT = join(process.cwd(), '..')
 export const OGDB_BIN = join(REPO_ROOT, 'target', 'release', 'ogdb')
 
-// Every claim spec picks its own port so parallel spec files (if ever enabled)
-// don't collide. Playwright's workers default to 1 here, but we keep the API
-// explicit so a future bump doesn't silently break.
+// Specs that go through the Vite /api proxy must pin port 8080 (the proxy
+// target is hard-coded in vite.config.app.ts). Specs that fetch the API
+// directly via `serve.apiBase` should leave port unset and let the fixture
+// pick an OS-allocated ephemeral port — that way two spec files can run in
+// parallel without manually coordinating a free port.
 export interface ServeFixtureOptions {
-  port: number
+  port?: number
 }
 
 export interface ServeFixtureHandle {
@@ -62,7 +87,7 @@ export interface ServeFixtureHandle {
   readonly apiBase: string
   /** Absolute path to the tempdir .ogdb file the server opened. */
   readonly dbPath: string
-  /** Absolute port the server is bound to (same as options.port). */
+  /** Absolute port the server is bound to (the resolved port, even when ephemeral). */
   readonly port: number
   /** POST a TTL string to /rdf/import and resolve with the parsed JSON response. */
   seedTurtle(ttl: string): Promise<{
@@ -132,12 +157,18 @@ async function waitForHealthy(healthUrl: string, timeoutMs: number): Promise<voi
  *   })
  */
 export function useOgdbServeFixture(
-  opts: ServeFixtureOptions,
+  opts: ServeFixtureOptions = {},
   testInstance: TestType<object, object> = test,
 ): ServeFixtureHandle {
-  const { port } = opts
-  const apiBase = `http://127.0.0.1:${port}`
-  const healthUrl = `${apiBase}/health`
+  const requestedPort = opts.port
+
+  // Resolved at beforeAll time. When the caller pins a port we use it
+  // directly; otherwise we allocate an OS-chosen ephemeral port. Tests
+  // read the resolved value through handle.apiBase / handle.port — both
+  // of which throw if accessed before beforeAll has run.
+  let resolvedPort = 0
+  let apiBase = ''
+  let healthUrl = ''
 
   let serveProc: ChildProcess | null = null
   let serveDir: string | null = null
@@ -145,6 +176,9 @@ export function useOgdbServeFixture(
 
   const handle: ServeFixtureHandle = {
     get apiBase() {
+      if (!apiBase) {
+        throw new Error('serve fixture: apiBase requested before beforeAll ran')
+      }
       return apiBase
     },
     get dbPath() {
@@ -153,8 +187,16 @@ export function useOgdbServeFixture(
       }
       return serveDbPath
     },
-    port,
+    get port() {
+      if (!resolvedPort) {
+        throw new Error('serve fixture: port requested before beforeAll ran')
+      }
+      return resolvedPort
+    },
     async seedTurtle(ttl) {
+      if (!apiBase) {
+        throw new Error('serve fixture: seedTurtle called before beforeAll ran')
+      }
       const resp = await fetch(`${apiBase}/rdf/import`, {
         method: 'POST',
         headers: { 'Content-Type': 'text/turtle' },
@@ -175,6 +217,9 @@ export function useOgdbServeFixture(
       return body
     },
     async runCypher(query) {
+      if (!apiBase) {
+        throw new Error('serve fixture: runCypher called before beforeAll ran')
+      }
       const resp = await fetch(`${apiBase}/query`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -202,15 +247,22 @@ export function useOgdbServeFixture(
     testInfo.setTimeout(180_000)
     ensureReleaseBinary()
 
-    // Reject before spawn rather than racing /health against an unrelated server.
-    await assertPortFree(port)
+    if (requestedPort !== undefined) {
+      // Reject before spawn rather than racing /health against an unrelated server.
+      await assertPortFree(requestedPort)
+      resolvedPort = requestedPort
+    } else {
+      resolvedPort = await allocateEphemeralPort()
+    }
+    apiBase = `http://127.0.0.1:${resolvedPort}`
+    healthUrl = `${apiBase}/health`
 
     serveDir = mkdtempSync(join(tmpdir(), 'ogdb-claim-'))
     serveDbPath = join(serveDir, 'live.ogdb')
 
     serveProc = spawn(
       OGDB_BIN,
-      ['serve', '--http', '--port', String(port), serveDbPath],
+      ['serve', '--http', '--port', String(resolvedPort), serveDbPath],
       { cwd: REPO_ROOT, stdio: ['ignore', 'pipe', 'pipe'] },
     )
 
@@ -239,6 +291,9 @@ export function useOgdbServeFixture(
     }
     serveDir = null
     serveDbPath = ''
+    resolvedPort = 0
+    apiBase = ''
+    healthUrl = ''
   })
 
   return handle
