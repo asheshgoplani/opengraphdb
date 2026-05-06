@@ -120,17 +120,17 @@ enum HttpReadOutcome {
 }
 
 #[derive(Debug, Clone, Parser)]
-#[command(name = APP_NAME, version, about = "OpenGraphDB CLI", after_long_help = "\
+#[command(name = APP_NAME, bin_name = "ogdb", version, about = "OpenGraphDB CLI", after_long_help = "\
 Examples:
-  opengraphdb init my.ogdb
-  opengraphdb query my.ogdb \"MATCH (n) RETURN n LIMIT 10\"
-  opengraphdb query my.ogdb \"MATCH (n) RETURN n\" --json
-  opengraphdb import my.ogdb data.csv
-  opengraphdb shell my.ogdb
-  opengraphdb serve my.ogdb --bolt
+  ogdb init my.ogdb
+  ogdb query my.ogdb \"MATCH (n) RETURN n LIMIT 10\"
+  ogdb query my.ogdb \"MATCH (n) RETURN n\" --json
+  ogdb import my.ogdb data.csv
+  ogdb shell my.ogdb
+  ogdb serve my.ogdb --bolt
 
-Docs: https://github.com/openGraphDB/openGraphDB
-Issues: https://github.com/openGraphDB/openGraphDB/issues")]
+Docs: https://github.com/asheshgoplani/opengraphdb
+Issues: https://github.com/asheshgoplani/opengraphdb/issues")]
 struct Cli {
     #[arg(
         long = "format",
@@ -10237,7 +10237,7 @@ mod tests {
         assert_eq!(out.exit_code, 2);
         assert!(out
             .stderr
-            .contains("usage: opengraphdb backup <src-path> <dst-path>"));
+            .contains("usage: ogdb backup <src-path> <dst-path>"));
     }
 
     #[test]
@@ -11584,7 +11584,7 @@ mod tests {
     fn import_rejects_wrong_argument_count_and_format_resolution_errors() {
         let wrong_arity = run(&["import".to_string()]);
         assert_eq!(wrong_arity.exit_code, 2);
-        assert!(wrong_arity.stderr.contains("usage: opengraphdb import"));
+        assert!(wrong_arity.stderr.contains("usage: ogdb import"));
 
         let path = temp_db_path("import-format-errors");
         let no_ext_input = temp_file_path("import-format-errors-input", "txt");
@@ -11865,7 +11865,7 @@ mod tests {
     fn export_rejects_bad_inputs_existing_destination_and_unwritable_parent() {
         let wrong_arity = run(&["export".to_string()]);
         assert_eq!(wrong_arity.exit_code, 2);
-        assert!(wrong_arity.stderr.contains("usage: opengraphdb export"));
+        assert!(wrong_arity.stderr.contains("usage: ogdb export"));
 
         let path = temp_db_path("export-bad");
         let dst = temp_file_path("export-bad-dst", "json");
@@ -12891,13 +12891,13 @@ ex:acme a schema:Organization ;
         assert_eq!(import_wrong_arity.exit_code, 2);
         assert!(import_wrong_arity
             .stderr
-            .contains("usage: opengraphdb import-rdf"));
+            .contains("usage: ogdb import-rdf"));
 
         let export_wrong_arity = run(&["export-rdf".to_string()]);
         assert_eq!(export_wrong_arity.exit_code, 2);
         assert!(export_wrong_arity
             .stderr
-            .contains("usage: opengraphdb export-rdf"));
+            .contains("usage: ogdb export-rdf"));
 
         let path = temp_db_path("rdf-format-resolution");
         let no_ext_input = temp_file_path("rdf-format-resolution", "txt");
@@ -13144,7 +13144,7 @@ ex:acme a schema:Organization ;
         assert_eq!(out.exit_code, 2);
         assert!(out
             .stderr
-            .contains("usage: opengraphdb add-edge <path> <src> <dst>"));
+            .contains("usage: ogdb add-edge <path> <src> <dst>"));
     }
 
     #[test]
@@ -14031,7 +14031,7 @@ ex:acme a schema:Organization ;
         assert_eq!(out.exit_code, 2);
         assert!(out
             .stderr
-            .contains("usage: opengraphdb neighbors <path> <src>"));
+            .contains("usage: ogdb neighbors <path> <src>"));
     }
 
     #[test]
@@ -14236,7 +14236,7 @@ ex:acme a schema:Organization ;
         assert_eq!(out.exit_code, 2);
         assert!(out
             .stderr
-            .contains("usage: opengraphdb incoming <path> <dst>"));
+            .contains("usage: ogdb incoming <path> <dst>"));
     }
 
     #[test]
@@ -14327,7 +14327,7 @@ ex:acme a schema:Organization ;
         assert_eq!(out.exit_code, 2);
         assert!(out
             .stderr
-            .contains("usage: opengraphdb hop-in <path> <dst> <hops>"));
+            .contains("usage: ogdb hop-in <path> <dst> <hops>"));
     }
 
     #[test]
@@ -14467,7 +14467,7 @@ ex:acme a schema:Organization ;
         assert_eq!(out.exit_code, 2);
         assert!(out
             .stderr
-            .contains("usage: opengraphdb hop <path> <src> <hops>"));
+            .contains("usage: ogdb hop <path> <src> <hops>"));
     }
 
     #[test]
@@ -14523,7 +14523,7 @@ ex:acme a schema:Organization ;
     fn mcp_rejects_wrong_argument_shape() {
         let out = run(&["mcp".to_string()]);
         assert_eq!(out.exit_code, 2);
-        assert!(out.stderr.contains("usage: opengraphdb mcp"));
+        assert!(out.stderr.contains("usage: ogdb mcp"));
     }
 
     #[test]
