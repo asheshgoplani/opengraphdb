@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { requireWebGL } from './_helpers/webgl-availability'
 
 // Phase-4 SCHEMA INSET regression spec.
 //
@@ -83,6 +84,12 @@ test.describe('Obsidian schema inset (Phase-4)', () => {
 
   test('(d) inset uses the same colour palette as the main scene', async ({ page }) => {
     await waitGraphSettled(page)
+    // Palette overlap is a pixel-level visual contract: the inset and the
+    // main scene must paint the same hex bins for the same schema types.
+    // On runners without a usable WebGL backend, the main canvas may be
+    // empty and the bucket-overlap collapses to zero. Skip cleanly there —
+    // the unit tests pin the palette constants on every CI run.
+    await requireWebGL(page)
     // Sample a few solid-colour pixels from the inset canvas — they should
     // form a small palette set, and at least one of those colours should
     // also appear among solid-colour pixels of the main canvas.

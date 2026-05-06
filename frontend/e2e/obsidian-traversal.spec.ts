@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { requireWebGL } from './_helpers/webgl-availability'
 
 // Phase-3 STORY — traversal cinematic regression spec.
 //
@@ -101,6 +102,12 @@ test.describe('Obsidian traversal cinematic (Phase-3 STORY)', () => {
 
   test('(d) Active edge samples to sacred cyan-blue (#5B9DFF)', async ({ page }) => {
     await waitGraphSettled(page)
+    // The cinematic asserts a *visual* contract — the sacred hex must
+    // actually paint to the canvas. On runners where SwiftShader cannot
+    // bring up a usable backend the canvas stays blank and pixel sampling
+    // fails. Skip cleanly there; the unit + visual-regression suites cover
+    // the colour constant on capable runners.
+    await requireWebGL(page)
     const pill = page.locator('[data-testid="obsidian-demo-path-pill"]')
     await pill.click()
     // Wait until the cinematic is mid-flight (at least step 2 reached, so

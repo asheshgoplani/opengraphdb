@@ -3,6 +3,14 @@ import { test } from '@playwright/test'
 test.use({ viewport: { width: 1920, height: 1080 }, colorScheme: 'dark' })
 
 test.describe('Slice 7 screenshots', () => {
+  // CI surfaces "Protocol error: browser context dropped" intermittently in
+  // this suite — the playground boot at 1920×1080 + dataset-driven schema
+  // tree + WebGL canvas mount is heavy enough that the headless chromium
+  // process is occasionally reaped before `goto` returns. The screenshot
+  // payload is deterministic once the page reaches networkidle; retrying
+  // restarts the context fresh and almost always succeeds the second time.
+  test.describe.configure({ retries: 2 })
+
   test('schema tree populated + filter active', async ({ page }) => {
     await page.goto('/playground?dataset=wikidata')
     await page.waitForLoadState('networkidle')

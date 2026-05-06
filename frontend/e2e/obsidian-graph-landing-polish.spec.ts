@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test'
+import { requireWebGL } from './_helpers/webgl-availability'
 
 interface LabelBound {
   x: number
@@ -51,6 +52,11 @@ test.describe('Landing illustrative graph polish', () => {
 
   test('SampleQueryPanel: warm-tinted (amber) pixels dominate over cool-tinted (blue) pixels', async ({ page }) => {
     await page.goto('/')
+    // Pixel histogramming on the demo canvas requires a usable rendering
+    // backend; without WebGL the canvas can stay blank and the warm/cool
+    // ratio collapses to 0/0. Skip cleanly — the palette constant is
+    // pinned by unit tests on every run regardless of GPU availability.
+    await requireWebGL(page)
     await page.locator('#demo').scrollIntoViewIfNeeded()
     await page.waitForTimeout(8000)
     // Count saturated pixels by tint family. Old palette had bright blues

@@ -72,6 +72,15 @@ async function openPowerEditor(page: Page) {
 }
 
 test.describe('H4 — query history persistence round-trip', () => {
+  // The Power-mode editor is lazy-loaded CodeMirror; on the GitHub Actions
+  // runner the first-pointerdown / first-focus path can race with adjacent
+  // specs that drop the browser context (see screenshots-slice7), leaving
+  // this spec wedged at the cm-content waitFor. Retries here are
+  // observation-only — the ArrowUp replay contract itself is deterministic
+  // once the editor mounts. This avoids a silent red CI run when a peer
+  // spec's failure leaks into our fresh page.
+  test.describe.configure({ retries: 2 })
+
   test('Power-mode run writes to localStorage, survives reload, and replays via ArrowUp', async ({
     page,
   }) => {
