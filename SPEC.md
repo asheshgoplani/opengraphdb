@@ -174,12 +174,12 @@ ORDER BY relevance DESC
 
 **Example query:**
 ```cypher
--- What did the graph look like on January 1st?
+// What did the graph look like on January 1st?
 MATCH (p:Person)-[r:WORKS_AT]->(c:Company)
 AT TIME datetime('2025-01-01')
 RETURN p.name, c.name
 
--- What changed in the last 24 hours?
+// What changed in the last 24 hours?
 MATCH (n)-[r]->(m)
 WHERE r.valid_from > datetime() - duration('P1D')
 RETURN n, r, m
@@ -243,24 +243,24 @@ ogdb import mydb.ogdb --format ttl --schema-only pizza-ontology.owl.ttl
 #### Query Imported RDF Data with Cypher
 
 ```cypher
--- Original RDF:
---   ex:John a schema:Person ; schema:name "John" ; schema:worksAt ex:Acme .
---   ex:Acme a schema:Organization ; schema:name "Acme Corp" .
+// Original RDF:
+//   ex:John a schema:Person ; schema:name "John" ; schema:worksAt ex:Acme .
+//   ex:Acme a schema:Organization ; schema:name "Acme Corp" .
 
--- Query with Cypher (simple, readable):
+// Query with Cypher (simple, readable):
 MATCH (p:Person)-[:worksAt]->(o:Organization)
 RETURN p.name, o.name
 
--- Access original URIs when needed:
+// Access original URIs when needed:
 MATCH (p:Person)
 WHERE p._uri = 'http://example.org/John'
 RETURN p
 
--- Subclass queries (Student is subClassOf Person):
+// Subclass queries (Student is subClassOf Person):
 MATCH (p:Person)  -- matches both :Person and :Student nodes
 RETURN p.name, labels(p)
 
--- Prefix-aware URI matching:
+// Prefix-aware URI matching:
 MATCH (n)
 WHERE n._uri STARTS WITH 'http://schema.org/'
 RETURN n
@@ -362,7 +362,7 @@ ogdb mcp --db mydata.ogdb
 Built-in support for common AI agent memory patterns:
 
 ```cypher
--- Store agent memory (episodic)
+// Store agent memory (episodic)
 CREATE (e:Episode {
   content: 'User asked about graph databases',
   embedding: $embedding,
@@ -371,7 +371,7 @@ CREATE (e:Episode {
   session_id: 'sess-abc'
 })
 
--- Retrieve relevant memories (semantic + temporal)
+// Retrieve relevant memories (semantic + temporal)
 MATCH (e:Episode)
 WHERE e.embedding <-> $query_embedding < 0.4
   AND e.agent_id = 'agent-1'

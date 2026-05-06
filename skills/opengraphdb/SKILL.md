@@ -153,33 +153,33 @@ OpenGraphDB-specific `AT TIME` extension.
 ### Minimal cheatsheet
 
 ```cypher
--- Read
+// Read
 MATCH (n:Person)-[:KNOWS]->(m:Person) RETURN n.name, m.name
 
--- Write (idempotent — prefer MERGE for any data import)
+// Write (idempotent — prefer MERGE for any data import)
 MERGE (a:Person {name: 'Alice'}) ON CREATE SET a.created_at = timestamp()
 MERGE (b:Person {name: 'Bob'})
 MERGE (a)-[:KNOWS]->(b)
 
--- Bulk write with parameter list
+// Bulk write with parameter list
 UNWIND $rows AS row
 MERGE (p:Person {id: row.id})
 SET   p.name = row.name, p.age = row.age
 
--- Aggregation + ordering
+// Aggregation + ordering
 MATCH (p:Person)-[:WROTE]->(b:Book)
 RETURN p.name, count(b) AS books ORDER BY books DESC LIMIT 10
 
--- Vector kNN (function form, not custom operator)
+// Vector kNN (function form, not custom operator)
 MATCH (r:Review)
 WHERE vector_distance(r.embedding, $q) < 0.3
 RETURN r.text ORDER BY vector_distance(r.embedding, $q) ASC LIMIT 10
 
--- Full-text
+// Full-text
 MATCH (a:Article) WHERE text_search(a.body, 'graph database')
 RETURN a.title, text_score(a.body, 'graph database') AS rel ORDER BY rel DESC
 
--- Time-travel (timestamps in milliseconds)
+// Time-travel (timestamps in milliseconds)
 MATCH (a)-[:KNOWS]->(b) AT TIME 1750000000000 RETURN b
 ```
 

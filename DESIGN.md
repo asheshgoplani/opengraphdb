@@ -1155,13 +1155,13 @@ Global lock (embedded write mutex)
 ### Vacuum Command
 
 ```cypher
--- Manual compaction
+// Manual compaction
 CALL db.vacuum()
 
--- Compact specific label
+// Compact specific label
 CALL db.vacuum.label('Person')
 
--- Show compaction stats
+// Show compaction stats
 CALL db.vacuum.stats()
 ```
 
@@ -1309,17 +1309,16 @@ Tantivy and the main database have separate crash domains. Recovery approach:
 1. WAL records FTS operations alongside graph mutations
 2. On recovery, compare WAL FTS entries against Tantivy's committed segments
 3. Replay any FTS operations that committed in WAL but not in Tantivy
-4. Fallback: `ogdb reindex mydb.ogdb` to rebuild FTS from scratch
 
 ### Indexed Properties
 
 ```cypher
--- Create full-text index
+// Create full-text index
 CREATE FULLTEXT INDEX article_content FOR (n:Article) ON (n.title, n.content)
 
--- Automatically indexes on write:
+// Automatically indexes on write:
 CREATE (a:Article {title: "GraphDB Design", content: "..."})
--- → Tantivy tokenizes and indexes both fields
+// → Tantivy tokenizes and indexes both fields
 ```
 
 ---
@@ -2263,27 +2262,27 @@ ogdb migrate --from neo4j://localhost:7687 --to mydb.ogdb
 ### Built-in Procedures
 
 ```cypher
--- Shortest path (Dijkstra)
+// Shortest path (Dijkstra)
 CALL algo.shortestPath('Person', 'KNOWS', {source: $from, target: $to, weight: 'cost'})
 YIELD path, totalCost
 
--- PageRank
+// PageRank
 CALL algo.pageRank('Person', 'KNOWS', {iterations: 20, dampingFactor: 0.85})
 YIELD nodeId, score
 
--- Community detection (Louvain)
+// Community detection (Louvain)
 CALL algo.louvain('Person', 'KNOWS', {resolution: 1.0})
 YIELD nodeId, communityId
 
--- Connected components
+// Connected components
 CALL algo.connectedComponents('Person', 'KNOWS')
 YIELD nodeId, componentId
 
--- BFS/DFS traversal
+// BFS/DFS traversal
 CALL algo.bfs({startNode: $node, maxDepth: 5, labels: ['Person']})
 YIELD nodeId, depth
 
--- Centrality
+// Centrality
 CALL algo.betweennessCentrality('Person', 'KNOWS')
 YIELD nodeId, score
 ```

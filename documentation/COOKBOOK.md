@@ -401,10 +401,14 @@ migration cost / value calculation.
    `ogdb-core` is the SNB IS-1..7 subset plus aggregation, ordering, and the
    temporal extension. APOC procedures are not portable; rewrite them as
    plain Cypher or a small MCP tool.
-2. **Constraints / indexes.** `CREATE INDEX FOR (n:Person) ON (n.email)` works.
-   Vector and text indexes use the OpenGraphDB-specific calls
-   (`CALL vector.create_index(...)`, `CALL text.create_index(...)`); see
-   [`skills/schema-advisor/SKILL.md`](../skills/schema-advisor/SKILL.md).
+2. **Constraints / indexes.** B-tree indexes use the pre-4.x Cypher form
+   `CREATE INDEX ON :Person(email)` (Neo4j 4.x's `CREATE INDEX FOR (n:Person) ON (n.email)`
+   needs translation). Vector and full-text retrieval are not Cypher DDL —
+   there is no `CALL vector.create_index` / `CALL text.create_index`
+   procedure. Instead, write embeddings as float-array properties and call
+   the `vector_search` MCP tool (or `POST /rag/search`); for full-text use
+   the `text_search` MCP tool. See
+   [`skills/schema-advisor/rules/index-strategy.md`](../skills/schema-advisor/rules/index-strategy.md).
 3. **RDF.** Both engines speak Turtle / N-Triples / JSON-LD. The
    `import_rdf` and `export_rdf` MCP tools cover round-trip.
 4. **Auth.** OpenGraphDB exposes Bearer-token auth on `/query` (see the

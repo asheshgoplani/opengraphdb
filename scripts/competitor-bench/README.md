@@ -1,7 +1,7 @@
 # competitor-bench — Tier-1 Neo4j-comparison harness
 
 Apples-to-apples benchmark vs Neo4j Community 5.x at the 10 k-node tier.
-Spec: [`documentation/.planning/neo4j-comparison/PLAN.md`](../../documentation/.planning/neo4j-comparison/PLAN.md) §3.1.
+Coverage and methodology context: [`documentation/.research/coverage-audit-2026-05-05.md`](../../documentation/.research/coverage-audit-2026-05-05.md).
 
 ## Prerequisites
 

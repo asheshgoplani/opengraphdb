@@ -215,9 +215,13 @@ Profile follow-ups #12 + #13 in [`BENCHMARKS.md`](BENCHMARKS.md) § 4.
   the pre-4.x form `CREATE INDEX ON :Person(email)` (confirmed by the unit
   test
   `crates/ogdb-cli/src/lib.rs::query_command_routes_call_procedures_and_create_index_on`).
-  Vector indexes use `CALL vector.create_index(...)`; full-text uses
-  `CALL text.create_index(...)`.
-  See [`skills/schema-advisor/SKILL.md`](../skills/schema-advisor/SKILL.md).
+  Vector and full-text retrieval do not use Cypher DDL — there is no
+  `CALL vector.create_index` / `CALL text.create_index` procedure.
+  Instead, write embedding properties (e.g. `n.embedding = [..floats..]`)
+  and call the `vector_search` MCP tool (or `POST /rag/search`); for
+  full-text use the `text_search` MCP tool. See
+  [`skills/schema-advisor/rules/index-strategy.md`](../skills/schema-advisor/rules/index-strategy.md)
+  and Recipe 1 in [`COOKBOOK.md`](COOKBOOK.md) for the tool catalog.
 - **Identity: `id(n)` is not implemented.** Node identity comes back inside
   the row payload — `MATCH (n) RETURN n` returns
   `{"id": <u64>, "labels": [...], "properties": {...}}`. Translation rule:

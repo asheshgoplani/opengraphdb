@@ -17,6 +17,11 @@ OGDB_VERSION="${OGDB_VERSION:-latest}"
 OGDB_HOME="${OGDB_HOME:-$HOME/.ogdb}"
 OGDB_REPO="${OGDB_REPO:-asheshgoplani/opengraphdb}"
 OGDB_PORT="${OGDB_PORT:-8765}"
+# Playground (`ogdb demo` / `ogdb serve --http`) binds 8080 by default
+# (`crates/ogdb-cli/src/lib.rs::DemoCommand.port` + serve --http help). Keep
+# this in sync with the binary; OGDB_PORT above is the agent-install
+# background-server port (`ogdb init --agent --port`), a different surface.
+OGDB_PLAYGROUND_PORT="${OGDB_PLAYGROUND_PORT:-8080}"
 OGDB_SKIP_AGENT="${OGDB_SKIP_AGENT:-}"
 
 c_grn() { printf '\033[1;32m%s\033[0m\n' "$1"; }
@@ -187,7 +192,7 @@ print_banner() {
 
     binary      $(command -v ogdb 2>/dev/null || echo "(not on PATH yet — restart your shell)")
     database    $OGDB_HOME/demo.ogdb (empty — run \`ogdb demo\` to load MovieLens + launch playground)
-    playground  http://127.0.0.1:${OGDB_PORT}/
+    playground  http://127.0.0.1:${OGDB_PLAYGROUND_PORT}/
 
   Try this in your coding agent next:
     > List the labels in the OpenGraphDB demo database.

@@ -1,6 +1,6 @@
 # OpenGraphDB 0.5.1 — Competitive Benchmark Baseline
 
-> **0.5.1 patch-release note (2026-05-05):** the workspace bumped 0.4.0 → 0.5.0 → 0.5.1 carrying only install-script repair, binding-version bumps, and changelog-policy commits. Zero perf-relevant code changed in this window, so the 0.4.0 N=5 medianed numbers below remain authoritative for 0.5.1. Re-baseline tracked as a v0.6.0 follow-up alongside the next perf-relevant change.
+> **0.5.1 measurement-commit note (relabeled 2026-05-06):** the N=5 medianed numbers below were measured on `main` at commit `1afcee3` (42 commits in `crates/ogdb-core/` past tag `v0.4.0`; commit `1afcee3` is contained by tags `v0.5.0` and `v0.5.1`). The earlier framing — that the v0.4.0 → v0.5.1 window carried "zero perf-relevant code changes" — was wrong: the v0.4.0..v0.5.1 range touches ogdb-core in 43 commits. So treat these numbers as a pre-0.5.0 baseline pinned at `1afcee3` and held forward through the v0.5.0 / v0.5.1 minor + patch releases without re-measurement; a fresh re-baseline against the v0.5.1 release commit is tracked as a v0.6.0 follow-up.
 
 **Measurement date:** 2026-05-02 (N=5 re-baseline at 0.4.0; **all 14 rows in § 2** are this run after cycle-15 `cf97159` extended scope to rows 7-14 and cycle-16 `f72f7cd` extended scope to rows 1-2. The 2026-05-01 single-shot and 2026-04-25 0.3.0 N=5 medianed baselines are preserved as historical.).
 **Branch:** `main` @ `1afcee3`
@@ -10,20 +10,28 @@
 
 ## Scope and honesty policy
 
-> **Baseline-version note (updated 2026-05-05 per cycle-15 audit;
-> supersedes the cycle-9 carry-forward wording).** All 14 rows in
-> § 2 below now carry 0.4.0 N=5 medians sourced from
+> **Baseline-version note (relabeled 2026-05-06; supersedes the
+> 2026-05-05 cycle-15 audit wording).** All 14 rows in § 2 below
+> are sourced from
 > [`baseline-2026-05-02.json`](evaluation-runs/baseline-2026-05-02.json)
-> (15 `EvaluationRun`s, schema v1.0, version=0.4.0, i9-10920X bench
-> box at commit `1afcee3`, governor `powersave` with warm-up driver
-> pass — `performance` not writeable from this conductor). The 0.5.1
-> patch-release introduced no perf-relevant code (install-script
-> repair, binding bumps, changelog policy only), so 0.5.1 carries
-> the 0.4.0 N=5 numbers forward verbatim, marked `(carry-fwd 0.4.0 N=5)`
-> in the column header. `scripts/check-benchmarks-version.sh` gates
-> on this marker so the headline-vs-column-header drift caught in
-> cycle-15 cannot recur silently. The 2026-04-25 0.3.0 N=5 medianed
-> baseline at
+> (15 `EvaluationRun`s, schema v1.0, i9-10920X bench box, governor
+> `powersave` with warm-up driver pass — `performance` not writeable
+> from this conductor). The measurement was taken on `main` at
+> commit `1afcee3`, which is **42 commits past tag `v0.4.0` (in
+> `crates/ogdb-core/`)** and **contained by tags `v0.5.0` and
+> `v0.5.1`** (`git tag --contains 1afcee3` confirms). Treat these
+> numbers as a pre-0.5.0 N=5 baseline pinned at `1afcee3` and held
+> forward through the v0.5.0 / v0.5.1 releases without
+> re-measurement; rows are tagged `(carry-fwd from 1afcee3)` in the
+> § 2 column header. The earlier framing — that the JSON encodes
+> a literal "0.4.0 N=5" run — was empirically loose: the JSON file
+> stamps `version=0.4.0` because the workspace `Cargo.toml` had not
+> yet rolled to 0.5.0 at measurement time, but the commit itself
+> already carries 42 ogdb-core commits past the 0.4.0 tag.
+> `scripts/check-benchmarks-version.sh` gates on the column-header
+> marker so the headline-vs-column-header drift caught in cycle-15
+> cannot recur silently. The 2026-04-25 0.3.0 N=5 medianed baseline
+> at
 > [`baseline-2026-04-25.json`](evaluation-runs/baseline-2026-04-25.json),
 > the 2026-05-01 single-shot at
 > [`baseline-2026-05-01.json`](evaluation-runs/baseline-2026-05-01.json),
@@ -63,7 +71,7 @@
 > (`.claude/release-tests.yaml`). Profile follow-ups are folded into
 > § 4.2 (scaling) and § 4.7 (Graphalytics at Datagen-9.0).
 
-This document is the public competitive-comparison sheet for OpenGraphDB 0.5.1 (carry-fwd 0.4.0 N=5; see Baseline-version note above). Per the project's transparency directive we publish *every* measurement — wins, losses, and axes where no public baseline exists — with enough methodology context that a reader can reproduce or challenge the numbers.
+This document is the public competitive-comparison sheet for OpenGraphDB 0.5.1 (carry-fwd from commit `1afcee3`, N=5; see Baseline-version note above). Per the project's transparency directive we publish *every* measurement — wins, losses, and axes where no public baseline exists — with enough methodology context that a reader can reproduce or challenge the numbers.
 
 Where OpenGraphDB loses to a competitor, we flag the gap as a follow-up in **Section 4**. Where OpenGraphDB wins, we cite the measurement protocol (dataset, iterations, hardware, warmup) so the reader can decide whether the comparison is apples-to-apples.
 
@@ -91,7 +99,7 @@ All OpenGraphDB numbers below are the **median of N=5 release-build iterations**
   - OS: Linux x86_64 (kernel 6.17.0-19-generic)
   - CPU: Intel Core i9-10920X @ 3.50 GHz (12-core HEDT, non-cloud bench box)
   - Build profile: `release`
-  - OpenGraphDB version: 0.5.1 (numbers from 0.4.0 N=5 carry-forward — see top-of-doc note)
+  - OpenGraphDB version: 0.5.1 (numbers carried forward from N=5 baseline at commit `1afcee3` — see top-of-doc note)
 
 **HNSW thresholds (added 2026-05-01 per eval Finding 2).** The vector-search backend has two scale-dependent fall-throughs that users should know about when reasoning about latency:
 
@@ -106,7 +114,7 @@ All OpenGraphDB numbers below are the **median of N=5 release-build iterations**
 
 Columns as specified. `Target (fastest-in-market)` is the best-in-class threshold from each competitor's published numbers (Neo4j Cypher Tuning Guide, Memgraph Benchmarks 2024, KuzuDB v0.7 release notes — see Section 5 for source links). Verdict legend: ✅ win / ❌ loss / 🟡 novel (no public baseline) / 🟡 directional indicator (smaller-tier signal, not apples-to-apples) / ⚠️ scale-mismatched (we ran at a smaller tier than competitors publish at — directional only).
 
-| # | Metric | OpenGraphDB 0.5.1 (carry-fwd 0.4.0 N=5) | Neo4j published | Memgraph published | KuzuDB (historical) | Target (fastest-in-market) | Verdict |
+| # | Metric | OpenGraphDB 0.5.1 (carry-fwd from `1afcee3`, N=5) | Neo4j published | Memgraph published | KuzuDB (historical) | Target (fastest-in-market) | Verdict |
 |---|---|---|---|---|---|---|---|
 | 1 | Bulk ingest, 10 k nodes + 10 k edges (nodes/s, single write-tx) | **251 nodes/s** (0.4.0, `throughput::ingest_bulk`, N=5 median, 2026-05-02 re-baseline) | ≈ 3.3 k nodes/s @ 100 k+2.4 M (derived: 30.64 s, [prrao87 study](https://github.com/prrao87/kuzudb-study)) | ≈ 295 k nodes/s @ 100 k ([blog](https://memgraph.com/blog/memgraph-or-neo4j-analyzing-write-speed-performance), 339 ms) | **≈ 172 k nodes/s** @ 100 k+2.4 M (0.58 s, prrao87) | ≥ 500 M rels/hr ≈ 139 k rels/s (spec 1.1 best-in-class) | ❌ **LOSS** — 670× behind Kuzu, 1 150× behind Memgraph on the same-scale workload. Root cause: driver's naïve "one `begin_write`/`commit` per node" path. Fix tracked in Section 4.1. |
 | 2 | Streaming ingest (nodes/s sustained, 30 s window, batch=64) | **300 nodes/s** (0.4.0, `throughput::ingest_streaming`, N=5 median, 2026-05-02 re-baseline) | not published | ≥ 10 k tx/s on mixed 30 %-write ([Benchgraph](https://memgraph.com/benchgraph)) | not published | ≥ 100 k tx/s (spec 1.2 best-in-class) | ❌ **LOSS** — 33× behind Memgraph's weakest Benchgraph number. Same root cause as row 1. |

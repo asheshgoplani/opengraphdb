@@ -7,6 +7,15 @@ Versioning follows Semantic Versioning.
 
 ## [Unreleased]
 
+_No unreleased changes._
+
+## [0.5.1] - 2026-05-05
+
+### Fixed
+- `scripts/install.sh` asset-name template was wrong: produced `ogdb-linux-x86_64.tar.gz` instead of the actual release artifact `ogdb-<version>-<rust-target-triple>.tar.xz` (or `.zip` on Windows). Real-user E2E test against published `v0.5.0` (real-user E2E test against the v0.5.0 release) failed with curl 404. Fix: `detect_target()` now emits the correct rust-target triples (`x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`) and extensions (`tar.xz` for linux+macos, `zip` for windows). `OGDB_VERSION=latest` now resolves to the actual tag via `gh api repos/.../releases/latest -q .tag_name` (or the GitHub HTTP API as a fallback) BEFORE interpolating the asset URL. Extract path now uses `tar -xJf` for `.tar.xz` and `unzip` for `.zip`.
+- `scripts/install.sh` no longer swallows curl 404 errors. Switched download function to `curl --fail -L` and explicit exit-code check so a missing release asset surfaces as `exit 1` instead of silent success.
+- `.github/workflows/release.yml` now uploads `scripts/install.sh` as a release asset, so the documented `curl https://github.com/.../releases/download/<tag>/install.sh` URL resolves (was returning 404 — README pointed at a path that did not exist on the releases page).
+- `README.md` install command updated to use the working release-asset URL pattern (or pinning to a specific tag via `OGDB_VERSION=v0.5.1`).
 - `scripts/competitor-bench/` (Tier-1 Neo4j-comparison harness) + `documentation/BENCHMARKS.md` § 2.2 + `documentation/MIGRATION-FROM-NEO4J.md` § 5.1 + `skills/opengraphdb/references/benchmarks-snapshot.md` + `README.md` — verified-vs-Neo4j-Community-5.x apples-to-apples runner per the Tier-1 plan in branch `eval/plan-neo4j-comparison-cfb3d40` (in-flight planning doc, `.planning/`-gated per repo convention). New harness: `run-all.sh` orchestrator, `drivers/{opengraphdb,neo4j}.py` adapters (HTTP/JSON for ogdb, Bolt 5 over `neo4j-driver` for Neo4j), `reduce.py` N=5 lower-median + p50/p95/p99 reducer; cold-cache via `sysctl drop_caches=3`, container restart per iter for Neo4j and DB-file wipe for OpenGraphDB; pinned image digest `neo4j:5-community@sha256:b357872da95a164c5243ca8d9060601130717ff43cee3c829402fab46209a412`, JVM heap 8 G + page-cache 4 G (per blocking-decision #3). First verified table at the 10 k tier (run 2026-05-05, i9-10920X, governor `powersave`): bulk ingest 263 nodes/s vs 6 102 = ❌ LOSS (23×); point-read p50 0.71 ms vs 2.54 ms = ✅ WIN (3.6×); point-read p95 / p99 = ❌ LOSS at the tail; 2-hop p50/p95/p99 = ❌ LOSS. BENCHMARKS rows 3 + 4 verdicts graduated from 🟡 DIRECTIONAL to literal ❌ LOSS at 10 k tier (Cypher-over-HTTP shape; embedded-API numbers in those rows remain authoritative for the embedded path). New follow-ups #12 (Cypher-over-HTTP point-read tail variance) and #13 (2-hop chained-pattern planner) added to BENCHMARKS § 4. MIGRATION-FROM-NEO4J § 5 honesty-footer caveat about rows 3/4 directional pending dropped; § 5.1 grew its first 7 verified rows.
 - `scripts/install.sh` + `crates/ogdb-cli/src/lib.rs::handle_demo` (cycle-18 docs eval F01) — install.sh banner promised "run `ogdb demo` to load MovieLens" but the post-install workflow could not deliver: install.sh wrote the empty database to `~/.opengraphdb/demo.ogdb` while `ogdb demo`'s default path is `~/.ogdb/demo.ogdb`, and `ogdb demo <existing-path>` short-circuited the seed when the file already existed. Two-pronged fix: (1) `install.sh:17` `OGDB_HOME` default `~/.opengraphdb` → `~/.ogdb` to match the binary default (`crates/ogdb-cli/src/lib.rs::default_demo_db_path`); (2) `handle_demo` now seeds when the file exists but is empty (`node_count == 0 && edge_count == 0`), not just when absent — so install.sh's pre-created empty file gets populated on first `ogdb demo` instead of staying empty. README.md L39+L52 + documentation/QUICKSTART.md L29+L43+L51 path references swept. New `scripts/check-install-demo-path-matches-binary-default.sh` structural gate (with red-green meta-test `scripts/test-check-install-demo-path-matches.sh`) wired into `scripts/test.sh` pins the install.sh `OGDB_HOME` to the binary's `default_demo_db_path`. New `crates/ogdb-cli/tests/demo_subcommand.rs::demo_seeds_into_existing_empty_init_file` regression test pre-creates an empty file via `ogdb init` and asserts MovieLens labels appear after `ogdb demo <path>`.
 - `documentation/BENCHMARKS.md` (commit `aff476f`): headline + scope sentence bumped 0.4.0 → 0.5.1; added a 2026-05-05 patch-release note explaining the 0.4.0 → 0.5.0 → 0.5.1 window carries zero perf-relevant code changes and the 0.4.0 N=5 medians remain authoritative; re-baseline tracked as a v0.6.0 follow-up.
@@ -20,15 +29,7 @@ Versioning follows Semantic Versioning.
 - `CONTRIBUTING.md` coverage-gate language aligned with the actual `scripts/coverage.sh` ratchet (80% / 5000 uncovered lines), with a new check that asserts the doc claim matches the script (cycle-15, commit `4185044`).
 - `documentation/COOKBOOK.md` recipe-4 `AT TIME` `POST /query` snippet is now exercised by `frontend/e2e/cookbook-snippets-runnable.spec.ts`, restoring the front-matter "every HTTP snippet is exercised" claim (cycle-15, commit `a461c07`).
 - `benchmarks/rag/RESULTS.md` marked historical with a banner pointing at `documentation/BENCHMARKS.md` for current rows; the v0.2.0-era RAG-bench numbers no longer masquerade as live (cycle-15, commit `709e38c`).
-- `CHANGELOG.md` (cycle-15, this commit): split the conflated `[0.5.1]` body into a real `[0.5.0] - 2026-05-04` minor-release section (Added / Changed / Removed) plus a `[0.5.1] - 2026-05-05` patch section (Fixed only), per Keep-a-Changelog and `docs/VERSIONING.md` Release Checklist step 3; corrected the stale `docs/...` → `documentation/...` path-typos for `BENCHMARKS.md` and `evaluation-runs/baseline-2026-04-25.json` in the `[0.4.0]` retrospective and in `docs/evaluation-runs/history.jsonl` row notes; tightened `scripts/workflow-check.sh` Layer-1 to reject the empty-placeholder bullet so the AGENTS rule is enforced for non-`feat(` commits too.
-
-## [0.5.1] - 2026-05-05
-
-### Fixed
-- `scripts/install.sh` asset-name template was wrong: produced `ogdb-linux-x86_64.tar.gz` instead of the actual release artifact `ogdb-<version>-<rust-target-triple>.tar.xz` (or `.zip` on Windows). Real-user E2E test against published `v0.5.0` (real-user E2E test against the v0.5.0 release) failed with curl 404. Fix: `detect_target()` now emits the correct rust-target triples (`x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu`, `x86_64-apple-darwin`, `aarch64-apple-darwin`, `x86_64-pc-windows-msvc`) and extensions (`tar.xz` for linux+macos, `zip` for windows). `OGDB_VERSION=latest` now resolves to the actual tag via `gh api repos/.../releases/latest -q .tag_name` (or the GitHub HTTP API as a fallback) BEFORE interpolating the asset URL. Extract path now uses `tar -xJf` for `.tar.xz` and `unzip` for `.zip`.
-- `scripts/install.sh` no longer swallows curl 404 errors. Switched download function to `curl --fail -L` and explicit exit-code check so a missing release asset surfaces as `exit 1` instead of silent success.
-- `.github/workflows/release.yml` now uploads `scripts/install.sh` as a release asset, so the documented `curl https://github.com/.../releases/download/<tag>/install.sh` URL resolves (was returning 404 — README pointed at a path that did not exist on the releases page).
-- `README.md` install command updated to use the working release-asset URL pattern (or pinning to a specific tag via `OGDB_VERSION=v0.5.1`).
+- `CHANGELOG.md` (cycle-15): split the conflated `[0.5.1]` body into a real `[0.5.0] - 2026-05-04` minor-release section (Added / Changed / Removed) plus a `[0.5.1] - 2026-05-05` patch section (Fixed only), per Keep-a-Changelog and `docs/VERSIONING.md` Release Checklist step 3; corrected the stale `docs/...` → `documentation/...` path-typos for `BENCHMARKS.md` and `evaluation-runs/baseline-2026-04-25.json` in the `[0.4.0]` retrospective and in `docs/evaluation-runs/history.jsonl` row notes; tightened `scripts/workflow-check.sh` Layer-1 to reject the empty-placeholder bullet so the AGENTS rule is enforced for non-`feat(` commits too.
 
 ## [0.5.0] - 2026-05-04
 
@@ -619,22 +620,18 @@ Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo
 
 
 <!--
-  Compare-link footer: only resolved tags appear as URLs. Tags that exist
-  locally but have not been pushed to GitHub render as `<not-yet-pushed>`
-  placeholders so the link doesn't 404. Tags that were never cut at all
-  render as `<unreleased>`. The CI gate `scripts/check-changelog-tags.sh`
-  verifies every URL footer resolves to a real local tag.
-
-  Push status as of 2026-05-05: no `v*` tags pushed to origin (verify via
-  `git ls-remote origin --tags`). v0.5.0 and v0.5.1 tags were cut locally
-  between 2026-05-02 and 2026-05-05; v0.3.0 and v0.4.0 are also still
-  local-only. Update this block as part of the release-tag-push step in
-  the public release runbook.
+  Compare-link footer: resolved tags render as GitHub compare / release-tag
+  URLs. Tags that exist locally but have not yet been pushed to GitHub render
+  as `<not-yet-pushed>` placeholders so the link doesn't 404 from the docs;
+  tags that were never cut at all render as `<unreleased>`. The CI gate
+  `scripts/check-changelog-tags.sh` verifies every footer URL resolves to a
+  real local tag (push status is the operator's responsibility, not the
+  gate's).
 -->
-[Unreleased]: <not-yet-pushed: compare against v0.5.1 once pushed>
-[0.5.1]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
-[0.5.0]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
-[0.4.0]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
+[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.1...HEAD
+[0.5.1]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.0...v0.5.1
+[0.5.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.4.0...v0.5.0
+[0.4.0]: https://github.com/asheshgoplani/opengraphdb/releases/tag/v0.4.0
 [0.3.0]: <not-yet-pushed: tag exists locally; push to GitHub to enable compare link>
 [0.2.0]: <unreleased: no tag was cut for 0.2.0>
 [0.1.0]: <unreleased: no tag was cut for 0.1.0>
