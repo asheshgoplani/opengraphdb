@@ -33,11 +33,17 @@ unreleased_block="$(
 )"
 
 unreleased_added_count="$(
-  printf '%s\n' "$unreleased_block" | grep -E '^[[:space:]]*-[[:space:]]+' | wc -l | tr -d ' '
+  { printf '%s\n' "$unreleased_block" | grep -E '^[[:space:]]*-[[:space:]]+' || true; } | wc -l | tr -d ' '
 )"
 
-if [[ "$unreleased_added_count" -lt 1 ]]; then
-  echo "CHANGELOG.md Unreleased section must contain at least one bullet."
+unreleased_sentinel_count="$(
+  printf '%s\n' "$unreleased_block" | grep -cE '^[[:space:]]*_No unreleased changes\._[[:space:]]*$' || true
+)"
+unreleased_sentinel_count="${unreleased_sentinel_count//[[:space:]]/}"
+
+if [[ "$unreleased_added_count" -lt 1 && "$unreleased_sentinel_count" -lt 1 ]]; then
+  echo "CHANGELOG.md Unreleased section must contain at least one bullet"
+  echo "OR the explicit sentinel '_No unreleased changes._'."
   exit 1
 fi
 
@@ -65,6 +71,13 @@ if ! command -v git >/dev/null 2>&1; then
   exit 0
 fi
 if ! git rev-parse --git-dir >/dev/null 2>&1; then
+  exit 0
+fi
+
+# When [Unreleased] declares the explicit "no unreleased changes" sentinel,
+# Layer 2 is intentionally skipped. The maintainer is asserting that everything
+# since the last released tag has been accounted for in that release block.
+if [[ "$unreleased_sentinel_count" -ge 1 ]]; then
   exit 0
 fi
 

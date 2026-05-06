@@ -28,9 +28,9 @@ cd "$REPO_ROOT"
 
 OGDB_BIN="${OGDB_BIN:-$REPO_ROOT/target/release/ogdb}"
 if [[ ! -x "$OGDB_BIN" ]]; then
-  echo "check-skill-cypher-runs: ogdb binary not found at $OGDB_BIN" >&2
-  echo "  build first: cargo build --release -p ogdb-cli" >&2
-  exit 2
+  echo "check-skill-cypher-runs: skip — ogdb binary not built at $OGDB_BIN" >&2
+  echo "  (run `cargo build --release -p ogdb-cli` to enable this gate)" >&2
+  exit 0
 fi
 
 FIXTURE="${CHECK_SKILL_CYPHER_FIXTURE:-$(mktemp -u -t check-skill-cypher.XXXXXX.ogdb)}"

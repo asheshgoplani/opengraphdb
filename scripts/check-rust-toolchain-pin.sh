@@ -33,7 +33,11 @@ if [[ -z "$declared" ]]; then
   exit 1
 fi
 mismatch=$(grep -RnE '^\s*-?\s*uses:\s*dtolnay/rust-toolchain@' "$ROOT/.github/workflows/" \
-  | grep -v "@$declared" || true)
+  | grep -v "@$declared" \
+  | grep -v "@nightly\b" \
+  || true)
+# `@nightly` is allowed for cargo-fuzz (Phase B H-17 fuzz.yml cron job);
+# nightly-only rustc features are required by libfuzzer-sys instrumentation.
 if [[ -n "$mismatch" ]]; then
   echo "FAIL: dtolnay/rust-toolchain pin disagrees with rust-toolchain.toml channel ($declared):" >&2
   echo "$mismatch" >&2

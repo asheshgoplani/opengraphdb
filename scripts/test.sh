@@ -288,6 +288,16 @@ source "$HOME/.cargo/env"
 ./scripts/check-claude-attribution.sh
 ./scripts/check-file-size.sh
 ./scripts/check-action-pins.sh
+# Phase B (test-coverage + verify-claims-expand + misc-gates) landed gates
+# whose test.sh wiring was missing; test-all-check-scripts-wired.sh requires
+# each check-*.sh to be invoked from here.
+./scripts/check-version-drift-master.sh
+./scripts/check-skill-cypher-runs.sh
+./scripts/check-bundle-budget.sh
+./scripts/check-node-public-api-diff.sh
+./scripts/check-python-public-api-diff.sh
+./scripts/check-rust-public-api-diff.sh
+./scripts/check-public-api-breaking.sh
 ./scripts/test-check-token-leaks.sh
 ./scripts/test-check-claude-attribution.sh
 ./scripts/test-check-file-size.sh

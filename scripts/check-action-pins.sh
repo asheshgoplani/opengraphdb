@@ -33,6 +33,7 @@ ALLOWLIST=(
   'docker/setup-buildx-action'
   'docker/setup-qemu-action'
   'dtolnay/rust-toolchain'
+  'googleapis/release-please-action'
   'softprops/action-gh-release'
   'Swatinem/rust-cache'
   'taiki-e/install-action'
