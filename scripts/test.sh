@@ -279,6 +279,20 @@ source "$HOME/.cargo/env"
 # baseline, so new pub items must land with /// doc comments.
 ./scripts/check-doc-ratchet.sh
 
+# Phase-B gates-broaden (H-12 / H-13 / H-14 / M-11): repo-wide credential
+# scan, Claude-attribution scan, *.rs file-size cap, and GitHub Actions
+# pin-to-SHA gate. Each pairs with a meta-test below. M-10 extension to
+# check-public-doc-tmp-leak.sh adds /Users/<name>/ + /home/<name>/ scan
+# in shipped code paths and is wired alongside the original gate above.
+./scripts/check-token-leaks.sh
+./scripts/check-claude-attribution.sh
+./scripts/check-file-size.sh
+./scripts/check-action-pins.sh
+./scripts/test-check-token-leaks.sh
+./scripts/test-check-claude-attribution.sh
+./scripts/test-check-file-size.sh
+./scripts/test-check-action-pins.sh
+
 cargo fmt --all --check
 cargo check --workspace
 # NOTE: --all-targets + --all-features surfaces clippy::style violations that
