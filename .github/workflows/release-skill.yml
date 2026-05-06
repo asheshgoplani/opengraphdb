@@ -1,0 +1,144 @@
+name: Release Skill Bundle
+
+# GITHUB-HOSTED skill distribution. Tag the repo with skill-v<X.Y.Z> and
+# this workflow packages skills/opengraphdb-v2/ into both:
+#   1. opengraphdb.skill        (canonical Anthropic skill format; zip)
+#   2. opengraphdb.tar.gz       (plain tarball for `curl ... | tar -xz`)
+# and uploads both as assets on the auto-created GitHub Release. Users on
+# Claude Code / Cursor / Goose can install with one of:
+#   - Anthropic skill format:
+#       curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/download/skill-v0.1.0/opengraphdb.skill -o /tmp/og.skill
+#       (then point your client at /tmp/og.skill)
+#   - Plain tarball:
+#       curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/download/skill-v0.1.0/opengraphdb.tar.gz | tar -xz -C ~/.claude/skills/
+# This is the GitHub-hosted alternative to the npm-package install path.
+
+on:
+  push:
+    tags:
+      - "skill-v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to package (e.g. skill-v0.1.0)"
+        required: true
+        type: string
+
+# Serialise per-tag runs so two parallel pushes of the same tag don't
+# race on the release-asset upload. Same shape as release.yml.
+concurrency:
+  group: release-skill-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    name: Package and publish skill bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Vendor the official Anthropic skill-creator's package_skill.py so
+      # the workflow doesn't depend on a marketplace path that only exists
+      # on the maintainer's local machine. Pinned by ref to a known-good
+      # SHA when one is available; otherwise track main with the
+      # understanding that script changes are rare.
+      - name: Fetch Anthropic skill-creator package_skill.py
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/skill-creator/scripts
+          BASE="https://raw.githubusercontent.com/anthropics/skills/main/skill-creator/scripts"
+          for f in __init__.py utils.py quick_validate.py package_skill.py; do
+            curl -fsSL "$BASE/$f" -o "/tmp/skill-creator/scripts/$f" || \
+              echo "WARN: $f not found upstream; falling back to inline pack"
+          done
+          ls -la /tmp/skill-creator/scripts/
+
+      - name: Stage skill source
+        run: |
+          set -euo pipefail
+          # Strip the -v2 suffix so the bundled skill installs as
+          # `opengraphdb` (not `opengraphdb-v2`) at the destination.
+          mkdir -p /tmp/staged
+          cp -R skills/opengraphdb-v2 /tmp/staged/opengraphdb
+          ls -la /tmp/staged/opengraphdb/
+
+      - name: Run package_skill.py (produces .skill)
+        run: |
+          set -euo pipefail
+          if [[ -f /tmp/skill-creator/scripts/package_skill.py ]]; then
+            cd /tmp/skill-creator
+            python -m scripts.package_skill /tmp/staged/opengraphdb /tmp/dist || {
+              echo "package_skill.py failed; falling back to inline zip"
+              cd /tmp/staged && zip -r /tmp/dist/opengraphdb.skill opengraphdb
+            }
+          else
+            mkdir -p /tmp/dist
+            cd /tmp/staged && zip -r /tmp/dist/opengraphdb.skill opengraphdb
+          fi
+          ls -la /tmp/dist/
+
+      - name: Build plain tarball (curl-friendly install path)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/dist
+          tar -czf /tmp/dist/opengraphdb.tar.gz -C /tmp/staged opengraphdb
+          ls -la /tmp/dist/
+
+      - name: Compute SHA256SUMS
+        run: |
+          set -euo pipefail
+          cd /tmp/dist
+          sha256sum opengraphdb.skill opengraphdb.tar.gz > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Resolve tag
+        id: tag
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "name=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "name=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.name }}
+          name: ${{ steps.tag.outputs.name }}
+          # Always publish as draft; flip to public via `gh release edit`
+          # after a maintainer eyeballs the artifacts. Same pattern as
+          # release.yml's draft=true.
+          draft: true
+          prerelease: ${{ contains(steps.tag.outputs.name, '-') }}
+          generate_release_notes: true
+          files: |
+            /tmp/dist/opengraphdb.skill
+            /tmp/dist/opengraphdb.tar.gz
+            /tmp/dist/SHA256SUMS.txt
+          body: |
+            OpenGraphDB skill bundle ${{ steps.tag.outputs.name }}.
+
+            Two install paths:
+
+            **Anthropic skill format** (Claude Code / Cursor / Goose with skill support):
+            ```bash
+            curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/opengraphdb.skill -o /tmp/opengraphdb.skill
+            ```
+
+            **Plain tarball** (drop into any agent's skill directory):
+            ```bash
+            mkdir -p ~/.claude/skills && \
+              curl -fsSL https://github.com/${{ github.repository }}/releases/download/${{ steps.tag.outputs.name }}/opengraphdb.tar.gz \
+              | tar -xz -C ~/.claude/skills/
+            ```
+
+            Verify with `SHA256SUMS.txt`.

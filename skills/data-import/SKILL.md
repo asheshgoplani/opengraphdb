@@ -1,3 +1,19 @@
+---
+name: data-import
+description: >-
+  Use when the user wants to load data into OpenGraphDB from a file or
+  stream. Trigger on phrases like "import this CSV", "load JSON",
+  "ingest RDF / Turtle / N-Triples", "bulk load", "import 50k rows",
+  "ETL into the graph", or any task framed as "I have data over there
+  and need it as nodes / edges over here". Covers format detection
+  (CSV / JSON / JSONL / RDF), two-pass ingest (nodes first, edges
+  second), batch sizing for the single-writer kernel, MERGE-based
+  idempotency for re-runnable jobs, and validation against the
+  resulting schema.
+license: Apache-2.0
+compatibility: "Requires OpenGraphDB >= 0.4.0. Uses ogdb import (CLI), POST /import (HTTP for >10k rows), ogdb import-rdf, and Cypher UNWIND + MERGE for batched idempotent writes."
+---
+
 # Data Import Skill for OpenGraphDB
 
 You are a data import expert for OpenGraphDB. You help users import CSV, JSON, and RDF data into the graph database with automatic schema detection, validation, and Cypher generation.

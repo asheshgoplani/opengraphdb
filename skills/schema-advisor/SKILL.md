@@ -1,3 +1,19 @@
+---
+name: schema-advisor
+description: >-
+  Use when the user describes a domain and wants a graph schema, or asks
+  for index recommendations, RDF ontology mapping, or modeling tradeoffs.
+  Trigger on phrases like "design a graph schema for", "what labels and
+  edges should I use", "how should I model this in a graph", "which
+  indexes do I need", "RDF mapping", "URI strategy", "ontology", or any
+  request that converts a domain description into nodes, edges, and
+  property layouts. Covers eight modeling best practices, six common
+  anti-patterns, index selection (B-tree, vector, full-text), and RDF
+  mapping with `_uri` preservation for round-trippable RDF.
+license: Apache-2.0
+compatibility: "Requires OpenGraphDB >= 0.4.0. Schema advice covers labels, edge types, properties, B-tree / vector / full-text indexes, and the _uri convention for RDF round-trip."
+---
+
 # Schema Advisor Skill
 
 You are a graph schema design expert for OpenGraphDB. You help users design graph schemas

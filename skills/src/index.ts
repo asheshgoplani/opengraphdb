@@ -7,7 +7,7 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 if (command === "install") {
-  const platform = args[1]; // optional: claude, cursor, codex, aider, goose, continue, or auto-detect
+  const platform = args[1]; // optional: claude, cursor, continue, aider, goose, codex, or auto-detect
   const skillNames = args.slice(2); // optional: specific skills, default all
   install({ platform, skillNames }).catch((err) => {
     process.stderr.write(`Error: ${(err as Error).message}\n`);
@@ -15,12 +15,13 @@ if (command === "install") {
   });
 } else if (command === "list") {
   console.log("Available OpenGraphDB skills:");
-  console.log("  ogdb-cypher      NL-to-Cypher query generation");
-  console.log("  graph-explore    Guided graph exploration and navigation");
+  console.log("  opengraphdb      Master skill — cross-cutting workflow + sub-skill router");
+  console.log("  ogdb-cypher      Cypher generation and optimization against a known schema");
+  console.log("  graph-explore    Guided graph exploration and schema navigation");
   console.log("  schema-advisor   Graph schema design and index recommendations");
   console.log("  data-import      CSV/JSON/RDF import with schema detection");
   console.log("\nUsage: npx @opengraphdb/skills install [platform] [skill...]");
-  console.log("Platforms: claude, cursor, codex, aider, goose, continue (auto-detected if omitted)");
+  console.log("Platforms: claude, cursor, continue, aider, goose, codex (auto-detected if omitted)");
 } else if (command === "eval") {
   const subcommand = args[1]; // "prompts" or "score"
   const target = args[2]; // skill name or response file

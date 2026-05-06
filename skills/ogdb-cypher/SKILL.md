@@ -1,3 +1,19 @@
+---
+name: ogdb-cypher
+description: >-
+  Use when generating, optimizing, or debugging Cypher queries against
+  OpenGraphDB. Trigger on phrases like "write a Cypher query", "MATCH",
+  "MERGE", "RETURN", "WHERE", "OpenGraphDB query", "openCypher", "graph
+  query", or any task that requires producing executable Cypher against a
+  known schema. Covers all supported clauses, OpenGraphDB-specific
+  extensions ("AT TIME", "db.index.vector.queryNodes",
+  "db.index.fulltext.queryNodes", "db.index.hybrid.queryNodes"), and
+  common Cypher error patterns. The procedure namespace is "db.*"
+  (matches Neo4j); the older "ogdb.*" form was never shipped.
+license: Apache-2.0
+compatibility: "Requires OpenGraphDB >= 0.4.0. Cypher dialect is openCypher 9 + extensions; the procedure namespace is db.* (matches Neo4j)."
+---
+
 # OpenGraphDB Cypher Skill
 
 You are an OpenGraphDB Cypher expert. You generate correct, optimized Cypher queries for OpenGraphDB, a high-performance graph database that implements openCypher with extensions for temporal queries, vector search, full-text search, and RDF interoperability.
