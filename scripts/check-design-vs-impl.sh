@@ -36,7 +36,9 @@ done
 [[ ${#EXISTING[@]} -eq 0 ]] && exit 0
 
 # Skip historical eval reports + the legitimate cross-references.
-SKIP_RE='(/EVAL-|/SECURITY-FOLLOWUPS\.md|/MIGRATION-FROM-NEO4J\.md)'
+# `documentation/.planning/` holds proposal docs that may legitimately
+# reference competitor protocols (e.g. Neo4j Bolt v5) by name.
+SKIP_RE='(/EVAL-|/SECURITY-FOLLOWUPS\.md|/MIGRATION-FROM-NEO4J\.md|/\.planning/)'
 
 fail=0
 

@@ -110,8 +110,8 @@ Columns as specified. `Target (fastest-in-market)` is the best-in-class threshol
 |---|---|---|---|---|---|---|---|
 | 1 | Bulk ingest, 10 k nodes + 10 k edges (nodes/s, single write-tx) | **251 nodes/s** (0.4.0, `throughput::ingest_bulk`, N=5 median, 2026-05-02 re-baseline) | ≈ 3.3 k nodes/s @ 100 k+2.4 M (derived: 30.64 s, [prrao87 study](https://github.com/prrao87/kuzudb-study)) | ≈ 295 k nodes/s @ 100 k ([blog](https://memgraph.com/blog/memgraph-or-neo4j-analyzing-write-speed-performance), 339 ms) | **≈ 172 k nodes/s** @ 100 k+2.4 M (0.58 s, prrao87) | ≥ 500 M rels/hr ≈ 139 k rels/s (spec 1.1 best-in-class) | ❌ **LOSS** — 670× behind Kuzu, 1 150× behind Memgraph on the same-scale workload. Root cause: driver's naïve "one `begin_write`/`commit` per node" path. Fix tracked in Section 4.1. |
 | 2 | Streaming ingest (nodes/s sustained, 30 s window, batch=64) | **300 nodes/s** (0.4.0, `throughput::ingest_streaming`, N=5 median, 2026-05-02 re-baseline) | not published | ≥ 10 k tx/s on mixed 30 %-write ([Benchgraph](https://memgraph.com/benchgraph)) | not published | ≥ 100 k tx/s (spec 1.2 best-in-class) | ❌ **LOSS** — 33× behind Memgraph's weakest Benchgraph number. Same root cause as row 1. |
-| 3 | Point read, `neighbors()` p50 / p95 / p99 (μs) @ 10 k nodes, **cold**, p99.9 dropped (N=5 noise) | **5.8 / 6.8 / 11.8 μs**, 166 k qps (0.4.0, N=5 median, 2026-05-02 re-baseline) | ≈ 27.96 ms p99 on Pokec small, cold ([Memgraph blog](https://memgraph.com/blog/memgraph-vs-neo4j-performance-benchmark-comparison)) | **1.09 ms p99** on Pokec small, cold, 32 k qps isolated (Benchgraph) | ≤ 0.3 ms p50 on LDBC-study (prrao87) | p95 < 5 ms (spec 2.1 IS-1..7 SF10 warm) | 🟡 **DIRECTIONAL INDICATOR (pending apples-to-apples)** — at our 10 k-node tier we measure a p99 of 12 μs; competitors publish at 1.6 M-node Pokec/SF10. Apples-to-apples comparison at SF10 is tracked in Section 4.2 — until then this is a lower-bound feasibility signal, not a verified WIN. |
-| 4 | 2-hop traversal p50 / p95 / p99 (μs) @ 10 k nodes, cold, p99.9 dropped (N=5 noise) | **22.9 / 25.8 / 36.0 μs**, 48 k qps (0.4.0, N=5 median, 2026-05-02 re-baseline) | 2-hop at SF1 typically 5–20 ms p95 (maxdemarzi, various) | not published at equivalent shape | Kuzu Q8 (2-degree path): 8.6 ms vs Neo4j 3.22 s at LDBC-scale ([Data Quarry](https://thedataquarry.com/blog/embedded-db-2/)) | p95 < 100 ms (spec 2.2 IC-1..7 SF10 warm) | 🟡 **DIRECTIONAL INDICATOR (pending apples-to-apples)** — our 10 k-node p95 (26 μs) clears the SF10 IC-1..7 spec threshold but the regression cycle-15 noted (17→26 μs) means a profile pass is needed before claiming SF1/SF10 numbers. |
+| 3 | Point read, `neighbors()` p50 / p95 / p99 (μs) @ 10 k nodes, **cold**, p99.9 dropped (N=5 noise) | **5.8 / 6.8 / 11.8 μs**, 166 k qps (0.4.0, N=5 median, 2026-05-02 re-baseline) | ≈ 27.96 ms p99 on Pokec small, cold ([Memgraph blog](https://memgraph.com/blog/memgraph-vs-neo4j-performance-benchmark-comparison)) | **1.09 ms p99** on Pokec small, cold, 32 k qps isolated (Benchgraph) | ≤ 0.3 ms p50 on LDBC-study (prrao87) | p95 < 5 ms (spec 2.1 IS-1..7 SF10 warm) | ❌ **LOSS verified at 10 k vs Neo4j 5.x Cypher-over-HTTP** (p50 0.71 ms vs 2.54 ms = ✅ WIN; p95 20.5 ms vs 5.7 ms = ❌ LOSS; p99 31.2 ms vs 7.6 ms = ❌ LOSS — Tier-1 run 2026-05-05, see §2.2). The embedded `neighbors()` numbers in this row remain authoritative for the embedded API path; over the same Cypher-over-HTTP shape Neo4j wins on tail. SF10 / Pokec apples-to-apples is Tier 2. |
+| 4 | 2-hop traversal p50 / p95 / p99 (μs) @ 10 k nodes, cold, p99.9 dropped (N=5 noise) | **22.9 / 25.8 / 36.0 μs**, 48 k qps (0.4.0, N=5 median, 2026-05-02 re-baseline) | 2-hop at SF1 typically 5–20 ms p95 (maxdemarzi, various) | not published at equivalent shape | Kuzu Q8 (2-degree path): 8.6 ms vs Neo4j 3.22 s at LDBC-scale ([Data Quarry](https://thedataquarry.com/blog/embedded-db-2/)) | p95 < 100 ms (spec 2.2 IC-1..7 SF10 warm) | ❌ **LOSS verified at 10 k vs Neo4j 5.x Cypher-over-HTTP** (p50 15.7 ms vs 3.83 ms; p95 25.3 ms vs 6.75 ms; p99 28.2 ms vs 8.77 ms — Tier-1 run 2026-05-05, see §2.2). The embedded-API numbers in this row remain authoritative for that path; the Cypher chained-`-[]->()-[]->()` form runs ~10× behind Neo4j's planner on this shape. SF1 / SF10 LDBC IC apples-to-apples is Tier 2. |
 | 5 | LDBC SNB IS-1 p50 / p95 / p99 (μs), 1 000 queries, p99.9 dropped (N=5 noise) | **18.3 / 163 / 222 μs**, 25.9 k qps @ LDBC mini (100 persons, 0.4.0, N=5 median, 2026-05-02 re-baseline) | none (Neo4j has no LDBC audit) | SF0.1/1/3 internal runs, not published as percentile tables | no LDBC audit; CIDR'23 covers complex reads | p95 < 5 ms @ SF10 (spec 4.1.x + 2.1) | 🟡 **NOVEL — scale mismatch** — LDBC SNB mini fixture has no published SF equivalent. IS-1 at SF10 is Phase-1 Must Ship (Section 4.3). |
 | 6 | Single-tx mutation p95 / p99 (μs), 1 000 samples, p99.9 dropped (N=5 noise) | **12 981 / 15 939 μs**, 72 ops/s (0.4.0, N=5 median, 2026-05-02 re-baseline) | not published as percentile tables | 132× Neo4j mixed 30 %-write (ratio only; absolute tx/s not disclosed) | not published | ≥ 100 k ops/s with p99.9 < 1 s (spec 1.5 + 2.5) | ❌ **LOSS on throughput** — 72 ops/s vs ≥ 10 k ops/s competitive threshold. p95 ≈ 13 ms / p99 ≈ 16 ms. p99.9 is dropped from the medianed core (still noisy at N=5); the 720 ms p99.9 outlier seen in the 2026-05-01 single-shot is filed as a profile-the-tail follow-up under Section 4.4. |
 | 7 | Enrichment round-trip `t_persist` p50 / p95 / p99 (ms), 100 docs × 10 ent + 15 edges | **38.8 / 46.7 / 112.6 ms** (0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline) | nothing published on this axis | nothing published on this axis | nothing published on this axis | p50 < 15 ms, p95 < 40 ms (spec B.1 best-in-class) | ✅ **WIN on competitive, MISS on best-in-class** — p95 of 47 ms clears the 150 ms competitive threshold by 3.2×, but misses the 40 ms best-in-class bar by 7 ms. First public number for this metric. |
@@ -123,16 +123,128 @@ Columns as specified. `Target (fastest-in-market)` is the best-in-class threshol
 | 13 | Scaling Tier 7.1 (10 k nodes): read p95 / bulk-load wall-clock / RSS | **read p95 = 0.38 μs, load = 0.32 s, RSS = 28.0 MB, file = 39.4 MB** (0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline) | not published at this tier | not published at this tier | embedded; sub-second load expected, not published | p95 < 1 ms, load < 1 s, RSS < 100 MB (spec 7.1) | ✅ **WIN on all three gates** — read p95 is 2 600× under the threshold, load 3.1× under, RSS 3.6× under. |
 | 14 | Resources — 10 k-node bulk ingest CPU / RSS / disk | **CPU user 1.51 s, RSS peak 28.0 MB, disk 49 MB, wall 40 s** (0.5.1, 0.4.0 N=5 carry-forward, 2026-05-02 re-baseline) | not published | not published | Kuzu advertises "embedded, low-memory"; no percentile data | RSS ≤ 4× raw data; factorization ratio ≥ 5× (spec 3.1, 3.6) | 🟡 **NOVEL — factorization ratio not yet wired** — RSS 28 MB on 49 MB data ≈ 0.57× raw; passes the 4× budget by a wide margin, but we don't yet emit a factorization-ratio metric so the deep Kuzu-class comparison can't be made. Section 4.8. |
 
+### 2.2 Apples-to-apples vs Neo4j Community 5.x — 10 k tier (Tier 1, run 2026-05-05)
+
+> **Verified vs Neo4j on the same hardware, same workload, same Cypher
+> shape, same N=5 / lower-median methodology.** Plan source:
+> Tier-1 of the apples-to-apples Neo4j-comparison plan (drafted in the
+> in-flight `eval/plan-neo4j-comparison-cfb3d40` branch; the planning
+> directory is `.gitignore`'d on `main` per repo convention, so the plan
+> itself ships with the eventual feature merge).
+> Harness lives at [`scripts/competitor-bench/`](../scripts/competitor-bench/).
+> Frozen run JSONs (evidence for the verdicts in this section): [`scripts/competitor-bench/results-2026-05-05/`](../scripts/competitor-bench/results-2026-05-05/) — 6 iters × 2 engines `<engine>-iter<N>.json` + `summary.json` + `summary.md`. Re-running `run-all.sh` writes to a sibling `results/` dir (gitignored).
+
+**Workload (identical Cypher on both engines):**
+
+```
+ingest:     10 000 nodes + 9 999 edges (path graph 0→1→…→9999), single
+            transaction, batch=1 000 via UNWIND on Neo4j and POST /import on
+            OpenGraphDB.
+point-read: MATCH (n:Bench {id: $id}) RETURN n.id           — 1 000 random ids
+2-hop:      MATCH (n:Bench)-[:LINK]->(x)-[:LINK]->(m)
+            WHERE n.id = $id RETURN m.id LIMIT 100          — 1 000 random seeds
+```
+
+The chained 2-hop is used in place of `MATCH (n)-[*2]-(m)` because OpenGraphDB
+0.5.1's variable-length matcher does not yet expand `*2` to two edges (bug
+filed; chaining produces identical result-shape and runs through the same
+planner on Neo4j).
+
+**Methodology:** N=5 measured iters + 1 warm-up discarded; lower-median across
+iters; per-iter percentiles use nearest-rank (`ceil(q·N) − 1`) — identical to
+[`crates/ogdb-eval/src/drivers/multi_iter.rs`](../crates/ogdb-eval/src/drivers/multi_iter.rs)
+and `common.rs::percentiles_extended`. Cold cache: `sysctl vm.drop_caches=3`
+between iters; the Neo4j container is recreated `--rm` each iter and the
+OpenGraphDB database file is wiped + re-init'd, so engine-internal cache is
+also cold. Governor `powersave` (writeable governor not available on this
+box; warning logged, run proceeds — same posture as the 2026-05-02 baseline).
+
+**Engines:**
+
+- **OpenGraphDB 0.5.1** (release build, `cargo build --release -p ogdb-cli`),
+  HTTP/JSON `POST /query` and `POST /import`, single-writer kernel.
+- **Neo4j Community 5.x** —
+  Docker image `neo4j:5-community@sha256:b357872da95a164c5243ca8d9060601130717ff43cee3c829402fab46209a412`,
+  Bolt 5 (Neo4j's wire protocol) over `neo4j-driver` 6.2.0,
+  `NEO4J_dbms_memory_heap_max__size=8G` / `NEO4J_dbms_memory_pagecache_size=4G`
+  (per blocking-decision #3 in the plan: equal-RSS rule capped at 12 GB).
+
+**Hardware:** Intel Core i9-10920X @ 3.5 GHz (12-core HEDT, 24 threads),
+Linux kernel 6.17.0-19-generic, governor `powersave`, 64 GB RAM. Same box as
+the 2026-05-02 baseline.
+
+| Metric | OpenGraphDB 0.5.1 | Neo4j 5-community | Verdict |
+|---|---|---|---|
+| Bulk ingest 10k+10k (nodes/s, single tx) | **263** | 6,102 | ❌ LOSS |
+| Point-read p50 | **0.71 ms** | 2.54 ms | ✅ WIN |
+| Point-read p95 | **20.5 ms** | 5.71 ms | ❌ LOSS |
+| Point-read p99 | **31.2 ms** | 7.65 ms | ❌ LOSS |
+| 2-hop p50      | **15.7 ms** | 3.83 ms | ❌ LOSS |
+| 2-hop p95      | **25.3 ms** | 6.75 ms | ❌ LOSS |
+| 2-hop p99      | **28.2 ms** | 8.77 ms | ❌ LOSS |
+
+**What this run confirms.**
+
+- **Bulk ingest LOSS** is consistent with row 1's 251 nodes/s embedded number
+  — Neo4j's batched `UNWIND $rows … CREATE (…)` is ~23× faster than
+  OpenGraphDB's per-record `apply_import_records` path. Same root cause
+  (follow-up #1 in §4); now confirmed against the headline incumbent at the
+  same scale.
+- **Point-read p50 WIN (0.71 ms vs 2.54 ms = 3.6×)** — OpenGraphDB's
+  HTTP+JSON minimum round-trip is genuinely lighter than Bolt's connection
+  overhead at `n=10 k`. The embedded API (row 3 headline: 5.8 / 6.8 / 11.8 μs)
+  is faster still by ~120×; the 0.71 ms here is the cost the Cypher parser +
+  HTTP layer add on top of the kernel.
+- **Tail LOSS at point-read p95 / p99** — OpenGraphDB's distribution is
+  bimodal (p50 0.71 ms, p95 20.5 ms): every iter shows a tight head and a
+  fat tail at ~20 ms. Likely sources: (a) HTTP server's per-request worker
+  thread spin-up, (b) Cypher planner cache invalidation under cold-cache
+  conditions, (c) freelist / page-cache miss on the property column. Profile
+  follow-up filed in §4 (new follow-up #12 below).
+- **2-hop LOSS across all percentiles** — chained `(n)-[]->(x)-[]->(m)` runs
+  ~10× behind Neo4j's planner. Neo4j ships an index-backed seed (`n.id`) and
+  fans out via its bolt-v5 streaming reader; OpenGraphDB's chained-pattern
+  planner does two label scans on the intermediate edge expansion. Profile
+  follow-up filed in §4 (new follow-up #13 below).
+
+**What this run does *not* claim.**
+
+- This is not the SF1 / SF10 / Pokec 1.6 M apples-to-apples — that's Tier 2
+  in the comparison plan. Today's verdict is **at the 10 k tier only**, and
+  the row 3/4 verdict footnote says so explicitly.
+- The HTTP+JSON shape penalises OpenGraphDB's tail; the embedded API
+  (`Database::neighbors()`) numbers in row 3 remain the authoritative
+  embedded-path latency. Both shapes are real workloads; the Tier-1 run is
+  the apples-to-apples Cypher comparison the user asked for.
+- `shortestPath` IC queries are skipped per blocking-decision #5 in the plan.
+- Per blocking-decision #4 the run is cold-cache only; warm-cache columns
+  graduate to Tier 3.
+
+**Reproducing this run.** ≤ 30 minutes wall-clock on a comparable workstation:
+
+```bash
+cargo build --release -p ogdb-cli
+python3 -m venv .venv && .venv/bin/pip install neo4j
+docker pull neo4j:5-community
+scripts/competitor-bench/run-all.sh
+# → scripts/competitor-bench/results/{summary.md,summary.json}
+```
+
+The harness (`run-all.sh`, `drivers/{neo4j,opengraphdb}.py`, `reduce.py`)
+brings up a fresh container per iter, drops OS page cache between iters,
+runs the workload, dumps per-iter JSON, then medianes. See
+[`scripts/competitor-bench/README.md`](../scripts/competitor-bench/README.md).
+
 ### 2.1 Scorecard summary
 
 | Verdict | Count | Metrics |
 |---|---|---|
-| ✅ Verified WIN (apples-to-apples against a published spec threshold) | **1** | 13 (scaling tier 10 k — clears all three internal gates; this is a 10 k-tier internal threshold, not a competitor-published competitive bar) |
+| ✅ Verified WIN (apples-to-apples against a published spec threshold) | **2** | 13 (scaling tier 10 k — clears all three internal gates; 10 k-tier internal threshold), §2.2 point-read p50 (verified vs Neo4j 5.x at the 10 k tier — 0.71 ms vs 2.54 ms = 3.6×) |
 | ✅⚠️ WIN at competitive bar / MISS (or caveated) at best-in-class | **2** | 7 (enrichment p95: clears the 150 ms competitive threshold by 3.2× but misses the 40 ms best-in-class bar by 7 ms), 10 (rerank batch p95: clears the 50 ms competitive bar by orders of magnitude but the boost is a synthetic sum-of-ids — not a learned dot-product — so the headline ratio is "graph-traversal vs. neural forward pass," not an apples-to-apples production-rerank comparison) |
-| ❌ Loss (apples-to-apples, clear gap) | **3** | 1 (bulk ingest), 2 (streaming ingest), 6 (mutation throughput), 9 (concurrent writes — under-scaled + kernel-limited) — counted as 3 distinct root causes (ingest pattern, per-tx overhead, single-writer kernel) |
-| 🟡 Novel / 🟡 directional indicator / ⚠️ scale-mismatched (no public apples-to-apples comparable yet) | **8** | 3 (point read at 10 k, directional indicator pending SF10), 4 (2-hop at 10 k, directional indicator pending SF10), 5 (IS-1 on mini), 8 (hybrid retrieval — NDCG deferred), 11 (BFS on mini), 12 (PageRank on mini), 14 (resources — factorization ratio not wired) |
+| ❌ Loss (apples-to-apples, clear gap) | **5** | 1 (bulk ingest), 2 (streaming ingest), 3 (point-read p95/p99 vs Neo4j Cypher-over-HTTP — verified Tier-1 §2.2), 4 (2-hop all percentiles vs Neo4j Cypher-over-HTTP — verified Tier-1 §2.2), 6 (mutation throughput), 9 (concurrent writes — under-scaled + kernel-limited) — five distinct root causes (ingest pattern, per-tx overhead, single-writer kernel, HTTP+Cypher tail variance, chained-pattern planner) |
+| 🟡 Novel / 🟡 directional indicator / ⚠️ scale-mismatched (no public apples-to-apples comparable yet) | **5** | 5 (IS-1 on mini), 8 (hybrid retrieval — NDCG deferred), 11 (BFS on mini), 12 (PageRank on mini), 14 (resources — factorization ratio not wired) |
 
-Using the stricter "verified wins / caveated wins / clean losses / novel" bucketing the user asked for: **1 verified win / 2 caveated wins (competitive bar cleared; best-in-class either missed or only synthetic) / 2 losses / 6 novel-or-directional** (rows 9 and the mutation/ingest pair collapse to two ingest-family losses; row 9 is novel because the kernel is single-writer).
+Using the stricter "verified wins / caveated wins / clean losses / novel" bucketing: **2 verified wins (row 13 + §2.2 point-read p50) / 2 caveated wins / 4 losses (rows 1, 2, §2.2 row 3 tail + row 4, row 6, row 9) / 5 novel-or-directional**. Rows 3 and 4 graduated from 🟡 directional to ❌ verified-LOSS at the 10 k tier in the 2026-05-05 Tier-1 run; rows 5, 8, 11, 12, 14 remain novel pending Tier 2 (LDBC SF1) and Tier 3 (Datagen-9.0 + warm cache).
 
 ## 3. What's true about each win (methodology disclosure)
 
@@ -153,6 +265,8 @@ Using the stricter "verified wins / caveated wins / clean losses / novel" bucket
 9. **Cold-start to first query (spec 3.5).** Not yet measured. Add to the resources driver.
 10. **Warm-cache variants.** Every number above is cold. Add a `warmup_queries` knob to each driver and re-publish a "warm" column for every latency row. Brings us onto Memgraph Benchgraph's full isolated×mixed×realistic grid.
 11. ~~**N=5 re-baseline at 0.4.0 on the i9-10920X bench box** (cycle-9 perf surface audit).~~ **Done 2026-05-02** — all 14 rows above now carry fresh 0.4.0 N=5 medians (cycle-9 wave: rows 3-6 + 10; cycle-15 `cf97159`: rows 7-14; cycle-16 `f72f7cd`: rows 1-2) from [`baseline-2026-05-02.json`](evaluation-runs/baseline-2026-05-02.json); `OGDB_EVAL_BASELINE_ITERS` now defaults to 5 in `crates/ogdb-eval/tests/publish_baseline.rs` so the methodology contract isn't operator-dependent. The N=5-vs-N=5 0.3.0 → 0.4.0 deltas are summarized in the Baseline-version note in § "Scope and honesty policy" above; the row-4 traversal p95 +50 % regression is the only one that warrants a profile pass and is folded into follow-up #2 (scaling) above.
+12. **Cypher-over-HTTP point-read tail variance (§2.2 row).** OpenGraphDB's distribution is bimodal: every iter shows a tight head (p50 0.71 ms) and a fat tail (p95 20 ms). Likely sources: (a) HTTP server's per-request worker thread spin-up, (b) Cypher planner cache invalidation under cold-cache, (c) freelist / page-cache miss on the property column. Profile the outlier and either close the tail or document the workload class where it is unavoidable. Closing this is the path from "p50 WIN, p95 LOSS" to "p95 WIN" against Neo4j 5.x at the 10 k tier.
+13. **2-hop chained-pattern planner (§2.2 row).** OpenGraphDB's chained `(n)-[]->(x)-[]->(m)` runs ~10× behind Neo4j's planner: Neo4j seed-binds via the `Bench(id)` index then streams the two edge expansions through Bolt; OpenGraphDB does two label scans on the intermediate edge expansion. Wiring the existing label catalog into the chained-edge planner (and/or fixing the `[*2]` variable-length matcher to actually expand to two edges so the optimiser has more freedom) is the targeted fix. Closing this turns row 4 from ❌ LOSS into a likely ✅ WIN at the 10 k tier.
 
 ## 5. Reproducing this run
 

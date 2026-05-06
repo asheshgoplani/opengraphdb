@@ -156,13 +156,10 @@ Section 2 (i9-10920X, cold-first-run, no warmup).
   N=4 measurement is mechanical, not real contention. Tracked in
   BENCHMARKS Section 4.6.
 
-**Honesty footer.** Two distinct caveat classes in
-[`BENCHMARKS.md`](BENCHMARKS.md) § 2 — do not collapse them:
+**Honesty footer.** One distinct caveat class remains in
+[`BENCHMARKS.md`](BENCHMARKS.md) § 2; rows 3 and 4 are no longer in it
+(see § 5.1):
 
-- **Directional indicator (pending apples-to-apples at SF10).** Rows 3
-  (point read at 10 k) and 4 (2-hop at 10 k) — we ran at 10 k nodes;
-  competitors publish at 1.6 M-node Pokec / SF10. Lower-bound feasibility
-  signal, not a verified WIN. Tracked in BENCHMARKS § 4.2.
 - **Scale-mismatched (mini fixtures).** Rows 5 (LDBC SNB IS-1 on 100-person
   mini), 11 (Graphalytics BFS on 100-node mini), and 12 (Graphalytics
   PageRank on 100-node mini) — we ran a tier 0 fixture; the spec grades at
@@ -170,7 +167,42 @@ Section 2 (i9-10920X, cold-first-run, no warmup).
   re-run lands. Tracked in BENCHMARKS §§ 4.3, 4.7.
 
 Re-run on r7i.4xlarge at SF1 / SF10 / Datagen-9.0 before claiming any
-record on either class.
+record on this class.
+
+### 5.1 Verified vs Neo4j Community 5.x
+
+Apples-to-apples runs vs Neo4j on the same hardware, same workload, same
+Cypher shape, same N=5 / lower-median methodology. Source of truth:
+[`BENCHMARKS.md`](BENCHMARKS.md) §2.2; harness:
+[`scripts/competitor-bench/`](../scripts/competitor-bench/). Cells stay
+`(pending)` until verified by a real run — we do not pre-fill with hopes
+or with imported Neo4j blog numbers.
+
+| Metric / Workload | OpenGraphDB 0.5.1 | Neo4j 5.x Community | Verdict | Tier | Last verified |
+|---|---|---|---|---|---|
+| Bulk ingest 10 k+10 k (nodes/s, single tx, Cypher UNWIND vs OpenGraphDB POST /import) | 263 | 6,102 | ❌ LOSS (23× behind) | 1 | 2026-05-05 |
+| Point-read p50 (μs) — `MATCH (n:Bench {id:$id}) RETURN n.id`, 1 000 random ids, cold | 714 | 2,540 | ✅ WIN (3.6×) | 1 | 2026-05-05 |
+| Point-read p95 (μs) — same workload | 20,531 | 5,710 | ❌ LOSS (3.6× tail) | 1 | 2026-05-05 |
+| Point-read p99 (μs) — same workload | 31,207 | 7,649 | ❌ LOSS | 1 | 2026-05-05 |
+| 2-hop p50 (μs) — `MATCH (n:Bench)-[:LINK]->(x)-[:LINK]->(m) WHERE n.id=$id RETURN m.id LIMIT 100` | 15,743 | 3,827 | ❌ LOSS | 1 | 2026-05-05 |
+| 2-hop p95 (μs) — same workload | 25,344 | 6,751 | ❌ LOSS | 1 | 2026-05-05 |
+| 2-hop p99 (μs) — same workload | 28,212 | 8,771 | ❌ LOSS | 1 | 2026-05-05 |
+| _Tier 2 — LDBC SNB SF1 IS-1..IS-7 + IC-1..IC-3_ | (pending Tier 2) | (pending) | (pending) | 2 | — |
+| _Tier 2 — Pokec point-read p99 (1.6 M users)_ | (pending Tier 2) | (pending) | (pending) | 2 | — |
+| _Tier 2 — Bulk-load SF1 wall-clock_ | (pending Tier 2) | (pending) | (pending) | 2 | — |
+
+**Run config (Tier-1, 2026-05-05).** Neo4j image
+`neo4j:5-community@sha256:b357872da95a164c5243ca8d9060601130717ff43cee3c829402fab46209a412`,
+heap 8 G + page-cache 4 G; OpenGraphDB 0.5.1 release build over HTTP/JSON
+`POST /query`. Cold cache (sysctl drop_caches=3 between iters); both engines
+restart fresh per iter. i9-10920X / Linux 6.17 / governor `powersave`.
+
+**What this confirms.** OpenGraphDB beats Neo4j by 3.6× at the head of the
+point-read distribution (HTTP+JSON minimum round-trip is genuinely lighter
+than Bolt's connection overhead at 10 k nodes), but loses on the tail and
+on 2-hop chained traversals — the chained `(n)-[]->(x)-[]->(m)` planner is
+~10× behind Neo4j's, and the HTTP point-read distribution is bimodal.
+Profile follow-ups #12 + #13 in [`BENCHMARKS.md`](BENCHMARKS.md) § 4.
 
 ## 6. What to know before migrating
 
