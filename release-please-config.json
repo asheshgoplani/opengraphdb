@@ -7,8 +7,10 @@
   "prerelease": false,
   "separate-pull-requests": false,
   "group-pull-request-title-pattern": "chore(release): ${version}",
-  "release-search-depth": 400,
-  "commit-search-depth": 400,
+  "release-search-depth": 50,
+  "commit-search-depth": 50,
+  "skip-github-release": false,
+  "always-update": false,
   "packages": {
     ".": {
       "release-type": "rust",

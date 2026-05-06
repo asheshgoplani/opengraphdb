@@ -27,8 +27,10 @@ unreleased_block="$(
   ' "$CHANGELOG_FILE"
 )"
 
-if ! grep -Eq '^[[:space:]]*-[[:space:]]+' <<<"$unreleased_block"; then
-  echo "Unreleased section in CHANGELOG.md must contain at least one bullet entry."
+if ! grep -Eq '^[[:space:]]*-[[:space:]]+' <<<"$unreleased_block" \
+   && ! grep -Eq '^[[:space:]]*_No unreleased changes\._[[:space:]]*$' <<<"$unreleased_block"; then
+  echo "Unreleased section in CHANGELOG.md must contain at least one bullet entry"
+  echo "OR the explicit sentinel '_No unreleased changes._'."
   exit 1
 fi
 

@@ -22,9 +22,14 @@ name: release-please
 #   - .release-please-manifest.json: current versions (release-please writes back)
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+  # Push trigger temporarily disabled: pre-release-please commit history
+  # contains many non-conventional-commit merge messages that break parsing.
+  # Re-enable push on `main` once the legacy commits are out of the
+  # commit-search-depth window (50 commits).
+  # push:
+  #   branches:
+  #     - main
 
 permissions:
   contents: write
