@@ -35,7 +35,13 @@ fi
 # contains `index-app-<hash>.js` and `index-marketing-<hash>.js` as named
 # entries. Only the bare `index-<hash>.js` is the cold-load entry we budget;
 # the named ones are sub-budgets we don't gate yet.
-mapfile -t MATCHES < <(find "$DIST_DIR" -maxdepth 1 -type f -regex '.*/index-[A-Za-z0-9_]\{8,12\}\.js' | sort)
+# Match `index-<hash>.js` only (8-12 alnum hash). Exclude `index-app-*`,
+# `index-marketing-*`, and any other `index-<word>-<hash>.js` named entries.
+# Use bash globs + extglob negation rather than find -regex for portability;
+# find -regex's behavior depends on -regextype which differs across systems.
+shopt -s nullglob extglob
+MATCHES=("$DIST_DIR"/index-+([A-Za-z0-9_]).js)
+shopt -u extglob
 if [[ ${#MATCHES[@]} -eq 0 ]]; then
   echo "check-bundle-budget: no $DIST_DIR/index-*.js found" >&2
   exit 1
