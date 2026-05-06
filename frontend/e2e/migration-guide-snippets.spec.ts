@@ -22,6 +22,7 @@ import { join } from 'path'
 const REPO_ROOT = join(process.cwd(), '..')
 const OGDB_BIN = join(REPO_ROOT, 'target', 'release', 'ogdb')
 const GUIDE_PATH = join(REPO_ROOT, 'documentation', 'MIGRATION-FROM-NEO4J.md')
+const BENCHMARKS_PATH = join(REPO_ROOT, 'documentation', 'BENCHMARKS.md')
 
 // Distinct port from the cookbook spec (8181) so the two specs can run
 // concurrently without colliding on bind.
@@ -84,6 +85,31 @@ function readGuide(): string {
     throw new Error(`documentation/MIGRATION-FROM-NEO4J.md does not exist at ${GUIDE_PATH}`)
   }
   return readFileSync(GUIDE_PATH, 'utf-8')
+}
+
+function readBenchmarks(): string {
+  if (!existsSync(BENCHMARKS_PATH)) {
+    throw new Error(`documentation/BENCHMARKS.md does not exist at ${BENCHMARKS_PATH}`)
+  }
+  return readFileSync(BENCHMARKS_PATH, 'utf-8')
+}
+
+// Pull the bolded headline value for a numbered row out of BENCHMARKS.md's
+// competitive-comparison table. The regression-watch table at the top of
+// the file uses the same `| N |` row prefix but bolds nothing, so filtering
+// on `**...**` correctly selects the competitive row. Sourcing the value at
+// test time means re-baselines (cycle-19 → cycle-31 → cycle-33 …) flow
+// through to this spec without manual selector updates.
+function parseBenchmarksHeadline(rowNum: number): string {
+  const lines = readBenchmarks().split('\n')
+  const prefix = `| ${rowNum} |`
+  for (const line of lines) {
+    if (line.startsWith(prefix) && line.includes('**')) {
+      const match = line.match(/\*\*([^*]+)\*\*/)
+      if (match) return match[1].trim()
+    }
+  }
+  throw new Error(`could not find competitive headline for BENCHMARKS.md row ${rowNum}`)
 }
 
 async function postJson(path: string, body: unknown): Promise<{ status: number; json: unknown }> {
@@ -242,12 +268,26 @@ test.describe('migration-from-neo4j guide — runnable + honesty-asserted', () =
   // -------------------------------------------------------------------------
   test('section 5 (performance) cites BENCHMARKS rows verbatim and labels scale-mismatched rows', () => {
     const body = readGuide()
-    // Win row 7 — enrichment p50/p95 (38.8 / 46.7 ms; cycle-30 mirror sweep
-    // re-baseline carried 0.4.0 N=5 medians forward to 0.5.1).
-    expect(body).toContain('38.8')
-    expect(body).toContain('46.7')
-    // Loss row 1 — bulk ingest 256 nodes/s.
-    expect(body).toContain('256 nodes/s')
+    // Source the canonical headline values for Row 1 (loss: bulk ingest)
+    // and Row 7 (win: enrichment p50/p95/p99) from BENCHMARKS.md at test
+    // time so that future re-baselines do not require updating this spec.
+    // The guide must quote each row's bolded headline tokens verbatim.
+    // Multi-value headlines like `38.8 / 46.7 / 112.6 ms` split on ` / `
+    // (spaces around the slash); single-value headlines like `251 nodes/s`
+    // stay intact because the unit slash has no surrounding spaces.
+    for (const rowNum of [1, 7]) {
+      const headline = parseBenchmarksHeadline(rowNum)
+      const tokens = headline
+        .split(/\s+\/\s+/)
+        .map((t) => t.trim())
+        .filter(Boolean)
+      for (const token of tokens) {
+        expect(
+          body,
+          `migration guide must quote BENCHMARKS row ${rowNum} headline token "${token}" verbatim (sourced from BENCHMARKS.md at test time)`,
+        ).toContain(token)
+      }
+    }
     // Cross-link to the source of truth.
     expect(body).toContain('BENCHMARKS.md')
     // Honesty marker — either spelling acceptable, case-insensitive (post
