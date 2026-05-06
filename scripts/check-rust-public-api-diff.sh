@@ -74,12 +74,14 @@ PUBLISHABLE_CRATES=(
 
 failed=0
 for crate in "${PUBLISHABLE_CRATES[@]}"; do
-  echo "::group::cargo public-api --diff $BASE_SHA..HEAD -p $crate"
-  if ! cargo public-api \
-      --diff "${BASE_SHA}..HEAD" \
+  echo "::group::cargo public-api diff $BASE_SHA..HEAD -p $crate"
+  # cargo-public-api ≥0.42 uses `diff` as a subcommand instead of `--diff`.
+  # `--deny removed` + `--deny changed` survived the rename. The crate flag
+  # `-p <name>` must come before the subcommand to scope the manifest.
+  if ! cargo public-api -p "$crate" \
+      diff "${BASE_SHA}..HEAD" \
       --deny=removed \
-      --deny=changed \
-      -p "$crate" 2>&1; then
+      --deny=changed 2>&1; then
     echo "[check-rust-public-api-diff] BREAKING change detected in $crate" >&2
     failed=1
   fi
