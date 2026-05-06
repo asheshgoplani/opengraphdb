@@ -1,0 +1,62 @@
+name: Fuzz
+
+# Phase B H-17: nightly fuzzing of the load-bearing parsers (Cypher
+# input + WAL record decoder). The unit-test corpus only exercises
+# the happy path; libFuzzer drives both targets with mutated inputs
+# so a panic / timeout / OOM on a malformed shape surfaces here, not
+# in production. 10 minutes per target keeps the nightly run under
+# the GitHub Actions billing soft cap while still rotating through
+# the corpus several times per night.
+
+on:
+  schedule:
+    # 02:00 UTC nightly — quiet hours for both US/EU timezones, and
+    # well clear of the daily release-tag windows.
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fuzz:
+    name: fuzz (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_cypher_parser
+          - fuzz_wal_record_reader
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Rust nightly
+        # cargo-fuzz requires nightly for the `-Z` flags libFuzzer needs.
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz
+
+      - name: Run fuzz target (10 min budget)
+        working-directory: crates/ogdb-fuzz/fuzz
+        # -max_total_time=600 caps each target at 10 minutes wall-clock.
+        # libFuzzer exits non-zero on any crash / timeout / OOM, which
+        # fails the job and triggers the corpus-upload step below.
+        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=600
+
+      - name: Upload corpus on crash
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-corpus-${{ matrix.target }}
+          # cargo-fuzz writes seed corpora under corpus/<target>/ and
+          # crash repros under artifacts/<target>/. Capture both so the
+          # crash is reproducible from the artifact alone.
+          path: |
+            crates/ogdb-fuzz/fuzz/corpus/${{ matrix.target }}
+            crates/ogdb-fuzz/fuzz/artifacts/${{ matrix.target }}
+          retention-days: 30

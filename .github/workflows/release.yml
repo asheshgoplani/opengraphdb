@@ -91,6 +91,17 @@ jobs:
           - target: aarch64-unknown-linux-gnu
             os: ubuntu-latest
             cross: true
+          # Phase B H-15: glibc-linked binaries break on Amazon Linux 2,
+          # CentOS 7, and Alpine. Add musl targets for both common Linux
+          # arches so a single static binary covers every distro the
+          # one-line installer can reach.
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            musl: true
+          - target: aarch64-unknown-linux-musl
+            os: ubuntu-latest
+            musl: true
+            cross: true
           - target: x86_64-apple-darwin
             os: macos-latest
           - target: aarch64-apple-darwin
@@ -131,7 +142,7 @@ jobs:
           npm run build:app
 
       - name: Install cross (linux aarch64 only)
-        if: matrix.cross == true
+        if: matrix.cross == true && matrix.musl != true
         run: |
           sudo apt-get update
           sudo apt-get install -y gcc-aarch64-linux-gnu
@@ -140,6 +151,24 @@ jobs:
           [target.aarch64-unknown-linux-gnu]
           linker = "aarch64-linux-gnu-gcc"
           EOF
+
+      # Phase B H-15: musl static-link toolchains. musl-tools covers the
+      # x86_64 host build; the aarch64 row additionally needs the cross
+      # gcc + a linker entry under .cargo/config.toml so cargo picks up
+      # the right ld for the musl target triple.
+      - name: Install musl toolchain
+        if: matrix.musl == true
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu
+            mkdir -p .cargo
+            cat >> .cargo/config.toml <<'EOF'
+          [target.aarch64-unknown-linux-musl]
+          linker = "aarch64-linux-gnu-gcc"
+          EOF
+          fi
 
       - name: Build release archive (unix)
         if: runner.os != 'Windows'

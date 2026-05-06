@@ -256,7 +256,16 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+          - os: windows-latest
+          # Phase B H-16: AWS Graviton + Apple Silicon (under Linux VMs)
+          # users hit the binary in production but the PR-time matrix
+          # never compiled for aarch64-linux. Cross-build it here on
+          # ubuntu so a syscall-shape regression fails the PR, not the
+          # v* tag's release matrix.
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -266,6 +275,8 @@ jobs:
         # EVAL-RUST-QUALITY-CYCLE3 H11: pin to MSRV across every CI job
         # so cross-platform behavior cannot drift between platforms.
         uses: dtolnay/rust-toolchain@1.88.0
+        with:
+          targets: ${{ matrix.target }}
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -282,8 +293,19 @@ jobs:
           npm ci
           npm run build:app
 
+      - name: Install aarch64-linux cross toolchain
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          mkdir -p .cargo
+          cat >> .cargo/config.toml <<'EOF'
+          [target.aarch64-unknown-linux-gnu]
+          linker = "aarch64-linux-gnu-gcc"
+          EOF
+
       - name: Build ogdb-cli (release)
-        run: cargo build --release -p ogdb-cli
+        run: cargo build --release -p ogdb-cli ${{ matrix.target && format('--target {0}', matrix.target) || '' }}
 
   bench-regression:
     # C4-H2 (HIGH): the C3-H3 patch added the Criterion harness file
