@@ -84,8 +84,8 @@ export default defineConfig({
     react(),
     cypherLintWorkerMiddleware(),
     renameHtmlOutput('index-app.html', 'index.html'),
-    compression({ algorithm: 'gzip', ext: '.gz', threshold: 1024 }),
-    compression({ algorithm: 'brotliCompress', ext: '.br', threshold: 1024 }),
+    compression({ algorithm: 'gzip', ext: '.gz', filter: /\.(js|css|html|svg|json)$/, threshold: 1024 }),
+    compression({ algorithm: 'brotliCompress', ext: '.br', filter: /\.(js|css|html|svg|json)$/, threshold: 1024 }),
   ],
   resolve: {
     alias: {

@@ -100,7 +100,7 @@
     width: 16px;
     margin-top: -6px;
     border-radius: 9999px;
-    background: linear-gradient(180deg, #67e8f9 0%, #22d3ee 100%);
+    background: linear-gradient(180deg, hsl(var(--shimmer-from)) 0%, hsl(var(--shimmer-to)) 100%);
     border: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow: 0 0 12px rgba(34, 211, 238, 0.55), 0 0 0 3px rgba(34, 211, 238, 0.18);
     transition: transform 120ms ease;
@@ -116,7 +116,7 @@
     height: 16px;
     width: 16px;
     border-radius: 9999px;
-    background: linear-gradient(180deg, #67e8f9 0%, #22d3ee 100%);
+    background: linear-gradient(180deg, hsl(var(--shimmer-from)) 0%, hsl(var(--shimmer-to)) 100%);
     border: 1px solid rgba(255, 255, 255, 0.6);
     box-shadow: 0 0 12px rgba(34, 211, 238, 0.55), 0 0 0 3px rgba(34, 211, 238, 0.18);
     cursor: grab;
@@ -150,6 +150,9 @@
     --accent-foreground: 40 30% 98%;
     --success: 158 64% 26%;
     --success-foreground: 40 30% 98%;
+    --success-glow: 145 64% 47%;
+    --shimmer-from: 188 95% 70%;
+    --shimmer-to: 188 86% 52%;
     --violet: 268 60% 48%;
     --violet-foreground: 40 30% 98%;
     --destructive: 0 72% 48%;

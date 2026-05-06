@@ -71,7 +71,7 @@ export function StatusBar({
         <span
           className={cn(
             'h-1.5 w-1.5 rounded-full',
-            isLive ? 'bg-accent shadow-[0_0_6px_#34d399]' : 'bg-muted/60',
+            isLive ? 'bg-accent shadow-[0_0_6px_hsl(var(--success-glow))]' : 'bg-muted/60',
           )}
         />
         <span className="text-muted-foreground/70">{isLive ? 'live' : 'sample'}</span>

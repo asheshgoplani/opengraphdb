@@ -53,7 +53,7 @@ function createHeroGraphData(nodeCount = 22, linkCount = 32): GraphData {
 }
 
 function colorFor(label?: string): string {
-  const fallback = PALETTE[0] ?? '#888'
+  const fallback = PALETTE[0]
   if (!label) return fallback
   const code = label.charCodeAt(0) - 65
   return PALETTE[Math.abs(code) % PALETTE.length] ?? fallback
