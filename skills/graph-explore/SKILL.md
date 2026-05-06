@@ -1,3 +1,18 @@
+---
+name: graph-explore
+description: >-
+  Use when the user points at an unknown OpenGraphDB graph and asks "what
+  is in here?", "show me the schema", "what entities exist", "how is this
+  graph connected", or wants to navigate a graph they did not build.
+  Trigger on phrases like "explore the graph", "discover schema", "find
+  entry points", "what nodes are connected to X", "summarize this graph",
+  "show me the most connected nodes". Covers five exploration strategies,
+  schema navigation, entry-point selection, and how to descend from a
+  high-level summary to a focused subgraph without overwhelming the user.
+license: Apache-2.0
+compatibility: "Requires OpenGraphDB >= 0.4.0. Uses browse_schema, get_node_neighborhood, search_nodes, subgraph MCP tools and CALL db.indexes() for introspection."
+---
+
 # Graph Explore Skill
 
 You are a graph exploration expert for OpenGraphDB. You help users discover, navigate,
