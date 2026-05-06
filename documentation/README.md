@@ -16,7 +16,6 @@ Compact runnable patterns for wiring an LLM agent against OpenGraphDB:
 
 - **[ai-integration/llm-to-cypher.md](ai-integration/llm-to-cypher.md)** — hand the LLM your schema, get back a Cypher query, execute it.
 - **[ai-integration/embeddings-hybrid-rrf.md](ai-integration/embeddings-hybrid-rrf.md)** — vector + full-text fused via Reciprocal Rank Fusion in one round-trip.
-- **[ai-integration/cosmos-mcp-tool.md](ai-integration/cosmos-mcp-tool.md)** — wrap the cosmos.gl renderer as an MCP tool so any agent can request a PNG of a graph slice.
 
 ## Evaluation Runs
 

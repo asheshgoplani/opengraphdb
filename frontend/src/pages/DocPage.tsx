@@ -17,7 +17,6 @@ import { renderMarkdown } from '@/lib/markdown/renderMarkdown'
 
 import llmToCypherRaw from '../../../documentation/ai-integration/llm-to-cypher.md?raw'
 import embeddingsHybridRrfRaw from '../../../documentation/ai-integration/embeddings-hybrid-rrf.md?raw'
-import cosmosMcpToolRaw from '../../../documentation/ai-integration/cosmos-mcp-tool.md?raw'
 
 interface DocEntry {
   title: string
@@ -37,12 +36,6 @@ const DOC_REGISTRY: Record<string, DocEntry> = {
     source: embeddingsHybridRrfRaw,
     githubBlob:
       'https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/ai-integration/embeddings-hybrid-rrf.md',
-  },
-  'cosmos-mcp-tool': {
-    title: 'cosmos.gl visualization as an MCP tool',
-    source: cosmosMcpToolRaw,
-    githubBlob:
-      'https://github.com/asheshgoplani/opengraphdb/blob/main/documentation/ai-integration/cosmos-mcp-tool.md',
   },
 }
 

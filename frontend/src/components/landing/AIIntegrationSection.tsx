@@ -60,38 +60,6 @@ for hit in vector_hits + text_hits:
     print(hit["score"], hit["node"])
 `
 
-const COSMOS_MCP = `import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
-import { OpenGraphDBClient } from "@opengraphdb/mcp"
-import { z } from "zod"
-import { renderGraphPng, rowsToGraph } from "./cosmos-renderer.js"
-
-const server = new McpServer({ name: "cosmos-graph-viz", version: "0.1.0" })
-const db = new OpenGraphDBClient("http://localhost:8080")
-
-server.tool(
-  "render_graph",
-  "Execute a Cypher query and return the result as a PNG rendered via cosmos.gl",
-  {
-    cypher: z.string(),
-    width: z.number().default(1280),
-  },
-  async ({ cypher, width }) => {
-    const { columns, rows } = await db.query(cypher)
-    const { nodes, edges } = rowsToGraph(columns, rows)
-    const png = await renderGraphPng({ nodes, edges, width })
-    return {
-      content: [
-        { type: "image", data: png.toString("base64"), mimeType: "image/png" },
-      ],
-    }
-  },
-)
-
-const transport = new StdioServerTransport()
-await server.connect(transport)
-`
-
 // Cycle-2 docs eval C2-B2: the "multi-agent shared KG" pattern was removed.
 // Database::open takes a single-process exclusive write lock today
 // (BENCHMARKS.md row 9 / § 4.6 calls multi-writer "single-writer-kernel-limited;
@@ -130,14 +98,6 @@ const PATTERNS: Pattern[] = [
     code: EMBED_AND_SEARCH,
     docHref: '/docs/embeddings-hybrid-rrf',
   },
-  {
-    title: 'cosmos.gl visualization as an MCP tool',
-    whyCare:
-      'Wrap the frontend renderer as an MCP server so any agent can request a PNG of a graph slice — visual output, not prose, when that is what the task needs.',
-    language: 'typescript',
-    code: COSMOS_MCP,
-    docHref: '/docs/cosmos-mcp-tool',
-  },
 ]
 
 const REVEAL_DELAY = ['', 'animate-delay-100', 'animate-delay-200']
@@ -168,7 +128,7 @@ export function AIIntegrationSection() {
           <p className="mt-5 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground">
             OpenGraphDB does not bundle an LLM. It gives agents a substrate —
             Cypher, MCP tools, hybrid search, MVCC — so you wire it into
-            whatever stack you already run. Four patterns we test.
+            whatever stack you already run. Two patterns we test.
           </p>
         </div>
 

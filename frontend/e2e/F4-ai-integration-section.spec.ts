@@ -7,11 +7,13 @@ import { fileURLToPath } from 'node:url'
 // at runtime. Resolve it from `import.meta.url` for the repo-root walk below.
 const SPEC_DIR = path.dirname(fileURLToPath(import.meta.url))
 
-// Cycle-2 docs eval C2-B2: card count was 4; the "multi-agent shared KG" pattern
-// was deleted because Database::open takes a single-process exclusive write lock
-// and BENCHMARKS.md row 9 calls multi-writer "single-writer-kernel-limited;
-// the N=4 measurement is mechanical, not real contention". Card count is now 3.
-const EXPECTED_CARD_COUNT = 3
+// Cycle-33 frontend eval H1: card count dropped from 3 to 2. The third
+// pattern was advertising a renderer that was removed in Slice 4 / does
+// not exist as an MCP surface — see commit history for full context.
+// (Earlier history: cycle-2 docs eval C2-B2 took the count from 4 to 3 by
+// removing the "multi-agent shared KG" pattern — single-writer-kernel-limited
+// per BENCHMARKS.md row 9.)
+const EXPECTED_CARD_COUNT = 2
 
 test.describe('F4 — AI Integration section (Slice R2)', () => {
   test('section is present on landing with testid', async ({ page }) => {
@@ -105,18 +107,18 @@ test.describe('F4 — AI Integration section (Slice R2)', () => {
     expect(h1.length, 'doc page H1 must be non-empty').toBeGreaterThan(0)
   })
 
-  // Cycle-2 docs eval C2-B2: the three remaining ai-integration md files were
+  // Cycle-2 docs eval C2-B2: the remaining ai-integration md files were
   // redirect-stubbed (no detailed walkthrough; redirect to COOKBOOK / BENCHMARKS).
   // The "**Status:** stub — detailed walkthrough lands in a follow-up slice."
   // line was the eval's primary smoke for "was this ever fleshed out?". This
-  // test asserts that smoke string never returns. (multi-agent-shared-kg.md
-  // was deleted, so it's not in the list.)
+  // test asserts that smoke string never returns. (Patterns whose md files
+  // have been deleted are not in the list — see git history for the
+  // sequence of removals.)
   test('remaining ai-integration md files are not advertised as stubs', async () => {
     const repoRoot = path.resolve(SPEC_DIR, '..', '..')
     const targets = [
       'documentation/ai-integration/llm-to-cypher.md',
       'documentation/ai-integration/embeddings-hybrid-rrf.md',
-      'documentation/ai-integration/cosmos-mcp-tool.md',
     ]
     for (const rel of targets) {
       const abs = path.join(repoRoot, rel)
