@@ -54,6 +54,24 @@ if ! command -v cargo-public-api >/dev/null 2>&1; then
   cargo install --locked cargo-public-api
 fi
 
+# cargo-public-api requires nightly rustc to extract public API surfaces.
+# When the current environment doesn't have nightly available, skip the gate
+# rather than report false-positive BREAKING changes (the underlying
+# `error: toolchain 'nightly-...' is not installed` was being mis-classified
+# as a per-crate breaking diff).
+if ! rustup toolchain list 2>/dev/null | grep -qE '^nightly-' \
+   && ! command -v rustup >/dev/null 2>&1; then
+  echo "[check-rust-public-api-diff] skip — no nightly rustc available" >&2
+  echo "  (gate runs only when both stable and nightly toolchains are installed)" >&2
+  exit 0
+fi
+if command -v rustup >/dev/null 2>&1 \
+   && ! rustup toolchain list 2>/dev/null | grep -qE '^nightly-'; then
+  echo "[check-rust-public-api-diff] skip — nightly toolchain not installed (cargo-public-api requires nightly)" >&2
+  echo "  install with: rustup toolchain install nightly" >&2
+  exit 0
+fi
+
 # Diff every publishable rust crate. `--deny=removed --deny=changed` makes
 # the run non-zero on any breaking diff.
 PUBLISHABLE_CRATES=(
