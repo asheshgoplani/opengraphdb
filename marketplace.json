@@ -1,0 +1,19 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "opengraphdb",
+  "owner": {
+    "name": "OpenGraphDB Contributors"
+  },
+  "metadata": {
+    "description": "Embedded graph + vector + RDF database for AI agents. Cypher, GraphRAG, time-travel queries, single-file MCP catalog."
+  },
+  "plugins": [
+    {
+      "name": "opengraphdb",
+      "source": "./",
+      "category": "database",
+      "homepage": "https://github.com/asheshgoplani/opengraphdb",
+      "description": "Embedded property graph + vector + RDF database for AI agents."
+    }
+  ]
+}

@@ -17,6 +17,11 @@ source "$HOME/.cargo/env"
 # check-doc-anchors.sh so the class closes for any future deletion.
 ./scripts/check-skill-bundle-links.sh
 ./scripts/check-binary-name.sh
+# Plugin distribution gates: .claude-plugin/plugin.json + marketplace.json must
+# exist with required fields so `/plugin marketplace add` and `/plugin install`
+# don't fail silently for users.
+./scripts/check-claude-plugin-manifest.sh
+./scripts/check-marketplace-manifest.sh
 # EVAL-DOCS-COMPLETENESS-CYCLE15 F01: SECURITY.md "Supported Versions"
 # row minor must match the workspace minor.
 ./scripts/check-security-supported-version.sh

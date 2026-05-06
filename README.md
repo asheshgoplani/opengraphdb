@@ -32,11 +32,30 @@ For the longer step-by-step walkthrough, see [`documentation/QUICKSTART.md`](doc
 
 ### 1. Install
 
+**Easiest — paste a prompt into Claude Code or claude.ai:**
+
+> Install OpenGraphDB on my machine: run
+> `curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/latest/download/install.sh | sh`
+> then run `ogdb init --agent` so this session can query the graph.
+
+The agent surfaces approval prompts for `curl` and `ogdb init` and handles the rest.
+
+**As a Claude Code plugin** (registers skills + MCP server inside an active `claude` session):
+
+```text
+/plugin marketplace add asheshgoplani/opengraphdb
+/plugin install opengraphdb@opengraphdb
+```
+
+**Manual / scripted** (no agent required):
+
 ```bash
 curl -fsSL https://github.com/asheshgoplani/opengraphdb/releases/latest/download/install.sh | sh
 ```
 
 This drops the `ogdb` binary at `~/.local/bin/ogdb` and creates a fresh empty database at `~/.ogdb/demo.ogdb`. Run `ogdb demo` afterward to load the MovieLens dataset and open the playground in your browser.
+
+For more install paths (npm, plugin internals, uninstall) see [`documentation/install.md`](documentation/install.md).
 
 ### 2. Wire your AI agent
 

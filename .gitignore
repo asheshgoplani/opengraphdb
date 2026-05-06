@@ -27,7 +27,7 @@ docs/IMPLEMENTATION-LOG.md
 
 # Project-root Claude Code instructions (developer-local)
 /CLAUDE.md
-/.mcp.json
+# /.mcp.json — published as a plugin asset; track it
 
 # GSD (Get Shit Done) workflow plumbing — developer-local, not public surface
 .claude/hooks/

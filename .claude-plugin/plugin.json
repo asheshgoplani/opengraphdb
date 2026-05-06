@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "opengraphdb",
+  "version": "0.5.1",
+  "description": "Embedded property graph + vector + RDF database for AI agents. Cypher, GraphRAG, time-travel queries, and a single-file MCP catalog.",
+  "author": {
+    "name": "OpenGraphDB Contributors",
+    "url": "https://github.com/asheshgoplani/opengraphdb"
+  },
+  "homepage": "https://github.com/asheshgoplani/opengraphdb",
+  "repository": "https://github.com/asheshgoplani/opengraphdb",
+  "license": "Apache-2.0",
+  "keywords": [
+    "graph-database",
+    "knowledge-graph",
+    "cypher",
+    "vector",
+    "rdf",
+    "graphrag",
+    "mcp",
+    "embedded",
+    "neo4j-alternative"
+  ]
+}
