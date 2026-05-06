@@ -1,0 +1,52 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "include-v-in-tag": true,
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "draft": false,
+  "prerelease": false,
+  "separate-pull-requests": false,
+  "group-pull-request-title-pattern": "chore(release): ${version}",
+  "release-search-depth": 400,
+  "commit-search-depth": 400,
+  "packages": {
+    ".": {
+      "release-type": "rust",
+      "package-name": "opengraphdb",
+      "component": "opengraphdb-workspace",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": false,
+      "include-v-in-tag": true,
+      "extra-files": [
+        {
+          "type": "json",
+          "path": ".claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "npm/cli/package.json",
+          "jsonpath": "$.version"
+        },
+        {
+          "type": "json",
+          "path": "crates/ogdb-node/package.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "frontend": {
+      "release-type": "node",
+      "package-name": "@opengraphdb/frontend",
+      "component": "frontend",
+      "changelog-path": "CHANGELOG.md",
+      "include-component-in-tag": true,
+      "include-v-in-tag": true
+    }
+  },
+  "plugins": [
+    {
+      "type": "sentence-case"
+    }
+  ]
+}

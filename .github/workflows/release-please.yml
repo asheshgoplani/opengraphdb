@@ -1,0 +1,48 @@
+name: release-please
+
+# Phase B M-13: migrate the release-flow source-of-truth to release-please.
+#
+# Why: prior to this workflow, version bumps + CHANGELOG entries were authored
+# by hand and a `v*` tag had to be pushed manually. That workflow lost a
+# release window twice in 2026-Q1 (forgot to bump `.claude-plugin/plugin.json`,
+# forgot to bump `npm/cli/package.json`) — both files mirror the workspace
+# version and only structural automation can keep them in lock-step.
+#
+# How it works:
+#   - On every push to `main`, release-please scans new conventional-commit
+#     messages and either opens or updates a "release PR" that bumps the
+#     workspace + cross-mirrored versions and rewrites CHANGELOG.md.
+#   - When a maintainer merges that release PR, release-please pushes the
+#     `v<version>` tag.
+#   - The existing `release.yml` workflow keeps firing on `v*` tag push and
+#     handles the matrix build + cargo publish + GHCR docker push.
+#
+# Coupled files:
+#   - release-please-config.json: package layout + extra-files for JSON mirrors
+#   - .release-please-manifest.json: current versions (release-please writes back)
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-please-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    name: open or update release PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run release-please
+        uses: googleapis/release-please-action@v4
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+          # Phase B M-13: do NOT pass `target-branch` — release-please defaults
+          # to the workflow's default branch (main), which is what we want.

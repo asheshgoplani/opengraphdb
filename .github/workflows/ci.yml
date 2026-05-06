@@ -401,3 +401,62 @@ jobs:
             }
             END { exit fail }
           ' bench-delta.txt
+
+  breaking-change-detector:
+    # Phase B M-12: triple public-API gate (Rust / Python / Node).
+    #
+    # Runs against the PR base. Only runs on pull_request — there is no
+    # "base" to diff a push-to-main against (the merge has already
+    # happened). Each sub-script re-execs its BASE_SHA self so a PR that
+    # weakens the detector while removing a public symbol can't bypass.
+    if: github.event_name == 'pull_request'
+    name: breaking-change-detector
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history for merge-base)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.88.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache cargo registry + target
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: breaking-change-detector
+
+      - name: Install cargo-public-api
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-public-api
+
+      - name: Install pyright + tsc
+        run: |
+          npm install -g pyright typescript
+
+      - name: Resolve BASE_SHA (PR merge-base)
+        id: base
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          echo "BASE_SHA=$BASE" >> "$GITHUB_ENV"
+          echo "Resolved BASE_SHA=$BASE"
+
+      - name: Rust public-API diff
+        run: bash scripts/check-rust-public-api-diff.sh
+
+      - name: Python public-API diff
+        run: bash scripts/check-python-public-api-diff.sh
+
+      - name: Node public-API diff
+        run: bash scripts/check-node-public-api-diff.sh
