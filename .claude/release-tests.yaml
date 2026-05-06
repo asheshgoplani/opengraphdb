@@ -670,3 +670,12 @@ tests:
     command: "cargo test -p ogdb-cli --test cli_e2e_subcommands -- --test-threads=1"
     purpose: "Closes coverage-audit-2026-05-05 §2 deferred HIGH — 13 of 24 CLI subcommands (info, stats, metrics, checkpoint, backup, migrate, create-node, add-edge, neighbors, incoming, hop, hop-in, shell) had no subprocess-level integration test, only in-process `lib.rs::tests` and a presence check in readme_cli_listing. Each test now spawns the real `ogdb` binary via CARGO_BIN_EXE_ogdb against a tempdir database, seeds a 3-node graph for traversal cases (0->1, 0->2), and asserts exit-0 + a meaningful stdout substring (node_count=, edge_id=0, reachable_count=2, etc) proving the command reached the storage layer end-to-end."
     added: 2026-05-05
+
+  - id: readme-headline-query-returns-rows
+    task: fix-c2-movielens-zero-rows
+    crate: ogdb-cli
+    test: readme_headline_query_returns_rows
+    function: [readme_headline_query_returns_at_least_one_row]
+    command: "cargo test --release -p ogdb-cli --test readme_headline_query_returns_rows"
+    purpose: "Phase A C-2 BLOCKER — README's flagship `ogdb query ~/.ogdb/demo.ogdb \"...\"` block previously asked for `(p:Person)-[:ACTED_IN]->(m:Movie)` against a fixture that ships only Movie + Genre + IN_GENRE, returning 0 rows. Test now extracts whatever Cypher is wrapped in the first README headline `ogdb query` block, imports `datasets/movielens.json` into a tempdir db (same path `ogdb demo` seeds), runs the extracted query through the `ogdb` binary, and asserts row_count >= 1. Catches any future drift between the README headline query and the actual demo schema."
+    added: 2026-05-06

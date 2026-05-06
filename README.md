@@ -69,10 +69,10 @@ Now Claude (or your coding agent of choice) can query the graph directly from yo
 
 ```bash
 ogdb query ~/.ogdb/demo.ogdb \
-  "MATCH (p:Person)-[:ACTED_IN]->(m:Movie) RETURN p.name, m.title LIMIT 5"
+  "MATCH (m:Movie)-[:IN_GENRE]->(g:Genre) RETURN m.title, g.name LIMIT 5"
 ```
 
-You should see five people and the movies they acted in. That's it — you have a working graph database.
+You should see five movies and the genres they belong to. That's it — you have a working graph database.
 
 ## Can I use RDF data?
 
