@@ -28,7 +28,10 @@ fn temp_db_path(tag: &str) -> PathBuf {
         .duration_since(UNIX_EPOCH)
         .expect("system time before unix epoch")
         .as_nanos();
-    path.push(format!("ogdb-ack-failure-{tag}-{}-{ts}.ogdb", process::id()));
+    path.push(format!(
+        "ogdb-ack-failure-{tag}-{}-{ts}.ogdb",
+        process::id()
+    ));
     path
 }
 

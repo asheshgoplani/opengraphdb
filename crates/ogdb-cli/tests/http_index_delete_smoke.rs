@@ -105,9 +105,7 @@ fn delete_indexes_resource_is_not_an_http_route_today_returns_405() {
     let request = format!(
         "DELETE /indexes/embedding_idx HTTP/1.1\r\nHost: {addr}\r\nConnection: close\r\n\r\n"
     );
-    stream
-        .write_all(request.as_bytes())
-        .expect("write DELETE");
+    stream.write_all(request.as_bytes()).expect("write DELETE");
     stream.flush().expect("flush DELETE");
     let status = read_status(&mut stream);
     assert_eq!(

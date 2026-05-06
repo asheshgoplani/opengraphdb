@@ -12897,15 +12897,11 @@ ex:acme a schema:Organization ;
     fn rdf_commands_validate_usage_and_format_resolution() {
         let import_wrong_arity = run(&["import-rdf".to_string()]);
         assert_eq!(import_wrong_arity.exit_code, 2);
-        assert!(import_wrong_arity
-            .stderr
-            .contains("usage: ogdb import-rdf"));
+        assert!(import_wrong_arity.stderr.contains("usage: ogdb import-rdf"));
 
         let export_wrong_arity = run(&["export-rdf".to_string()]);
         assert_eq!(export_wrong_arity.exit_code, 2);
-        assert!(export_wrong_arity
-            .stderr
-            .contains("usage: ogdb export-rdf"));
+        assert!(export_wrong_arity.stderr.contains("usage: ogdb export-rdf"));
 
         let path = temp_db_path("rdf-format-resolution");
         let no_ext_input = temp_file_path("rdf-format-resolution", "txt");
@@ -14037,9 +14033,7 @@ ex:acme a schema:Organization ;
     fn neighbors_rejects_wrong_argument_count() {
         let out = run(&["neighbors".to_string()]);
         assert_eq!(out.exit_code, 2);
-        assert!(out
-            .stderr
-            .contains("usage: ogdb neighbors <path> <src>"));
+        assert!(out.stderr.contains("usage: ogdb neighbors <path> <src>"));
     }
 
     #[test]
@@ -14242,9 +14236,7 @@ ex:acme a schema:Organization ;
     fn incoming_rejects_wrong_argument_count() {
         let out = run(&["incoming".to_string()]);
         assert_eq!(out.exit_code, 2);
-        assert!(out
-            .stderr
-            .contains("usage: ogdb incoming <path> <dst>"));
+        assert!(out.stderr.contains("usage: ogdb incoming <path> <dst>"));
     }
 
     #[test]
@@ -14473,9 +14465,7 @@ ex:acme a schema:Organization ;
     fn hop_rejects_wrong_argument_count() {
         let out = run(&["hop".to_string()]);
         assert_eq!(out.exit_code, 2);
-        assert!(out
-            .stderr
-            .contains("usage: ogdb hop <path> <src> <hops>"));
+        assert!(out.stderr.contains("usage: ogdb hop <path> <src> <hops>"));
     }
 
     #[test]

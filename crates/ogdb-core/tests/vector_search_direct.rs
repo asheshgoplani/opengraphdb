@@ -64,10 +64,7 @@ fn vector_search_returns_nearest_and_score_within_tolerance() {
         let id = db
             .create_node_with(
                 &["Doc".to_string()],
-                &PropertyMap::from([(
-                    "embedding".to_string(),
-                    PropertyValue::Vector(v.clone()),
-                )]),
+                &PropertyMap::from([("embedding".to_string(), PropertyValue::Vector(v.clone()))]),
             )
             .expect("create node");
         ids.push(id);
