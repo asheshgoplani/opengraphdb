@@ -198,7 +198,7 @@ mod tests {
 
     #[test]
     fn percentiles_basic() {
-        let xs: Vec<f64> = (1..=100).map(|i| f64::from(i)).collect();
+        let xs: Vec<f64> = (1..=100).map(f64::from).collect();
         let (p50, p95, p99) = percentiles(&xs);
         assert_eq!(p50, 50.0);
         assert_eq!(p95, 95.0);

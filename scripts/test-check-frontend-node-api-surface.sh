@@ -220,10 +220,10 @@ export const Planted = () => SNIPPET
 TSX
 run_planted "GREEN CYCLE-32 published-vs-source after re-export" 0
 
-# --- RED: dead-gate sentinel — fixture without imports/new/destructs of
-# either gated package must fail with `scanned 0`. Mirror of the cycle-30
-# python-api-surface dead-gate pattern (LOW-1 from the same eval extends
-# this to the python gate; we land it directly here).
+# --- GREEN: dead-gate sentinel — fixture without imports/new/destructs of
+# either gated package must pass with rc=0 and the "no marketing snippets
+# reference" message. cycle-33 removed the last consumer (cosmos-mcp pattern
+# card); the gate stays wired but a wired-but-empty gate is not a regression.
 cat > "$TMP/frontend/src/Planted.tsx" <<'TSX'
 const SNIPPET = `// nothing relevant here`
 export const Planted = () => SNIPPET
@@ -232,19 +232,19 @@ set +e
 ( cd "$TMP" && "$TMP/scripts/check-frontend-node-api-surface.sh" >/tmp/out.$$ 2>&1 )
 rc=$?
 set -e
-if [[ "$rc" -eq 0 ]]; then
-  echo "test FAILED: [RED dead-gate sentinel] expected non-zero, got 0" >&2
+if [[ "$rc" -ne 0 ]]; then
+  echo "test FAILED: [GREEN dead-gate sentinel] expected rc=0, got $rc" >&2
   cat /tmp/out.$$ >&2
   rm -f /tmp/out.$$
   exit 1
 fi
-if ! grep -q "scanned 0" /tmp/out.$$; then
-  echo "test FAILED: [RED dead-gate sentinel] expected 'scanned 0' in stderr" >&2
+if ! grep -q "no marketing snippets reference" /tmp/out.$$; then
+  echo "test FAILED: [GREEN dead-gate sentinel] expected 'no marketing snippets reference' in output" >&2
   cat /tmp/out.$$ >&2
   rm -f /tmp/out.$$
   exit 1
 fi
 rm -f /tmp/out.$$
-echo "test: [RED dead-gate sentinel] tripped with 'scanned 0' (expected)"
+echo "test: [GREEN dead-gate sentinel] passed with 'no marketing snippets reference' (expected)"
 
 echo "test-check-frontend-node-api-surface: ok"

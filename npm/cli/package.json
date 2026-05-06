@@ -1,6 +1,6 @@
 {
   "name": "@opengraphdb/cli",
-  "version": "0.4.0",
+  "version": "0.5.1",
   "description": "OpenGraphDB CLI — single-file embedded graph database with Cypher, vector, and MCP. Installs the native ogdb binary and wires it into your coding agent.",
   "type": "commonjs",
   "bin": {

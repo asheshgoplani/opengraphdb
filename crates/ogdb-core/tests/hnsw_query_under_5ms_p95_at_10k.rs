@@ -71,6 +71,7 @@ fn rand_unit_vec(seed: u64, d: usize) -> Vec<f32> {
 
 fn percentile(mut samples: Vec<Duration>, pct: f64) -> Duration {
     samples.sort();
+    #[allow(clippy::cast_sign_loss, reason = "(len-1)*pct/100 is non-negative for pct in [0,100] and non-empty samples")]
     let idx = ((samples.len() as f64 - 1.0) * pct / 100.0).round() as usize;
     samples[idx.min(samples.len() - 1)]
 }
