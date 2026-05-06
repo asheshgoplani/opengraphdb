@@ -95,19 +95,32 @@ function readBenchmarks(): string {
 }
 
 // Pull the bolded headline value for a numbered row out of BENCHMARKS.md's
-// competitive-comparison table. The regression-watch table at the top of
-// the file uses the same `| N |` row prefix but bolds nothing, so filtering
-// on `**...**` correctly selects the competitive row. Sourcing the value at
-// test time means re-baselines (cycle-19 → cycle-31 → cycle-33 …) flow
-// through to this spec without manual selector updates.
-function parseBenchmarksHeadline(rowNum: number): string {
-  const lines = readBenchmarks().split('\n')
+// competitive-comparison table. The table schema is
+// `| # | Metric | OpenGraphDB | Neo4j | Memgraph | Kuzu | best-in-class | Verdict |`,
+// so after splitting the line on `|` and stripping the empty boundary cells,
+// `cells[2]` is the OGDB headline cell — matching the convention documented
+// in `scripts/check-benchmarks-cell-internal-consistency.sh`. We must
+// extract the bold token from that cell specifically: a row-global match
+// would silently return any `**...**` annotation that landed in an earlier
+// column (e.g. row 3's `**cold**` emphasis in the metric-name cell), and
+// per-token substring assertions like `expect(body).toContain('cold')`
+// would then trivially pass on nonsense — the cycle-33 HIGH-1 finding.
+// Sourcing the value at test time means re-baselines (cycle-19 → cycle-31
+// → cycle-33 …) flow through to this spec without manual selector updates.
+function parseBenchmarksHeadline(rowNum: number, source?: string): string {
+  const text = source ?? readBenchmarks()
+  const lines = text.split('\n')
   const prefix = `| ${rowNum} |`
   for (const line of lines) {
-    if (line.startsWith(prefix) && line.includes('**')) {
-      const match = line.match(/\*\*([^*]+)\*\*/)
-      if (match) return match[1].trim()
-    }
+    if (!line.startsWith(prefix)) continue
+    const cells = line
+      .split('|')
+      .slice(1, -1)
+      .map((c) => c.trim())
+    if (cells.length < 3) continue
+    const ogdb = cells[2]
+    const match = ogdb.match(/\*\*([^*]+)\*\*/)
+    if (match) return match[1].trim()
   }
   throw new Error(`could not find competitive headline for BENCHMARKS.md row ${rowNum}`)
 }
@@ -126,6 +139,26 @@ async function postJson(path: string, body: unknown): Promise<{ status: number; 
   }
   return { status: resp.status, json }
 }
+
+// Unit tests for parseBenchmarksHeadline. Kept in a separate describe block
+// so they run without spawning the live `ogdb serve` process. Locks the
+// cycle-33 HIGH-1 fix: row 3 must return the OGDB headline (`5.8 / 6.8 /
+// 11.8 μs`), NOT the `**cold**` bold token from the metric-name cell.
+test.describe('migration-from-neo4j parser — parseBenchmarksHeadline unit', () => {
+  test('row 1 returns OGDB headline `251 nodes/s`', () => {
+    expect(parseBenchmarksHeadline(1)).toBe('251 nodes/s')
+  })
+
+  test('row 3 returns OGDB headline `5.8 / 6.8 / 11.8 μs` (NOT `cold` from metric-cell annotation)', () => {
+    const result = parseBenchmarksHeadline(3)
+    expect(result).toBe('5.8 / 6.8 / 11.8 μs')
+    expect(result).not.toBe('cold')
+  })
+
+  test('row 7 returns OGDB headline `38.8 / 46.7 / 112.6 ms`', () => {
+    expect(parseBenchmarksHeadline(7)).toBe('38.8 / 46.7 / 112.6 ms')
+  })
+})
 
 test.describe('migration-from-neo4j guide — runnable + honesty-asserted', () => {
   test.skip(SKIP, 'release binary missing in CI; set OGDB_E2E_LIVE=1 to force')
@@ -275,6 +308,12 @@ test.describe('migration-from-neo4j guide — runnable + honesty-asserted', () =
     // Multi-value headlines like `38.8 / 46.7 / 112.6 ms` split on ` / `
     // (spaces around the slash); single-value headlines like `251 nodes/s`
     // stay intact because the unit slash has no surrounding spaces.
+    // Row 3's tokens (5.8 / 6.8 / 11.8 μs) are not yet cited verbatim in
+    // § 5 of the migration guide — the section narrates row 3 via the
+    // "directional indicator" prose, not the headline triple. The
+    // parser-unit describe block above locks `parseBenchmarksHeadline(3)`
+    // independently, so the row-3 fix from cycle-33 HIGH-1 is fully
+    // exercised even with the guide-quote loop limited to [1, 7].
     for (const rowNum of [1, 7]) {
       const headline = parseBenchmarksHeadline(rowNum)
       const tokens = headline
