@@ -213,22 +213,34 @@ curl -s -X POST $BASE/query \
   -d '{ "query": "MATCH (n) RETURN count(n) AS c" }'
 ```
 
-**Expected output.** `/rag/ingest` returns the extraction summary:
+**Expected output.** `/rag/ingest` returns the parsed-document summary
+(serialized straight from `IngestResult` in `crates/ogdb-import/src/lib.rs`):
 
 ```json
 {
-  "document_id": "doc-7c3f...",
-  "entities_extracted": 2,
-  "edges_extracted": 1,
-  "duration_ms": 41
+  "content_count": 1,
+  "document_node_id": 0,
+  "reference_count": 0,
+  "section_count": 1,
+  "text_indexed": true,
+  "vector_indexed": false
 }
 ```
 
-`/query` returns the row set:
+`/query` returns the row set as objects keyed by column, plus a `row_count`
+(this is what `QueryResult::to_json` in `crates/ogdb-core/src/lib.rs` emits):
 
 ```json
-{ "columns": ["c"], "rows": [[2]] }
+{ "columns": ["c"], "row_count": 1, "rows": [{ "c": 3 }] }
 ```
+
+The `MATCH (p:Person)-[:WORKS_WITH]->(q:Person)` pattern above is illustrative of
+the *graph-querying* surface, but the deterministic extractor in
+`Database::ingest_document` does not synthesise `:Person` / `:WORKS_WITH` from
+free-form prose — it materialises `:Document` / `:Section` / `:Content` nodes
+plus `:REFERENCES` edges. To see something non-empty after a single ingest, ask
+for the structural count instead — `MATCH (n) RETURN count(n) AS c` returns
+`{ "c": 3 }` (one Document + one Section + one Content node).
 
 **How to verify and cite.** From `documentation/BENCHMARKS.md` row 7: enrichment
 round-trip `t_persist` p50 / p95 / p99 = **38.8 / 46.7 / 112.6 ms** on 100

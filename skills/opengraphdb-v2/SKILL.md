@@ -121,8 +121,8 @@ A runnable end-to-end demo lives at [`scripts/quickstart.sh`](scripts/quickstart
 | `ogdb export <db> <file>` / `export-rdf` | Round-trip out |
 | `ogdb migrate <db> <script>` | Apply a schema-evolution migration |
 | `ogdb backup <db> <out>` / `checkpoint <db>` | Operations |
-| `ogdb serve --http \| --bolt \| --grpc \| --mcp <db>` | Network server |
-| `ogdb mcp --stdio <db>` | MCP over stdio for Claude Code / Cursor / Goose |
+| `ogdb serve --http \| --bolt \| --grpc <db>` | Network server (one transport per invocation; HTTP also exposes `/mcp/tools` + `/mcp/invoke`) |
+| `ogdb mcp --stdio <db>` | MCP over stdio for Claude Code / Cursor / Goose (separate subcommand — there is no `serve --mcp` flag) |
 
 ### MCP tool catalog (HTTP `POST /mcp/tools` returns this list)
 
@@ -154,9 +154,8 @@ OpenGraphDB implements an openCypher subset. The TCK harness in
 `crates/ogdb-tck` enforces a 50% Tier-1 floor across
 `MATCH / RETURN / WHERE / CREATE / DELETE / SET` as a regression gate.
 Beyond Tier-1: `OPTIONAL MATCH`, `MERGE` (with `ON CREATE SET` / `ON MATCH SET`),
-`WITH`, `UNWIND`, `UNION`, `EXISTS`, pattern comprehension, `CASE`,
-aggregations, ordering, `CREATE INDEX`, and the OpenGraphDB-specific
-`AT TIME` extension.
+`WITH`, `UNWIND`, pattern comprehension, `CASE`, aggregations, ordering,
+`CREATE INDEX`, and the OpenGraphDB-specific `AT TIME` extension.
 
 ### Minimal cheatsheet
 
@@ -174,18 +173,21 @@ UNWIND $rows AS row
 MERGE (p:Person {id: row.id})
 SET   p.name = row.name, p.age = row.age
 
-// Aggregation + ordering
+// Aggregation + ordering — RETURN aliases are not visible to ORDER BY
+// in this engine; project through WITH first.
 MATCH (p:Person)-[:WROTE]->(b:Book)
-RETURN p.name, count(b) AS books ORDER BY books DESC LIMIT 10
+WITH p.name AS author, count(b) AS books
+RETURN author, books ORDER BY books DESC LIMIT 10
 
 // Vector kNN (function form, not a custom operator)
 MATCH (r:Review)
 WHERE vector_distance(r.embedding, $q) < 0.3
 RETURN r.text ORDER BY vector_distance(r.embedding, $q) ASC LIMIT 10
 
-// Full-text
+// Full-text — same alias rule: project through WITH before ORDER BY
 MATCH (a:Article) WHERE text_search(a.body, 'graph database')
-RETURN a.title, text_score(a.body, 'graph database') AS rel ORDER BY rel DESC
+WITH a.title AS title, text_score(a.body, 'graph database') AS rel
+RETURN title, rel ORDER BY rel DESC
 
 // Time-travel (timestamps in milliseconds)
 MATCH (a)-[:KNOWS]->(b) AT TIME 1750000000000 RETURN b
@@ -195,8 +197,12 @@ MATCH (a)-[:KNOWS]->(b) AT TIME 1750000000000 RETURN b
 
 - `LOAD CSV` (use `ogdb import` or the `/import` API).
 - `shortestPath()` Cypher function (use the `shortest_path` MCP tool).
+- Variable-length patterns (`-[:REL*1..N]->`) and named paths (`MATCH p = (...)...`) — use a fixed-depth chain or the `shortest_path` MCP tool.
+- `UNION` between query parts — split into two queries and merge client-side.
+- `EXISTS { ... }` subquery and the `exists((a)-[:R]->(b))` predicate function — rewrite with `OPTIONAL MATCH` + `WHERE x IS NOT NULL`.
 - Arbitrary stored-procedure `CALL ... YIELD ...` (engine ships only built-ins).
 - Most APOC procedures (rewrite as plain Cypher or a small MCP tool).
+- RETURN aliases are not visible to a trailing `ORDER BY` in the same clause — project the alias through `WITH` first (see the cheatsheet above).
 
 For the full feature × status grid, see [`references/cypher-coverage.md`](references/cypher-coverage.md).
 
@@ -252,10 +258,18 @@ curl -s -X POST $BASE/mcp/invoke -H 'Content-Type: application/json' -d "{
 
 ### 5. Agent memory (`agent_store_episode` + `agent_recall`)
 
+`agent_store_episode` requires `agent_id`, `session_id`, `content`, `embedding`,
+and `timestamp` (ms-since-epoch); `metadata` is optional. The schema is enforced
+in `crates/ogdb-cli/src/lib.rs::execute_mcp_agent_store_episode_tool`.
+
 ```bash
 curl -s -X POST $BASE/mcp/invoke -d '{"name":"agent_store_episode","arguments":{
-  "agent_id":"planner-1","summary":"learned user prefers terse responses",
-  "embedding":[/* ... */]}}' -H 'Content-Type: application/json'
+  "agent_id":"planner-1",
+  "session_id":"sess-2026-05-06",
+  "content":"learned user prefers terse responses",
+  "embedding":[/* dim must match the index */],
+  "timestamp":1746489600000
+}}' -H 'Content-Type: application/json'
 curl -s -X POST $BASE/mcp/invoke -d '{"name":"agent_recall","arguments":{
   "agent_id":"planner-1","query_embedding":[/* ... */],"k":5}}' \
   -H 'Content-Type: application/json'
