@@ -6242,7 +6242,10 @@ pub fn lex_cypher(input: &str) -> Result<Vec<Token>, ParseError> {
         }
 
         if remaining.starts_with("/*") {
-            if let Some(end_idx) = remaining.find("*/") {
+            // Search for the closing */ AFTER the opening /*; this naturally
+            // prevents the */ from overlapping the /* on inputs like "/*/".
+            if let Some(rel_idx) = remaining[2..].find("*/") {
+                let end_idx = rel_idx + 2;
                 let end = end_idx + 2;
                 let comment = remaining[2..end_idx].to_string();
                 let end_offset = start + end;

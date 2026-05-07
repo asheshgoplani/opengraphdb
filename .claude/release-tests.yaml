@@ -679,3 +679,12 @@ tests:
     command: "cargo test --release -p ogdb-cli --test readme_headline_query_returns_rows"
     purpose: "Phase A C-2 BLOCKER — README's flagship `ogdb query ~/.ogdb/demo.ogdb \"...\"` block previously asked for `(p:Person)-[:ACTED_IN]->(m:Movie)` against a fixture that ships only Movie + Genre + IN_GENRE, returning 0 rows. Test now extracts whatever Cypher is wrapped in the first README headline `ogdb query` block, imports `datasets/movielens.json` into a tempdir db (same path `ogdb demo` seeds), runs the extracted query through the `ogdb` binary, and asserts row_count >= 1. Catches any future drift between the README headline query and the actual demo schema."
     added: 2026-05-06
+
+  - id: cypher-lex-comment-overlap-no-panic
+    task: fuzz-finding-cypher-comment-overlap
+    crate: ogdb-core
+    test: cypher_lex_comment_overlap
+    function: lex_comment_overlap_does_not_panic
+    command: cargo test -p ogdb-core --release --test cypher_lex_comment_overlap
+    purpose: Regression for fuzz-found panic on /*/ input where */ overlaps the opening /*
+    added: 2026-05-07
