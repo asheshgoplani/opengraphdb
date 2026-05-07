@@ -21809,6 +21809,20 @@ impl Database {
         if self.header.next_node_id > node_id {
             return Ok(());
         }
+        // Cap the pad gap. Adversarial WALs (fuzz finding
+        // timeout-a882a14… in fuzz_wal_record_reader) can claim a
+        // `node_id` of ~u64::MAX, which would drive the pad loop ~5.5×10¹³
+        // iterations and lock up `Database::open` (libfuzzer status 70).
+        // Legitimate gaps from interrupted recovery are tiny (~1); 1 << 20
+        // is far above any plausible real value.
+        const MAX_WAL_REPLAY_NODE_ID_GAP: u64 = 1 << 20;
+        let gap = node_id - self.header.next_node_id;
+        if gap > MAX_WAL_REPLAY_NODE_ID_GAP {
+            return Err(DbError::Corrupt(format!(
+                "wal create_node: node_id {node_id} too far ahead of next_node_id {} (gap {gap} > {MAX_WAL_REPLAY_NODE_ID_GAP})",
+                self.header.next_node_id
+            )));
+        }
         while self.header.next_node_id < node_id {
             let pad_id = self.header.next_node_id;
             self.apply_create_node_with_id(pad_id)?;

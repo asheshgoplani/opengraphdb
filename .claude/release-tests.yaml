@@ -688,3 +688,12 @@ tests:
     command: cargo test -p ogdb-core --release --test cypher_lex_comment_overlap
     purpose: Regression for fuzz-found panic on /*/ input where */ overlaps the opening /*
     added: 2026-05-07
+
+  - id: wal-record-reader-no-panic-on-adversarial-input
+    task: fix-wal-record-reader-fuzz
+    crate: ogdb-core
+    test: wal_record_reader_adversarial
+    function: [database_open_rejects_create_node_record_with_unbounded_id_gap, database_open_rejects_create_node_record_with_max_u64_id]
+    command: "cargo test --release -p ogdb-core --test wal_record_reader_adversarial"
+    purpose: "Phase B follow-up — fuzz_wal_record_reader nightly run 25479643932 produced timeout-a882a14… (libfuzzer status 70). The 18-byte input held a single CREATE_NODE v1 record claiming node_id ≈ 5.5×10¹³, which drove `replay_wal_create_node`'s gap-padding loop ~5.5T iterations (Database::open hung, RAM exhausted on each open, DoS at every malformed-WAL open). Both tests plant adversarial WALs (the verbatim fuzz artifact + node_id = u64::MAX), wrap Database::open in a 5 s mpsc::recv_timeout so a regression presents as a fast failure rather than a CI hang, and assert the call returns DbError::Corrupt. Fix caps replay_wal_create_node gap at 1<<20 (legit recovery gaps are ~1; 1M is ample headroom)."
+    added: 2026-05-07
