@@ -1,6 +1,6 @@
 {
   "name": "opengraphdb",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "type": "commonjs",
   "main": "index.js",
   "types": "index.d.ts",

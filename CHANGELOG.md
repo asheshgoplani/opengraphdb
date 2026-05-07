@@ -9,6 +9,28 @@ Versioning follows Semantic Versioning.
 
 _No unreleased changes._
 
+## [0.5.2] - 2026-05-07
+
+### Fixed
+- parser: cypher comment lexer no longer panics when `*/` overlaps `/*` (fuzz-found, regression test added).
+- ci: release-please workflow trigger gated to `workflow_dispatch` (legacy commit history was tripping the conventional-commit parser and failing the run on every push to `main`).
+- ci: cargo public-api uses the `diff` subcommand (v0.42+ syntax change — old `--diff` flag was removed and the gate was failing).
+- ci: bundle-budget regex matches only the SPA cold-load entry chunk; named entries are no longer counted against the budget so the gate stops false-positiving on legitimate code-split assets.
+- ci: fuzz workflow uses the `gnu` target instead of the musl default (musl libfuzzer link was failing on the runner); fuzz crashes upload the corpus as an artifact without failing CI so a single bad input does not block merges.
+
+### Added
+- fuzz workflow (Phase B H-17): nightly cypher-parser + WAL-reader fuzz with a 10 min/target budget; corpus persisted across runs as a workflow artifact.
+- master version-drift gate (`scripts/check-version-drift-master.sh`) spans 6 sources: `Cargo.toml`, `frontend/package.json`, `.claude-plugin/plugin.json`, `npm/cli/package.json`, `crates/ogdb-python/pyproject.toml`, and `crates/ogdb-node/package.json`.
+- 5 broader CI gates: repo-wide token-leak scan, Claude-attribution scan, file-size cap, path-leak extension sweep, and action-pin enforcement (every `uses:` in `.github/workflows/` must be pinned to a commit SHA).
+- Homebrew tap formula + WinGet manifest staged in `distribution/` for the v0.5.2 release.
+- WordNet RDF demo dataset alongside MovieLens.
+- Skill 2.0 plugin shell: `.claude-plugin/plugin.json`, `.mcp.json`, and `marketplace.json` so OpenGraphDB ships as a native Claude Code plugin.
+
+### Changed
+- `scripts/workflow-check.sh` + `scripts/check-changelog-tags.sh` accept the `_No unreleased changes._` sentinel as a valid empty `[Unreleased]` body so the gates stop forcing a placeholder bullet on releases.
+- 6 previously pass-only meta-tests now exercise planted-fixture red paths so they actually catch regressions instead of always reporting green.
+- 13 new tests landed: 2 Bolt-protocol smokes, 4 HTTP-endpoint smokes, a `vector_search` direct test, and 6 meta-test red-path fixtures.
+
 ## [0.5.1] - 2026-05-05
 
 ### Fixed
@@ -628,7 +650,8 @@ Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo
   real local tag (push status is the operator's responsibility, not the
   gate's).
 -->
-[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.1...HEAD
+[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/asheshgoplani/opengraphdb/releases/tag/v0.4.0
