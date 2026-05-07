@@ -125,15 +125,13 @@ fn database_open_rejects_create_node_record_with_max_u64_id() {
     });
 
     match rx.recv_timeout(Duration::from_secs(5)) {
-        Ok(Ok(_)) => panic!(
-            "Database::open accepted node_id = u64::MAX; must reject as Corrupt"
-        ),
+        Ok(Ok(_)) => panic!("Database::open accepted node_id = u64::MAX; must reject as Corrupt"),
         Ok(Err(_)) => {
             // Pass.
         }
-        Err(mpsc::RecvTimeoutError::Timeout) => panic!(
-            "Database::open hung for >5s on node_id = u64::MAX — gap cap regression"
-        ),
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            panic!("Database::open hung for >5s on node_id = u64::MAX — gap cap regression")
+        }
         Err(mpsc::RecvTimeoutError::Disconnected) => {
             panic!("worker thread panicked while opening adversarial WAL");
         }
