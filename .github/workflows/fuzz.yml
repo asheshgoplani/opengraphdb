@@ -46,7 +46,12 @@ jobs:
         # -max_total_time=600 caps each target at 10 minutes wall-clock.
         # libFuzzer exits non-zero on any crash / timeout / OOM, which
         # fails the job and triggers the corpus-upload step below.
-        run: cargo +nightly fuzz run ${{ matrix.target }} -- -max_total_time=600
+        # --target x86_64-unknown-linux-gnu: cargo-fuzz defaults to musl,
+        # which needs an extra `rustup target add` step plus
+        # `-C target-feature=-crt-static` to play nicely with sanitizer
+        # instrumentation. The gnu target ships with the nightly toolchain
+        # action and works out of the box with sanitizer.
+        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=600
 
       - name: Upload corpus on crash
         if: failure()
