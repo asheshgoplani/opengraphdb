@@ -105,9 +105,6 @@ jobs:
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             musl: true
-          - target: aarch64-unknown-linux-musl
-            os: ubuntu-latest
-            musl: true
             cross: true
           - target: x86_64-apple-darwin
             os: macos-latest
@@ -168,15 +165,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y musl-tools
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
-            sudo apt-get install -y gcc-aarch64-linux-gnu
-            mkdir -p .cargo
-            cat >> .cargo/config.toml <<'EOF'
-          [target.aarch64-unknown-linux-musl]
-          linker = "aarch64-linux-gnu-gcc"
-          EOF
-          fi
-
+          
       - name: Build release archive (unix)
         if: runner.os != 'Windows'
         env:
