@@ -15710,6 +15710,228 @@ impl Database {
                     }
                     Ok(RuntimeValue::Null)
                 }
+                "ID" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match value {
+                        RuntimeValue::Node(node_id) => {
+                            Ok(RuntimeValue::Property(PropertyValue::I64(node_id as i64)))
+                        }
+                        RuntimeValue::Edge(edge_ref) => Ok(RuntimeValue::Property(
+                            PropertyValue::I64(edge_ref.edge_id as i64),
+                        )),
+                        _ => Ok(RuntimeValue::Null),
+                    }
+                }
+                "TYPE" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match value {
+                        RuntimeValue::Edge(edge_ref) => {
+                            if let Some(edge_type) = edge_ref.edge_type {
+                                Ok(RuntimeValue::Property(PropertyValue::String(edge_type)))
+                            } else {
+                                let resolved =
+                                    self.edge_type_at(edge_ref.edge_id, snapshot_txn_id)?;
+                                Ok(resolved
+                                    .map(|t| RuntimeValue::Property(PropertyValue::String(t)))
+                                    .unwrap_or(RuntimeValue::Null))
+                            }
+                        }
+                        _ => Ok(RuntimeValue::Null),
+                    }
+                }
+                "LABELS" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match value {
+                        RuntimeValue::Node(node_id) => {
+                            let labels = self.node_labels_at(node_id, snapshot_txn_id)?;
+                            Ok(RuntimeValue::Property(PropertyValue::List(
+                                labels
+                                    .into_iter()
+                                    .map(PropertyValue::String)
+                                    .collect(),
+                            )))
+                        }
+                        _ => Ok(RuntimeValue::Null),
+                    }
+                }
+                "ABS" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match value {
+                        RuntimeValue::Property(PropertyValue::I64(v)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::I64(v.abs())))
+                        }
+                        RuntimeValue::Property(PropertyValue::F64(v)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::F64(v.abs())))
+                        }
+                        _ => Ok(RuntimeValue::Null),
+                    }
+                }
+                "CEIL" | "CEILING" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match runtime_to_f64(&value) {
+                        Some(v) => Ok(RuntimeValue::Property(PropertyValue::F64(v.ceil()))),
+                        None => Ok(RuntimeValue::Null),
+                    }
+                }
+                "FLOOR" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match runtime_to_f64(&value) {
+                        Some(v) => Ok(RuntimeValue::Property(PropertyValue::F64(v.floor()))),
+                        None => Ok(RuntimeValue::Null),
+                    }
+                }
+                "ROUND" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match runtime_to_f64(&value) {
+                        Some(v) => Ok(RuntimeValue::Property(PropertyValue::F64(v.round()))),
+                        None => Ok(RuntimeValue::Null),
+                    }
+                }
+                "TOINTEGER" | "TOINT" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match value {
+                        RuntimeValue::Property(PropertyValue::I64(v)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::I64(v)))
+                        }
+                        RuntimeValue::Property(PropertyValue::F64(v)) => {
+                            if v.is_finite() {
+                                Ok(RuntimeValue::Property(PropertyValue::I64(v.trunc() as i64)))
+                            } else {
+                                Ok(RuntimeValue::Null)
+                            }
+                        }
+                        RuntimeValue::Property(PropertyValue::Bool(b)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::I64(if b { 1 } else { 0 })))
+                        }
+                        RuntimeValue::Property(PropertyValue::String(s)) => {
+                            match s.trim().parse::<i64>() {
+                                Ok(v) => Ok(RuntimeValue::Property(PropertyValue::I64(v))),
+                                Err(_) => match s.trim().parse::<f64>() {
+                                    Ok(v) if v.is_finite() => Ok(RuntimeValue::Property(
+                                        PropertyValue::I64(v.trunc() as i64),
+                                    )),
+                                    _ => Ok(RuntimeValue::Null),
+                                },
+                            }
+                        }
+                        _ => Ok(RuntimeValue::Null),
+                    }
+                }
+                "TOFLOAT" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match value {
+                        RuntimeValue::Property(PropertyValue::I64(v)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::F64(v as f64)))
+                        }
+                        RuntimeValue::Property(PropertyValue::F64(v)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::F64(v)))
+                        }
+                        RuntimeValue::Property(PropertyValue::Bool(b)) => Ok(RuntimeValue::Property(
+                            PropertyValue::F64(if b { 1.0 } else { 0.0 }),
+                        )),
+                        RuntimeValue::Property(PropertyValue::String(s)) => {
+                            match s.trim().parse::<f64>() {
+                                Ok(v) => Ok(RuntimeValue::Property(PropertyValue::F64(v))),
+                                Err(_) => Ok(RuntimeValue::Null),
+                            }
+                        }
+                        _ => Ok(RuntimeValue::Null),
+                    }
+                }
+                "TOSTRING" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match value {
+                        RuntimeValue::Null => Ok(RuntimeValue::Null),
+                        RuntimeValue::Property(PropertyValue::String(s)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::String(s)))
+                        }
+                        RuntimeValue::Property(PropertyValue::I64(v)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::String(v.to_string())))
+                        }
+                        RuntimeValue::Property(PropertyValue::F64(v)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::String(v.to_string())))
+                        }
+                        RuntimeValue::Property(PropertyValue::Bool(v)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::String(v.to_string())))
+                        }
+                        other => Ok(RuntimeValue::Property(PropertyValue::String(
+                            format_property_value(&runtime_to_property_value(&other)),
+                        ))),
+                    }
+                }
+                "LAST" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match value {
+                        RuntimeValue::Property(PropertyValue::List(values)) => Ok(values
+                            .last()
+                            .cloned()
+                            .map(RuntimeValue::Property)
+                            .unwrap_or(RuntimeValue::Null)),
+                        _ => Ok(RuntimeValue::Null),
+                    }
+                }
+                "REVERSE" => {
+                    let value = arguments
+                        .first()
+                        .map(|value| self.evaluate_expression(value, row, snapshot_txn_id))
+                        .transpose()?
+                        .unwrap_or(RuntimeValue::Null);
+                    match value {
+                        RuntimeValue::Property(PropertyValue::List(values)) => {
+                            let mut reversed = values;
+                            reversed.reverse();
+                            Ok(RuntimeValue::Property(PropertyValue::List(reversed)))
+                        }
+                        RuntimeValue::Property(PropertyValue::String(s)) => Ok(
+                            RuntimeValue::Property(PropertyValue::String(s.chars().rev().collect())),
+                        ),
+                        _ => Ok(RuntimeValue::Null),
+                    }
+                }
                 _ => Ok(RuntimeValue::Null),
             },
             CypherExpression::BinaryOp { left, op, right } => {
