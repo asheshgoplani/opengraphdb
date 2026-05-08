@@ -20,6 +20,15 @@ use include_dir::{include_dir, Dir};
 
 static APP_DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../frontend/dist-app");
 
+// Bundled favicon fallback. When the SPA dist is empty (CI / no
+// `npm run build:app` first), `lookup("/favicon.ico", _)` would otherwise
+// fall through to `index.html`/the missing-spa stub and serve text/html,
+// which browsers reject as a favicon. Embedding the real `.ico` from
+// `frontend/public/` guarantees a well-typed `image/x-icon` response in
+// every build configuration.
+static FALLBACK_FAVICON: &[u8] =
+    include_bytes!("../../../frontend/public/favicon.ico");
+
 /// HTML stub served when the binary was built without first running
 /// `npm run build:app` — i.e. no SPA is embedded. The user still gets a
 /// readable "you reached the API, here's how to get the UI" page instead
@@ -92,8 +101,16 @@ pub fn lookup(
             return Some((file.contents(), mime, Some("gzip")));
         }
     }
-    let file = APP_DIST.get_file(key)?;
-    Some((file.contents(), mime, None))
+    if let Some(file) = APP_DIST.get_file(key) {
+        return Some((file.contents(), mime, None));
+    }
+    // Fallback: even when no SPA is embedded, /favicon.ico must serve a real
+    // ICO (image/x-icon), not the SPA stub HTML — browsers reject the latter
+    // and the request is the most-frequent unauthenticated GET we see.
+    if key == "favicon.ico" {
+        return Some((FALLBACK_FAVICON, "image/x-icon", None));
+    }
+    None
 }
 
 /// Returns true when the request's `Accept-Encoding` header advertises

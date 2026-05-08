@@ -2828,24 +2828,37 @@ fn mcp_parse_time_range(
     Ok(Some((start, end)))
 }
 
+// Format aliases mirror `rdf_format_from_query_str` so the MCP and HTTP/CLI
+// surfaces accept the same spelling set: `turtle` ≡ `ttl`, `n-triples` /
+// `ntriples` ≡ `nt`, `rdfxml` / `rdf-xml` ≡ `xml` / `rdf`, `json-ld` ≡
+// `jsonld` / `json`, `nquads` / `n-quads` ≡ `nq`. Without this, callers had
+// to remember a different spelling per surface and `import_rdf {format:
+// "turtle"}` returned a misleading `must be ttl|...` error.
 fn mcp_parse_rdf_import_format(raw: &str) -> Result<RdfImportFormatArg, String> {
     match raw.trim().to_ascii_lowercase().as_str() {
-        "ttl" => Ok(RdfImportFormatArg::Ttl),
-        "nt" => Ok(RdfImportFormatArg::Nt),
-        "xml" | "rdf" => Ok(RdfImportFormatArg::Xml),
-        "jsonld" | "json" => Ok(RdfImportFormatArg::Jsonld),
-        "nq" => Ok(RdfImportFormatArg::Nq),
-        _ => Err("tools/call arguments.format must be ttl|nt|xml|jsonld|nq".to_string()),
+        "ttl" | "turtle" => Ok(RdfImportFormatArg::Ttl),
+        "nt" | "ntriples" | "n-triples" => Ok(RdfImportFormatArg::Nt),
+        "xml" | "rdf" | "rdfxml" | "rdf-xml" => Ok(RdfImportFormatArg::Xml),
+        "jsonld" | "json-ld" | "json" => Ok(RdfImportFormatArg::Jsonld),
+        "nq" | "nquads" | "n-quads" => Ok(RdfImportFormatArg::Nq),
+        _ => Err(
+            "tools/call arguments.format must be ttl|turtle|nt|xml|rdf|jsonld|json|nq|nquads"
+                .to_string(),
+        ),
     }
 }
 
 fn mcp_parse_rdf_export_format(raw: &str) -> Result<RdfExportFormatArg, String> {
     match raw.trim().to_ascii_lowercase().as_str() {
-        "ttl" => Ok(RdfExportFormatArg::Ttl),
-        "nt" => Ok(RdfExportFormatArg::Nt),
-        "xml" | "rdf" => Ok(RdfExportFormatArg::Xml),
-        "jsonld" | "json" => Ok(RdfExportFormatArg::Jsonld),
-        _ => Err("tools/call arguments.format must be ttl|nt|xml|jsonld".to_string()),
+        "ttl" | "turtle" => Ok(RdfExportFormatArg::Ttl),
+        "nt" | "ntriples" | "n-triples" => Ok(RdfExportFormatArg::Nt),
+        "xml" | "rdf" | "rdfxml" | "rdf-xml" => Ok(RdfExportFormatArg::Xml),
+        "jsonld" | "json-ld" | "json" => Ok(RdfExportFormatArg::Jsonld),
+        "nq" | "nquads" | "n-quads" => Ok(RdfExportFormatArg::Nq),
+        _ => Err(
+            "tools/call arguments.format must be ttl|turtle|nt|xml|rdf|jsonld|json|nq|nquads"
+                .to_string(),
+        ),
     }
 }
 
@@ -2902,9 +2915,19 @@ fn execute_mcp_vector_search_tool(
     let metric = mcp_optional_metric(args, "metric")?;
 
     let db = Database::open(db_path).map_err(|e| e.to_string())?;
-    let rows = db
-        .vector_search(&index_name, &query_vector, k, metric)
-        .map_err(|e| e.to_string())?;
+    let rows = db.vector_search(&index_name, &query_vector, k, metric).map_err(|e| {
+        let msg = e.to_string();
+        if msg.contains("unknown vector index") {
+            let available: Vec<String> =
+                db.list_vector_indexes().into_iter().map(|d| d.name).collect();
+            format!(
+                "unknown vector index: `{index_name}` (available: {available:?}). \
+                 Create one via CREATE VECTOR INDEX before calling vector_search."
+            )
+        } else {
+            msg
+        }
+    })?;
     let results = rows
         .into_iter()
         .map(|(node, score)| serde_json::json!({ "node": node, "score": score }))
@@ -2922,9 +2945,19 @@ fn execute_mcp_text_search_tool(db_path: &str, args: &Map<String, Value>) -> Res
     let k = mcp_optional_usize(args, "k", 10)?;
 
     let db = Database::open(db_path).map_err(|e| e.to_string())?;
-    let rows = db
-        .text_search(&index_name, &query_text, k)
-        .map_err(|e| e.to_string())?;
+    let rows = db.text_search(&index_name, &query_text, k).map_err(|e| {
+        let msg = e.to_string();
+        if msg.contains("unknown fulltext index") {
+            let available: Vec<String> =
+                db.list_fulltext_indexes().into_iter().map(|d| d.name).collect();
+            format!(
+                "unknown fulltext index: `{index_name}` (available: {available:?}). \
+                 Create one via CREATE FULLTEXT INDEX before calling text_search."
+            )
+        } else {
+            msg
+        }
+    })?;
     let results = rows
         .into_iter()
         .map(|(node, score)| serde_json::json!({ "node": node, "score": score }))
@@ -3153,7 +3186,23 @@ fn execute_mcp_rag_retrieve_tool(
     let snapshot = shared.read_snapshot().map_err(|e| e.to_string())?;
     let rows = snapshot
         .hybrid_rag_retrieve(&query_embedding, &query_text, k, alpha, community_id)
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| {
+            let msg = e.to_string();
+            // hybrid_rag_retrieve picks the first vector + fulltext indexes
+            // and surfaces "no <kind> index available" when neither exists.
+            // Promote that to a 400-mappable message that names the absent
+            // index kind, so callers know exactly what to create.
+            if msg.contains("no vector index available")
+                || msg.contains("no fulltext index available")
+            {
+                format!(
+                    "{msg}. Create a VECTOR INDEX and a FULLTEXT INDEX before \
+                     calling rag_retrieve."
+                )
+            } else {
+                msg
+            }
+        })?;
     let results = rows
         .into_iter()
         .map(|row| {
@@ -3554,24 +3603,39 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "temporal_diff",
-                        "description": "Compare node and edge counts between two temporal snapshots to track how the graph changed over a time window.",
+                        "description": "Compare node and edge counts between two temporal snapshots to track how the graph changed over a time window. Both timestamps are millisecond Unix epoch (e.g. Date.now() in JavaScript, time.time() * 1000 in Python).",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
-                                "timestamp_a": { "type": "integer" },
-                                "timestamp_b": { "type": "integer" }
+                                "timestamp_a": {
+                                    "type": "integer",
+                                    "description": "Earlier snapshot timestamp in milliseconds since Unix epoch (UTC)."
+                                },
+                                "timestamp_b": {
+                                    "type": "integer",
+                                    "description": "Later snapshot timestamp in milliseconds since Unix epoch (UTC)."
+                                }
                             },
                             "required": ["timestamp_a", "timestamp_b"]
                         }
                     },
                     {
                         "name": "import_rdf",
-                        "description": "Import RDF triples into the graph from a file path. Supports Turtle, N-Triples, RDF/XML, JSON-LD, and N-Quads formats. Preserves source URIs for round-trip fidelity.",
+                        "description": "Import RDF triples into the graph from a file path. Supports Turtle, N-Triples, RDF/XML, JSON-LD, and N-Quads formats. Preserves source URIs for round-trip fidelity. Format aliases accepted: 'turtle' for 'ttl', 'ntriples'/'n-triples' for 'nt', 'rdfxml'/'rdf-xml' for 'xml', 'json-ld'/'json' for 'jsonld', 'nquads'/'n-quads' for 'nq'.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
                                 "src_path": { "type": "string" },
-                                "format": { "type": "string", "enum": ["ttl", "nt", "xml", "jsonld", "nq"] },
+                                "format": {
+                                    "type": "string",
+                                    "enum": [
+                                        "ttl", "turtle",
+                                        "nt", "ntriples", "n-triples",
+                                        "xml", "rdf", "rdfxml", "rdf-xml",
+                                        "jsonld", "json-ld", "json",
+                                        "nq", "nquads", "n-quads"
+                                    ]
+                                },
                                 "base_uri": { "type": "string" },
                                 "schema_only": { "type": "boolean" },
                                 "continue_on_error": { "type": "boolean" },
@@ -3582,19 +3646,28 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                     },
                     {
                         "name": "export_rdf",
-                        "description": "Export the graph as RDF to a destination file. Supports Turtle, N-Triples, RDF/XML, and JSON-LD output formats.",
+                        "description": "Export the graph as RDF to a destination file. Supports Turtle, N-Triples, RDF/XML, JSON-LD, and N-Quads output formats. Format aliases accepted: 'turtle' for 'ttl', 'ntriples'/'n-triples' for 'nt', 'rdfxml'/'rdf-xml' for 'xml', 'json-ld'/'json' for 'jsonld', 'nquads'/'n-quads' for 'nq'.",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
                                 "dst_path": { "type": "string" },
-                                "format": { "type": "string", "enum": ["ttl", "nt", "xml", "jsonld"] }
+                                "format": {
+                                    "type": "string",
+                                    "enum": [
+                                        "ttl", "turtle",
+                                        "nt", "ntriples", "n-triples",
+                                        "xml", "rdf", "rdfxml", "rdf-xml",
+                                        "jsonld", "json-ld", "json",
+                                        "nq", "nquads", "n-quads"
+                                    ]
+                                }
                             },
                             "required": ["dst_path"]
                         }
                     },
                     {
                         "name": "agent_store_episode",
-                        "description": "Store an episodic memory entry for an AI agent session. Embeds the content into the graph for later retrieval by similarity. Use agent_recall to query stored episodes.",
+                        "description": "Store an episodic memory entry for an AI agent session. Embeds the content into the graph for later retrieval by similarity. Use agent_recall to query stored episodes. Timestamp is millisecond Unix epoch (e.g. Date.now() in JavaScript, time.time() * 1000 in Python).",
                         "inputSchema": {
                             "type": "object",
                             "properties": {
@@ -3602,7 +3675,10 @@ fn execute_mcp_request(db_path: &str, request_json: &str) -> String {
                                 "session_id": { "type": "string" },
                                 "content": { "type": "string" },
                                 "embedding": { "type": "array", "items": { "type": "number" } },
-                                "timestamp": { "type": "integer" },
+                                "timestamp": {
+                                    "type": "integer",
+                                    "description": "Milliseconds since Unix epoch (UTC). Pass Date.now() in JavaScript or int(time.time()*1000) in Python."
+                                },
                                 "metadata": {}
                             },
                             "required": ["agent_id", "session_id", "content", "embedding", "timestamp"]
@@ -4845,15 +4921,19 @@ fn dispatch_http_request_with_budget(
                     ));
                 }
             };
-            let Some(query) = payload
-                .as_object()
-                .and_then(|object| object.get("query"))
-                .and_then(Value::as_str)
-            else {
+            // Accept `cypher` as an alias for `query` so callers using the
+            // Node binding's typedef (`{ cypher: ... }`) can hit POST /query
+            // without re-keying the payload. `query` wins if both are set.
+            let Some(query) = payload.as_object().and_then(|object| {
+                object
+                    .get("query")
+                    .and_then(Value::as_str)
+                    .or_else(|| object.get("cypher").and_then(Value::as_str))
+            }) else {
                 return Ok(http_error(
                     400,
                     "Bad Request",
-                    "query payload must include string query",
+                    "query payload must include string `query` (or `cypher` alias)",
                 ));
             };
 
@@ -5094,12 +5174,21 @@ fn dispatch_http_request_with_budget(
             }
         }
         ("POST", "/rag/drill") => {
-            let body: Value = serde_json::from_slice(&request.body)
-                .map_err(|e| CliError::Runtime(format!("invalid json: {e}")))?;
-            let community_id = body
-                .get("community_id")
-                .and_then(|v| v.as_u64())
-                .ok_or_else(|| CliError::Runtime("community_id required".to_string()))?;
+            let body: Value = match serde_json::from_slice::<Value>(&request.body) {
+                Ok(v) => v,
+                Err(e) => {
+                    return Ok(http_error(400, "Bad Request", format!("invalid json: {e}")));
+                }
+            };
+            // Missing `community_id` is a caller error, not a server error —
+            // return 400 with a field list instead of 500.
+            let Some(community_id) = body.get("community_id").and_then(|v| v.as_u64()) else {
+                return Ok(http_error(
+                    400,
+                    "Bad Request",
+                    "rag/drill payload must include u64 `community_id`",
+                ));
+            };
             let resolutions: Option<Vec<f64>> = body
                 .get("resolutions")
                 .and_then(|v| serde_json::from_value(v.clone()).ok());
@@ -5114,8 +5203,34 @@ fn dispatch_http_request_with_budget(
             }
         }
         ("POST", "/rag/search") => {
-            let body: Value = serde_json::from_slice(&request.body)
-                .map_err(|e| CliError::Runtime(format!("invalid json: {e}")))?;
+            let body: Value = match serde_json::from_slice::<Value>(&request.body) {
+                Ok(v) => v,
+                Err(e) => {
+                    return Ok(http_error(400, "Bad Request", format!("invalid json: {e}")));
+                }
+            };
+            // Reject unknown keys so typos (e.g. `embeddings` vs `embedding`,
+            // `top_k` vs `k`) surface as 400 instead of being silently ignored
+            // and producing empty/wrong results.
+            const RAG_SEARCH_ALLOWED: &[&str] =
+                &["query", "embedding", "k", "community_id"];
+            if let Some(object) = body.as_object() {
+                let unknown: Vec<&str> = object
+                    .keys()
+                    .map(String::as_str)
+                    .filter(|k| !RAG_SEARCH_ALLOWED.contains(k))
+                    .collect();
+                if !unknown.is_empty() {
+                    return Ok(http_error(
+                        400,
+                        "Bad Request",
+                        format!(
+                            "rag/search payload has unknown fields: {:?}; allowed: {:?}",
+                            unknown, RAG_SEARCH_ALLOWED
+                        ),
+                    ));
+                }
+            }
             let query_text = body.get("query").and_then(|v| v.as_str()).unwrap_or("");
             let embedding: Option<Vec<f32>> = body
                 .get("embedding")
@@ -5314,9 +5429,14 @@ fn handle_http_mcp_invoke(db_path: &str, body: &[u8]) -> HttpResponseMessage {
         Ok(result) => http_json_response(200, "OK", result),
         Err(message) => {
             // Known-bad tool or bad arguments map to 4xx so callers can
-            // distinguish them from genuine server-side failures.
+            // distinguish them from genuine server-side failures. The
+            // `invalid argument:` prefix is `DbError::InvalidArgument`'s
+            // canonical Display form — by definition a caller error.
             let lowered = message.to_ascii_lowercase();
             let is_client_error = lowered.starts_with("unknown tool")
+                || lowered.starts_with("unknown vector index")
+                || lowered.starts_with("unknown fulltext index")
+                || lowered.starts_with("invalid argument")
                 || lowered.contains("must be")
                 || lowered.contains("required")
                 || lowered.contains("cannot be empty");
@@ -5888,6 +6008,7 @@ enum RdfExportFormatArg {
     Nt,
     Xml,
     Jsonld,
+    Nq,
 }
 
 impl RdfExportFormatArg {
@@ -5897,6 +6018,7 @@ impl RdfExportFormatArg {
             Self::Nt => "nt",
             Self::Xml => "xml",
             Self::Jsonld => "jsonld",
+            Self::Nq => "nq",
         }
     }
 
@@ -5908,6 +6030,7 @@ impl RdfExportFormatArg {
             Self::Jsonld => RdfFormat::JsonLd {
                 profile: JsonLdProfileSet::empty(),
             },
+            Self::Nq => RdfFormat::NQuads,
         }
     }
 
@@ -5916,6 +6039,7 @@ impl RdfExportFormatArg {
             "ttl" => Some(Self::Ttl),
             "nt" => Some(Self::Nt),
             "rdf" | "xml" => Some(Self::Xml),
+            "nq" => Some(Self::Nq),
             "jsonld" | "json" => Some(Self::Jsonld),
             _ => None,
         }
@@ -11997,6 +12121,7 @@ mod tests {
         assert_eq!(RdfExportFormatArg::Nt.as_str(), "nt");
         assert_eq!(RdfExportFormatArg::Xml.as_str(), "xml");
         assert_eq!(RdfExportFormatArg::Jsonld.as_str(), "jsonld");
+        assert_eq!(RdfExportFormatArg::Nq.as_str(), "nq");
         assert_eq!(RdfExportFormatArg::Ttl.to_rdf_format(), RdfFormat::Turtle);
         assert_eq!(RdfExportFormatArg::Nt.to_rdf_format(), RdfFormat::NTriples);
         assert_eq!(RdfExportFormatArg::Xml.to_rdf_format(), RdfFormat::RdfXml);
@@ -12004,6 +12129,7 @@ mod tests {
             RdfExportFormatArg::Jsonld.to_rdf_format(),
             RdfFormat::JsonLd { .. }
         ));
+        assert_eq!(RdfExportFormatArg::Nq.to_rdf_format(), RdfFormat::NQuads);
         assert_eq!(
             RdfExportFormatArg::from_extension("ttl"),
             Some(RdfExportFormatArg::Ttl)
@@ -12020,7 +12146,12 @@ mod tests {
             RdfExportFormatArg::from_extension("json"),
             Some(RdfExportFormatArg::Jsonld)
         );
-        assert_eq!(RdfExportFormatArg::from_extension("nq"), None);
+        // Symmetry with import: `.nq` files round-trip through export now
+        // that RdfExportFormatArg has the Nq variant (was None pre-fix).
+        assert_eq!(
+            RdfExportFormatArg::from_extension("nq"),
+            Some(RdfExportFormatArg::Nq)
+        );
 
         assert_eq!(
             detect_rdf_import_format("/tmp/input.ttl"),
@@ -12938,6 +13069,9 @@ ex:acme a schema:Organization ;
         assert_eq!(bad_format.exit_code, 2);
         assert!(bad_format.stderr.contains("invalid value"));
 
+        // `nq` is now a valid export format (RdfExportFormatArg gained
+        // the Nq variant for symmetry with import). Use `csv` to keep the
+        // negative-test coverage of the clap `invalid value` path.
         let bad_export_format = run(&[
             "export-rdf".to_string(),
             path.display().to_string(),
@@ -12945,7 +13079,7 @@ ex:acme a schema:Organization ;
                 .display()
                 .to_string(),
             "--format".to_string(),
-            "nq".to_string(),
+            "csv".to_string(),
         ]);
         assert_eq!(bad_export_format.exit_code, 2);
         assert!(bad_export_format.stderr.contains("invalid value"));
