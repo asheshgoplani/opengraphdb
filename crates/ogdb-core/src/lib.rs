@@ -2991,14 +2991,37 @@ fn build_logical_plan(model: &SemanticModel) -> Result<LogicalPlan, PlanError> {
     }
 
     if let Some(return_clause) = &model.query.return_clause {
-        let mut out =
-            aggregate_and_project(plan.take(), &return_clause.items, return_clause.distinct);
-        if !return_clause.order_by.is_empty() {
-            out = LogicalPlan::Sort {
-                input: Box::new(out),
-                keys: return_clause.order_by.clone(),
+        // ORDER BY in Cypher operates on the scope visible *before* the
+        // projection narrows columns — `MATCH (n) RETURN n.name ORDER BY n.age`
+        // must be able to evaluate `n.age` even though only `name` is
+        // projected. Pre-aggregation cases stay correct by placing Sort
+        // *under* Project so the input scope (with `n`) is still in row.
+        // Aggregation/DISTINCT must sort *after* the aggregate (sort key
+        // is required to be grouped or aggregated; validated upstream).
+        let needs_aggregation = return_clause.distinct
+            || return_clause
+                .items
+                .iter()
+                .any(|item| expression_contains_aggregate(&item.expression));
+        let order_by = &return_clause.order_by;
+        let mut out = if !order_by.is_empty() && !needs_aggregation {
+            let pre_sort = plan.take().unwrap_or_else(synthetic_unit_row_source);
+            let sorted = LogicalPlan::Sort {
+                input: Box::new(pre_sort),
+                keys: order_by.clone(),
             };
-        }
+            aggregate_and_project(Some(sorted), &return_clause.items, return_clause.distinct)
+        } else {
+            let mut projected =
+                aggregate_and_project(plan.take(), &return_clause.items, return_clause.distinct);
+            if !order_by.is_empty() {
+                projected = LogicalPlan::Sort {
+                    input: Box::new(projected),
+                    keys: order_by.clone(),
+                };
+            }
+            projected
+        };
         if let Some(skip) = return_clause.skip {
             out = LogicalPlan::Skip {
                 input: Box::new(out),
@@ -30263,19 +30286,23 @@ mod tests {
         )
         .expect("plan should succeed");
 
+        // ORDER BY must observe the *input* scope so that sort keys not in
+        // the projection (e.g. `n.name` when only `n.age` is returned) still
+        // resolve. Logical plan therefore puts SORT *under* PROJECT for
+        // non-aggregating returns: LIMIT → SKIP → PROJECT → SORT → ...
         let (sorted_input, count) = limit_parts(plan).expect("top-level LIMIT");
         assert_eq!(count, 2);
-        let (skipped_input, skip) = skip_parts(sorted_input.as_ref()).expect("SKIP under LIMIT");
+        let (projected_input, skip) = skip_parts(sorted_input.as_ref()).expect("SKIP under LIMIT");
         assert_eq!(skip, 1);
-        let (projected_input, keys) = sort_parts(skipped_input).expect("SORT under SKIP");
-        assert_eq!(keys.len(), 1);
-        assert!(keys[0].descending);
-        let (expanded_input, expressions, distinct) =
-            project_parts(projected_input).expect("PROJECT under SORT");
+        let (sort_input, expressions, distinct) =
+            project_parts(projected_input).expect("PROJECT under SKIP");
         assert!(!distinct);
         assert_eq!(expressions.len(), 1);
+        let (expanded_input, keys) = sort_parts(sort_input).expect("SORT under PROJECT");
+        assert_eq!(keys.len(), 1);
+        assert!(keys[0].descending);
         let (filtered_input, from, edge_type, direction) =
-            expand_parts(expanded_input).expect("EXPAND under PROJECT");
+            expand_parts(expanded_input).expect("EXPAND under SORT");
         assert_eq!(from, "a");
         assert_eq!(edge_type, Some("KNOWS"));
         assert_eq!(direction, RelationshipDirection::LeftToRight);
