@@ -278,11 +278,28 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     steps:
       - uses: actions/checkout@v4
+
+      # Graceful skip when the crates.io token isn't configured on the
+      # repo (e.g. fork, or a maintainer who doesn't own the crates.io
+      # namespace). Without this, `cargo publish` aborts the job with
+      # "please provide a non-empty token" and the GitHub Release page
+      # is gated behind a red workflow even though the binaries built
+      # cleanly. Skip-and-pass keeps the release shippable; the
+      # maintainer can publish manually later if/when the token is set.
+      - name: Check CRATES_TOKEN
+        id: check_token
+        run: |
+          if [ -z "${{ secrets.CRATES_TOKEN }}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo 'CRATES_TOKEN not configured — skipping crates.io publish.'
+          fi
+
       # EVAL-RUST-QUALITY-CYCLE3 H11: pin the publish job's toolchain too —
       # `cargo publish` runs `cargo build` under the hood, and a drift
       # between the build job and the publish job would surface as silently
       # different artifacts.
       - uses: dtolnay/rust-toolchain@1.88.0
+        if: steps.check_token.outputs.skip != 'true'
       # C4-H1 (HIGH): without these two Node + SPA-build steps, `cargo
       # publish -p ogdb-cli` ran on a tree with an empty
       # `frontend/dist-app/`. `include_dir!` tolerates a missing directory
@@ -292,6 +309,7 @@ jobs:
       # contract from the `build` job (lines 59-77) so the crates.io
       # artefact and the GitHub-Release archive are bit-equivalent.
       - name: Setup Node
+        if: steps.check_token.outputs.skip != 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "20"
@@ -299,6 +317,7 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Build SPA dist for include_dir!
+        if: steps.check_token.outputs.skip != 'true'
         working-directory: frontend
         env:
           NODE_OPTIONS: --max-old-space-size=4096
@@ -318,6 +337,7 @@ jobs:
       # dry-run loop is best-effort and does not exit non-zero so a
       # bootstrap publish is still possible.
       - name: cargo publish (dry-run smoke)
+        if: steps.check_token.outputs.skip != 'true'
         run: |
           set +e
           for crate in ogdb-vector \
@@ -346,6 +366,7 @@ jobs:
       # there and `ogdb-types` onward never publish, leaving a partial
       # release that needs manual `cargo yank`.
       - name: Publish each crate in dep order
+        if: steps.check_token.outputs.skip != 'true'
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CRATES_TOKEN }}
         run: |
@@ -391,6 +412,15 @@ jobs:
     needs: [build, tests]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    # The GHCR push uses the auto-provided GITHUB_TOKEN (always present),
+    # so the real failure mode here is the image build itself — most
+    # commonly `npm ci` inside the Dockerfile drifting from
+    # frontend/package-lock.json. When that breaks, we don't want to
+    # block the GitHub Release page (binaries + checksums + install.sh)
+    # behind a red docker job. Mark the job non-blocking; the Release
+    # still ships, and the maintainer can rebuild + push the image
+    # manually after fixing the Dockerfile.
+    continue-on-error: true
     permissions:
       contents: read
       packages: write
