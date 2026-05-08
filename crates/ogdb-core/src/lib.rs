@@ -1896,6 +1896,10 @@ pub enum LogicalPlan {
         to: Option<String>,
         edge_variable: Option<String>,
         temporal_filter: Option<TemporalFilter>,
+        /// LEFT-OUTER-JOIN semantics: when true, input rows without any
+        /// matching neighbor are preserved with NULL bindings for `to`
+        /// and `edge_variable`. Set by the planner for `OPTIONAL MATCH`.
+        optional: bool,
     },
     CartesianProduct {
         left: Box<LogicalPlan>,
@@ -2039,6 +2043,9 @@ pub enum PhysicalPlan {
         edge_variable: Option<String>,
         temporal_filter: Option<TemporalFilter>,
         join_strategy: PhysicalJoinStrategy,
+        /// LEFT-OUTER-JOIN semantics for `OPTIONAL MATCH`. See the
+        /// matching field on `LogicalPlan::Expand`.
+        optional: bool,
         estimated_rows: u64,
         estimated_cost: f64,
     },
@@ -2149,6 +2156,9 @@ pub enum PhysicalPlan {
         edge_variable: Option<String>,
         temporal_filter: Option<TemporalFilter>,
         factorized: bool,
+        /// LEFT-OUTER-JOIN semantics for `OPTIONAL MATCH`. See the
+        /// matching field on `LogicalPlan::Expand`.
+        optional: bool,
         estimated_rows: u64,
         estimated_cost: f64,
     },
@@ -3260,6 +3270,7 @@ fn plan_match_clause(
                 to: chain.node.variable.clone(),
                 edge_variable: chain.relationship.variable.clone(),
                 temporal_filter: clause.temporal_filter.clone(),
+                optional: clause.optional,
             };
             if let Some(name) = &chain.relationship.variable {
                 pattern_bound.insert(name.clone());
@@ -4089,6 +4100,7 @@ fn detect_wcoj_candidate(plan: &LogicalPlan) -> Option<WcojCandidate> {
         to,
         edge_variable,
         temporal_filter,
+        optional: _,
     } = current
     {
         expands.push((
@@ -4443,20 +4455,26 @@ fn build_physical_plan(db: &Database, plan: &LogicalPlan) -> Result<PhysicalPlan
             to,
             edge_variable,
             temporal_filter,
+            optional,
         } => {
-            if let Some(candidate) = detect_wcoj_candidate(plan) {
-                let (wcoj_rows, wcoj_cost) = estimate_wcoj_cost(db, &candidate);
-                let (_, binary_cost) = estimate_binary_chain_cost(db, &candidate);
-                if wcoj_cost < binary_cost {
-                    let base_input = build_physical_plan(db, &candidate.base_plan)?;
-                    return Ok(PhysicalPlan::PhysicalWcojJoin {
-                        input: Box::new(base_input),
-                        relations: candidate.relations,
-                        variable_order: candidate.variable_order,
-                        output_variables: candidate.output_variables,
-                        estimated_rows: wcoj_rows,
-                        estimated_cost: wcoj_cost,
-                    });
+            // WCOJ joins are inner-join only; skip for OPTIONAL MATCH so
+            // left rows without a matching right side are NULL-padded
+            // rather than dropped.
+            if !*optional {
+                if let Some(candidate) = detect_wcoj_candidate(plan) {
+                    let (wcoj_rows, wcoj_cost) = estimate_wcoj_cost(db, &candidate);
+                    let (_, binary_cost) = estimate_binary_chain_cost(db, &candidate);
+                    if wcoj_cost < binary_cost {
+                        let base_input = build_physical_plan(db, &candidate.base_plan)?;
+                        return Ok(PhysicalPlan::PhysicalWcojJoin {
+                            input: Box::new(base_input),
+                            relations: candidate.relations,
+                            variable_order: candidate.variable_order,
+                            output_variables: candidate.output_variables,
+                            estimated_rows: wcoj_rows,
+                            estimated_cost: wcoj_cost,
+                        });
+                    }
                 }
             }
 
@@ -4480,6 +4498,7 @@ fn build_physical_plan(db: &Database, plan: &LogicalPlan) -> Result<PhysicalPlan
                     edge_variable: edge_variable.clone(),
                     temporal_filter: temporal_filter.clone(),
                     factorized: true,
+                    optional: *optional,
                     estimated_rows,
                     estimated_cost,
                 });
@@ -4504,6 +4523,7 @@ fn build_physical_plan(db: &Database, plan: &LogicalPlan) -> Result<PhysicalPlan
                 edge_variable: edge_variable.clone(),
                 temporal_filter: temporal_filter.clone(),
                 join_strategy,
+                optional: *optional,
                 estimated_rows,
                 estimated_cost,
             })
@@ -5422,6 +5442,25 @@ fn optional_match_null_row_result(columns: Vec<String>) -> QueryResult {
         columns,
         batches: vec![RecordBatch { columns: output }],
     }
+}
+
+/// Build the LEFT-OUTER-JOIN null-padded row for an OPTIONAL MATCH
+/// `Expand` whose input row had no matching neighbor: clone the input
+/// row and bind the right-side variables (`to` and `edge_variable`) to
+/// `RuntimeValue::Null`.
+fn null_pad_optional_expand_row(
+    input_row: &BTreeMap<String, RuntimeValue>,
+    edge_variable: Option<&str>,
+    to: Option<&str>,
+) -> BTreeMap<String, RuntimeValue> {
+    let mut out_row = input_row.clone();
+    if let Some(edge_variable) = edge_variable {
+        out_row.insert(edge_variable.to_string(), RuntimeValue::Null);
+    }
+    if let Some(to) = to {
+        out_row.insert(to.to_string(), RuntimeValue::Null);
+    }
+    out_row
 }
 
 fn query_requires_write_access(query: &str) -> bool {
@@ -14060,6 +14099,7 @@ impl Database {
                 edge_variable,
                 temporal_filter,
                 join_strategy,
+                optional,
                 ..
             } => {
                 let input_batches = self.execute_physical_plan_batches(input, snapshot_txn_id)?;
@@ -14082,6 +14122,7 @@ impl Database {
                 let direction = *direction;
                 let edge_type_filter = edge_type.as_deref();
                 let temporal_filter = temporal_filter.as_ref();
+                let optional = *optional;
                 let lookup = if *join_strategy == PhysicalJoinStrategy::HashJoin {
                     Some(self.expand_hash_lookup(
                         direction,
@@ -14097,7 +14138,16 @@ impl Database {
                     let src = match row.get(from) {
                         Some(RuntimeValue::Node(value)) => *value,
                         Some(RuntimeValue::Property(PropertyValue::I64(value))) => *value as u64,
-                        _ => continue,
+                        _ => {
+                            if optional {
+                                rows.push(null_pad_optional_expand_row(
+                                    row,
+                                    edge_variable.as_deref(),
+                                    to.as_deref(),
+                                ));
+                            }
+                            continue;
+                        }
                     };
                     let matches = if let Some(lookup) = &lookup {
                         lookup.get(&src).cloned().unwrap_or_default()
@@ -14110,6 +14160,14 @@ impl Database {
                             snapshot_txn_id,
                         )?
                     };
+                    if matches.is_empty() && optional {
+                        rows.push(null_pad_optional_expand_row(
+                            row,
+                            edge_variable.as_deref(),
+                            to.as_deref(),
+                        ));
+                        continue;
+                    }
                     for (edge_ref, neighbor) in matches {
                         let mut out_row = row.clone();
                         if let Some(edge_variable) = edge_variable {
@@ -14132,6 +14190,7 @@ impl Database {
                 edge_variable,
                 temporal_filter,
                 factorized,
+                optional,
                 ..
             } => {
                 let input_batches = self.execute_physical_plan_batches(input, snapshot_txn_id)?;
@@ -14153,6 +14212,7 @@ impl Database {
                 let direction = *direction;
                 let edge_type_filter = edge_type.as_deref();
                 let temporal_filter = temporal_filter.as_ref();
+                let optional = *optional;
                 let lookup = self.expand_hash_lookup(
                     direction,
                     edge_type_filter,
@@ -14168,10 +14228,26 @@ impl Database {
                     let src = match row.get(from) {
                         Some(RuntimeValue::Node(value)) => *value,
                         Some(RuntimeValue::Property(PropertyValue::I64(value))) => *value as u64,
-                        _ => continue,
+                        _ => {
+                            if optional {
+                                rows.push(null_pad_optional_expand_row(
+                                    row,
+                                    edge_variable.as_deref(),
+                                    to.as_deref(),
+                                ));
+                            }
+                            continue;
+                        }
                     };
                     let matches = lookup.get(&src).cloned().unwrap_or_default();
                     if matches.is_empty() {
+                        if optional {
+                            rows.push(null_pad_optional_expand_row(
+                                row,
+                                edge_variable.as_deref(),
+                                to.as_deref(),
+                            ));
+                        }
                         continue;
                     }
 
@@ -14865,6 +14941,7 @@ impl Database {
                 edge_variable,
                 temporal_filter,
                 join_strategy,
+                optional,
                 ..
             } => {
                 let input_batches =
@@ -14888,6 +14965,7 @@ impl Database {
                 let direction = *direction;
                 let edge_type_filter = edge_type.as_deref();
                 let temporal_filter = temporal_filter.as_ref();
+                let optional = *optional;
                 let lookup = if *join_strategy == PhysicalJoinStrategy::HashJoin {
                     Some(self.expand_hash_lookup(
                         direction,
@@ -14903,7 +14981,16 @@ impl Database {
                     let src = match row.get(from) {
                         Some(RuntimeValue::Node(value)) => *value,
                         Some(RuntimeValue::Property(PropertyValue::I64(value))) => *value as u64,
-                        _ => continue,
+                        _ => {
+                            if optional {
+                                rows.push(null_pad_optional_expand_row(
+                                    row,
+                                    edge_variable.as_deref(),
+                                    to.as_deref(),
+                                ));
+                            }
+                            continue;
+                        }
                     };
                     let matches = if let Some(lookup) = &lookup {
                         lookup.get(&src).cloned().unwrap_or_default()
@@ -14916,6 +15003,14 @@ impl Database {
                             snapshot_txn_id,
                         )?
                     };
+                    if matches.is_empty() && optional {
+                        rows.push(null_pad_optional_expand_row(
+                            row,
+                            edge_variable.as_deref(),
+                            to.as_deref(),
+                        ));
+                        continue;
+                    }
                     for (edge_ref, neighbor) in matches {
                         // Record each expanded neighbor and edge into the trace
                         trace.record_node(neighbor);
@@ -26040,6 +26135,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         assert!(!db
             .execute_physical_plan_batches(&nested_expand, current_snapshot)
@@ -26234,6 +26330,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         assert!(!db
             .execute_physical_plan_batches(&nested_expand, snapshot_txn_id)
@@ -26655,6 +26752,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         let batches = db
             .execute_physical_plan_batches(&plan, db.current_snapshot_txn_id())
@@ -26694,6 +26792,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         let err = db
             .execute_physical_plan_batches(&plan, db.current_snapshot_txn_id())
@@ -26763,6 +26862,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::HashJoin,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         let batches = db
             .execute_physical_plan_batches(&plan, db.current_snapshot_txn_id())
@@ -26805,6 +26905,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::HashJoin,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         let err = db
             .execute_physical_plan_batches(&plan, db.current_snapshot_txn_id())
@@ -31487,6 +31588,7 @@ mod tests {
             to: Some("m".to_string()),
             edge_variable: Some("r".to_string()),
             temporal_filter: None,
+            optional: false,
         };
         let filter = LogicalPlan::Filter {
             input: Box::new(expand.clone()),
@@ -31704,6 +31806,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 2,
             estimated_cost: 4.0,
+            optional: false,
         };
         let expand_hash = PhysicalPlan::PhysicalExpand {
             input: Box::new(scan_index.clone()),
@@ -31716,6 +31819,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::HashJoin,
             estimated_rows: 4,
             estimated_cost: 4.0,
+            optional: false,
         };
         assert_eq!(
             db.execute_physical_plan(&expand_nested)
@@ -32278,6 +32382,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 0,
             estimated_cost: 0.0,
+            optional: false,
         };
         assert_eq!(
             db.execute_physical_plan(&empty_expand)
@@ -32313,6 +32418,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         assert!(
             db.execute_physical_plan(&property_expand)
@@ -32595,6 +32701,7 @@ mod tests {
             to: Some("m".to_string()),
             edge_variable: Some("r".to_string()),
             temporal_filter: None,
+            optional: false,
         };
         let expand_hash_physical =
             build_physical_plan(&db, &expand_hash).expect("physical expand plan");
@@ -32853,6 +32960,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::HashJoin,
             estimated_rows: 2,
             estimated_cost: 1.0,
+            optional: false,
         };
         let expanded = db.execute_physical_plan(&expand_hash).expect("expand hash");
         assert!(expanded.columns.contains(&"b".to_string()));
@@ -32874,6 +32982,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 2,
             estimated_cost: 1.0,
+            optional: false,
         };
         assert!(!db
             .execute_physical_plan_batches(&expand_nested, snapshot)
@@ -32901,6 +33010,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 0,
             estimated_cost: 1.0,
+            optional: false,
         };
         assert_eq!(
             db.execute_physical_plan(&bad_expand)
@@ -32930,6 +33040,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 0,
             estimated_cost: 1.0,
+            optional: false,
         };
         let missing_node_batches = db
             .execute_physical_plan_batches(&missing_node_expand, snapshot)
@@ -33168,6 +33279,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         let expand_columns = db.plan_output_columns(&expand_for_columns);
         assert!(expand_columns.contains(&"y".to_string()));
@@ -33513,6 +33625,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
 
         assert!(physical_scan_parts(&PhysicalPlan::PhysicalFilter {
@@ -33699,6 +33812,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::HashJoin,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         let expand_hash_batches = db
             .execute_physical_plan_batches(&expand_hash, snapshot)
@@ -33718,6 +33832,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         };
         assert!(!db
             .execute_physical_plan_batches(&expand_nested, snapshot)
@@ -33796,6 +33911,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::NestedLoop,
             estimated_rows: 1,
             estimated_cost: 1.0,
+            optional: false,
         });
         assert!(expand_columns.contains(&"rel".to_string()));
         assert!(expand_columns.contains(&"y".to_string()));
@@ -37541,6 +37657,7 @@ mod tests {
                 join_strategy: PhysicalJoinStrategy::HashJoin,
                 estimated_rows: 1,
                 estimated_cost: 1.0,
+                optional: false,
             })),
             pattern: merge_pattern,
             on_create: vec![],
@@ -39818,6 +39935,7 @@ mod tests {
             to: Some("b".to_string()),
             edge_variable: None,
             temporal_filter: None,
+            optional: false,
         };
         assert!(
             detect_wcoj_candidate(&plan_2var).is_none(),
@@ -39836,6 +39954,7 @@ mod tests {
                 to: Some("b".to_string()),
                 edge_variable: None,
                 temporal_filter: None,
+                optional: false,
             }),
             from: "b".to_string(),
             edge_type: Some("S".to_string()),
@@ -39843,6 +39962,7 @@ mod tests {
             to: Some("c".to_string()),
             edge_variable: None,
             temporal_filter: None,
+            optional: false,
         };
         let candidate = detect_wcoj_candidate(&plan_3var).expect("3 variables should qualify");
         assert_eq!(candidate.variable_order, vec!["a", "b", "c"]);
@@ -39859,6 +39979,7 @@ mod tests {
                 to: Some("b".to_string()),
                 edge_variable: None,
                 temporal_filter: None,
+                optional: false,
             }),
             from: "b".to_string(),
             edge_type: Some("R".to_string()),
@@ -39866,6 +39987,7 @@ mod tests {
             to: Some("a".to_string()),
             edge_variable: None,
             temporal_filter: None,
+            optional: false,
         };
         let cycle_candidate =
             detect_wcoj_candidate(&plan_cycle).expect("cyclic pattern should trigger WCOJ");
@@ -39901,6 +40023,7 @@ mod tests {
                     to: Some("b".to_string()),
                     edge_variable: None,
                     temporal_filter: None,
+                    optional: false,
                 }),
                 from: "b".to_string(),
                 edge_type: Some("R".to_string()),
@@ -39908,6 +40031,7 @@ mod tests {
                 to: Some("c".to_string()),
                 edge_variable: None,
                 temporal_filter: None,
+                optional: false,
             }),
             from: "c".to_string(),
             edge_type: Some("R".to_string()),
@@ -39915,6 +40039,7 @@ mod tests {
             to: Some("a".to_string()),
             edge_variable: None,
             temporal_filter: None,
+            optional: false,
         };
         let physical = build_physical_plan(&db, &logical).expect("physical");
         assert!(matches!(physical, PhysicalPlan::PhysicalWcojJoin { .. }));
@@ -39942,6 +40067,7 @@ mod tests {
             to: Some("b".to_string()),
             edge_variable: None,
             temporal_filter: None,
+            optional: false,
         };
         let physical = build_physical_plan(&db, &logical).expect("physical");
         assert!(matches!(physical, PhysicalPlan::PhysicalExpand { .. }));
@@ -40005,6 +40131,7 @@ mod tests {
                 to: Some("b".to_string()),
                 edge_variable: None,
                 temporal_filter: None,
+                optional: false,
             }),
             from: "b".to_string(),
             edge_type: Some("S".to_string()),
@@ -40012,6 +40139,7 @@ mod tests {
             to: Some("c".to_string()),
             edge_variable: None,
             temporal_filter: None,
+            optional: false,
         };
         let physical = build_physical_plan(&db, &logical).expect("physical");
         assert!(matches!(physical, PhysicalPlan::PhysicalWcojJoin { .. }));
@@ -40064,6 +40192,7 @@ mod tests {
                         to: Some("b".to_string()),
                         edge_variable: None,
                         temporal_filter: None,
+                        optional: false,
                     }),
                     from: "b".to_string(),
                     edge_type: Some("S".to_string()),
@@ -40071,6 +40200,7 @@ mod tests {
                     to: Some("c".to_string()),
                     edge_variable: None,
                     temporal_filter: None,
+                    optional: false,
                 };
                 let physical = build_physical_plan(&db, &logical).expect("physical");
                 assert!(matches!(physical, PhysicalPlan::PhysicalWcojJoin { .. }));
@@ -40132,6 +40262,7 @@ mod tests {
                         to: Some("b".to_string()),
                         edge_variable: None,
                         temporal_filter: None,
+                        optional: false,
                     }),
                     from: "b".to_string(),
                     edge_type: Some("S".to_string()),
@@ -40139,6 +40270,7 @@ mod tests {
                     to: Some("c".to_string()),
                     edge_variable: None,
                     temporal_filter: None,
+                    optional: false,
                 };
                 let candidate = detect_wcoj_candidate(&logical).expect("candidate");
                 let (wcoj_rows, wcoj_cost) = estimate_wcoj_cost(&db, &candidate);
@@ -40355,6 +40487,7 @@ mod tests {
             to: Some("b".to_string()),
             edge_variable: None,
             temporal_filter: None,
+            optional: false,
         };
 
         let physical = build_physical_plan(&db, &logical).expect("physical");
@@ -40405,6 +40538,7 @@ mod tests {
             to: Some("b".to_string()),
             edge_variable: None,
             temporal_filter: None,
+            optional: false,
         };
         let physical = build_physical_plan(&db, &logical).expect("physical");
         assert!(matches!(
@@ -40453,6 +40587,7 @@ mod tests {
             join_strategy: PhysicalJoinStrategy::HashJoin,
             estimated_rows: 1300,
             estimated_cost: 1365.0,
+            optional: false,
         };
         let flat_batches = db
             .execute_physical_plan_batches(&flat_expand, db.current_snapshot_txn_id())
@@ -40512,6 +40647,7 @@ mod tests {
             to: Some("l".to_string()),
             edge_variable: None,
             temporal_filter: None,
+            optional: false,
         };
         let physical = build_physical_plan(&db, &logical).expect("physical");
         let estimated_rows = match physical {

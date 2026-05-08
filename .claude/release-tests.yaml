@@ -706,3 +706,12 @@ tests:
     command: "cargo test --release -p ogdb-core --test cypher_is_not_null"
     purpose: "Regression for `WHERE n.prop IS NOT NULL` returning 0 rows even when every node had the property set. Root cause: the BinaryOp evaluator for `Is`/`IsNot` matched on the right operand (always the NULL literal) instead of the left, so `IS NULL` always returned true and `IS NOT NULL` always returned false regardless of the actual property value. Test seeds 4 :Person nodes all with `age` set, then asserts `IS NOT NULL` returns 4 and `IS NULL` returns 0."
     added: 2026-05-08
+
+  - id: cypher-optional-match-left-outer-semantics
+    task: fix-cypher-optional-match-left-outer-semantics
+    crate: ogdb-core
+    test: cypher_optional_match_left_outer
+    function: [optional_match_preserves_left_rows_with_partial_matches, optional_match_preserves_left_rows_with_zero_matches]
+    command: "cargo test -p ogdb-core --test cypher_optional_match_left_outer"
+    purpose: "Regression for OPTIONAL MATCH inner-join bug — `OPTIONAL MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.name, b.name` previously dropped `a` rows whose `a` had no outgoing :KNOWS, returning only matched (a,b) pairs (inner-join semantics). Per Cypher spec, OPTIONAL MATCH must do LEFT OUTER JOIN — left rows preserved with NULL right-side bindings. Tests plant Alice→Bob plus orphan Persons (Bob, Charlie) and assert all 3 left rows appear (matched + null-padded), and that with zero edges in the graph all left rows still appear with NULL right side. Fix threads `optional` through LogicalPlan::Expand → PhysicalExpand/PhysicalFactorizedExpand and the Expand executors null-pad input rows that have no neighbor or non-Node `from`. Also keeps WCOJ join (inner-join only) off the OPTIONAL MATCH path."
+    added: 2026-05-08
