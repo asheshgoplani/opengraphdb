@@ -876,6 +876,15 @@ fn subcommand_supports_db_path_injection(name: &str) -> bool {
             | "incoming"
             | "hop"
             | "hop-in"
+            | "info"
+            | "checkpoint"
+            | "schema"
+            | "stats"
+            | "metrics"
+            | "shell"
+            | "create-node"
+            | "mcp"
+            | "serve"
     )
 }
 
