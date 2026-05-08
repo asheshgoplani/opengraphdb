@@ -16129,9 +16129,9 @@ impl Database {
                             Ok(as_bool(right.contains(&left)))
                         }
                     }
-                    CypherBinaryOperator::Is => Ok(as_bool(matches!(right, RuntimeValue::Null))),
+                    CypherBinaryOperator::Is => Ok(as_bool(matches!(left, RuntimeValue::Null))),
                     CypherBinaryOperator::IsNot => {
-                        Ok(as_bool(!matches!(right, RuntimeValue::Null)))
+                        Ok(as_bool(!matches!(left, RuntimeValue::Null)))
                     }
                     CypherBinaryOperator::And => Ok(as_bool(
                         runtime_value_truthy(&left) && runtime_value_truthy(&right),

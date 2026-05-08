@@ -697,3 +697,12 @@ tests:
     command: "cargo test --release -p ogdb-core --test wal_record_reader_adversarial"
     purpose: "Phase B follow-up — fuzz_wal_record_reader nightly run 25479643932 produced timeout-a882a14… (libfuzzer status 70). The 18-byte input held a single CREATE_NODE v1 record claiming node_id ≈ 5.5×10¹³, which drove `replay_wal_create_node`'s gap-padding loop ~5.5T iterations (Database::open hung, RAM exhausted on each open, DoS at every malformed-WAL open). Both tests plant adversarial WALs (the verbatim fuzz artifact + node_id = u64::MAX), wrap Database::open in a 5 s mpsc::recv_timeout so a regression presents as a fast failure rather than a CI hang, and assert the call returns DbError::Corrupt. Fix caps replay_wal_create_node gap at 1<<20 (legit recovery gaps are ~1; 1M is ample headroom)."
     added: 2026-05-07
+
+  - id: cypher-is-not-null-returns-rows-when-property-set
+    task: fix-cypher-is-not-null
+    crate: ogdb-core
+    test: cypher_is_not_null
+    function: [is_not_null_returns_rows_when_property_is_set]
+    command: "cargo test --release -p ogdb-core --test cypher_is_not_null"
+    purpose: "Regression for `WHERE n.prop IS NOT NULL` returning 0 rows even when every node had the property set. Root cause: the BinaryOp evaluator for `Is`/`IsNot` matched on the right operand (always the NULL literal) instead of the left, so `IS NULL` always returned true and `IS NOT NULL` always returned false regardless of the actual property value. Test seeds 4 :Person nodes all with `age` set, then asserts `IS NOT NULL` returns 4 and `IS NULL` returns 0."
+    added: 2026-05-08
