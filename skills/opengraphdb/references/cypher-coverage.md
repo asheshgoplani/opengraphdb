@@ -1,7 +1,15 @@
 # OpenGraphDB Cypher coverage (0.5.1)
 
 Authoritative feature × status grid for Cypher in OpenGraphDB 0.5.1 (no
-Cypher-language changes since 0.4.0). Sources of truth:
+Cypher-language changes since 0.4.0). **2026-05-08 honesty sweep:** 16
+features that previously claimed ✅ in this grid have been demoted to ❌ or 🟡
+to match actual engine behavior — silent-null returns from numeric / scalar /
+string / list functions, parser-rejected `UNION`, `EXISTS`, `STARTS WITH`,
+`ENDS WITH`, path-object `MATCH p=`, broken `IS NOT NULL`, `CONTAINS` only
+working through a fulltext index, and `OPTIONAL MATCH` running with
+inner-join semantics. Track the open fix work in
+`fix-cypher-silent-null-fns`, `fix-cypher-is-not-null`, and
+`fix-cypher-optional-match`. Sources of truth:
 
 - `crates/ogdb-tck/src/lib.rs::should_skip_scenario` — TCK harness (Tier-1
   categories, skipped scenarios).
@@ -31,8 +39,8 @@ Status legend:
 |---|---|---|
 | `MATCH (n:Label)` | ✅ | Pattern matching with labels and property maps. |
 | `MATCH (a)-[:TYPE]->(b)` | ✅ | Directed and undirected. Multi-hop via `*1..n`. |
-| `OPTIONAL MATCH` | ✅ | Returns nulls for missing matches. |
-| `WHERE` predicates | ✅ | `=`, `<>`, `<`, `<=`, `>`, `>=`, `IN`, `IS NULL`, `IS NOT NULL`, `CONTAINS`, `STARTS WITH`, `ENDS WITH`, `AND` / `OR` / `NOT` / `XOR`. |
+| `OPTIONAL MATCH` | 🟡 | Inner-join semantics today — does **not** return nulls for missing matches; rows where the optional pattern fails are dropped instead. See `fix-cypher-optional-match`. |
+| `WHERE` predicates | 🟡 | Working: `=`, `<>`, `<`, `<=`, `>`, `>=`, `IN`, `IS NULL`, `AND` / `OR` / `NOT` / `XOR`. **Broken:** `IS NOT NULL` returns empty (see `fix-cypher-is-not-null`); `CONTAINS` is only honored when the property has a fulltext index, not as a generic substring predicate; `STARTS WITH` and `ENDS WITH` are parser-rejected as unsupported. |
 | `RETURN` | ✅ | Bare names, property access (`n.name`), aliases (`AS`), expressions. |
 | `RETURN DISTINCT` | ✅ | |
 | `ORDER BY ... ASC \| DESC` | ✅ | Multiple keys allowed. |
@@ -54,8 +62,8 @@ external openCypher TCK pass-rate is *not* yet published — see
 | `MERGE ... ON CREATE SET / ON MATCH SET` | ✅ | |
 | `WITH` (pipeline) | ✅ | Including `WITH ... WHERE ...`. |
 | `UNWIND` | ✅ | Use for batched parameterised writes (`UNWIND $rows AS row`). |
-| `UNION` / `UNION ALL` | ✅ | |
-| `EXISTS { ... }` subquery | ✅ | |
+| `UNION` / `UNION ALL` | ❌ | Parser-rejected. Compose results in app code or via two queries + client-side concat. |
+| `EXISTS { ... }` subquery | ❌ | Parser-rejected. Use a `MATCH` + `WITH count(...) > 0 AS has_x` rewrite. |
 | `CASE WHEN ... THEN ... ELSE ... END` | ✅ | |
 | Pattern comprehension `[(n)-->(m) \| m.name]` | ✅ | |
 | Variable-length paths `(a)-[*1..3]->(b)` | ✅ | |
@@ -63,10 +71,13 @@ external openCypher TCK pass-rate is *not* yet published — see
 | `CALL vector.create_index(...)` | 🔧 | OpenGraphDB-specific HNSW vector-index procedure (see `documentation/MIGRATION-FROM-NEO4J.md` § "Index DDL" and `documentation/COOKBOOK.md` Recipe 2). |
 | `CALL text.create_index(...)` | 🔧 | OpenGraphDB-specific Tantivy full-text-index procedure (same references). |
 | Aggregations: `count`, `sum`, `avg`, `min`, `max`, `collect` | ✅ | |
-| Scalar: `id`, `type`, `labels`, `keys`, `properties`, `exists`, `coalesce` | ✅ | |
-| String: `toString`, `size`, `toUpper`, `toLower` | ✅ | |
-| Numeric: `toInteger`, `toFloat`, `abs`, `ceil`, `floor`, `round` | ✅ | |
-| List: `size`, `length`, `head`, `last`, `tail`, `range` | ✅ | |
+| Scalar: `keys`, `properties`, `exists`, `coalesce` | ✅ | |
+| Scalar: `id`, `type`, `labels` | ❌ | Silent null — function returns `NULL` instead of the node id / edge type / label list. See `fix-cypher-silent-null-fns`. |
+| String: `size`, `toUpper`, `toLower` | ✅ | |
+| String: `toString` | ❌ | Silent null — returns `NULL` instead of the stringified value. See `fix-cypher-silent-null-fns`. |
+| Numeric: `toInteger`, `toFloat`, `abs`, `ceil`, `floor`, `round` | ❌ | Silent null — every numeric function in this row returns `NULL` instead of computing. See `fix-cypher-silent-null-fns`. |
+| List: `size`, `length`, `head`, `tail`, `range` | ✅ | |
+| List: `last`, `reverse` | ❌ | Silent null — returns `NULL` instead of the last element / reversed list. See `fix-cypher-silent-null-fns`. |
 
 ## OpenGraphDB Cypher extensions (🔧)
 
@@ -93,6 +104,7 @@ external openCypher TCK pass-rate is *not* yet published — see
 | Feature | Status | Workaround |
 |---|---|---|
 | `LOAD CSV FROM '...'` | ❌ | Use `ogdb import` CLI, the `POST /import` HTTP endpoint, or `UNWIND $rows AS row` with parameter binding. |
+| Path-object `MATCH p=(a)-[*]->(b) RETURN p` | ❌ | Parser-rejected — binding a path variable on the left of `MATCH` is not supported. Return the endpoints + relationship list instead, e.g. `MATCH (a)-[r*1..3]->(b) RETURN a, r, b`. |
 | `shortestPath()` Cypher function | ❌ | Use the `shortest_path` MCP tool or `CALL db.algo.shortestPath(src, dst)`. |
 | Arbitrary user-defined `CALL` / `YIELD` | ❌ | Only the whitelisted `db.*` procedures above are supported. Most APOC procedures do not port — rewrite as plain Cypher or a small MCP tool. |
 | `CALL { ... }` subqueries | ❌ | Use `WITH` + `UNWIND` to compose. |
