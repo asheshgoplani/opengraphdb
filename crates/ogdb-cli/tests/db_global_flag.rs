@@ -110,11 +110,7 @@ fn missing_db_path_fails_with_clear_error() {
     );
 
     let stderr = String::from_utf8_lossy(&out.stderr);
-    let combined = format!(
-        "{}{}",
-        String::from_utf8_lossy(&out.stdout),
-        stderr,
-    );
+    let combined = format!("{}{}", String::from_utf8_lossy(&out.stdout), stderr,);
     assert!(
         combined.contains("<path>") && combined.contains("--db"),
         "diagnostic should mention both <path> and --db; got: {combined}",

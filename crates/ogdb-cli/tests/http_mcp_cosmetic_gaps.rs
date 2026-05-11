@@ -225,7 +225,11 @@ fn http_query_accepts_cypher_alias() {
     );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }
 
@@ -260,7 +264,11 @@ fn http_rag_drill_missing_community_id_returns_400() {
     );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }
 
@@ -313,7 +321,11 @@ fn http_rag_search_unknown_keys_returns_400_with_allowed_list() {
     );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }
 
@@ -353,7 +365,11 @@ fn http_favicon_returns_real_ico_not_html() {
     );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }
 
@@ -379,7 +395,8 @@ fn http_mcp_invoke_unknown_vector_index_returns_400_with_hint() {
         response.body
     );
 
-    let body = r#"{"name":"text_search","arguments":{"index_name":"missing_text","query_text":"hello"}}"#;
+    let body =
+        r#"{"name":"text_search","arguments":{"index_name":"missing_text","query_text":"hello"}}"#;
     let response = post_json(&addr, "/mcp/invoke", body);
     assert_eq!(
         response.status, 400,
@@ -394,7 +411,11 @@ fn http_mcp_invoke_unknown_vector_index_returns_400_with_hint() {
     );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }
 
@@ -456,7 +477,11 @@ fn http_mcp_import_rdf_accepts_turtle_and_nquads_aliases() {
         "export_rdf with format `nq` must be 200; body=`{}`",
         response.body
     );
-    assert!(dst.exists(), "export_rdf must produce dst file at {}", dst.display());
+    assert!(
+        dst.exists(),
+        "export_rdf must produce dst file at {}",
+        dst.display()
+    );
     let _ = std::fs::remove_file(&dst);
 
     // `turtle` on export.
@@ -482,7 +507,11 @@ fn http_mcp_import_rdf_accepts_turtle_and_nquads_aliases() {
     let _ = std::fs::remove_file(&dst);
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }
 
@@ -496,9 +525,12 @@ fn mcp_tools_timestamp_descriptions_specify_millis_epoch() {
     let (addr, handle, path) = spawn_http_server("mcp-tools-ts-doc", 1);
 
     let response = post_json(&addr, "/mcp/tools", "");
-    assert_eq!(response.status, 200, "POST /mcp/tools must be 200; body=`{}`", response.body);
-    let parsed: Value =
-        serde_json::from_str(&response.body).expect("/mcp/tools must return JSON");
+    assert_eq!(
+        response.status, 200,
+        "POST /mcp/tools must be 200; body=`{}`",
+        response.body
+    );
+    let parsed: Value = serde_json::from_str(&response.body).expect("/mcp/tools must return JSON");
     let tools = parsed
         .get("tools")
         .and_then(Value::as_array)
@@ -512,7 +544,9 @@ fn mcp_tools_timestamp_descriptions_specify_millis_epoch() {
     }
 
     let temporal = find_tool(tools, "temporal_diff");
-    let temporal_text = serde_json::to_string(temporal).unwrap().to_ascii_lowercase();
+    let temporal_text = serde_json::to_string(temporal)
+        .unwrap()
+        .to_ascii_lowercase();
     assert!(
         temporal_text.contains("millisecond") || temporal_text.contains("ms"),
         "temporal_diff schema must document ms-epoch; raw: {temporal}"
@@ -534,6 +568,10 @@ fn mcp_tools_timestamp_descriptions_specify_millis_epoch() {
     );
 
     let serve_result = handle.join().expect("join http serve thread");
-    assert_eq!(serve_result.exit_code, 0, "serve crashed: {}", serve_result.stderr);
+    assert_eq!(
+        serve_result.exit_code, 0,
+        "serve crashed: {}",
+        serve_result.stderr
+    );
     cleanup(&path);
 }

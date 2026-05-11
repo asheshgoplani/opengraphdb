@@ -2,8 +2,8 @@
 
 > The embeddable, AI-native graph database.
 
-**Version:** 0.5.2
-**Date:** 2026-05-07
+**Version:** 0.5.3
+**Date:** 2026-05-08
 **Status:** Implemented (core engine, Cypher, import/export, server adapters, MCP, frontend)
 
 **Canonical architecture source:** `ARCHITECTURE.md` (if this document conflicts, `ARCHITECTURE.md` wins)

@@ -9,6 +9,19 @@ Versioning follows Semantic Versioning.
 
 _No unreleased changes._
 
+## [0.5.3] - 2026-05-08
+
+### Fixed
+- **cypher**: OPTIONAL MATCH now does left-outer-join semantics (was inner-join, dropping left-side rows when no right-side match) — 1afa98e
+- **cypher**: IS NOT NULL predicate now returns rows where property is set (was returning empty) — 346807e
+- **cypher**: ORDER BY <key> DESC now respected when sort key isn't in projection (was returning insertion order) — 0025f38
+- **cypher**: 11 silent-null functions wired — id(), type(), labels(), abs(), ceil(), floor(), round(), toInteger(), toFloat(), toString(), last(), reverse() — 37cd825
+- **cli**: --db global flag works as alternative to positional path on info/checkpoint/schema/stats/metrics/shell/create-node — 8640455
+- **http-mcp**: 7 cosmetic gaps (query/cypher field alias, /rag/drill 400 not 500, /rag/search unknown-key validation, /favicon, MCP missing-index error code, RDF turtle alias, JSON schema ms-epoch descriptions) — 71dece2
+
+### Changed
+- **docs(cypher)**: cypher-coverage.md demotes 16 features from ✅ to ❌/🟡 to match actual engine behavior — 88d4bdc
+
 ## [0.5.2] - 2026-05-07
 
 ### Fixed
@@ -650,7 +663,8 @@ Themes: fix-write-perf (sync_meta-per-op elimination, 235x throughput), fix-demo
   real local tag (push status is the operator's responsibility, not the
   gate's).
 -->
-[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/asheshgoplani/opengraphdb/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/asheshgoplani/opengraphdb/compare/v0.4.0...v0.5.0

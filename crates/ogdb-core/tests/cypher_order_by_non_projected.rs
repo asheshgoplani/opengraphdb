@@ -82,10 +82,7 @@ fn order_by_desc_sorts_when_key_is_not_in_return() {
     seed(&mut db);
 
     // Control: sort key IS in projection — already-correct behaviour.
-    let ages_desc = ages(
-        &mut db,
-        "MATCH (n:Person) RETURN n.age ORDER BY n.age DESC",
-    );
+    let ages_desc = ages(&mut db, "MATCH (n:Person) RETURN n.age ORDER BY n.age DESC");
     assert_eq!(
         ages_desc,
         vec![40, 35, 30, 25],
@@ -120,10 +117,7 @@ fn order_by_asc_sorts_when_key_is_not_in_return() {
 
     seed(&mut db);
 
-    let names_age_asc = names(
-        &mut db,
-        "MATCH (n:Person) RETURN n.name ORDER BY n.age ASC",
-    );
+    let names_age_asc = names(&mut db, "MATCH (n:Person) RETURN n.name ORDER BY n.age ASC");
     assert_eq!(
         names_age_asc,
         vec![

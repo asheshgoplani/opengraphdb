@@ -2915,19 +2915,24 @@ fn execute_mcp_vector_search_tool(
     let metric = mcp_optional_metric(args, "metric")?;
 
     let db = Database::open(db_path).map_err(|e| e.to_string())?;
-    let rows = db.vector_search(&index_name, &query_vector, k, metric).map_err(|e| {
-        let msg = e.to_string();
-        if msg.contains("unknown vector index") {
-            let available: Vec<String> =
-                db.list_vector_indexes().into_iter().map(|d| d.name).collect();
-            format!(
-                "unknown vector index: `{index_name}` (available: {available:?}). \
+    let rows = db
+        .vector_search(&index_name, &query_vector, k, metric)
+        .map_err(|e| {
+            let msg = e.to_string();
+            if msg.contains("unknown vector index") {
+                let available: Vec<String> = db
+                    .list_vector_indexes()
+                    .into_iter()
+                    .map(|d| d.name)
+                    .collect();
+                format!(
+                    "unknown vector index: `{index_name}` (available: {available:?}). \
                  Create one via CREATE VECTOR INDEX before calling vector_search."
-            )
-        } else {
-            msg
-        }
-    })?;
+                )
+            } else {
+                msg
+            }
+        })?;
     let results = rows
         .into_iter()
         .map(|(node, score)| serde_json::json!({ "node": node, "score": score }))
@@ -2948,8 +2953,11 @@ fn execute_mcp_text_search_tool(db_path: &str, args: &Map<String, Value>) -> Res
     let rows = db.text_search(&index_name, &query_text, k).map_err(|e| {
         let msg = e.to_string();
         if msg.contains("unknown fulltext index") {
-            let available: Vec<String> =
-                db.list_fulltext_indexes().into_iter().map(|d| d.name).collect();
+            let available: Vec<String> = db
+                .list_fulltext_indexes()
+                .into_iter()
+                .map(|d| d.name)
+                .collect();
             format!(
                 "unknown fulltext index: `{index_name}` (available: {available:?}). \
                  Create one via CREATE FULLTEXT INDEX before calling text_search."
@@ -5212,8 +5220,7 @@ fn dispatch_http_request_with_budget(
             // Reject unknown keys so typos (e.g. `embeddings` vs `embedding`,
             // `top_k` vs `k`) surface as 400 instead of being silently ignored
             // and producing empty/wrong results.
-            const RAG_SEARCH_ALLOWED: &[&str] =
-                &["query", "embedding", "k", "community_id"];
+            const RAG_SEARCH_ALLOWED: &[&str] = &["query", "embedding", "k", "community_id"];
             if let Some(object) = body.as_object() {
                 let unknown: Vec<&str> = object
                     .keys()

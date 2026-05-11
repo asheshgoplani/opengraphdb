@@ -1,4 +1,4 @@
-# OpenGraphDB 0.5.2 — Competitive Benchmark Baseline
+# OpenGraphDB 0.5.3 — Competitive Benchmark Baseline
 
 > **0.5.1 measurement-commit note (relabeled 2026-05-06):** the N=5 medianed numbers below were measured on `main` at commit `1afcee3` (42 commits in `crates/ogdb-core/` past tag `v0.4.0`; commit `1afcee3` is contained by tags `v0.5.0` and `v0.5.1`). The earlier framing — that the v0.4.0 → v0.5.1 window carried "zero perf-relevant code changes" — was wrong: the v0.4.0..v0.5.1 range touches ogdb-core in 43 commits. So treat these numbers as a pre-0.5.0 baseline pinned at `1afcee3` and held forward through the v0.5.0 / v0.5.1 minor + patch releases without re-measurement; a fresh re-baseline against the v0.5.1 release commit is tracked as a v0.6.0 follow-up.
 

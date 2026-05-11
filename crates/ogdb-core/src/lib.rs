@@ -15759,10 +15759,7 @@ impl Database {
                         RuntimeValue::Node(node_id) => {
                             let labels = self.node_labels_at(node_id, snapshot_txn_id)?;
                             Ok(RuntimeValue::Property(PropertyValue::List(
-                                labels
-                                    .into_iter()
-                                    .map(PropertyValue::String)
-                                    .collect(),
+                                labels.into_iter().map(PropertyValue::String).collect(),
                             )))
                         }
                         _ => Ok(RuntimeValue::Null),
@@ -15835,7 +15832,11 @@ impl Database {
                             }
                         }
                         RuntimeValue::Property(PropertyValue::Bool(b)) => {
-                            Ok(RuntimeValue::Property(PropertyValue::I64(if b { 1 } else { 0 })))
+                            Ok(RuntimeValue::Property(PropertyValue::I64(if b {
+                                1
+                            } else {
+                                0
+                            })))
                         }
                         RuntimeValue::Property(PropertyValue::String(s)) => {
                             match s.trim().parse::<i64>() {
@@ -15864,9 +15865,13 @@ impl Database {
                         RuntimeValue::Property(PropertyValue::F64(v)) => {
                             Ok(RuntimeValue::Property(PropertyValue::F64(v)))
                         }
-                        RuntimeValue::Property(PropertyValue::Bool(b)) => Ok(RuntimeValue::Property(
-                            PropertyValue::F64(if b { 1.0 } else { 0.0 }),
-                        )),
+                        RuntimeValue::Property(PropertyValue::Bool(b)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::F64(if b {
+                                1.0
+                            } else {
+                                0.0
+                            })))
+                        }
                         RuntimeValue::Property(PropertyValue::String(s)) => {
                             match s.trim().parse::<f64>() {
                                 Ok(v) => Ok(RuntimeValue::Property(PropertyValue::F64(v))),
@@ -15928,9 +15933,11 @@ impl Database {
                             reversed.reverse();
                             Ok(RuntimeValue::Property(PropertyValue::List(reversed)))
                         }
-                        RuntimeValue::Property(PropertyValue::String(s)) => Ok(
-                            RuntimeValue::Property(PropertyValue::String(s.chars().rev().collect())),
-                        ),
+                        RuntimeValue::Property(PropertyValue::String(s)) => {
+                            Ok(RuntimeValue::Property(PropertyValue::String(
+                                s.chars().rev().collect(),
+                            )))
+                        }
                         _ => Ok(RuntimeValue::Null),
                     }
                 }
@@ -16132,9 +16139,7 @@ impl Database {
                         }
                     }
                     CypherBinaryOperator::Is => Ok(as_bool(matches!(left, RuntimeValue::Null))),
-                    CypherBinaryOperator::IsNot => {
-                        Ok(as_bool(!matches!(left, RuntimeValue::Null)))
-                    }
+                    CypherBinaryOperator::IsNot => Ok(as_bool(!matches!(left, RuntimeValue::Null))),
                     CypherBinaryOperator::And => Ok(as_bool(
                         runtime_value_truthy(&left) && runtime_value_truthy(&right),
                     )),

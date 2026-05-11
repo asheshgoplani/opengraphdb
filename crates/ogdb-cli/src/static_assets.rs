@@ -26,8 +26,7 @@ static APP_DIST: Dir<'_> = include_dir!("$CARGO_MANIFEST_DIR/../../frontend/dist
 // which browsers reject as a favicon. Embedding the real `.ico` from
 // `frontend/public/` guarantees a well-typed `image/x-icon` response in
 // every build configuration.
-static FALLBACK_FAVICON: &[u8] =
-    include_bytes!("../../../frontend/public/favicon.ico");
+static FALLBACK_FAVICON: &[u8] = include_bytes!("../../../frontend/public/favicon.ico");
 
 /// HTML stub served when the binary was built without first running
 /// `npm run build:app` — i.e. no SPA is embedded. The user still gets a

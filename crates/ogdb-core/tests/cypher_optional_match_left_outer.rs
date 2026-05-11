@@ -37,10 +37,7 @@ fn cleanup(path: &Path) {
 fn create_person(db: &mut Database, name: &str) -> u64 {
     db.create_node_with(
         &["Person".to_string()],
-        &PropertyMap::from([(
-            "name".to_string(),
-            PropertyValue::String(name.to_string()),
-        )]),
+        &PropertyMap::from([("name".to_string(), PropertyValue::String(name.to_string()))]),
     )
     .expect("create person")
 }

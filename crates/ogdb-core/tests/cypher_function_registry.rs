@@ -44,10 +44,12 @@ fn single_value(db: &mut Database, query: &str, column: &str) -> PropertyValue {
         "query `{query}` must return exactly one row; got {}",
         rows.len()
     );
-    rows[0]
-        .get(column)
-        .cloned()
-        .unwrap_or_else(|| panic!("query `{query}` must expose column `{column}`; row: {:?}", rows[0]))
+    rows[0].get(column).cloned().unwrap_or_else(|| {
+        panic!(
+            "query `{query}` must expose column `{column}`; row: {:?}",
+            rows[0]
+        )
+    })
 }
 
 fn assert_not_silent_null(value: &PropertyValue, fn_name: &str) {
@@ -92,7 +94,8 @@ fn type_of_relationship_returns_type_name() {
 #[test]
 fn labels_of_node_returns_label_list() {
     let mut db = fresh_db("labels-node");
-    db.query("CREATE (:Person:Employee {n:'a'})").expect("create node");
+    db.query("CREATE (:Person:Employee {n:'a'})")
+        .expect("create node");
 
     let value = single_value(
         &mut db,
@@ -129,7 +132,10 @@ fn abs_of_negative_int_returns_positive() {
         PropertyValue::F64(v) => *v,
         other => panic!("abs must return a number; got {other:?}"),
     };
-    assert!((as_f64 - 7.0).abs() < 1e-9, "abs(-7) must equal 7; got {value:?}");
+    assert!(
+        (as_f64 - 7.0).abs() < 1e-9,
+        "abs(-7) must equal 7; got {value:?}"
+    );
 }
 
 #[test]
@@ -142,7 +148,10 @@ fn ceil_of_fractional_returns_next_integer() {
         PropertyValue::F64(v) => *v,
         other => panic!("ceil must return a number; got {other:?}"),
     };
-    assert!((as_f64 - 3.0).abs() < 1e-9, "ceil(2.3) must equal 3; got {value:?}");
+    assert!(
+        (as_f64 - 3.0).abs() < 1e-9,
+        "ceil(2.3) must equal 3; got {value:?}"
+    );
 }
 
 #[test]
@@ -155,7 +164,10 @@ fn floor_of_fractional_returns_previous_integer() {
         PropertyValue::F64(v) => *v,
         other => panic!("floor must return a number; got {other:?}"),
     };
-    assert!((as_f64 - 2.0).abs() < 1e-9, "floor(2.8) must equal 2; got {value:?}");
+    assert!(
+        (as_f64 - 2.0).abs() < 1e-9,
+        "floor(2.8) must equal 2; got {value:?}"
+    );
 }
 
 #[test]
@@ -168,7 +180,10 @@ fn round_of_half_returns_nearest_integer() {
         PropertyValue::F64(v) => *v,
         other => panic!("round must return a number; got {other:?}"),
     };
-    assert!((as_f64 - 3.0).abs() < 1e-9, "round(2.6) must equal 3; got {value:?}");
+    assert!(
+        (as_f64 - 3.0).abs() < 1e-9,
+        "round(2.6) must equal 3; got {value:?}"
+    );
 }
 
 #[test]
@@ -192,7 +207,10 @@ fn to_float_of_integer_returns_float() {
         PropertyValue::F64(v) => *v,
         other => panic!("toFloat must return f64; got {other:?}"),
     };
-    assert!((as_f64 - 5.0).abs() < 1e-9, "toFloat(5) must equal 5.0; got {value:?}");
+    assert!(
+        (as_f64 - 5.0).abs() < 1e-9,
+        "toFloat(5) must equal 5.0; got {value:?}"
+    );
 }
 
 #[test]
