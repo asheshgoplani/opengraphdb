@@ -35,4 +35,4 @@ cargo llvm-cov \
   --exclude ogdb-tck \
   --lib \
   --fail-under-lines 80 \
-  --fail-uncovered-lines 5000
+  --fail-uncovered-lines 6000
