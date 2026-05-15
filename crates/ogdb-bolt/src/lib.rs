@@ -1,12 +1,12 @@
 //! # ogdb-bolt
 //!
-//! Neo4j Bolt protocol adapter for OpenGraphDB. Implements **Bolt v1 only**
-//! (the handshake declines anything else); the v4 / v5 negotiation work is
-//! tracked as a v0.5 follow-up. A Neo4j 5.x driver that won't accept v1 will
-//! reject the handshake on connect.
+//! Neo4j Bolt protocol adapter for OpenGraphDB. Negotiates Bolt **v1, v3,
+//! and v4.0–v4.4** today (v5 lands in phase 2 of the upgrade plan at
+//! `documentation/.research/bolt-v45-upgrade-plan-2026-05-08.md`).
 //!
-//! See [`BOLT_VERSION_1`] for the version constant the handshake advertises,
-//! and `documentation/MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage" for
+//! See [`BOLT_VERSION_1`] / [`BOLT_VERSION_3`] / [`BOLT_VERSION_4_4`] for
+//! the version constants the handshake advertises, and
+//! `documentation/MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage" for
 //! the migration discussion.
 //!
 //! ## Quickstart
@@ -29,9 +29,21 @@ use std::net::{TcpListener, TcpStream};
 /// 4-byte handshake preamble Neo4j Bolt drivers send to identify the
 /// protocol; mirrors the constant in the Bolt specification.
 pub const BOLT_MAGIC: u32 = 0x6060_B017;
-/// Bolt protocol version this server advertises during handshake.
-/// v4 / v5 negotiation is tracked as a v0.5 follow-up.
+/// Bolt v1 version constant. Encoded as `0x00000001` on the wire.
+/// Kept negotiable for back-compat with clients pinned to v1; will be
+/// deprecated in phase 3 of the upgrade plan.
 pub const BOLT_VERSION_1: u32 = 1;
+/// Bolt v3 version constant. Encoded as `0x00000003` on the wire.
+/// Introduces HELLO/GOODBYE and explicit BEGIN/COMMIT/ROLLBACK messages.
+pub const BOLT_VERSION_3: u32 = 3;
+/// Bolt v4.0 version constant. Encoded as `0x00000004` on the wire.
+/// Introduces `qid` + `n` extra dict on PULL/DISCARD for result-set
+/// pagination; renames PULL_ALL → PULL and DISCARD_ALL → DISCARD.
+pub const BOLT_VERSION_4_0: u32 = 4;
+/// Bolt v4.4 version constant. Encoded as `0x00000404` on the wire
+/// (minor in third byte). Currently the default for Neo4j 5.x drivers
+/// when v5 negotiation isn't supported by the server.
+pub const BOLT_VERSION_4_4: u32 = 0x0000_0404;
 
 // Cumulative per-message byte cap for chunked reassembly (audit 2026-04-22
 // F5.7). Pre-fix, `read_chunked_message` resized the payload buffer for every
@@ -51,8 +63,21 @@ fn bolt_max_message_bytes() -> usize {
 }
 
 const MSG_INIT: u8 = 0x01;
+// HELLO (Bolt v3+) reuses the 0x01 tag byte that INIT used on v1/v2.
+// We dispatch on `state.negotiated_version` rather than the tag, so the
+// tag constant is purely documentation today.
+#[allow(dead_code)]
+const MSG_HELLO: u8 = 0x01;
 const MSG_RUN: u8 = 0x10;
+const MSG_BEGIN: u8 = 0x11;
+const MSG_COMMIT: u8 = 0x12;
+const MSG_ROLLBACK: u8 = 0x13;
+// PULL_ALL on v1/v2 (no fields); v4+ PULL with `{n, qid}` extra dict
+// shares the tag byte.
 const MSG_PULL_ALL: u8 = 0x3F;
+// DISCARD_ALL on v1/v2 (no fields); v4+ DISCARD with `{n, qid}` extra dict
+// shares the tag byte. Accepted on all versions; v1 ignores the extras.
+const MSG_DISCARD_ALL: u8 = 0x2F;
 const MSG_ACK_FAILURE: u8 = 0x0E;
 const MSG_RESET: u8 = 0x0F;
 const MSG_GOODBYE: u8 = 0x02;
@@ -160,9 +185,14 @@ pub fn packstream_decode(input: &[u8]) -> Result<(PackValue, usize), BoltError> 
     decode_value(input, 0)
 }
 
-/// Drive the Bolt v1 client handshake on `stream`. Returns the agreed
-/// protocol version (`Some(1)` if the client accepted v1) or `None` if
-/// the client requested only versions we don't support.
+/// Drive the Bolt client handshake on `stream`. Returns the agreed
+/// protocol version (currently one of v1 / v3 / v4.0 / v4.4) or `None`
+/// if the client requested only versions we don't support.
+///
+/// Each of the four 32-bit version slots may encode either a single
+/// version (e.g. `0x00000003` for v3) or a v4 minor-range proposal
+/// (e.g. `0x00040404` meaning "any v4.0 through v4.4"). The server
+/// picks the highest mutually-supported version in priority order.
 pub fn perform_handshake(stream: &mut TcpStream) -> Result<Option<u32>, BoltError> {
     let mut handshake = [0u8; 20];
     stream.read_exact(&mut handshake)?;
@@ -173,8 +203,8 @@ pub fn perform_handshake(stream: &mut TcpStream) -> Result<Option<u32>, BoltErro
         )));
     }
 
-    let mut versions = [0u32; 4];
-    for (idx, slot) in versions.iter_mut().enumerate() {
+    let mut slots = [0u32; 4];
+    for (idx, slot) in slots.iter_mut().enumerate() {
         let start = 4 + (idx * 4);
         *slot = u32::from_be_bytes([
             handshake[start],
@@ -184,11 +214,7 @@ pub fn perform_handshake(stream: &mut TcpStream) -> Result<Option<u32>, BoltErro
         ]);
     }
 
-    let negotiated = if versions.contains(&BOLT_VERSION_1) {
-        BOLT_VERSION_1
-    } else {
-        0
-    };
+    let negotiated = negotiate_version(&slots);
     stream.write_all(&negotiated.to_be_bytes())?;
     stream.flush()?;
     if negotiated == 0 {
@@ -196,6 +222,54 @@ pub fn perform_handshake(stream: &mut TcpStream) -> Result<Option<u32>, BoltErro
     } else {
         Ok(Some(negotiated))
     }
+}
+
+/// Versions this server supports, in descending priority order. The
+/// first match against the client's offered slots wins.
+const SUPPORTED_VERSIONS: &[u32] = &[
+    BOLT_VERSION_4_4,
+    BOLT_VERSION_4_0,
+    BOLT_VERSION_3,
+    BOLT_VERSION_1,
+];
+
+/// Decode the four handshake slots and pick the highest mutually-supported
+/// version. Returns `0` if no overlap (the Bolt "no agreement" sentinel).
+///
+/// Slot encoding (big-endian, four bytes per slot):
+/// - byte 0: reserved (always 0 for non-manifest)
+/// - byte 1: minor-range count (`r`) — slot covers minors `[minor - r, minor]`
+/// - byte 2: minor version
+/// - byte 3: major version
+///
+/// A bare `0x0000_0001` slot means "exactly v1.0"; `0x0000_0404` means
+/// "exactly v4.4"; `0x0000_0404` with byte 1 = `0x04` (`0x0004_0404`)
+/// means "any v4.0 through v4.4".
+fn negotiate_version(slots: &[u32; 4]) -> u32 {
+    for &supported in SUPPORTED_VERSIONS {
+        for &slot in slots {
+            if slot_matches(slot, supported) {
+                return supported;
+            }
+        }
+    }
+    0
+}
+
+fn slot_matches(slot: u32, supported: u32) -> bool {
+    if slot == supported {
+        return true;
+    }
+    let supported_major = (supported & 0xFF) as u8;
+    let supported_minor = ((supported >> 8) & 0xFF) as u8;
+    let slot_major = (slot & 0xFF) as u8;
+    let slot_minor = ((slot >> 8) & 0xFF) as u8;
+    let slot_range = ((slot >> 16) & 0xFF) as u8;
+    if slot_major != supported_major || slot_range == 0 {
+        return false;
+    }
+    let min_minor = slot_minor.saturating_sub(slot_range);
+    supported_minor >= min_minor && supported_minor <= slot_minor
 }
 
 /// Run a single-threaded Bolt server bound to `bind_addr` against
@@ -222,11 +296,15 @@ pub fn serve(
             Err(BoltError::Protocol(_)) => continue,
             Err(other) => return Err(other),
         };
-        if negotiated != Some(BOLT_VERSION_1) {
+        let Some(version) = negotiated else { continue };
+        if !SUPPORTED_VERSIONS.contains(&version) {
             continue;
         }
 
-        let mut state = ConnectionState::default();
+        let mut state = ConnectionState {
+            negotiated_version: version,
+            ..ConnectionState::default()
+        };
         loop {
             if requests_processed >= max_requests {
                 break;
@@ -276,6 +354,14 @@ struct ConnectionState {
     failed: bool,
     pending_result: Option<QueryResult>,
     authenticated_user: String,
+    negotiated_version: u32,
+    /// v3+ explicit-transaction depth. Phase 1 single-writer-lock semantics
+    /// mean every RUN auto-commits regardless, so this counter only
+    /// distinguishes "inside an explicit BEGIN" (replies SUCCESS to COMMIT)
+    /// from "outside one" (replies FAILURE to COMMIT). Real per-statement
+    /// transactional grouping lands in phase 2 once `ogdb-core` exposes
+    /// `begin_tx_as_user` / `commit_tx`.
+    in_explicit_tx: bool,
 }
 
 impl Default for ConnectionState {
@@ -284,7 +370,16 @@ impl Default for ConnectionState {
             failed: false,
             pending_result: None,
             authenticated_user: "anonymous".to_string(),
+            negotiated_version: BOLT_VERSION_1,
+            in_explicit_tx: false,
         }
+    }
+}
+
+impl ConnectionState {
+    fn is_v3_plus(&self) -> bool {
+        let major = (self.negotiated_version & 0xFF) as u8;
+        major >= 3
     }
 }
 
@@ -301,45 +396,9 @@ fn process_message(
     message: PackStructure,
 ) -> Result<MessageAction, BoltError> {
     match message.signature {
-        MSG_INIT => {
-            if message.fields.len() != 2 {
-                send_failure(
-                    stream,
-                    "OGDB.ProtocolError",
-                    "INIT expects [client_name, auth_token]".to_string(),
-                )?;
-                state.failed = true;
-                return Ok(MessageAction::default());
-            }
-            let auth_token = match parse_auth_token_field(&message.fields[1]) {
-                Ok(token) => token,
-                Err(message) => {
-                    send_failure(stream, "OGDB.ProtocolError", message)?;
-                    state.failed = true;
-                    return Ok(MessageAction::default());
-                }
-            };
-            if auth_token.as_deref().is_some_and(|token| !token.is_empty()) {
-                let auth_token = auth_token.unwrap_or_default();
-                match shared_db.authenticate_token(&auth_token)? {
-                    Some(user) => state.authenticated_user = user,
-                    None => {
-                        send_failure(stream, "OGDB.AuthError", "invalid auth token".to_string())?;
-                        state.failed = true;
-                        return Ok(MessageAction::default());
-                    }
-                }
-            } else {
-                state.authenticated_user = "anonymous".to_string();
-            }
-            let mut metadata = BTreeMap::<String, PackValue>::new();
-            metadata.insert(
-                "server".to_string(),
-                PackValue::String(format!("OpenGraphDB/{}", env!("CARGO_PKG_VERSION"))),
-            );
-            send_success(stream, metadata)?;
-            Ok(MessageAction::default())
-        }
+        // 0x01: INIT on v1/v2, HELLO on v3+. Dispatched by negotiated version.
+        MSG_INIT if state.is_v3_plus() => handle_hello(shared_db, stream, state, &message.fields),
+        MSG_INIT => handle_init(shared_db, stream, state, &message.fields),
         MSG_AUTH => {
             if message.fields.len() != 1 {
                 send_failure(
@@ -452,41 +511,11 @@ fn process_message(
             }
             Ok(MessageAction::default())
         }
-        MSG_PULL_ALL => {
-            if state.failed {
-                send_ignored(stream)?;
-                return Ok(MessageAction::default());
-            }
-
-            if let Some(result) = state.pending_result.take() {
-                for row in result.to_rows() {
-                    let values = result
-                        .columns
-                        .iter()
-                        .map(|column| {
-                            row.get(column)
-                                .map(pack_value_from_property)
-                                .unwrap_or(PackValue::Null)
-                        })
-                        .collect::<Vec<_>>();
-                    send_record(stream, values)?;
-                }
-                let mut metadata = BTreeMap::<String, PackValue>::new();
-                metadata.insert(
-                    "row_count".to_string(),
-                    PackValue::Integer(result.row_count() as i64),
-                );
-                metadata.insert("has_more".to_string(), PackValue::Bool(false));
-                send_success(stream, metadata)?;
-                return Ok(MessageAction {
-                    requests_processed: 1,
-                    close_connection: false,
-                });
-            }
-
-            send_success(stream, BTreeMap::new())?;
-            Ok(MessageAction::default())
-        }
+        MSG_PULL_ALL => handle_pull(stream, state, &message.fields),
+        MSG_DISCARD_ALL => handle_discard(stream, state),
+        MSG_BEGIN => handle_begin(stream, state, &message.fields),
+        MSG_COMMIT => handle_commit(stream, state),
+        MSG_ROLLBACK => handle_rollback(stream, state),
         MSG_ACK_FAILURE | MSG_RESET => {
             state.failed = false;
             state.pending_result = None;
@@ -508,6 +537,329 @@ fn process_message(
             Ok(MessageAction::default())
         }
     }
+}
+
+fn handle_init(
+    shared_db: &SharedDatabase,
+    stream: &mut TcpStream,
+    state: &mut ConnectionState,
+    fields: &[PackValue],
+) -> Result<MessageAction, BoltError> {
+    if fields.len() != 2 {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "INIT expects [client_name, auth_token]".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    let auth_token = match parse_auth_token_field(&fields[1]) {
+        Ok(token) => token,
+        Err(message) => {
+            send_failure(stream, "OGDB.ProtocolError", message)?;
+            state.failed = true;
+            return Ok(MessageAction::default());
+        }
+    };
+    if auth_token.as_deref().is_some_and(|token| !token.is_empty()) {
+        let auth_token = auth_token.unwrap_or_default();
+        match shared_db.authenticate_token(&auth_token)? {
+            Some(user) => state.authenticated_user = user,
+            None => {
+                send_failure(stream, "OGDB.AuthError", "invalid auth token".to_string())?;
+                state.failed = true;
+                return Ok(MessageAction::default());
+            }
+        }
+    } else {
+        state.authenticated_user = "anonymous".to_string();
+    }
+    let mut metadata = BTreeMap::<String, PackValue>::new();
+    metadata.insert(
+        "server".to_string(),
+        PackValue::String(format!("OpenGraphDB/{}", env!("CARGO_PKG_VERSION"))),
+    );
+    send_success(stream, metadata)?;
+    Ok(MessageAction::default())
+}
+
+/// HELLO is Bolt v3+'s replacement for INIT. It carries a single
+/// `extra::Dictionary` whose recognised keys are `user_agent`, `scheme`,
+/// `principal`, `credentials` (v3 – v5.0 auth path), and `routing`. The
+/// dict has grown across versions (`bolt_agent`, `patch_bolt`,
+/// `notifications_*`, etc.); per the spec we **accept-and-ignore** any
+/// keys we don't recognise — strict parsing here would break every
+/// real driver.
+fn handle_hello(
+    shared_db: &SharedDatabase,
+    stream: &mut TcpStream,
+    state: &mut ConnectionState,
+    fields: &[PackValue],
+) -> Result<MessageAction, BoltError> {
+    if fields.len() != 1 {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "HELLO expects [extra::Dictionary]".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    let extra = match &fields[0] {
+        PackValue::Map(entries) => entries,
+        _ => {
+            send_failure(
+                stream,
+                "OGDB.ProtocolError",
+                "HELLO extra must be a map".to_string(),
+            )?;
+            state.failed = true;
+            return Ok(MessageAction::default());
+        }
+    };
+
+    // Auth, when present. v3 → v5.0 carry credentials/token inside the
+    // extra dict. v5.1+ defers to LOGON; phase 2 will skip this branch
+    // when negotiated_version >= 5.1.
+    let credentials = match extra.get("credentials") {
+        Some(PackValue::String(token)) => Some(token.trim().to_string()),
+        Some(_) => {
+            send_failure(
+                stream,
+                "OGDB.ProtocolError",
+                "HELLO credentials must be a string".to_string(),
+            )?;
+            state.failed = true;
+            return Ok(MessageAction::default());
+        }
+        None => None,
+    };
+    let token = match extra.get("token") {
+        Some(PackValue::String(token)) => Some(token.trim().to_string()),
+        Some(_) => None,
+        None => None,
+    };
+    let auth_token = credentials.or(token).filter(|t| !t.is_empty());
+
+    if let Some(auth) = auth_token {
+        match shared_db.authenticate_token(&auth)? {
+            Some(user) => state.authenticated_user = user,
+            None => {
+                send_failure(stream, "OGDB.AuthError", "invalid auth token".to_string())?;
+                state.failed = true;
+                return Ok(MessageAction::default());
+            }
+        }
+    } else {
+        state.authenticated_user = "anonymous".to_string();
+    }
+
+    let mut metadata = BTreeMap::<String, PackValue>::new();
+    metadata.insert(
+        "server".to_string(),
+        PackValue::String(format!("OpenGraphDB/{}", env!("CARGO_PKG_VERSION"))),
+    );
+    // connection_id is required by real drivers for log correlation.
+    // A stable-shape opaque string is enough; we use the negotiated
+    // version + a per-process counter via SystemTime nanos.
+    let connection_id = format!(
+        "bolt-{:x}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    );
+    metadata.insert("connection_id".to_string(), PackValue::String(connection_id));
+    send_success(stream, metadata)?;
+    Ok(MessageAction::default())
+}
+
+/// PULL handler for v1 (no extras) and v4+ (`{n, qid}` extra dict).
+/// In phase 1 we don't honour `n` / `qid` semantics — only one active
+/// stream per connection, drained fully — but we accept the extras so
+/// the wire shape matches what real v4 drivers send. Phase 2 will
+/// implement proper pagination + has_more bookkeeping.
+fn handle_pull(
+    stream: &mut TcpStream,
+    state: &mut ConnectionState,
+    fields: &[PackValue],
+) -> Result<MessageAction, BoltError> {
+    if state.failed {
+        send_ignored(stream)?;
+        return Ok(MessageAction::default());
+    }
+    // v4+ sends one field: `extra::Dictionary{n, qid}`. v1 sends none.
+    // Anything else is a protocol error.
+    if fields.len() > 1 {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "PULL expects at most one extra dict".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    if let Some(PackValue::Map(_)) = fields.first() {
+        // accept-and-ignore for phase 1
+    } else if let Some(value) = fields.first() {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            format!("PULL extra must be a map, got {value:?}"),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+
+    if let Some(result) = state.pending_result.take() {
+        for row in result.to_rows() {
+            let values = result
+                .columns
+                .iter()
+                .map(|column| {
+                    row.get(column)
+                        .map(pack_value_from_property)
+                        .unwrap_or(PackValue::Null)
+                })
+                .collect::<Vec<_>>();
+            send_record(stream, values)?;
+        }
+        let mut metadata = BTreeMap::<String, PackValue>::new();
+        metadata.insert(
+            "row_count".to_string(),
+            PackValue::Integer(result.row_count() as i64),
+        );
+        metadata.insert("has_more".to_string(), PackValue::Bool(false));
+        send_success(stream, metadata)?;
+        return Ok(MessageAction {
+            requests_processed: 1,
+            close_connection: false,
+        });
+    }
+    send_success(stream, BTreeMap::new())?;
+    Ok(MessageAction::default())
+}
+
+fn handle_discard(
+    stream: &mut TcpStream,
+    state: &mut ConnectionState,
+) -> Result<MessageAction, BoltError> {
+    if state.failed {
+        send_ignored(stream)?;
+        return Ok(MessageAction::default());
+    }
+    state.pending_result = None;
+    send_success(stream, BTreeMap::new())?;
+    Ok(MessageAction::default())
+}
+
+/// BEGIN handler for v3+. Phase 1 keeps the existing auto-commit semantics
+/// on RUN, so BEGIN is a state-tracking stub: it records that we're inside
+/// an explicit tx and replies SUCCESS. COMMIT/ROLLBACK clear the flag.
+/// Phase 2 will route this to a real `begin_tx_as_user` in `ogdb-core`.
+fn handle_begin(
+    stream: &mut TcpStream,
+    state: &mut ConnectionState,
+    fields: &[PackValue],
+) -> Result<MessageAction, BoltError> {
+    if state.failed {
+        send_ignored(stream)?;
+        return Ok(MessageAction::default());
+    }
+    if !state.is_v3_plus() {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "BEGIN is only valid on Bolt v3+".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    if fields.len() != 1 || !matches!(fields[0], PackValue::Map(_)) {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "BEGIN expects [extra::Dictionary]".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    if state.in_explicit_tx {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "BEGIN inside an open transaction is not allowed".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    state.in_explicit_tx = true;
+    send_success(stream, BTreeMap::new())?;
+    Ok(MessageAction::default())
+}
+
+fn handle_commit(
+    stream: &mut TcpStream,
+    state: &mut ConnectionState,
+) -> Result<MessageAction, BoltError> {
+    if state.failed {
+        send_ignored(stream)?;
+        return Ok(MessageAction::default());
+    }
+    if !state.is_v3_plus() {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "COMMIT is only valid on Bolt v3+".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    if !state.in_explicit_tx {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "COMMIT outside of a transaction".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    state.in_explicit_tx = false;
+    send_success(stream, BTreeMap::new())?;
+    Ok(MessageAction::default())
+}
+
+fn handle_rollback(
+    stream: &mut TcpStream,
+    state: &mut ConnectionState,
+) -> Result<MessageAction, BoltError> {
+    if state.failed {
+        send_ignored(stream)?;
+        return Ok(MessageAction::default());
+    }
+    if !state.is_v3_plus() {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "ROLLBACK is only valid on Bolt v3+".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    if !state.in_explicit_tx {
+        send_failure(
+            stream,
+            "OGDB.ProtocolError",
+            "ROLLBACK outside of a transaction".to_string(),
+        )?;
+        state.failed = true;
+        return Ok(MessageAction::default());
+    }
+    state.in_explicit_tx = false;
+    state.pending_result = None;
+    send_success(stream, BTreeMap::new())?;
+    Ok(MessageAction::default())
 }
 
 fn parse_auth_token_field(value: &PackValue) -> Result<Option<String>, String> {
