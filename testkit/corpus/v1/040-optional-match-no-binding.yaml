@@ -1,0 +1,20 @@
+id: cypher-fix-040-optional-match-no-binding
+description: |
+  OPTIONAL MATCH must return one row with NULL bindings when the optional
+  pattern has no matches. Regression pin for the v0.5.3 cypher-engine fix
+  (was returning zero rows on the HTTP surface).
+tags: [cypher-engine, regression, v0.5.3]
+
+fixture: |
+  CREATE (m:Movie {title: 'The Matrix', year: 1999})
+
+cypher: |
+  MATCH (m:Movie {title: 'The Matrix'})
+  OPTIONAL MATCH (m)-[:DIRECTED_BY]->(p:Person {name: 'NoSuchDirector'})
+  RETURN m.title AS movie, p.name AS director
+
+expect:
+  ordered: false
+  columns: [movie, director]
+  rows:
+    - ["The Matrix", null]

@@ -1,0 +1,21 @@
+id: aggregation-020-count
+description: |
+  count() aggregation parity — every surface must return the same
+  integer count, regardless of wire-format integer encoding.
+  Uses count(n) rather than count(*); the latter is tracked separately
+  as a Phase-2 corpus entry once parser coverage lands.
+tags: [aggregation, smoke]
+
+fixture: |
+  CREATE (a:Widget {sku: 'w1'});
+  CREATE (b:Widget {sku: 'w2'});
+  CREATE (c:Widget {sku: 'w3'})
+
+cypher: |
+  MATCH (n:Widget) RETURN count(n) AS total
+
+expect:
+  ordered: false
+  columns: [total]
+  rows:
+    - [3]

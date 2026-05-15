@@ -1,0 +1,19 @@
+id: cypher-fix-043-silent-null-functions
+description: |
+  Functions like size() and head() must return NULL on missing/empty input
+  rather than raising. Regression pin for the v0.5.3 cypher-engine fix.
+tags: [cypher-engine, regression, v0.5.3]
+
+fixture: |
+  CREATE (a:Bag {name: 'empty', items: []});
+  CREATE (b:Bag {name: 'missing'})
+
+cypher: |
+  MATCH (n:Bag) RETURN n.name AS name, size(n.items) AS sz, head(n.items) AS hd
+
+expect:
+  ordered: false
+  columns: [name, sz, hd]
+  rows:
+    - ["empty", 0, null]
+    - ["missing", null, null]

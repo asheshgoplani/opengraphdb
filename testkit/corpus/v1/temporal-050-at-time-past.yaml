@@ -1,0 +1,27 @@
+id: temporal-050-at-time-past
+description: |
+  AT TIME bitemporal query — every surface must return the property
+  value as of the requested timestamp. This entry is marked skip on
+  Phase-1 surfaces that don't yet support AT TIME parsing on the wire;
+  the gate lifts in Phase 2.
+tags: [temporal, smoke]
+
+skip:
+  cli:
+    reason: "AT TIME parser surface coverage finalized in Phase 2"
+    issue: "testkit-harness-v1#phase2-temporal"
+  http:
+    reason: "AT TIME parser surface coverage finalized in Phase 2"
+    issue: "testkit-harness-v1#phase2-temporal"
+
+fixture: |
+  CREATE (n:Reading {sensor: 's1', value: 10})
+
+cypher: |
+  MATCH (n:Reading {sensor: 's1'}) AT TIME '2025-01-01T00:00:00Z' RETURN n.value AS value
+
+expect:
+  ordered: false
+  columns: [value]
+  rows:
+    - [10]

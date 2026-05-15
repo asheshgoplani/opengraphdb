@@ -1,0 +1,19 @@
+id: crud-002-delete-detach
+description: |
+  DETACH DELETE must remove the node and incident edges; subsequent
+  MATCH count must be zero on every surface.
+tags: [crud, smoke]
+
+fixture: |
+  CREATE (a:User {id: 'a'});
+  CREATE (b:User {id: 'b'});
+  MATCH (a:User {id: 'a'}), (b:User {id: 'b'}) CREATE (a)-[:KNOWS]->(b)
+
+cypher: |
+  MATCH (n:User {id: 'a'}) DETACH DELETE n WITH 1 AS _ MATCH (m:User) RETURN count(m) AS remaining
+
+expect:
+  ordered: false
+  columns: [remaining]
+  rows:
+    - [1]

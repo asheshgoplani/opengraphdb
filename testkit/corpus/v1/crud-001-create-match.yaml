@@ -1,0 +1,17 @@
+id: crud-001-create-match
+description: |
+  Basic CRUD parity — CREATE then MATCH must return the same scalar
+  property on every surface.
+tags: [crud, smoke]
+
+fixture: |
+  CREATE (n:Foo {x: 42, label: 'baseline'})
+
+cypher: |
+  MATCH (n:Foo) RETURN n.x AS x, n.label AS label
+
+expect:
+  ordered: false
+  columns: [x, label]
+  rows:
+    - [42, "baseline"]

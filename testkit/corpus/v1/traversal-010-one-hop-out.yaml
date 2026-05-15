@@ -1,0 +1,22 @@
+id: traversal-010-one-hop-out
+description: |
+  One-hop outgoing traversal — every surface must return the same set
+  of (source, target) name pairs for a deterministic KNOWS chain.
+tags: [traversal, smoke]
+
+fixture: |
+  CREATE (a:Person {name: 'alice'});
+  CREATE (b:Person {name: 'bob'});
+  CREATE (c:Person {name: 'carol'});
+  MATCH (a:Person {name: 'alice'}), (b:Person {name: 'bob'}) CREATE (a)-[:KNOWS]->(b);
+  MATCH (a:Person {name: 'alice'}), (c:Person {name: 'carol'}) CREATE (a)-[:KNOWS]->(c)
+
+cypher: |
+  MATCH (a:Person)-[:KNOWS]->(b:Person) RETURN a.name AS src, b.name AS dst
+
+expect:
+  ordered: false
+  columns: [src, dst]
+  rows:
+    - ["alice", "bob"]
+    - ["alice", "carol"]

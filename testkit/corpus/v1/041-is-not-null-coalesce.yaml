@@ -1,0 +1,20 @@
+id: cypher-fix-041-is-not-null-coalesce
+description: |
+  WHERE n.x IS NOT NULL must filter out rows where the property is missing
+  as well as rows where the property is explicitly NULL. Regression pin for
+  the v0.5.3 cypher-engine fix (was including missing-property rows on Bolt).
+tags: [cypher-engine, regression, v0.5.3]
+
+fixture: |
+  CREATE (a:Thing {name: 'has-x', x: 1});
+  CREATE (b:Thing {name: 'no-x'});
+  CREATE (c:Thing {name: 'null-x', x: null})
+
+cypher: |
+  MATCH (n:Thing) WHERE n.x IS NOT NULL RETURN n.name AS name
+
+expect:
+  ordered: false
+  columns: [name]
+  rows:
+    - ["has-x"]

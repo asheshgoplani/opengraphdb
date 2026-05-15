@@ -1,0 +1,24 @@
+id: cypher-fix-042-order-by-desc-stability
+description: |
+  ORDER BY n.x DESC must return deterministic order even when keys tie.
+  Regression pin for the v0.5.3 cypher-engine fix (was non-deterministic on MCP).
+  Stability is asserted by ordering on the primary key, then a secondary key.
+tags: [cypher-engine, regression, v0.5.3]
+
+fixture: |
+  CREATE (a:Item {priority: 3, name: 'alpha'});
+  CREATE (b:Item {priority: 3, name: 'bravo'});
+  CREATE (c:Item {priority: 1, name: 'charlie'});
+  CREATE (d:Item {priority: 2, name: 'delta'})
+
+cypher: |
+  MATCH (n:Item) RETURN n.name AS name ORDER BY n.priority DESC, n.name ASC
+
+expect:
+  ordered: true
+  columns: [name]
+  rows:
+    - ["alpha"]
+    - ["bravo"]
+    - ["delta"]
+    - ["charlie"]
