@@ -198,11 +198,19 @@ use tantivy::schema::{
 use tantivy::{doc, Index as TantivyIndex, ReloadPolicy};
 
 mod compression;
+mod concurrency;
+mod errors;
 mod header;
+mod metrics;
 mod platform_io;
 
 pub use compression::{CompressionAlgorithm, CompressionConfig, CompressionSetting};
+pub use concurrency::{DbRole, WriteConcurrencyMode};
+pub use errors::DbError;
 pub use header::Header;
+pub use metrics::{
+    DbMetrics, ExecutionSummary, OutDegreeStats, ProfiledQueryResult, QueryProfile, TraceCollector,
+};
 
 use crate::compression::CompressionTier;
 use crate::platform_io::FileExt;
@@ -297,165 +305,6 @@ const EPISODE_TIMESTAMP_KEY: &str = "timestamp";
 const EPISODE_METADATA_KEY: &str = "metadata";
 const EPISODE_VECTOR_INDEX_NAME: &str = "episode_embedding_idx";
 const DEFAULT_AUTO_INDEX_THRESHOLD: u64 = 100;
-
-/// Errors returned by storage and core database operations.
-///
-/// Query parse/planning/execution failures are represented by [`QueryError`].
-///
-/// `#[non_exhaustive]` per eval/rust-quality §6.2 so adding a new variant
-/// is not a breaking change for downstream consumers.
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum DbError {
-    Io(std::io::Error),
-    Corrupt(String),
-    AlreadyExists(PathBuf),
-    InvalidArgument(String),
-    Timeout(String),
-    Conflict(String),
-    PageOutOfBounds { page_id: u64, page_count: u64 },
-}
-
-impl Display for DbError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Io(e) => write!(f, "io error: {e}"),
-            Self::Corrupt(msg) => write!(f, "corrupt database: {msg}"),
-            Self::AlreadyExists(path) => write!(f, "database already exists: {}", path.display()),
-            Self::InvalidArgument(msg) => write!(f, "invalid argument: {msg}"),
-            Self::Timeout(msg) => write!(f, "timeout: {msg}"),
-            Self::Conflict(msg) => write!(f, "write conflict: {msg}"),
-            Self::PageOutOfBounds {
-                page_id,
-                page_count,
-            } => write!(
-                f,
-                "page out of bounds: page_id={page_id}, page_count={page_count}"
-            ),
-        }
-    }
-}
-
-impl Error for DbError {}
-
-impl From<std::io::Error> for DbError {
-    fn from(value: std::io::Error) -> Self {
-        Self::Io(value)
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub struct OutDegreeStats {
-    pub node_count: u64,
-    pub edge_count: u64,
-    pub zero_out_degree_nodes: u64,
-    pub max_out_degree: u64,
-    pub max_out_degree_node: Option<u64>,
-    pub avg_out_degree: f64,
-}
-
-/// Detailed profile for one query execution.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct QueryProfile {
-    pub operation: String,
-    pub duration_micros: u128,
-    pub node_count_before: u64,
-    pub edge_count_before: u64,
-    pub node_count_after: u64,
-    pub edge_count_after: u64,
-    pub success: bool,
-    pub parse_micros: u128,
-    pub analyze_micros: u128,
-    pub logical_plan_micros: u128,
-    pub physical_plan_micros: u128,
-    pub execute_micros: u128,
-}
-
-/// Operation result paired with a [`QueryProfile`].
-#[derive(Debug)]
-pub struct ProfiledQueryResult<T> {
-    pub result: Result<T, DbError>,
-    pub profile: QueryProfile,
-}
-
-impl<T> ProfiledQueryResult<T> {
-    pub fn into_result(self) -> Result<(T, QueryProfile), DbError> {
-        match self.result {
-            Ok(value) => Ok((value, self.profile)),
-            Err(err) => Err(err),
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct DbMetrics {
-    pub format_version: u16,
-    pub page_size: u32,
-    pub page_count: u64,
-    pub node_count: u64,
-    pub edge_count: u64,
-    pub wal_size_bytes: u64,
-    pub adjacency_base_edge_count: u64,
-    pub delta_buffer_edge_count: u64,
-    pub compaction_count: u64,
-    pub compaction_duration_us: u64,
-    pub buffer_pool_hits: u64,
-    pub buffer_pool_misses: u64,
-}
-
-/// Records visited node IDs during query execution for trace animation.
-/// Attached to physical plan execution to capture real traversal order.
-#[derive(Debug, Clone, Default)]
-pub struct TraceCollector {
-    /// Node IDs visited during execution, in traversal order (may contain duplicates).
-    pub visited_node_ids: Vec<u64>,
-    /// Edge references visited during expansion, in traversal order.
-    pub visited_edge_ids: Vec<(u64, u64, u64)>, // (src, dst, edge_id)
-}
-
-impl TraceCollector {
-    #[must_use]
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn record_node(&mut self, node_id: u64) {
-        self.visited_node_ids.push(node_id);
-    }
-
-    pub fn record_edge(&mut self, src: u64, dst: u64, edge_offset: u64) {
-        self.visited_edge_ids.push((src, dst, edge_offset));
-    }
-
-    /// Deduplicate while preserving first-seen order.
-    #[must_use]
-    pub fn unique_node_ids(&self) -> Vec<u64> {
-        let mut seen = std::collections::HashSet::new();
-        self.visited_node_ids
-            .iter()
-            .filter(|id| seen.insert(**id))
-            .copied()
-            .collect()
-    }
-}
-
-/// Write concurrency policy used by [`SharedDatabase`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
-pub enum WriteConcurrencyMode {
-    /// Serialize all writers.
-    SingleWriter,
-    /// Allow concurrent writers with optimistic conflict retries.
-    MultiWriter { max_retries: usize },
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[non_exhaustive]
-pub enum DbRole {
-    Admin,
-    ReadWrite,
-    ReadOnly,
-}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AuditEntry {
@@ -691,35 +540,6 @@ impl QueryResult {
             lines.push(values.join(" | "));
         }
         lines.join("\n")
-    }
-}
-
-/// Summary statistics for a mutation query execution.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ExecutionSummary {
-    /// Number of rows returned by the query.
-    pub rows_returned: usize,
-    /// Node count before execution.
-    pub nodes_before: u64,
-    /// Node count after execution.
-    pub nodes_after: u64,
-    /// Edge count before execution.
-    pub edges_before: u64,
-    /// Edge count after execution.
-    pub edges_after: u64,
-}
-
-impl ExecutionSummary {
-    /// Number of nodes created by the query.
-    #[must_use]
-    pub fn nodes_created(&self) -> u64 {
-        self.nodes_after.saturating_sub(self.nodes_before)
-    }
-
-    /// Number of edges created by the query.
-    #[must_use]
-    pub fn edges_created(&self) -> u64 {
-        self.edges_after.saturating_sub(self.edges_before)
     }
 }
 
