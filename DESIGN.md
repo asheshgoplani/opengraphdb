@@ -57,29 +57,45 @@
 
 ## 1. Project Structure
 
-> **Reality check (0.4.0):** the original Decision-1 sketch in this section
+> **Reality check (0.5.3).** The original Decision-1 sketch in this section
 > envisioned a 12-crate layout split into a separate query crate (parser /
 > planner / executor) and a separate server crate (Bolt / HTTP / MCP), with
 > `crates/ogdb-core/src/` decomposed into 7 subdirectories (`storage/`,
-> `buffer/`, `wal/`, `tx/`, `index/`, `catalog/`, `types/`). 0.4.0 actually
-> ships an **18-crate workspace** with most crate sources inlined into a
-> single `lib.rs`:
+> `buffer/`, `wal/`, `tx/`, `index/`, `catalog/`, `types/`). 0.5.3 actually
+> ships an **18-crate workspace** with the query and server stacks still
+> inlined, while a deliberate **Phase C slice-extraction effort** has carved
+> sibling crates off `ogdb-core` without changing public behavior:
 >
-> - **Query stack:** parser, planner, and executor all live inside
+> - **Query stack:** parser, planner, and executor still live inside
 >   `crates/ogdb-core/src/lib.rs`. There is no separate query crate.
-> - **Server stack:** HTTP + MCP live inside
+> - **Server stack:** HTTP + MCP still live inside
 >   `crates/ogdb-cli/src/lib.rs::handle_serve_*`; Bolt v1 is its own crate
 >   at `crates/ogdb-bolt/` (cycle-2 C2-H7 extraction). There is no separate
 >   server crate.
-> - **Storage:** `crates/ogdb-core/` ships as `lib.rs` + `platform_io.rs`
->   only — the per-subsystem subdirectories in the original sketch are not
->   separate modules in 0.4.0.
+> - **Storage core:** `crates/ogdb-core/` still ships as `lib.rs` +
+>   `platform_io.rs` only — the per-subsystem subdirectories in the original
+>   sketch are not separate modules in 0.5.3.
+> - **Phase C slice extractions landed since the original sketch (see `git
+>   log --oneline` for the `refactor(ogdb-core-split-*)` and
+>   `chore(ogdb-types-extraction)` series):**
+>   - `ogdb-types` — `PropertyValue` + `PropertyMap` value-type primitives
+>   - `ogdb-vector` — HNSW + vector-distance helpers (over `instant-distance`)
+>   - `ogdb-algorithms` — PageRank, BFS, shortest-path, community kernels
+>   - `ogdb-text` — Tantivy wrapper + validator + path helpers
+>   - `ogdb-temporal` — temporal scope + datetime helpers
+>   - `ogdb-import` — CSV/JSON/JSONL/RDF ingest plain-data types + helpers
+>   - `ogdb-export` — `ExportNode` + `ExportEdge` emit-side types
+>   - `ogdb-bolt` — Bolt v1 wire protocol (cycle-2 C2-H7)
+>   - Each extraction follows the same shape: plain-data types + pure
+>     helpers move out behind a `pub-use` shim so caller code is unchanged,
+>     and the original full-stateful subsystem stays inside `ogdb-core`
+>     until a follow-up slice cuts it loose.
 >
 > Future splits (a dedicated query crate, a dedicated server crate, an
-> internal `ogdb-core` reorganisation) are tracked under post-1.0 refactor
-> scope, not as a 0.4 commitment. The actual workspace member list is
-> canonicalised in §37 below; this section now reflects the **shipped**
-> layout.
+> internal `ogdb-core` storage/buffer/wal/tx subdirectory reorganisation) are
+> tracked under post-1.0 refactor scope, not as a 0.5 commitment. The actual
+> workspace member list is canonicalised in §37 below; this section now
+> reflects the **shipped** layout.
 
 ```
 opengraphdb/                       (0.4.0 actual layout)
@@ -177,7 +193,28 @@ struct FileHeader {
 
 ### Page Types
 
+> **Reality check (0.5.3).** The 14-variant `enum PageType` sketched below is
+> the **original aspirational design** for a fully-paged file format with
+> embedded indexes per page kind. **No such enum exists in `crates/ogdb-core/`
+> at 0.5.3.** The shipped storage path uses a flat in-process compression
+> codec (`PAGE_COMPRESSION_CODEC_LZ4 = 1` / `PAGE_COMPRESSION_CODEC_ZSTD = 2`
+> in `crates/ogdb-core/src/lib.rs`) and per-subsystem files
+> (`mydb.ogdb`, `mydb.ogdb-props`, `mydb.ogdb.vecindex`, `mydb.ogdb.ftindex/`)
+> rather than a single multi-page file with a typed page-header discriminator.
+> Sidecar index artifacts (vector / full-text) are rebuildable from node data
+> per `ARCHITECTURE.md §5`, and label projections sit on top of canonical
+> property storage as Roaring bitmaps per `ARCHITECTURE.md §4.1`.
+>
+> The enum below is kept as the **future single-file format target** that the
+> paged-storage roadmap (v0.6+) is sized against. It is **not** an
+> implementation contract today. The gate `scripts/check-design-vs-impl.sh`
+> intentionally does not pin this enum, because the on-disk format is one of
+> the explicit pre-1.0 evolution points.
+
 ```rust
+// Aspirational future single-file page-format discriminator.
+// NOT present in crates/ogdb-core/ at 0.5.3 — see the reality-check note
+// above.
 #[repr(u8)]
 enum PageType {
     FileHeader   = 0x01,

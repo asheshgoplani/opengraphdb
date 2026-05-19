@@ -10,6 +10,34 @@
 
 ---
 
+> ## Reality vs aspiration
+>
+> Tables in this spec mix **shipped behavior** with **roadmap targets**. To keep
+> readers from misreading targets as measurements, the following conventions apply
+> throughout (and are enforced against code by `scripts/check-design-vs-impl.sh`):
+>
+> - **Measured numbers** come from `documentation/BENCHMARKS.md` (currently
+>   `baseline-2026-05-02.json`, N=5 medianed). The latest measurement scale is
+>   **10 k nodes** (LDBC IS-1 mini: 100 persons), not the 1 M-node / SF10 framing
+>   used for original targets. Latency targets in §11 are clearly marked
+>   *aspirational* until a 1 M-node / SF10 re-baseline lands.
+> - **Aspirational targets** are flagged as `Roadmap` or
+>   `Aspirational target — currently <measured-value>` and never as `Shipped`.
+> - **Dependency choices** (vector ANN library, async runtime, compression codecs,
+>   parser) are pinned by `ARCHITECTURE.md §12` against `crates/*/Cargo.toml`;
+>   any drift fails the `check-design-vs-impl.sh` gate.
+> - **Protocol coverage** (Bolt versions, gRPC, MCP) is pinned by the actual
+>   handshake / handler in code; only protocol versions named by
+>   `crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_*` are `Shipped`.
+> - **openCypher TCK coverage** is reported against the locally-vendored harness
+>   in `crates/ogdb-tck/tests/fixtures/` (currently 9 Tier-1 scenarios across
+>   MATCH/WHERE/RETURN/CREATE/DELETE/SET). The historical "50-55% of ~800"
+>   framing in §8.1 below is the **upstream openCypher TCK target**, not a
+>   current measurement — it is preserved as the long-term gate but explicitly
+>   re-marked as Roadmap.
+
+---
+
 ## 1. Vision
 
 OpenGraphDB is the "SQLite for graph databases": a single-binary, embeddable, high-performance graph database written in Rust with native vector search, full-text search, and first-class AI agent support. It fills the vacuum left by KuzuDB's abandonment (Oct 2025) while going further with AI-native design, MCP integration, and modern developer experience.
@@ -51,9 +79,9 @@ OpenGraphDB is the "SQLite for graph databases": a single-binary, embeddable, hi
 | Property | Choice | Rationale |
 |----------|--------|-----------|
 | Language | **Rust** | Zero GC pauses, memory safety, ~60K req/s proven by CozoDB/SurrealDB |
-| Async runtime | **Tokio** | Industry standard for Rust async I/O |
+| I/O model | **Synchronous `std::net` + explicit `pread`/`pwrite`** (shipped) | The core engine, CLI HTTP/MCP server, and Bolt v1 server all use blocking `std::net::{TcpListener, TcpStream}` and synchronous file I/O — there is no `tokio` dependency in `ogdb-core`, `ogdb-cli`, or `ogdb-bolt`. The only `tokio` use in the workspace is the benchmark driver (`crates/ogdb-eval`). Async-rewrite of the server path is a post-1.0 evaluation item, not a current commitment. |
 | Build target | **Single static binary** | No runtime dependencies. Cross-compile for Linux, macOS, Windows |
-| WASM support | **Planned (v2)** | Browser and edge deployment |
+| WASM support | **Roadmap (post-1.0)** | Browser and edge deployment; not in 0.5.x scope |
 
 ### 4.2 Storage Engine
 
@@ -515,14 +543,25 @@ OpenGraphDB uses the `tracing` crate for structured logging. Users get free OTel
 
 OpenGraphDB targets the openCypher Technology Compatibility Kit (TCK) version **2024.2** for conformance testing.
 
-**Conformance baseline:**
+**Current harness reality (0.5.3):**
+- The in-tree TCK harness at `crates/ogdb-tck/tests/fixtures/tier1/` contains
+  **9 Tier-1 scenarios** spanning MATCH, WHERE, RETURN (union, pattern
+  comprehension, exists subquery, optional match), CREATE, SET, and DELETE.
+- These are hand-curated `.feature` files chosen as the highest-leverage
+  Tier-1 categories from the upstream TCK 2024.2, not a vendored mirror of
+  the upstream ~800-scenario suite.
+- The full upstream TCK 2024.2 vendoring is a v0.6.0 follow-up; the
+  "Tier-1 floor" framing below is the **conformance gate** that will apply
+  once that vendoring lands, not the current measured percentage.
+
+**Conformance baseline (Roadmap — gate to enforce after upstream TCK is vendored):**
 - **Minimum gate:** 50-55% (~400 of ~800 scenarios)
 - **Mandatory category coverage:** Tier 1 categories (match, create, return, where, set, delete, with, aggregation, literals, comparison, boolean, null)
 
-**Stretch objective (non-gating):**
+**Stretch objective (non-gating, also Roadmap):**
 - Expand toward 75%+ as advanced clauses and expression families are implemented.
 
-**Rationale:** Cypher-for-Gremlin (a translation layer) achieved 76% baseline and 92% with extensions. A native Rust implementation with a strong Tier-1 floor is a practical and defensible compatibility baseline.
+**Rationale:** Cypher-for-Gremlin (a translation layer) achieved 76% baseline and 92% with extensions. A native Rust implementation with a strong Tier-1 floor is a practical and defensible compatibility baseline once the upstream TCK suite is checked in.
 
 ### 8.2 Backup & Recovery
 
@@ -564,7 +603,7 @@ ogdb export mydb.ogdb --format json > backup.jsonl
 
 | Protocol | Support | Purpose |
 |----------|---------|---------|
-| **Bolt v1** (Neo4j 3.x wire) | Shipped (v1-only) | Pre-Neo4j-3.5 wire era. Modern Neo4j 5.x drivers default to v4/v5 and will reject the handshake; see `documentation/MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage". v4/v5 negotiation tracked for v0.5. |
+| **Bolt v1** (Neo4j 3.x wire) | Shipped (v1-only) | Pre-Neo4j-3.5 wire era. The handshake constant in `crates/ogdb-bolt/src/lib.rs::BOLT_VERSION_1` is the sole accepted version. Modern Neo4j 5.x drivers default to v4/v5 and will reject the handshake; see `documentation/MIGRATION-FROM-NEO4J.md` § "Bolt protocol coverage". v4/v5 negotiation is a **v0.6.0 follow-up (slipped from v0.5)** — there is no in-flight wire-protocol upgrade branch in this repo at 0.5.3. |
 | **HTTP/REST** | Full | Simple integration, curl-friendly |
 | **gRPC** | Planned (v2) | High-performance service-to-service |
 | **MCP** (stdio) | Full | AI agent integration |
@@ -573,17 +612,30 @@ ogdb export mydb.ogdb --format json > backup.jsonl
 
 ## 11. Performance Targets
 
-| Metric | Target | Benchmark |
-|--------|--------|-----------|
-| Single-hop traversal | < 1 ms | Point query latency |
-| Multi-hop (3 hops, 1M nodes) | < 10 ms | Neighborhood expansion |
-| Throughput (LDBC Interactive) | > 100K QPS | Single node |
-| Vector search (1M vectors, 768d) | < 1 ms | Top-10 nearest neighbors |
-| Full-text search | < 5 ms | BM25 ranked results |
-| Bulk import | > 500K edges/sec | CSV import pipeline |
-| Cold start | < 50 ms | Embedded library init |
-| Memory (1M nodes, 5M edges) | < 500 MB | Resident memory |
-| Database file (1M nodes, 5M edges) | < 1 GB | On-disk size |
+All numbers below are **aspirational targets** unless explicitly tagged
+*Measured*. The current measurement scale is **10 k nodes**, not the 1 M-node
+/ SF10 framing that the original targets were sized against; a 1 M-node /
+SF10 re-baseline is tracked as a v0.6.0 follow-up. The measured column links
+to `documentation/BENCHMARKS.md` § Row N for each row.
+
+| Metric | Aspirational target | Currently measured (N=5, 2026-05-02, `1afcee3`) | Source |
+|--------|---------------------|--------------------------------------------------|--------|
+| Single-hop traversal (point read) | < 1 ms | **0.0068 ms p95** @ 10 k nodes cold (166 k qps) | BENCHMARKS row 3 |
+| Multi-hop traversal (2-hop) | < 10 ms @ 1 M nodes (aspirational) | **0.0258 ms p95** @ 10 k nodes cold (48 k qps) | BENCHMARKS row 4 |
+| Throughput (LDBC SNB IS-1) | > 100 K QPS (aspirational; not yet measured at SF10) | **25.9 K qps** @ LDBC mini (100 persons), p95 163 µs | BENCHMARKS row 5 |
+| Vector search (1 M vectors, 768d) | < 1 ms top-10 (aspirational; 1 M-vec scale not yet measured) | Roadmap — current vector ANN gates pin recall@10 ≥ 0.95 and p95 ≤ 5 ms at the harness scale | `crates/ogdb-core/tests/hnsw_*.rs` |
+| Full-text search | < 5 ms | Roadmap — not yet baselined as a row in BENCHMARKS.md | — |
+| Bulk import | > 500 K edges/sec (aspirational) | **~251 nodes/sec** bulk ingest @ 0.4.0 N=5; edges/sec re-baseline pending | BENCHMARKS row 1 |
+| Cold start | < 50 ms | Roadmap (not yet baselined) | — |
+| Memory (1 M nodes, 5 M edges) | < 500 MB resident (aspirational) | Roadmap — 1 M-scale memory profile pending | — |
+| Database file (1 M nodes, 5 M edges) | < 1 GB on-disk (aspirational) | Roadmap — 1 M-scale on-disk profile pending | — |
+
+**Reading guide.** Where the *Currently measured* column says "Roadmap", no
+N=5 medianed measurement at the target scale exists in the published
+baselines yet; the target stays on the books but cannot be cited as a
+shipped capability. Rows already meeting the aspirational target at the
+current measurement scale (10 k tier) are still gated on a 1 M-node /
+SF10 re-baseline before the *Aspirational target* column can be retired.
 
 ---
 
@@ -625,7 +677,7 @@ OpenGraphDB uses capability commitments instead of date-based planning.
 - Observability: pull-based metrics API, query profiling, tracing spans for OTel integration
 
 ### 13.2 Integrated Extended Capabilities
-- Vector search (HNSW via USearch)
+- Vector search (HNSW via `instant-distance`, pure-Rust; see `ARCHITECTURE.md §12`. `usearch` / `hnsw_rs` remain v0.6.0 backend-swap candidates for true incremental insert — see `documentation/BENCHMARKS.md` row 6 caveat)
 - Full-text search (Tantivy)
 - Hybrid queries with first-class `VectorScan` and `TextSearch`
 - Bitmap pre-filter propagation and ID intersection operators
