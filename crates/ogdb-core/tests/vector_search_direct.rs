@@ -43,6 +43,10 @@ fn cosine_distance(a: &[f32], b: &[f32]) -> f32 {
 }
 
 #[test]
+// The 0.7071 / 0.5773 literals are deliberately human-readable rounded
+// diagonals chosen so the distance ordering is visually verifiable; they
+// are test fixtures, not attempts to spell a math constant.
+#[allow(clippy::approx_constant)]
 fn vector_search_returns_nearest_and_score_within_tolerance() {
     // Five known unit vectors in 3-D — small enough that brute-force
     // distances are visually verifiable, large enough that "nearest-1"
